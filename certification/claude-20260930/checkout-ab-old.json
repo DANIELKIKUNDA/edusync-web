@@ -1,0 +1,17 @@
+[
+  {
+    "check": "[old] D2 CDF payment when enrollment also owes USD",
+    "pass": false,
+    "detail": "('ValueError', 'Devise incohérente')"
+  },
+  {
+    "check": "[old] D4 key reuse with different amount rejected",
+    "pass": false,
+    "detail": "first=OK second=('OK', {'id': UUID('9f269c8e-cc73-4ece-b54d-4655b95423a6'), 'receipt_number': 'REC-9F269C8E', 'amount': Decimal('1.00'), 'currency': 'CDF', 'replayed': True})"
+  },
+  {
+    "check": "[old] D3 concurrent same key: no IntegrityError, one payment",
+    "pass": false,
+    "detail": "['OK', 'IntegrityError', 'IntegrityError'] payments=1"
+  }
+]

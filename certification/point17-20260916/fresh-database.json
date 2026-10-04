@@ -1,0 +1,506 @@
+{
+  "database": "edusync_certification_fresh_20260917",
+  "migrations": [
+    "0001_foundation",
+    "0002_idempotency_concurrency",
+    "0003_g1_live_security",
+    "0004_offline_finance_safe_mode",
+    "0005_offline_finance_multi_cashier",
+    "0006_capability_rbac_engine",
+    "0007_owner_decision_manager_systeme",
+    "0008_owner_approved_school_roles",
+    "0009_secondary_leadership_roles",
+    "0010_settings_domain",
+    "0011_migrate_legacy_school_admin_rbac",
+    "0012_personnel_domain",
+    "0013_schooling_domain",
+    "0014_preservation_school_identity_and_enrollment",
+    "0015_effectifs_depots_domain",
+    "0016_documents_domain",
+    "0016_finance_checkout",
+    "0017_checkout_sequences_anticipation",
+    "0017_documents_logical_current",
+    "0018_finance_other_collections_inventory",
+    "0019_finance_recovery_regularizations",
+    "0020_recovery_class_register",
+    "0021_finance_cash_industrial",
+    "0021_finance_report_templates",
+    "0022_finance_controls",
+    "0023_fee_tracking",
+    "0024_stewardship_industrial",
+    "0025_communications_industrial",
+    "0026_persistent_device_sessions",
+    "0027_performance_indexes",
+    "0028_scalability_query_indexes",
+    "0029_keyset_journal_indexes",
+    "0030_worker_recovery_leases",
+    "0031_platform_system_notifications",
+    "0032_platform_access_governance",
+    "0033_student_import_staging",
+    "0034_staff_import_staging",
+    "0035_financial_history_import",
+    "0036_platform_collaborator_role",
+    "0037_rbac_nullable_root_scopes",
+    "0038_school_bootstrap_insert_only",
+    "0039_platform_supervision_read",
+    "0040_finance_view_invoker"
+  ],
+  "roles": [
+    {
+      "rolname": "edusync_tenant",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "edusync_platform",
+      "rolsuper": false,
+      "rolbypassrls": false
+    }
+  ],
+  "tenant_tables": [
+    {
+      "relname": "academic_years",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "audit_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "class_assignments",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "communication_deliveries",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "communication_messages",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "communication_settings",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "communication_templates",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "contribution_types",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "current_documents",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "devices",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "enrollments",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "families",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "family_guardians",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "fee_categories",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "fee_types",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_advance_allocations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_advance_targets",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_anticipation_memberships",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_anticipation_plans",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_cash_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_cash_expenses",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_cash_sessions",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_charge_regularizations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_charges",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_credits",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_decisions",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_payment_allocations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_payments",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_product_sales",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_report_templates",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "finance_responsibilities",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "financial_history_import_batches",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "financial_history_import_ledger",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "financial_history_import_rows",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "generated_documents",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "guardians",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "household_resolution_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "idempotency_registry",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_asset_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_asset_types",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_assets",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_count_lines",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_counts",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_item_movements",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_items",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_locations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_stock",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "inventory_stock_movements",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "material_contributions",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "notifications",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "offline_charge_reservations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "offline_charge_snapshots",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "offline_finance_incidents",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "offline_finance_leases",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "offline_payment_inbox",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "offline_receipt_counters",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "offline_receipt_tokens",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "outbox_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "rbac_assignments",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "rbac_exception_grants",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "rbac_roles",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "school_classes",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "school_memberships",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "school_options",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "school_policy_documents",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "school_products",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "school_sections",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "school_sequence_counters",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "settings_bootstrap_state",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_access_links",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_assignments",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_functions",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_import_batches",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_import_rows",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_members",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_status_history",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_student_finance_preferences",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "staff_student_links",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "student_benefits",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "student_import_batches",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "student_import_rows",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "student_status_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "students",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "sync_conflicts",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "sync_cursors",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "sync_inbox",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "tariffs",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "user_device_sessions",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    }
+  ],
+  "finance_view_options": [
+    "security_invoker=true"
+  ],
+  "pass": true
+}

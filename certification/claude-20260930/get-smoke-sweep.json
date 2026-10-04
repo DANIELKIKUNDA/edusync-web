@@ -1,0 +1,7 @@
+[
+  {
+    "check": "GET smoke sweep: no route returns HTTP 500",
+    "pass": true,
+    "detail": "101 routes; statuses={200: 99, 404: 1, 422: 1}; 500=[]"
+  }
+]

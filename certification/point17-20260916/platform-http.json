@@ -1,0 +1,39 @@
+[
+  {
+    "path": "platform/dashboard",
+    "status": 200,
+    "pass": true
+  },
+  {
+    "path": "platform/schools-page",
+    "status": 200,
+    "pass": true,
+    "expected_memberships": 1,
+    "actual_memberships": 1
+  },
+  {
+    "path": "platform/access",
+    "status": 200,
+    "pass": true
+  },
+  {
+    "path": "platform/audit",
+    "status": 200,
+    "pass": true
+  },
+  {
+    "path": "platform/diagnostics",
+    "status": 200,
+    "pass": true
+  },
+  {
+    "path": "platform/system-notifications",
+    "status": 200,
+    "pass": true
+  },
+  {
+    "path": "platform/schools/b6e6eb1b-c875-4d93-b0a1-7e0292117268/detail",
+    "status": 200,
+    "pass": true
+  }
+]

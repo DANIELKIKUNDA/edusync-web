@@ -1,0 +1,12 @@
+[
+  {
+    "check": "[untrusted-proxy] attacker's failures do not lock out a different user behind the proxy",
+    "pass": false,
+    "detail": "HTTP 429"
+  },
+  {
+    "check": "[untrusted-proxy] the attacker's own IP is throttled",
+    "pass": true,
+    "detail": "HTTP 429"
+  }
+]

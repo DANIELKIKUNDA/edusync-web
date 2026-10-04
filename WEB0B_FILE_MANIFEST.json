@@ -1,0 +1,355 @@
+{
+  "lot": "WEB-0B",
+  "files": [
+    {
+      "path": ".env.example",
+      "size": 422,
+      "sha256": "083d63885e747def0971aa7077d05936718e556efc91bc62d3fa3dc741e99014"
+    },
+    {
+      "path": "Makefile",
+      "size": 181,
+      "sha256": "8d5c2e6541f8fd33d553fa6492046d043a17c21039a073c514a84a8eb0b8c6c0"
+    },
+    {
+      "path": "README.md",
+      "size": 1846,
+      "sha256": "58dd2bf8d4352a29d01b5c47dc74e82b06506544bc861833131aec33dc639b1e"
+    },
+    {
+      "path": "WEB0A_GATE_RESULTS.md",
+      "size": 2040,
+      "sha256": "79c3afb024c16691a014b5e2875f1ee8e364054eca2615fafcdbfad97820bc15"
+    },
+    {
+      "path": "WEB0A_IMPLEMENTATION_REPORT.md",
+      "size": 1133,
+      "sha256": "eb99288c25f897344f702f88769f18f0c76b5895d68d697358b529c161a165e9"
+    },
+    {
+      "path": "WEB0B_GATES.md",
+      "size": 964,
+      "sha256": "94649a10d2a6bacc3f97a299bb6cb851432ba5bd90e8c6ac0eac060be697463e"
+    },
+    {
+      "path": "WEB0B_IMPLEMENTATION_REPORT.md",
+      "size": 2269,
+      "sha256": "3788376fa28ddf177bf3ed8e4848ea943da861a89f55c8f10b3aa5aaf76c1834"
+    },
+    {
+      "path": "backend/Dockerfile",
+      "size": 263,
+      "sha256": "9adc3994cbd3f0044071992e2a22b91ea0aeb3deac1497531e4f63c8646d317a"
+    },
+    {
+      "path": "backend/migrations/0001_foundation.sql",
+      "size": 8706,
+      "sha256": "a96959f43244173af88fcddb196968079d7db4abd4b7293744bb8e65cf2e99db"
+    },
+    {
+      "path": "backend/migrations/0002_idempotency_concurrency.sql",
+      "size": 4702,
+      "sha256": "c91862739ced68199b10ef5412693a1c4d90775033090163644a7412e5c454c3"
+    },
+    {
+      "path": "backend/pyproject.toml",
+      "size": 540,
+      "sha256": "f5e1875e279dbe42c681d2f6edf6c16778cd854870ea9db5045cb3bc90d7b460"
+    },
+    {
+      "path": "backend/scripts/g1_postgres_probe.py",
+      "size": 2313,
+      "sha256": "78dfa8799453c6d09dea372cd8dd54ff4f064c819844ac5ceb9812eee88b1c51"
+    },
+    {
+      "path": "backend/src/edusync/__init__.py",
+      "size": 28,
+      "sha256": "d8cc9b9285df846bc242f6dfa9a0a43436a029862f0a0587cc5435cea534b4df"
+    },
+    {
+      "path": "backend/src/edusync/adapters/memory.py",
+      "size": 3151,
+      "sha256": "72aa191a3fe364c4bd164517e8eccbf288f72cbb8ea322190a52919140690216"
+    },
+    {
+      "path": "backend/src/edusync/adapters/memory_idempotency.py",
+      "size": 2971,
+      "sha256": "383fd685a87dc009f1f40e4b8ac79893d44db6988b9de632d5bb6010ee430d0f"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_concurrency.py",
+      "size": 1966,
+      "sha256": "5eb405afdf84234318c5ae7a7dbd42ead5a9113574ce3888eaac16668497e2d2"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_idempotency.py",
+      "size": 4774,
+      "sha256": "0b9b7f09993f13062059613c35d3406cb00d1592cfe84e959d37a5d8fb4b8094"
+    },
+    {
+      "path": "backend/src/edusync/bootstrap/app.py",
+      "size": 715,
+      "sha256": "37e819df855e8c0aa0ec667d6014bf6215ae17ae299daf47f162f247c789be87"
+    },
+    {
+      "path": "backend/src/edusync/bootstrap/settings.py",
+      "size": 629,
+      "sha256": "89fd5b6d8f986a82b3e9092cb66118ebd4fd0aaa5addc815cb9567ce18bde40c"
+    },
+    {
+      "path": "backend/src/edusync/modules/audit/domain/audit.py",
+      "size": 825,
+      "sha256": "1bc5910261e4916fbce2a2918b576f4e938c04ccaba442833bcd3b2770a3dd3c"
+    },
+    {
+      "path": "backend/src/edusync/modules/audit/ports/repositories.py",
+      "size": 211,
+      "sha256": "33a966c3f36918b3e0c3cbb4dd8dcd06af97c87b9f7c7d03e2cb87a7d22d6336"
+    },
+    {
+      "path": "backend/src/edusync/modules/iam/domain/models.py",
+      "size": 974,
+      "sha256": "1de33ff341d63743802663ff50b997e44a718a463b0fc5910e3ad8600844f620"
+    },
+    {
+      "path": "backend/src/edusync/modules/iam/ports/repositories.py",
+      "size": 665,
+      "sha256": "e09cf4db06c45a00b654e2f3ac89f3a1cdc54c599750e022eaee29f719dc473f"
+    },
+    {
+      "path": "backend/src/edusync/modules/notifications/domain/models.py",
+      "size": 549,
+      "sha256": "5bfc1387607f07526a87159d9b5b9a9a37f018fb619d1ba83dbfb4ad8cf350bb"
+    },
+    {
+      "path": "backend/src/edusync/modules/platform/api/router.py",
+      "size": 4517,
+      "sha256": "cdbaca50326d5b6630161ccadff3cc0f6eb6d8ef551d616506622003dd736874"
+    },
+    {
+      "path": "backend/src/edusync/modules/platform/application/use_cases.py",
+      "size": 6454,
+      "sha256": "f7c13290f10aab49e9c02497f3328ba37282489bff6b73798a844145826d1912"
+    },
+    {
+      "path": "backend/src/edusync/modules/platform/domain/school.py",
+      "size": 2553,
+      "sha256": "51decacd06d3a8e568a44e4a4bc41d2ab25fd2e68646cf619addf6cb71f122a1"
+    },
+    {
+      "path": "backend/src/edusync/modules/platform/ports/repositories.py",
+      "size": 432,
+      "sha256": "590adc30a04ff7ceafa25c00e6bb94c4b8551a9a31ad29fa225c825b2cfeed36"
+    },
+    {
+      "path": "backend/src/edusync/modules/sync/domain/contracts.py",
+      "size": 1724,
+      "sha256": "a7ee9b4c29948fd8961335bdbe31c6fe922f9a1b55f412aba33c97c0c5a086b1"
+    },
+    {
+      "path": "backend/src/edusync/modules/sync/domain/outbox.py",
+      "size": 562,
+      "sha256": "956cf5445bd75cee4ea5b6ee246cee8b7e8b03c603ca338265e38ced3ca3b01f"
+    },
+    {
+      "path": "backend/src/edusync/modules/sync/ports/repositories.py",
+      "size": 214,
+      "sha256": "a2d8f7dacdf42eda4751b21880ac6679558852e2678c3bdb0dd50cbb63187e86"
+    },
+    {
+      "path": "backend/src/edusync/shared/application/context.py",
+      "size": 612,
+      "sha256": "684b615afaabfac612a034e3cb0e1ed9bfb27d1265b08d33a126ec9cca99ccaf"
+    },
+    {
+      "path": "backend/src/edusync/shared/application/idempotency.py",
+      "size": 2739,
+      "sha256": "c587e87144e491c660697cf72624baa39e5b71ddeb4cb7aed2481136d452ff2e"
+    },
+    {
+      "path": "backend/src/edusync/shared/domain/concurrency.py",
+      "size": 688,
+      "sha256": "9effe9fa063f26872f13eeab4d13677e7d0a209e39efed473ddfd56d1bdc90e6"
+    },
+    {
+      "path": "backend/src/edusync/shared/domain/events.py",
+      "size": 614,
+      "sha256": "53a8c4d0d628ec151cd16974f99a560a92e67f7c07e8e102afcf85876842d357"
+    },
+    {
+      "path": "backend/src/edusync/shared/domain/ids.py",
+      "size": 447,
+      "sha256": "40e998bafd4885326a3d37104b97a1f544302a713115a0fdec7dc8ab407a78c3"
+    },
+    {
+      "path": "backend/src/edusync/shared/infrastructure/postgres.py",
+      "size": 1214,
+      "sha256": "85525db8c874661a367a324771b0b733d594047af178eb5263abe93f6bfd09bd"
+    },
+    {
+      "path": "backend/src/edusync/shared/infrastructure/security.py",
+      "size": 1330,
+      "sha256": "d59b1818994a00fc797078a5207db10f6d0a3fe2be5b04b83463e3e9280a6899"
+    },
+    {
+      "path": "backend/src/edusync/shared/ports/cache.py",
+      "size": 261,
+      "sha256": "de09609afe8403a75fc3a2219aa2774ac110540442bdc5876bfcc4ed4b6bbbe1"
+    },
+    {
+      "path": "backend/src/edusync/shared/ports/idempotency.py",
+      "size": 1002,
+      "sha256": "100b84707e7204d533881e880de70fc9149b3c942eee8adfedcfa790fa3ea525"
+    },
+    {
+      "path": "backend/src/edusync/shared/ports/uow.py",
+      "size": 240,
+      "sha256": "6d02fe6137a480956187b9c27776db21c7b2d5e57c0fc6a280bdad9d458ff5a5"
+    },
+    {
+      "path": "backend/tests/test_api_smoke.py",
+      "size": 679,
+      "sha256": "e35868015c79ce8135ef7b8c472f390716f4f46ec5346a91ba6c34c81905142e"
+    },
+    {
+      "path": "backend/tests/test_concurrency_contracts.py",
+      "size": 987,
+      "sha256": "a03b63b6b190b48eda975df6dd9ae52b7bbc58ed7af99df97b46472dd8aca331"
+    },
+    {
+      "path": "backend/tests/test_foundation_migration.py",
+      "size": 585,
+      "sha256": "308e3fc4a61e3ee096d7556b3f8494838296f8400325ca3294c381d7a1416975"
+    },
+    {
+      "path": "backend/tests/test_idempotency.py",
+      "size": 3313,
+      "sha256": "00252b549480f35465dd404e423d4c0c44afe998a229adf7720b270c17c87945"
+    },
+    {
+      "path": "backend/tests/test_platform_domain.py",
+      "size": 585,
+      "sha256": "58f2e40210d331332a9ff797a363d051261bd0e3a36d04fc4908909c3fd2970c"
+    },
+    {
+      "path": "backend/tests/test_platform_use_cases.py",
+      "size": 2201,
+      "sha256": "78e1c0d228dc60be18dac6d5dcbf5f52dbb5056aafe90135e20440153f276ee7"
+    },
+    {
+      "path": "backend/tests/test_security.py",
+      "size": 294,
+      "sha256": "9a38f3c7992ae19b52ddad85bb5a2ad7b6ba19db927251b7ad3a286ce49d1192"
+    },
+    {
+      "path": "backend/tests/test_sync_contract.py",
+      "size": 538,
+      "sha256": "d9899d385f556539b948c453e820156d434cc626dc00a51f72a669db9742364a"
+    },
+    {
+      "path": "backend/tests/test_web0b_migration.py",
+      "size": 1040,
+      "sha256": "1bc0646d1d9189901f2814a1d1f88cebf2b580bf19836b4f7b777b478ef6f96c"
+    },
+    {
+      "path": "docker-compose.yml",
+      "size": 907,
+      "sha256": "7b4031fc026169d4010e6158395cbcbb9c0a3bb5bab5e005edb2af8c04f614eb"
+    },
+    {
+      "path": "docs/reference/MIGRATION_READINESS_AUDIT_EDUSYNC.md",
+      "size": 11646,
+      "sha256": "9d9e2c7e9f541bad19a287edbb151323d72b31c736f5fedef6e82b0682b0fb3e"
+    },
+    {
+      "path": "docs/reference/WEB0_ARCHITECTURE_FONDATRICE_SAAS.md",
+      "size": 17455,
+      "sha256": "4df00049cdf0cbec1ade02fb029b41d53d2b91f51aafea5632a44043666e3e5e"
+    },
+    {
+      "path": "docs/reference/WEB0_AUDIT_PRESERVATION_EDUSYNC.md",
+      "size": 14134,
+      "sha256": "a75744a1157d55b9c8099b1d4bcd4f73ba5bb6748cfee93f372c06cbffe2295a"
+    },
+    {
+      "path": "docs/reference/WEB0_DECISIONS_ET_GATES.md",
+      "size": 2830,
+      "sha256": "02fd86d3d8af3da227f75e66f1af9bdc50d3e2373b3b7985c2fa2696f3800a2f"
+    },
+    {
+      "path": "docs/reference/WEB0_PRESERVATION_MATRIX.json",
+      "size": 4098,
+      "sha256": "8779a68a67cd04b8d31ad7a099943ded622fe3c68d06d034b27d772b44ee7058"
+    },
+    {
+      "path": "frontend/Dockerfile",
+      "size": 235,
+      "sha256": "834f08c473d8051ae0ce25307d3cee19639e6ea881d59b941067355f1555e145"
+    },
+    {
+      "path": "frontend/index.html",
+      "size": 358,
+      "sha256": "0cce00bf3c238fd0b1e2eb2bba0a00fef1f1edf8d37f9db341030a89a379da3c"
+    },
+    {
+      "path": "frontend/nginx.conf",
+      "size": 116,
+      "sha256": "bf5a47837946039006903d5719dfb6e3553270abe6e0cddf6357464dee895b80"
+    },
+    {
+      "path": "frontend/package.json",
+      "size": 394,
+      "sha256": "8d6662af42b8c7b127c6b6e9f67884708ebb34eb46dcf8c4303f02a457a9f1f8"
+    },
+    {
+      "path": "frontend/public/manifest.webmanifest",
+      "size": 145,
+      "sha256": "07612ddd90c1642d3cfe2a821082dd7b35d0643884209997758ba6f2a9b73605"
+    },
+    {
+      "path": "frontend/public/sw.js",
+      "size": 468,
+      "sha256": "728f44eae3a57555f169083f73cd988c5cb39b786535a74fc978df4f65ca1e10"
+    },
+    {
+      "path": "frontend/src/App.tsx",
+      "size": 2512,
+      "sha256": "bb114e9f0834eb0a7b700c821b64f513a8afa42421048593a77af7ef51869488"
+    },
+    {
+      "path": "frontend/src/api.ts",
+      "size": 786,
+      "sha256": "aa410cc844248dce09881999378168490a1db5631e9f373a8680913d3127764f"
+    },
+    {
+      "path": "frontend/src/main.tsx",
+      "size": 339,
+      "sha256": "fdfbf00ac9dd20eae836fbc53b7ccf88b66070232747a78541ef95cfd2cc8916"
+    },
+    {
+      "path": "frontend/src/offline/store.ts",
+      "size": 1094,
+      "sha256": "fe67c986b823761538687d3bd5d83e7a64a1d08eb762cbdae42c72b5201c4845"
+    },
+    {
+      "path": "frontend/src/styles.css",
+      "size": 2465,
+      "sha256": "ab2bf595a8f2e07c55f35caca3115003960340efc54a8ea421302eddd191fb36"
+    },
+    {
+      "path": "frontend/tsconfig.json",
+      "size": 402,
+      "sha256": "fedd317542803e74732ad4c6d9eaa8c470bec18fd39c1974cbe42a543527871f"
+    },
+    {
+      "path": "preservation/PRESERVATION_CONTRACT.md",
+      "size": 1092,
+      "sha256": "216ac934f1f3c2305996a2d79e1656dea0c6611797da4691b7f789bc8b2e8205"
+    },
+    {
+      "path": "preservation/WEB0A_SCOPE.md",
+      "size": 557,
+      "sha256": "be10d2b5a87e6b272220d835cc9ca76ced2b5377202685f9e9e7a85bc27edf0a"
+    }
+  ]
+}

@@ -1,0 +1,1242 @@
+{
+  "results": [
+    {
+      "module": "Accueil",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Accueil",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Accueil",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Accueil",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Accueil",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 768,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Accueil",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Paramètres",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Paramètres",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Paramètres",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Paramètres",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Paramètres",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 768,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Paramètres",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Personnel",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Personnel",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Personnel",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "svg",
+          "cls": {}
+        },
+        {
+          "tag": "path",
+          "cls": {}
+        },
+        {
+          "tag": "path",
+          "cls": {}
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "svg",
+          "cls": {}
+        },
+        {
+          "tag": "path",
+          "cls": {}
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Personnel",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "svg",
+          "cls": {}
+        },
+        {
+          "tag": "path",
+          "cls": {}
+        },
+        {
+          "tag": "path",
+          "cls": {}
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "svg",
+          "cls": {}
+        },
+        {
+          "tag": "path",
+          "cls": {}
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Personnel",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 753,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "cls": "personRow head"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Personnel",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1425,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Élèves & inscriptions",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Élèves & inscriptions",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Élèves & inscriptions",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Élèves & inscriptions",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Élèves & inscriptions",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 753,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Élèves & inscriptions",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Effectifs & dépôts",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxTable"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxGroupRow"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxDouble"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Effectifs & dépôts",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxTable"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxGroupRow"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxSubRow"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Effectifs & dépôts",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "cls": "fxTable"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxGroupRow"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxSubRow"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Effectifs & dépôts",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "cls": "fxTable"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxGroupRow"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxSubRow"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Effectifs & dépôts",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 753,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "cls": "fxTable"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxGroupRow"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "SPAN",
+          "cls": "fxTriple"
+        },
+        {
+          "tag": "DIV",
+          "cls": "fxSubRow"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Effectifs & dépôts",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Centre financier",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Centre financier",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Centre financier",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Centre financier",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Centre financier",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 768,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Centre financier",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Documents",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Documents",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Documents",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Documents",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Documents",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 753,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Documents",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1425,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Intendance",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Intendance",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Intendance",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Intendance",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Intendance",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 768,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Intendance",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Synchronisation",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "cls": "tr th"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr th"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Synchronisation",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "cls": "tr th"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr th"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Synchronisation",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "cls": "tr th"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr th"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Synchronisation",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "cls": "tr th"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr th"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr"
+        },
+        {
+          "tag": "SPAN",
+          "cls": ""
+        },
+        {
+          "tag": "DIV",
+          "cls": "tr"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "module": "Synchronisation",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 753,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    },
+    {
+      "module": "Synchronisation",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1425,
+      "mainPresent": false,
+      "storageKeys": [],
+      "overflowElements": [],
+      "pass": true
+    }
+  ],
+  "exceptions": [],
+  "httpErrors": [],
+  "mobileMenu": true,
+  "scope": "Module landing screens and cookie restore; native phone keyboard and standalone PWA not certified"
+}

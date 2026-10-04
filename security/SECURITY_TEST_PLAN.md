@@ -1,0 +1,2 @@
+# Security offensive gate
+Mandatory live gate: tenant A→B IDOR/BOLA attempts; SQLi payloads; stored/reflected XSS; auth enumeration; distributed brute force; forged/expired JWT; persistent-session replay and revocation; RBAC privilege escalation; CORS/TrustedHost/header probes; upload/path traversal where applicable; Redis outage; RLS FORCE under tenant role; dependency audit (`pip-audit`, `npm audit`); SAST (`bandit`). No production certification is granted by static tests alone.

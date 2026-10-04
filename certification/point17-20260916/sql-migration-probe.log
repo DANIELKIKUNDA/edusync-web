@@ -1,0 +1,1110 @@
+BEGIN
+CREATE ROLE
+CREATE ROLE
+MIGRATION 0001_foundation.sql
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+INSERT 0 5
+INSERT 0 11
+INSERT 0 19
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+MIGRATION 0002_idempotency_concurrency.sql
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+CREATE INDEX
+ALTER TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+CREATE FUNCTION
+MIGRATION 0003_g1_live_security.sql
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DO
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DO
+CREATE INDEX
+CREATE INDEX
+MIGRATION 0004_offline_finance_safe_mode.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE FUNCTION
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+DO
+INSERT 0 3
+INSERT 0 5
+CREATE FUNCTION
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+REVOKE
+REVOKE
+MIGRATION 0005_offline_finance_multi_cashier.sql
+ALTER TABLE
+DROP INDEX
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+INSERT 0 1
+REVOKE
+REVOKE
+MIGRATION 0006_capability_rbac_engine.sql
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 9
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+MIGRATION 0007_owner_decision_manager_systeme.sql
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+INSERT 0 1
+MIGRATION 0008_owner_approved_school_roles.sql
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+DELETE 0
+INSERT 0 661
+MIGRATION 0009_secondary_leadership_roles.sql
+INSERT 0 1
+DELETE 0
+INSERT 0 41
+INSERT 0 1
+DELETE 0
+INSERT 0 38
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+MIGRATION 0010_settings_domain.sql
+CREATE TABLE
+INSERT 0 3
+CREATE TABLE
+INSERT 0 15
+CREATE TABLE
+INSERT 0 5
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+INSERT 0 0
+INSERT 0 0
+DO
+GRANT
+GRANT
+CREATE FUNCTION
+DO
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+GRANT
+CREATE INDEX
+MIGRATION 0011_migrate_legacy_school_admin_rbac.sql
+INSERT 0 0
+MIGRATION 0012_personnel_domain.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DO
+DO
+GRANT
+REVOKE
+CREATE FUNCTION
+DO
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+INSERT 0 9
+INSERT 0 25
+MIGRATION 0013_schooling_domain.sql
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+INSERT 0 0
+CREATE FUNCTION
+DO
+DO
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DO
+DO
+GRANT
+REVOKE
+CREATE FUNCTION
+DO
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+INSERT 0 7
+INSERT 0 45
+MIGRATION 0014_preservation_school_identity_and_enrollment.sql
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+MIGRATION 0015_effectifs_depots_domain.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+GRANT
+REVOKE
+UPDATE 0
+MIGRATION 0016_documents_domain.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+REVOKE
+COMMENT
+MIGRATION 0016_finance_checkout.sql
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+MIGRATION 0017_checkout_sequences_anticipation.sql
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+REVOKE
+MIGRATION 0017_documents_logical_current.sql
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+COMMENT
+MIGRATION 0018_finance_other_collections_inventory.sql
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+DO
+GRANT
+MIGRATION 0019_finance_recovery_regularizations.sql
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+DO
+MIGRATION 0020_recovery_class_register.sql
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+REVOKE
+MIGRATION 0021_finance_cash_industrial.sql
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+MIGRATION 0021_finance_report_templates.sql
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+CREATE INDEX
+MIGRATION 0022_finance_controls.sql
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+MIGRATION 0023_fee_tracking.sql
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+ALTER TABLE
+CREATE INDEX
+CREATE VIEW
+MIGRATION 0024_stewardship_industrial.sql
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+DO
+GRANT
+DELETE 14
+MIGRATION 0025_communications_industrial.sql
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+GRANT
+REVOKE
+MIGRATION 0026_persistent_device_sessions.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+GRANT
+REVOKE
+DROP POLICY
+CREATE POLICY
+MIGRATION 0027_performance_indexes.sql
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+MIGRATION 0028_scalability_query_indexes.sql
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+MIGRATION 0029_keyset_journal_indexes.sql
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+MIGRATION 0030_worker_recovery_leases.sql
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+MIGRATION 0031_platform_system_notifications.sql
+CREATE TABLE
+CREATE INDEX
+MIGRATION 0032_platform_access_governance.sql
+INSERT 0 1
+INSERT 0 1
+MIGRATION 0033_student_import_staging.sql
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+MIGRATION 0034_staff_import_staging.sql
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+INSERT 0 2
+INSERT 0 0
+MIGRATION 0035_financial_history_import.sql
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+DROP POLICY
+CREATE POLICY
+INSERT 0 2
+INSERT 0 12
+MIGRATION 0036_platform_collaborator_role.sql
+INSERT 0 1
+INSERT 0 1
+INSERT 0 3
+INSERT 0 1
+ROLLBACK
+psql:E:/edusyncweb/backend/migrations/0001_foundation.sql:148: NOTICE:  le trigger « trg_audit_no_update » de la relation « audit_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0002_idempotency_concurrency.sql:78: NOTICE:  la politique « idempotency_registry_tenant » de la relation « idempotency_registry » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0002_idempotency_concurrency.sql:83: NOTICE:  la politique « sync_conflicts_tenant » de la relation « sync_conflicts » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:11: NOTICE:  la politique « schools_tenant » de la relation « schools » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:17: NOTICE:  la politique « schools_platform » de la relation « schools » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:39: NOTICE:  la politique « school_memberships_platform » de la relation « school_memberships » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:41: NOTICE:  la politique « audit_events_platform » de la relation « audit_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:43: NOTICE:  la politique « outbox_events_platform » de la relation « outbox_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:45: NOTICE:  la politique « notifications_platform » de la relation « notifications » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:47: NOTICE:  la politique « devices_platform » de la relation « devices » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:49: NOTICE:  la politique « sync_inbox_platform » de la relation « sync_inbox » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:51: NOTICE:  la politique « sync_cursors_platform » de la relation « sync_cursors » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:53: NOTICE:  la politique « idempotency_registry_platform » de la relation « idempotency_registry » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:55: NOTICE:  la politique « sync_conflicts_platform » de la relation « sync_conflicts » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:62: NOTICE:  la politique « membership_roles_tenant » de la relation « membership_roles » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:75: NOTICE:  la politique « membership_roles_platform » de la relation « membership_roles » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:83: NOTICE:  la politique « users_platform » de la relation « users » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0003_g1_live_security.sql:85: NOTICE:  la politique « users_tenant_self » de la relation « users » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:149: NOTICE:  le trigger « trg_offline_receipt_scope » de la relation « offline_receipt_tokens » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:152: NOTICE:  le trigger « trg_offline_snapshot_scope » de la relation « offline_charge_snapshots » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:155: NOTICE:  le trigger « trg_offline_inbox_scope » de la relation « offline_payment_inbox » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_finance_leases_tenant » de la relation « offline_finance_leases » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_finance_leases_platform » de la relation « offline_finance_leases » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_receipt_counters_tenant » de la relation « offline_receipt_counters » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_receipt_counters_platform » de la relation « offline_receipt_counters » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_receipt_tokens_tenant » de la relation « offline_receipt_tokens » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_receipt_tokens_platform » de la relation « offline_receipt_tokens » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_charge_snapshots_tenant » de la relation « offline_charge_snapshots » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_charge_snapshots_platform » de la relation « offline_charge_snapshots » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_payment_inbox_tenant » de la relation « offline_payment_inbox » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:177: NOTICE:  la politique « offline_payment_inbox_platform » de la relation « offline_payment_inbox » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:243: NOTICE:  le trigger « trg_offline_lease_transition » de la relation « offline_finance_leases » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:261: NOTICE:  le trigger « trg_offline_snapshot_freeze » de la relation « offline_charge_snapshots » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:279: NOTICE:  le trigger « trg_offline_receipt_protect » de la relation « offline_receipt_tokens » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:303: NOTICE:  le trigger « trg_offline_payment_protect » de la relation « offline_payment_inbox » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:331: NOTICE:  le trigger « trg_offline_lease_audit » de la relation « offline_finance_leases » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0004_offline_finance_safe_mode.sql:350: NOTICE:  le trigger « trg_offline_payment_applied_audit » de la relation « offline_payment_inbox » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:57: NOTICE:  le trigger « trg_offline_charge_reservation_scope » de la relation « offline_charge_reservations » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:60: NOTICE:  le trigger « trg_offline_finance_incident_scope » de la relation « offline_finance_incidents » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:79: NOTICE:  la politique « offline_charge_reservations_tenant » de la relation « offline_charge_reservations » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:79: NOTICE:  la politique « offline_charge_reservations_platform » de la relation « offline_charge_reservations » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:79: NOTICE:  la politique « offline_finance_incidents_tenant » de la relation « offline_finance_incidents » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:79: NOTICE:  la politique « offline_finance_incidents_platform » de la relation « offline_finance_incidents » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:157: NOTICE:  le trigger « trg_offline_charge_reservation_protect » de la relation « offline_charge_reservations » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:180: NOTICE:  le trigger « trg_offline_lease_authority_status » de la relation « offline_finance_leases » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0005_offline_finance_multi_cashier.sql:224: NOTICE:  le trigger « trg_offline_authority_quarantine_audit » de la relation « offline_charge_reservations » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:144: NOTICE:  le trigger « trg_validate_rbac_assignment » de la relation « rbac_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:432: NOTICE:  la politique « rbac_roles_platform » de la relation « rbac_roles » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:434: NOTICE:  la politique « rbac_roles_tenant_read » de la relation « rbac_roles » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:437: NOTICE:  la politique « rbac_roles_tenant_custom_write » de la relation « rbac_roles » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:442: NOTICE:  la politique « rbac_role_capabilities_platform » de la relation « rbac_role_capabilities » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:444: NOTICE:  la politique « rbac_role_capabilities_tenant_read » de la relation « rbac_role_capabilities » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:447: NOTICE:  la politique « rbac_role_capabilities_tenant_write » de la relation « rbac_role_capabilities » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:452: NOTICE:  la politique « rbac_assignments_platform » de la relation « rbac_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:454: NOTICE:  la politique « rbac_assignments_tenant » de la relation « rbac_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:459: NOTICE:  la politique « rbac_assignment_scopes_platform » de la relation « rbac_assignment_scopes » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:461: NOTICE:  la politique « rbac_assignment_scopes_tenant » de la relation « rbac_assignment_scopes » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:466: NOTICE:  la politique « rbac_exception_grants_platform » de la relation « rbac_exception_grants » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:468: NOTICE:  la politique « rbac_exception_grants_tenant » de la relation « rbac_exception_grants » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:477: NOTICE:  la politique « capability_catalog_platform » de la relation « capability_catalog » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0006_capability_rbac_engine.sql:479: NOTICE:  la politique « capability_catalog_tenant_read » de la relation « capability_catalog » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0009_secondary_leadership_roles.sql:128: NOTICE:  le trigger « trg_secondary_standard_role_scope » de la relation « rbac_assignment_scopes » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:204: NOTICE:  le trigger « trg_provision_school_settings_defaults » de la relation « schools » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_settings_bootstrap_state » de la relation « settings_bootstrap_state » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_academic_years » de la relation « academic_years » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_school_sections » de la relation « school_sections » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_school_options » de la relation « school_options » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_school_classes » de la relation « school_classes » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_fee_types » de la relation « fee_types » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_tariffs » de la relation « tariffs » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_school_policy_documents » de la relation « school_policy_documents » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_contribution_types » de la relation « contribution_types » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:230: NOTICE:  la politique « tenant_school_products » de la relation « school_products » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_settings_bootstrap_state » de la relation « settings_bootstrap_state » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_academic_years » de la relation « academic_years » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_school_sections » de la relation « school_sections » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_school_options » de la relation « school_options » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_school_classes » de la relation « school_classes » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_fee_types » de la relation « fee_types » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_tariffs » de la relation « tariffs » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_school_policy_documents » de la relation « school_policy_documents » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_contribution_types » de la relation « contribution_types » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:248: NOTICE:  le trigger « trg_touch_school_products » de la relation « school_products » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:252: NOTICE:  la politique « settings_bootstrap_state_platform_insert » de la relation « settings_bootstrap_state » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0010_settings_domain.sql:255: NOTICE:  la politique « school_policy_documents_platform_insert » de la relation « school_policy_documents » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:170: NOTICE:  le trigger « trg_staff_assignments_tenant_refs » de la relation « staff_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:172: NOTICE:  le trigger « trg_staff_access_links_tenant_refs » de la relation « staff_access_links » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:174: NOTICE:  le trigger « trg_staff_student_links_tenant_refs » de la relation « staff_student_links » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:186: NOTICE:  le trigger « trg_touch_staff_members » de la relation « staff_members » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:186: NOTICE:  le trigger « trg_touch_staff_functions » de la relation « staff_functions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:186: NOTICE:  le trigger « trg_touch_staff_assignments » de la relation « staff_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:186: NOTICE:  le trigger « trg_touch_staff_student_finance_preferences » de la relation « staff_student_finance_preferences » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:197: NOTICE:  la politique « tenant_staff_members » de la relation « staff_members » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:197: NOTICE:  la politique « tenant_staff_functions » de la relation « staff_functions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:197: NOTICE:  la politique « tenant_staff_assignments » de la relation « staff_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:197: NOTICE:  la politique « tenant_staff_status_history » de la relation « staff_status_history » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:197: NOTICE:  la politique « tenant_staff_access_links » de la relation « staff_access_links » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:197: NOTICE:  la politique « tenant_staff_student_links » de la relation « staff_student_links » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:197: NOTICE:  la politique « tenant_staff_student_finance_preferences » de la relation « staff_student_finance_preferences » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:210: NOTICE:  le trigger « trg_no_delete_staff_members » de la relation « staff_members » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:210: NOTICE:  le trigger « trg_no_delete_staff_functions » de la relation « staff_functions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:210: NOTICE:  le trigger « trg_no_delete_staff_assignments » de la relation « staff_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:210: NOTICE:  le trigger « trg_no_delete_staff_status_history » de la relation « staff_status_history » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:210: NOTICE:  le trigger « trg_no_delete_staff_access_links » de la relation « staff_access_links » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:210: NOTICE:  le trigger « trg_no_delete_staff_student_links » de la relation « staff_student_links » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:210: NOTICE:  le trigger « trg_no_delete_staff_student_finance_preferences » de la relation « staff_student_finance_preferences » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0012_personnel_domain.sql:214: NOTICE:  le trigger « trg_staff_status_history_no_update » de la relation « staff_status_history » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:220: NOTICE:  le trigger « trg_family_guardians_tenant_refs » de la relation « family_guardians » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:220: NOTICE:  le trigger « trg_students_tenant_refs » de la relation « students » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:220: NOTICE:  le trigger « trg_enrollments_tenant_refs » de la relation « enrollments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:220: NOTICE:  le trigger « trg_class_assignments_tenant_refs » de la relation « class_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:220: NOTICE:  le trigger « trg_student_status_events_tenant_refs » de la relation « student_status_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:220: NOTICE:  le trigger « trg_student_benefits_tenant_refs » de la relation « student_benefits » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:220: NOTICE:  le trigger « trg_household_resolution_events_tenant_refs » de la relation « household_resolution_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:236: NOTICE:  le trigger « trg_staff_student_schooling_ref » de la relation « staff_student_links » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:248: NOTICE:  le trigger « trg_touch_families » de la relation « families » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:248: NOTICE:  le trigger « trg_touch_guardians » de la relation « guardians » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:248: NOTICE:  le trigger « trg_touch_family_guardians » de la relation « family_guardians » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:248: NOTICE:  le trigger « trg_touch_students » de la relation « students » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:248: NOTICE:  le trigger « trg_touch_enrollments » de la relation « enrollments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:248: NOTICE:  le trigger « trg_touch_student_benefits » de la relation « student_benefits » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_school_sequence_counters » de la relation « school_sequence_counters » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_families » de la relation « families » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_guardians » de la relation « guardians » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_family_guardians » de la relation « family_guardians » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_students » de la relation « students » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_enrollments » de la relation « enrollments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_class_assignments » de la relation « class_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_student_status_events » de la relation « student_status_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_student_benefits » de la relation « student_benefits » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:259: NOTICE:  la politique « tenant_household_resolution_events » de la relation « household_resolution_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_families » de la relation « families » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_guardians » de la relation « guardians » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_family_guardians » de la relation « family_guardians » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_students » de la relation « students » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_enrollments » de la relation « enrollments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_class_assignments » de la relation « class_assignments » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_student_status_events » de la relation « student_status_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_student_benefits » de la relation « student_benefits » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:271: NOTICE:  le trigger « trg_no_delete_household_resolution_events » de la relation « household_resolution_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:274: NOTICE:  le trigger « trg_status_events_no_update » de la relation « student_status_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0013_schooling_domain.sql:276: NOTICE:  le trigger « trg_household_resolution_no_update » de la relation « household_resolution_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0015_effectifs_depots_domain.sql:40: NOTICE:  le trigger « trg_validate_material_contribution » de la relation « material_contributions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0015_effectifs_depots_domain.sql:46: NOTICE:  le trigger « trg_material_contribution_no_update » de la relation « material_contributions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0015_effectifs_depots_domain.sql:52: NOTICE:  la politique « tenant_material_contributions » de la relation « material_contributions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0016_documents_domain.sql:15: NOTICE:  la politique « generated_documents_tenant » de la relation « generated_documents » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0017_documents_logical_current.sql:18: NOTICE:  la politique « current_documents_tenant » de la relation « current_documents » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0018_finance_other_collections_inventory.sql:23: NOTICE:  la politique « tenant_isolation » de la relation « inventory_stock » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0018_finance_other_collections_inventory.sql:23: NOTICE:  la politique « tenant_isolation » de la relation « inventory_stock_movements » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0018_finance_other_collections_inventory.sql:23: NOTICE:  la politique « tenant_isolation » de la relation « finance_product_sales » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0021_finance_report_templates.sql:11: NOTICE:  la politique « finance_report_templates_tenant » de la relation « finance_report_templates » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0022_finance_controls.sql:15: NOTICE:  la politique « finance_decisions_tenant » de la relation « finance_decisions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0022_finance_controls.sql:28: NOTICE:  la politique « finance_responsibilities_tenant » de la relation « finance_responsibilities » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0022_finance_controls.sql:42: NOTICE:  la politique « finance_credits_tenant » de la relation « finance_credits » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0023_fee_tracking.sql:8: NOTICE:  la politique « fee_categories_tenant » de la relation « fee_categories » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0024_stewardship_industrial.sql:48: NOTICE:  la politique « tenant_isolation » de la relation « inventory_locations » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0024_stewardship_industrial.sql:48: NOTICE:  la politique « tenant_isolation » de la relation « inventory_items » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0024_stewardship_industrial.sql:48: NOTICE:  la politique « tenant_isolation » de la relation « inventory_item_movements » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0024_stewardship_industrial.sql:48: NOTICE:  la politique « tenant_isolation » de la relation « inventory_asset_types » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0024_stewardship_industrial.sql:48: NOTICE:  la politique « tenant_isolation » de la relation « inventory_assets » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0024_stewardship_industrial.sql:48: NOTICE:  la politique « tenant_isolation » de la relation « inventory_asset_events » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0024_stewardship_industrial.sql:48: NOTICE:  la politique « tenant_isolation » de la relation « inventory_counts » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0024_stewardship_industrial.sql:48: NOTICE:  la politique « tenant_isolation » de la relation « inventory_count_lines » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0025_communications_industrial.sql:45: NOTICE:  la politique « tenant_isolation » de la relation « communication_settings » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0025_communications_industrial.sql:45: NOTICE:  la politique « tenant_isolation » de la relation « communication_templates » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0025_communications_industrial.sql:45: NOTICE:  la politique « tenant_isolation » de la relation « communication_messages » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0025_communications_industrial.sql:45: NOTICE:  la politique « tenant_isolation » de la relation « communication_deliveries » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0026_persistent_device_sessions.sql:13: NOTICE:  la politique « device_session_tenant » de la relation « user_device_sessions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0026_persistent_device_sessions.sql:17: NOTICE:  la politique « device_session_platform » de la relation « user_device_sessions » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0033_student_import_staging.sql:13: NOTICE:  la politique « student_import_batches_tenant » de la relation « student_import_batches » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0033_student_import_staging.sql:14: NOTICE:  la politique « student_import_rows_tenant » de la relation « student_import_rows » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0034_staff_import_staging.sql:13: NOTICE:  la politique « staff_import_batches_tenant » de la relation « staff_import_batches » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0034_staff_import_staging.sql:14: NOTICE:  la politique « staff_import_rows_tenant » de la relation « staff_import_rows » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0035_financial_history_import.sql:25: NOTICE:  la politique « fin_hist_batches_tenant » de la relation « financial_history_import_batches » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0035_financial_history_import.sql:26: NOTICE:  la politique « fin_hist_rows_tenant » de la relation « financial_history_import_rows » n'existe pas, poursuite du traitement
+psql:E:/edusyncweb/backend/migrations/0035_financial_history_import.sql:27: NOTICE:  la politique « fin_hist_ledger_tenant » de la relation « financial_history_import_ledger » n'existe pas, poursuite du traitement

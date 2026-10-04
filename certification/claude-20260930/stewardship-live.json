@@ -1,0 +1,67 @@
+[
+  {
+    "check": "standard INTENDANT role carries stock + counts capabilities",
+    "pass": true,
+    "detail": "['inventory.assets.create', 'inventory.assets.history.read', 'inventory.assets.read', 'inventory.assets.repair.record', 'inventory.assets.status.update', 'inventory.assets.update', 'inventory.counts.create', 'inventory.counts.export_xlsx', 'inventory.counts.print', 'inventory.counts.read', 'inventor"
+  },
+  {
+    "check": "receipt +100",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "issue beyond stock refused (no negative stock)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "adjustment without direction refused",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "10 concurrent issues: stock never negative, ledger == quantity",
+    "pass": true,
+    "detail": "201x6 409x4 qty=10.000 ledger=10.000"
+  },
+  {
+    "check": "replayed movement with same Idempotency-Key applied once",
+    "pass": false,
+    "detail": "201/201 qty 10.000 -> 24.000"
+  },
+  {
+    "check": "B cannot move A's stock",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "B stock list never shows A items",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "validation does not silently erase a movement made after counting",
+    "pass": false,
+    "detail": "validate=HTTP 200; counted=22.000 after_issue=19.000 final=22.000"
+  },
+  {
+    "check": "stock ledger (sum of movements) equals quantity after count",
+    "pass": false,
+    "detail": "qty=22.000 ledger=17.000"
+  },
+  {
+    "check": "count with no variance validates",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "validated inventory is immutable (no line rewrite)",
+    "pass": false,
+    "detail": "HTTP 200 counted now=0.000"
+  },
+  {
+    "check": "B cannot add lines to A's count",
+    "pass": true,
+    "detail": "HTTP 404"
+  }
+]

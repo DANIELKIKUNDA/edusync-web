@@ -1,0 +1,163 @@
+[
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/academic-years",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/families/fe777ab2-61b6-4054-92be-caad514b696d",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/academic-years",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/families/db911f82-b0a3-4d1f-8b97-9f1b50dcce80",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students/7ccba3ca-3a07-4c1c-9217-2aa784d4ce9e",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students/d5df6676-aed4-4d34-8dd0-a39356819a2e",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/families/db911f82-b0a3-4d1f-8b97-9f1b50dcce80",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "PATCH",
+    "path": "schooling/students/d5df6676-aed4-4d34-8dd0-a39356819a2e",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "DELETE",
+    "path": "schooling/families/db911f82-b0a3-4d1f-8b97-9f1b50dcce80/guardians/1a3e122d-48e5-4649-a51b-3eb0bb8719b7",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students/d5df6676-aed4-4d34-8dd0-a39356819a2e/profile.pdf",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students/d5df6676-aed4-4d34-8dd0-a39356819a2e",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students/7ccba3ca-3a07-4c1c-9217-2aa784d4ce9e",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/families/fe777ab2-61b6-4054-92be-caad514b696d",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "PATCH",
+    "path": "schooling/students/7ccba3ca-3a07-4c1c-9217-2aa784d4ce9e",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "DELETE",
+    "path": "schooling/families/fe777ab2-61b6-4054-92be-caad514b696d/guardians/7b387e7f-d838-48b2-a4a7-5d3a5a717bba",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students/7ccba3ca-3a07-4c1c-9217-2aa784d4ce9e/profile.pdf",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  }
+]

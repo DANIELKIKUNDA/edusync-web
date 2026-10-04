@@ -1,0 +1,30 @@
+[
+  {
+    "check": "claim obtained",
+    "pass": true
+  },
+  {
+    "check": "active lease prevents second claim",
+    "pass": true
+  },
+  {
+    "check": "expired lease recovered after restart",
+    "pass": true
+  },
+  {
+    "check": "stale worker cannot acknowledge new lease",
+    "pass": true
+  },
+  {
+    "check": "retry waits for backoff",
+    "pass": true
+  },
+  {
+    "check": "fifth failure is terminal",
+    "pass": true
+  },
+  {
+    "check": "terminal failure is not reclaimed",
+    "pass": true
+  }
+]

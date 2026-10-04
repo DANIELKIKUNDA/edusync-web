@@ -1,0 +1,5362 @@
+{
+  "registry_version": "0.8-point4c-schooling",
+  "status": "POINT4B_PERSONNEL_PORTED",
+  "role_assignments_finalized": true,
+  "owner_decides_roles_and_assignments": true,
+  "capability_count": 275,
+  "capabilities": [
+    {
+      "code": "access.grants.exception",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Créer une exception individuelle temporaire",
+      "action": "grant",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.permissions.assign",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Attribuer/retirer des permissions à un rôle",
+      "action": "assign",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.roles.manage",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Créer/modifier un rôle",
+      "action": "manage",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.roles.read",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Voir rôles et permissions",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.scopes.assign",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Attribuer un périmètre à une affectation",
+      "action": "assign",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.users.activate",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Activer/désactiver un utilisateur",
+      "action": "activate",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.users.create",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Créer un utilisateur",
+      "action": "create",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.users.credentials.reset",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Réinitialiser les identifiants d’un utilisateur",
+      "action": "reset",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.users.pin.self_change",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Changer son propre code secret",
+      "action": "update",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.users.read",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Voir les utilisateurs",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "access.users.update",
+      "domain": "Utilisateurs & accès",
+      "group": "Accès",
+      "label": "Modifier un utilisateur",
+      "action": "update",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "audit.entity.history.read",
+      "domain": "Audit",
+      "group": "Audit transversal",
+      "label": "Voir l’historique d’une entité",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "audit.school.export",
+      "domain": "Audit",
+      "group": "Audit transversal",
+      "label": "Exporter le journal d’audit",
+      "action": "export",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX",
+        "PDF"
+      ],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "audit.school.filter",
+      "domain": "Audit",
+      "group": "Audit transversal",
+      "label": "Filtrer/rechercher les événements",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "audit.school.read",
+      "domain": "Audit",
+      "group": "Audit transversal",
+      "label": "Consulter le journal d’audit école",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.compose",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Rédiger un communiqué/message",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.delivery.retry",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Relancer une livraison échouée",
+      "action": "retry",
+      "risk": "HIGH",
+      "offline_policy": "QUEUE_UNTIL_ONLINE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.history.read",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Voir historique et statut de livraison",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.read",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Voir les communications",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.send.all_parents",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Envoyer à tous les parents de l’école",
+      "action": "send",
+      "risk": "CRITICAL",
+      "offline_policy": "QUEUE_UNTIL_ONLINE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.send.class",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Envoyer à une classe",
+      "action": "send",
+      "risk": "HIGH",
+      "offline_policy": "QUEUE_UNTIL_ONLINE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.send.individual",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Envoyer à un parent/destinataire",
+      "action": "send",
+      "risk": "HIGH",
+      "offline_policy": "QUEUE_UNTIL_ONLINE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.send.section",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Envoyer à une section",
+      "action": "send",
+      "risk": "HIGH",
+      "offline_policy": "QUEUE_UNTIL_ONLINE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.sms.bulk_send",
+      "domain": "Notifications & communications",
+      "group": "SMS",
+      "label": "Envoyer des SMS en masse",
+      "action": "send",
+      "risk": "CRITICAL",
+      "offline_policy": "QUEUE_UNTIL_ONLINE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.sms.send",
+      "domain": "Notifications & communications",
+      "group": "SMS",
+      "label": "Envoyer par SMS",
+      "action": "send",
+      "risk": "HIGH",
+      "offline_policy": "QUEUE_UNTIL_ONLINE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "communications.templates.manage",
+      "domain": "Notifications & communications",
+      "group": "Communications",
+      "label": "Gérer les modèles de messages",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "contributions.read",
+      "domain": "Effectifs & dépôts",
+      "group": "Dépôts matériels",
+      "label": "Voir les dépôts matériels",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "contributions.record",
+      "domain": "Effectifs & dépôts",
+      "group": "Dépôts matériels",
+      "label": "Enregistrer un dépôt matériel élève",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "contributions.register.export_xlsx",
+      "domain": "Effectifs & dépôts",
+      "group": "Dépôts matériels",
+      "label": "Exporter le registre des contributions",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "contributions.register.read",
+      "domain": "Effectifs & dépôts",
+      "group": "Dépôts matériels",
+      "label": "Voir le registre des contributions",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "dashboard.school.drilldown",
+      "domain": "Tableau de bord",
+      "group": "École",
+      "label": "Ouvrir les cartes et vues détaillées",
+      "action": "drilldown",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "dashboard.school.export",
+      "domain": "Tableau de bord",
+      "group": "École",
+      "label": "Exporter une vue de tableau de bord",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX",
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "dashboard.school.print",
+      "domain": "Tableau de bord",
+      "group": "École",
+      "label": "Imprimer une vue de tableau de bord",
+      "action": "print",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "dashboard.school.read",
+      "domain": "Tableau de bord",
+      "group": "École",
+      "label": "Voir le tableau de bord école",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "documents.history.read",
+      "domain": "Documents",
+      "group": "Historique & sorties",
+      "label": "Voir historique des documents générés",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "documents.open",
+      "domain": "Documents",
+      "group": "Historique & sorties",
+      "label": "Ouvrir un document généré",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "documents.print",
+      "domain": "Documents",
+      "group": "Historique & sorties",
+      "label": "Imprimer un document",
+      "action": "print",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "documents.receipts.bundle.print",
+      "domain": "Documents",
+      "group": "Historique & sorties",
+      "label": "Imprimer un lot familial de reçus",
+      "action": "print",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "documents.regenerate",
+      "domain": "Documents",
+      "group": "Historique & sorties",
+      "label": "Régénérer un document depuis les données",
+      "action": "generate",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF",
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "documents.student_import_template.export",
+      "domain": "Documents",
+      "group": "Historique & sorties",
+      "label": "Exporter le modèle d’import élèves",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.arrears.read",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Voir les arriérés historiques d’un élève",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.collect_on_admission",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Encaisser les obligations d’admission pendant l’inscription",
+      "action": "collect",
+      "risk": "HIGH",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [
+        "ACTIVE_ACADEMIC_YEAR",
+        "AT_LEAST_ONE_ACTIVE_CLASS"
+      ],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.create",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Inscrire un ou plusieurs enfants",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [
+        "ACTIVE_ACADEMIC_YEAR",
+        "AT_LEAST_ONE_ACTIVE_CLASS"
+      ],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.export_pdf",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Exporter la vue PDF",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.export_xlsx",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Exporter la vue Excel",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.preview",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Prévisualiser une inscription familiale",
+      "action": "preview",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.print",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Imprimer la vue d’inscription",
+      "action": "print",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.read",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Consulter les inscriptions",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.reenroll",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Réinscrire un élève connu",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [
+        "ACTIVE_ACADEMIC_YEAR",
+        "AT_LEAST_ONE_ACTIVE_CLASS"
+      ],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "enrollments.validate",
+      "domain": "Élèves & inscriptions",
+      "group": "Inscriptions",
+      "label": "Valider les inscriptions",
+      "action": "validate",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [
+        "ACTIVE_ACADEMIC_YEAR",
+        "AT_LEAST_ONE_ACTIVE_CLASS"
+      ],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "families.children.read",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles & responsables",
+      "label": "Voir les enfants du ménage",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "families.create",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles & responsables",
+      "label": "Créer une famille/ménage",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "families.directory.export_xlsx",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles",
+      "label": "Exporter le répertoire des familles",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION"
+      ],
+      "source_status": "POINT4C_ENRICHED",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "FINAL_STANDARD_ROLE_MATRIX"
+    },
+    {
+      "code": "families.directory.print_pdf",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles",
+      "label": "Imprimer le répertoire des familles",
+      "action": "print",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION"
+      ],
+      "source_status": "POINT4C_ENRICHED",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "FINAL_STANDARD_ROLE_MATRIX"
+    },
+    {
+      "code": "families.read",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles & responsables",
+      "label": "Consulter les familles et ménages",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "families.resolution.audit",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles",
+      "label": "Tracer la résolution de foyer",
+      "action": "resolve",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION"
+      ],
+      "source_status": "POINT4C_ENRICHED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "Jamais de fusion silencieuse sur nom/téléphone",
+      "role_assignment": "FINAL_STANDARD_ROLE_MATRIX"
+    },
+    {
+      "code": "families.resolve",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles & responsables",
+      "label": "Résoudre les candidats ménage/famille",
+      "action": "resolve",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "families.responsibles.add",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles & responsables",
+      "label": "Ajouter un responsable",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "families.responsibles.read",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles & responsables",
+      "label": "Voir les responsables",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "families.responsibles.remove",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles & responsables",
+      "label": "Retirer un responsable",
+      "action": "delete",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "families.update",
+      "domain": "Élèves & inscriptions",
+      "group": "Familles & responsables",
+      "label": "Modifier une famille",
+      "action": "update",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.advance_funds.allocate",
+      "domain": "Centre financier",
+      "group": "Fonds anticipés",
+      "label": "Imputer un fonds anticipé",
+      "action": "allocate",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.advance_funds.read",
+      "domain": "Centre financier",
+      "group": "Fonds anticipés",
+      "label": "Voir les fonds anticipés",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.advance_funds.receipt.print",
+      "domain": "Centre financier",
+      "group": "Fonds anticipés",
+      "label": "Imprimer reçu de fonds anticipé",
+      "action": "print",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.advance_funds.receive",
+      "domain": "Centre financier",
+      "group": "Fonds anticipés",
+      "label": "Recevoir un fonds anticipé",
+      "action": "collect",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.advance_funds.refund",
+      "domain": "Centre financier",
+      "group": "Fonds anticipés",
+      "label": "Rembourser un fonds anticipé non imputé",
+      "action": "refund",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.analysis.advance.read",
+      "domain": "Centre financier",
+      "group": "Analyses",
+      "label": "Analyser les fonds anticipés",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.analysis.by_cashier.read",
+      "domain": "Centre financier",
+      "group": "Analyses",
+      "label": "Analyser par caissier",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.analysis.by_fee.read",
+      "domain": "Centre financier",
+      "group": "Analyses",
+      "label": "Analyser par type de frais",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.anticipation.collect",
+      "domain": "Centre financier",
+      "group": "Plans anticipés",
+      "label": "Encaisser selon un plan anticipé",
+      "action": "collect",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.anticipation_membership.set",
+      "domain": "Centre financier",
+      "group": "Plans anticipés",
+      "label": "Enregistrer adhésion/refus parent",
+      "action": "update",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.anticipation_plans.manage",
+      "domain": "Centre financier",
+      "group": "Plans anticipés",
+      "label": "Créer/modifier/activer un plan anticipé",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.anticipation_plans.read",
+      "domain": "Centre financier",
+      "group": "Plans anticipés",
+      "label": "Voir les plans anticipés",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.cash.close",
+      "domain": "Centre financier",
+      "group": "Caisse",
+      "label": "Clôturer sa caisse",
+      "action": "close",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.cash.expense.create",
+      "domain": "Centre financier",
+      "group": "Caisse",
+      "label": "Enregistrer une dépense de caisse",
+      "action": "create",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.cash.journal.export_pdf",
+      "domain": "Centre financier",
+      "group": "Caisse",
+      "label": "Exporter le journal de caisse PDF",
+      "action": "export",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.cash.journal.print",
+      "domain": "Centre financier",
+      "group": "Caisse",
+      "label": "Imprimer le journal de caisse",
+      "action": "print",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.cash.open",
+      "domain": "Centre financier",
+      "group": "Caisse",
+      "label": "Ouvrir sa caisse",
+      "action": "open",
+      "risk": "HIGH",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.cash.other.read",
+      "domain": "Centre financier",
+      "group": "Caisse",
+      "label": "Voir les autres caisses",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.cash.read",
+      "domain": "Centre financier",
+      "group": "Caisse",
+      "label": "Voir la caisse du jour",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.cash.reopen",
+      "domain": "Centre financier",
+      "group": "Caisse",
+      "label": "Réouvrir une caisse",
+      "action": "reopen",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.checkout.allocate.preview",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Prévisualiser les allocations",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.checkout.balance.read",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Voir charges, payé et reste",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.checkout.collect",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Encaisser un paiement",
+      "action": "collect",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [
+        "OPEN_CASH_SESSION"
+      ],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.checkout.family.collect",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Encaisser un panier familial",
+      "action": "collect",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [
+        "OPEN_CASH_SESSION"
+      ],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.checkout.offline_cash",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Encaisser CASH hors connexion sous autorisation",
+      "action": "collect",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [
+        "OPEN_CASH_SESSION"
+      ],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.checkout.recommend",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Calculer le paiement recommandé",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.checkout.search",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Rechercher élève/famille à encaisser",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.credits.read",
+      "domain": "Centre financier",
+      "group": "Décisions financières",
+      "label": "Voir crédits et trop-perçus",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.dashboard.read",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Voir le tableau de bord financier",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.decisions.cancel",
+      "domain": "Centre financier",
+      "group": "Décisions financières",
+      "label": "Annuler une décision financière",
+      "action": "cancel",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.decisions.create",
+      "domain": "Centre financier",
+      "group": "Décisions financières",
+      "label": "Créer réduction/exonération/faveur",
+      "action": "create",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.decisions.read",
+      "domain": "Centre financier",
+      "group": "Décisions financières",
+      "label": "Voir les décisions financières",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.old_debt.collect",
+      "domain": "Centre financier",
+      "group": "Anciennes dettes",
+      "label": "Encaisser une ancienne dette",
+      "action": "collect",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.old_debt.read",
+      "domain": "Centre financier",
+      "group": "Anciennes dettes",
+      "label": "Voir les anciennes dettes",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.payments.history.read",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Voir l’historique des paiements",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.payments.reverse",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Annuler/corriger un paiement par workflow officiel",
+      "action": "reverse",
+      "risk": "CRITICAL",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.products.manage",
+      "domain": "Centre financier",
+      "group": "Articles scolaires",
+      "label": "Configurer les articles scolaires",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.products.read",
+      "domain": "Centre financier",
+      "group": "Articles scolaires",
+      "label": "Voir les articles scolaires",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.products.sale",
+      "domain": "Centre financier",
+      "group": "Articles scolaires",
+      "label": "Vendre et encaisser un article",
+      "action": "collect",
+      "risk": "CRITICAL",
+      "offline_policy": "PREAUTHORIZED_CRITICAL",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.products.sales_report.read",
+      "domain": "Centre financier",
+      "group": "Articles scolaires",
+      "label": "Voir le rapport des ventes",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.receipts.print",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Imprimer un reçu",
+      "action": "print",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.receipts.read",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Voir les reçus",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.receipts.reprint",
+      "domain": "Centre financier",
+      "group": "Encaissements & reçus",
+      "label": "Réimprimer un reçu/duplicata",
+      "action": "reprint",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.recovery.historical.read",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Voir le recouvrement historique",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.recovery.monthly.read",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Voir le suivi mensuel de recouvrement",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.reports.daily.generate",
+      "domain": "Centre financier",
+      "group": "Rapports",
+      "label": "Générer rapport financier journalier",
+      "action": "generate",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.reports.history.read",
+      "domain": "Centre financier",
+      "group": "Rapports",
+      "label": "Voir l’historique des rapports",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.reports.periodic.export_pdf",
+      "domain": "Centre financier",
+      "group": "Rapports",
+      "label": "Exporter rapport périodique PDF",
+      "action": "export",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.reports.periodic.export_xlsx",
+      "domain": "Centre financier",
+      "group": "Rapports",
+      "label": "Exporter rapport périodique Excel",
+      "action": "export",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.reports.periodic.generate",
+      "domain": "Centre financier",
+      "group": "Rapports",
+      "label": "Générer rapport financier périodique",
+      "action": "generate",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.responsibility.read",
+      "domain": "Centre financier",
+      "group": "Décisions financières",
+      "label": "Voir les responsabilités financières prévues",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.responsibility.set",
+      "domain": "Centre financier",
+      "group": "Décisions financières",
+      "label": "Définir famille/paie/tiers responsable",
+      "action": "update",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.views.summaries.export_xlsx",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Exporter les synthèses VF-02/VF-03/VF-04",
+      "action": "export",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.views.vf01.export_pdf",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Exporter VF-01 PDF officiel",
+      "action": "export",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.views.vf01.export_xlsx",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Exporter VF-01 Excel",
+      "action": "export",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.views.vf01.print",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Imprimer VF-01",
+      "action": "print",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.views.vf01.read",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Voir registre financier détaillé VF-01",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.views.vf02.read",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Voir synthèse classe VF-02",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.views.vf03.read",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Voir synthèse section VF-03",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "finance.views.vf04.read",
+      "domain": "Centre financier",
+      "group": "Vues & recouvrement",
+      "label": "Voir synthèse école VF-04",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "headcounts.by_class.read",
+      "domain": "Effectifs & dépôts",
+      "group": "Effectifs",
+      "label": "Voir les effectifs par classe",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "headcounts.by_option.read",
+      "domain": "Effectifs & dépôts",
+      "group": "Effectifs",
+      "label": "Voir les effectifs par filière/option",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "headcounts.by_section.read",
+      "domain": "Effectifs & dépôts",
+      "group": "Effectifs",
+      "label": "Voir les effectifs par section",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "headcounts.export_pdf",
+      "domain": "Effectifs & dépôts",
+      "group": "Effectifs",
+      "label": "Exporter les effectifs PDF",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "headcounts.export_xlsx",
+      "domain": "Effectifs & dépôts",
+      "group": "Effectifs",
+      "label": "Exporter les effectifs Excel",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "headcounts.movements.read",
+      "domain": "Effectifs & dépôts",
+      "group": "Effectifs",
+      "label": "Voir les mouvements d’effectifs",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "headcounts.print",
+      "domain": "Effectifs & dépôts",
+      "group": "Effectifs",
+      "label": "Imprimer les effectifs",
+      "action": "print",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "headcounts.read",
+      "domain": "Effectifs & dépôts",
+      "group": "Effectifs",
+      "label": "Voir les effectifs",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.assets.create",
+      "domain": "Intendance",
+      "group": "Biens durables",
+      "label": "Enregistrer un bien durable",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.assets.history.read",
+      "domain": "Intendance",
+      "group": "Biens durables",
+      "label": "Voir historique du bien",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.assets.read",
+      "domain": "Intendance",
+      "group": "Biens durables",
+      "label": "Voir biens durables",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.assets.repair.record",
+      "domain": "Intendance",
+      "group": "Biens durables",
+      "label": "Enregistrer une réparation",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.assets.status.update",
+      "domain": "Intendance",
+      "group": "Biens durables",
+      "label": "Modifier état du bien",
+      "action": "update",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.assets.update",
+      "domain": "Intendance",
+      "group": "Biens durables",
+      "label": "Modifier fiche/localisation du bien",
+      "action": "update",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.counts.create",
+      "domain": "Intendance",
+      "group": "Inventaires",
+      "label": "Créer un inventaire",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.counts.export_xlsx",
+      "domain": "Intendance",
+      "group": "Inventaires",
+      "label": "Exporter inventaire Excel",
+      "action": "export",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.counts.print",
+      "domain": "Intendance",
+      "group": "Inventaires",
+      "label": "Imprimer inventaire",
+      "action": "print",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.counts.read",
+      "domain": "Intendance",
+      "group": "Inventaires",
+      "label": "Voir inventaires",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.counts.record",
+      "domain": "Intendance",
+      "group": "Inventaires",
+      "label": "Saisir comptage inventaire",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.counts.validate",
+      "domain": "Intendance",
+      "group": "Inventaires",
+      "label": "Valider un inventaire",
+      "action": "validate",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.adjust",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Corriger un stock par mouvement justifié",
+      "action": "adjust",
+      "risk": "CRITICAL",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.export_xlsx",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Exporter stocks/mouvements Excel",
+      "action": "export",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.issue",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Enregistrer une sortie de stock avec motif/destination",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.item.manage",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Créer/modifier un article de stock",
+      "action": "manage",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.low_alerts.read",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Voir alertes de stock faible",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.movements.read",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Voir mouvements de stock",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.read",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Voir stocks consommables",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.receive",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Enregistrer une entrée de stock",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "inventory.stock.sheet.print",
+      "domain": "Intendance",
+      "group": "Stocks",
+      "label": "Imprimer fiche de stock",
+      "action": "print",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "migration.errors.export",
+      "domain": "Migration & import",
+      "group": "Imports",
+      "label": "Exporter les erreurs/rejets d’import",
+      "action": "export",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "migration.historical.finalize",
+      "domain": "Migration & import",
+      "group": "Imports",
+      "label": "Comptabiliser les lignes historiques prêtes",
+      "action": "finalize",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "migration.historical.reconcile",
+      "domain": "Migration & import",
+      "group": "Imports",
+      "label": "Rapprocher une ligne historique",
+      "action": "reconcile",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "migration.historical.stage",
+      "domain": "Migration & import",
+      "group": "Imports",
+      "label": "Stager un import historique",
+      "action": "stage",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "migration.students.analyze",
+      "domain": "Migration & import",
+      "group": "Imports",
+      "label": "Analyser un fichier élèves",
+      "action": "analyze",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "migration.students.execute",
+      "domain": "Migration & import",
+      "group": "Imports",
+      "label": "Importer les élèves",
+      "action": "import",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "migration.students.simulate",
+      "domain": "Migration & import",
+      "group": "Imports",
+      "label": "Simuler un import",
+      "action": "simulate",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "migration.template.download",
+      "domain": "Migration & import",
+      "group": "Imports",
+      "label": "Télécharger modèle Excel d’import",
+      "action": "download",
+      "risk": "LOW",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "notifications.internal.configure",
+      "domain": "Notifications & communications",
+      "group": "Notifications internes",
+      "label": "Configurer les règles internes",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "notifications.internal.create",
+      "domain": "Notifications & communications",
+      "group": "Notifications internes",
+      "label": "Créer une notification interne",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "notifications.internal.dismiss",
+      "domain": "Notifications & communications",
+      "group": "Notifications internes",
+      "label": "Marquer/archiver une notification",
+      "action": "update",
+      "risk": "LOW",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "notifications.internal.read",
+      "domain": "Notifications & communications",
+      "group": "Notifications internes",
+      "label": "Voir ses notifications internes",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "notifications.internal.read_all",
+      "domain": "Notifications & communications",
+      "group": "Notifications internes",
+      "label": "Voir toutes les notifications autorisées",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.access_link.manage",
+      "domain": "Personnel",
+      "group": "Accès lié",
+      "label": "Lier/délier un compte utilisateur",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "ADMIN_SYSTEME_ECOLE"
+    },
+    {
+      "code": "personnel.access_link.read",
+      "domain": "Personnel",
+      "group": "Accès lié",
+      "label": "Voir le compte lié à un agent",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "ADMIN_SYSTEME_ECOLE"
+    },
+    {
+      "code": "personnel.activate",
+      "domain": "Personnel",
+      "group": "Personnel",
+      "label": "Activer/désactiver un agent",
+      "action": "activate",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.assignments.add",
+      "domain": "Personnel",
+      "group": "Fonctions & affectations",
+      "label": "Ajouter une affectation",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.assignments.end",
+      "domain": "Personnel",
+      "group": "Fonctions & affectations",
+      "label": "Terminer une affectation",
+      "action": "update",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.assignments.read",
+      "domain": "Personnel",
+      "group": "Fonctions & affectations",
+      "label": "Voir les affectations",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.create",
+      "domain": "Personnel",
+      "group": "Personnel",
+      "label": "Ajouter un agent",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.directory.export_xlsx",
+      "domain": "Personnel",
+      "group": "Annuaire & rapports",
+      "label": "Exporter le registre du personnel",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "Export filtré par périmètre effectif",
+      "role_assignment": "ROLE_BASELINE_POINT4B"
+    },
+    {
+      "code": "personnel.directory.print_pdf",
+      "domain": "Personnel",
+      "group": "Annuaire & rapports",
+      "label": "Imprimer le registre du personnel",
+      "action": "print",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "Export filtré par périmètre effectif",
+      "role_assignment": "ROLE_BASELINE_POINT4B"
+    },
+    {
+      "code": "personnel.exit",
+      "domain": "Personnel",
+      "group": "Cycle de vie",
+      "label": "Enregistrer la sortie d'un agent",
+      "action": "exit",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "Clôture affectations + désactivation appartenance liée dans une transaction",
+      "role_assignment": "CUSTOM_ONLY_BY_DEFAULT"
+    },
+    {
+      "code": "personnel.functions.manage",
+      "domain": "Personnel",
+      "group": "Fonctions & affectations",
+      "label": "Créer/modifier/activer une fonction",
+      "action": "manage",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.functions.read",
+      "domain": "Personnel",
+      "group": "Fonctions & affectations",
+      "label": "Voir les fonctions/postes",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.history.read",
+      "domain": "Personnel",
+      "group": "Cycle de vie",
+      "label": "Consulter l'historique d'un agent",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "ROLE_BASELINE_POINT4B"
+    },
+    {
+      "code": "personnel.payroll_deduction.cancel",
+      "domain": "Personnel",
+      "group": "Enfants du personnel & paie",
+      "label": "Annuler une retenue non-cash",
+      "action": "cancel",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.payroll_deduction.confirm",
+      "domain": "Personnel",
+      "group": "Enfants du personnel & paie",
+      "label": "Confirmer une retenue à la source",
+      "action": "confirm",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.profile.print_pdf",
+      "domain": "Personnel",
+      "group": "Annuaire & rapports",
+      "label": "Imprimer une fiche agent",
+      "action": "print",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "Fiche agent avec affectations visibles",
+      "role_assignment": "ROLE_BASELINE_POINT4B"
+    },
+    {
+      "code": "personnel.reactivate",
+      "domain": "Personnel",
+      "group": "Cycle de vie",
+      "label": "Réactiver un ancien agent",
+      "action": "reactivate",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "Ne rouvre jamais les anciennes affectations",
+      "role_assignment": "CUSTOM_ONLY_BY_DEFAULT"
+    },
+    {
+      "code": "personnel.read",
+      "domain": "Personnel",
+      "group": "Personnel",
+      "label": "Consulter le personnel",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.staff_children.finance_mode",
+      "domain": "Personnel",
+      "group": "Enfants du personnel & paie",
+      "label": "Définir le mode financier enfant du personnel",
+      "action": "update",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.staff_children.link",
+      "domain": "Personnel",
+      "group": "Enfants du personnel & paie",
+      "label": "Lier explicitement un enfant à un agent",
+      "action": "link",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "POINT4B_ENRICHED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "Jamais déduit du responsable",
+      "role_assignment": "CUSTOM_ONLY_BY_DEFAULT"
+    },
+    {
+      "code": "personnel.staff_children.read",
+      "domain": "Personnel",
+      "group": "Enfants du personnel & paie",
+      "label": "Voir les enfants du personnel",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.summary.read",
+      "domain": "Personnel",
+      "group": "Personnel",
+      "label": "Voir la synthèse du personnel",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "personnel.update",
+      "domain": "Personnel",
+      "group": "Personnel",
+      "label": "Modifier un agent",
+      "action": "update",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "platform.audit.export",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Exporter l’audit de plateforme",
+      "action": "export",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.audit.read",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Consulter l’audit de plateforme",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.health.read",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Voir l’état technique des écoles",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.notifications.system.send",
+      "domain": "Atelier Pro",
+      "group": "Notifications système",
+      "label": "Envoyer une notification système aux écoles/utilisateurs ciblés",
+      "action": "send",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "OWNER_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "Capacité ajoutée et validée par Daniel pour le Manager système. La sélection des destinataires et le contenu sont audités.",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.school_admin.bootstrap",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Créer/réinitialiser l’administrateur initial d’une école",
+      "action": "bootstrap",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.schools.activate",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Activer une école",
+      "action": "activate",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.schools.create",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Créer une école",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.schools.read",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Voir les écoles de la plateforme",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": false,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.schools.suspend",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Suspendre une école",
+      "action": "suspend",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.schools.update",
+      "domain": "Atelier Pro",
+      "group": "Écoles",
+      "label": "Modifier l’identité technique d’une école",
+      "action": "update",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "settings.academic_year.activate",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Activer une année",
+      "action": "activate",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.academic_year.archive",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Archiver une année",
+      "action": "archive",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.academic_year.close",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Clôturer une année",
+      "action": "close",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.academic_year.copy_previous",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Reprendre la configuration précédente",
+      "action": "copy",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.academic_year.create",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Créer/préparer une année",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.academic_year.read",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Voir les années scolaires",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.academic_year.reopen",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Réouvrir pour correction",
+      "action": "reopen",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.academic_year.update",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Modifier une année préparée",
+      "action": "update",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.backups.create",
+      "domain": "Paramètres",
+      "group": "Documents & sauvegardes",
+      "label": "Créer une sauvegarde maintenant",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.backups.manage",
+      "domain": "Paramètres",
+      "group": "Documents & sauvegardes",
+      "label": "Modifier politique sauvegarde",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.backups.read",
+      "domain": "Paramètres",
+      "group": "Documents & sauvegardes",
+      "label": "Voir paramètres sauvegarde",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.backups.restore",
+      "domain": "Paramètres",
+      "group": "Documents & sauvegardes",
+      "label": "Restaurer une sauvegarde",
+      "action": "restore",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.backups.test",
+      "domain": "Paramètres",
+      "group": "Documents & sauvegardes",
+      "label": "Tester une sauvegarde",
+      "action": "test",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.benefits.manage",
+      "domain": "Paramètres",
+      "group": "Avantages",
+      "label": "Configurer famille nombreuse / enfant du personnel",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.benefits.read",
+      "domain": "Paramètres",
+      "group": "Avantages",
+      "label": "Voir politiques sociales",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.billing_months.manage",
+      "domain": "Paramètres",
+      "group": "Tarifs & barèmes",
+      "label": "Configurer les mois de facturation",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.classes.activate",
+      "domain": "Paramètres",
+      "group": "Structure & classes",
+      "label": "Activer/désactiver une classe",
+      "action": "activate",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.classes.batch_create",
+      "domain": "Paramètres",
+      "group": "Structure & classes",
+      "label": "Créer plusieurs classes",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.classes.create",
+      "domain": "Paramètres",
+      "group": "Structure & classes",
+      "label": "Ouvrir une classe",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.classes.rename",
+      "domain": "Paramètres",
+      "group": "Structure & classes",
+      "label": "Renommer une classe",
+      "action": "update",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.contributions.activate",
+      "domain": "Paramètres",
+      "group": "Contributions en nature",
+      "label": "Activer/désactiver une contribution",
+      "action": "activate",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.contributions.manage",
+      "domain": "Paramètres",
+      "group": "Contributions en nature",
+      "label": "Créer/modifier une contribution",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.contributions.read",
+      "domain": "Paramètres",
+      "group": "Contributions en nature",
+      "label": "Voir contributions configurées",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.diagnostics.export",
+      "domain": "Paramètres",
+      "group": "Options avancées",
+      "label": "Exporter diagnostic",
+      "action": "export",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "ZIP"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.diagnostics.read",
+      "domain": "Paramètres",
+      "group": "Options avancées",
+      "label": "Voir diagnostic système",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.document_root.manage",
+      "domain": "Paramètres",
+      "group": "Options avancées",
+      "label": "Choisir dossier documentaire",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.documents.history.read",
+      "domain": "Paramètres",
+      "group": "Documents & sauvegardes",
+      "label": "Voir historique des documents",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.documents.manage",
+      "domain": "Paramètres",
+      "group": "Documents & sauvegardes",
+      "label": "Modifier préfixes/reçus/logo/signature",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.documents.read",
+      "domain": "Paramètres",
+      "group": "Documents & sauvegardes",
+      "label": "Voir paramètres documents",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.enrollment_policy.activate",
+      "domain": "Paramètres",
+      "group": "Inscription & admission",
+      "label": "Activer/désactiver une condition",
+      "action": "activate",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.enrollment_policy.manage",
+      "domain": "Paramètres",
+      "group": "Inscription & admission",
+      "label": "Créer/modifier les conditions",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.enrollment_policy.read",
+      "domain": "Paramètres",
+      "group": "Inscription & admission",
+      "label": "Voir conditions d’inscription",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.enrollment_policy.review",
+      "domain": "Paramètres",
+      "group": "Inscription & admission",
+      "label": "Valider la revue des conditions",
+      "action": "validate",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.fee_types.activate",
+      "domain": "Paramètres",
+      "group": "Types de frais",
+      "label": "Activer/désactiver un type de frais",
+      "action": "activate",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.fee_types.manage",
+      "domain": "Paramètres",
+      "group": "Types de frais",
+      "label": "Créer/modifier un type de frais",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.fee_types.read",
+      "domain": "Paramètres",
+      "group": "Types de frais",
+      "label": "Voir types de frais",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.option_tariff_group.manage",
+      "domain": "Paramètres",
+      "group": "Structure & classes",
+      "label": "Gérer groupes tarifaires options",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.options.manage",
+      "domain": "Paramètres",
+      "group": "Structure & classes",
+      "label": "Activer/désactiver les options",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.payment_policy.manage",
+      "domain": "Paramètres",
+      "group": "Règles d’encaissement",
+      "label": "Modifier modes/acomptes/fonds/paiements futurs",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.payment_policy.read",
+      "domain": "Paramètres",
+      "group": "Règles d’encaissement",
+      "label": "Voir règles d’encaissement",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.products.activate",
+      "domain": "Paramètres",
+      "group": "Articles scolaires vendus",
+      "label": "Activer/désactiver un article",
+      "action": "activate",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.products.manage",
+      "domain": "Paramètres",
+      "group": "Articles scolaires vendus",
+      "label": "Créer/modifier un article vendu",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.products.read",
+      "domain": "Paramètres",
+      "group": "Articles scolaires vendus",
+      "label": "Voir catalogue des articles vendus",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.regulatory_fees.configure",
+      "domain": "Paramètres",
+      "group": "Types de frais",
+      "label": "Configurer frais réglementaires",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.school_identity.read",
+      "domain": "Paramètres",
+      "group": "École & identité",
+      "label": "Voir identité école",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.school_identity.update",
+      "domain": "Paramètres",
+      "group": "École & identité",
+      "label": "Modifier identité école",
+      "action": "update",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.school_logo.update",
+      "domain": "Paramètres",
+      "group": "École & identité",
+      "label": "Modifier logo école",
+      "action": "update",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.sections.manage",
+      "domain": "Paramètres",
+      "group": "Structure & classes",
+      "label": "Activer/désactiver les sections",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.structure.read",
+      "domain": "Paramètres",
+      "group": "Structure & classes",
+      "label": "Voir structure et classes",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.tariff_groups.manage",
+      "domain": "Paramètres",
+      "group": "Tarifs & barèmes",
+      "label": "Gérer barèmes de groupe",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.tariffs.apply",
+      "domain": "Paramètres",
+      "group": "Tarifs & barèmes",
+      "label": "Appliquer les barèmes aux classes",
+      "action": "apply",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.tariffs.copy_year",
+      "domain": "Paramètres",
+      "group": "Tarifs & barèmes",
+      "label": "Copier les barèmes vers une autre année",
+      "action": "copy",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.tariffs.manage",
+      "domain": "Paramètres",
+      "group": "Tarifs & barèmes",
+      "label": "Créer/modifier un tarif",
+      "action": "manage",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.tariffs.read",
+      "domain": "Paramètres",
+      "group": "Tarifs & barèmes",
+      "label": "Voir tarifs et barèmes",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "settings.work_year.select",
+      "domain": "Paramètres",
+      "group": "Année scolaire",
+      "label": "Changer année de consultation",
+      "action": "select",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.account.export_pdf",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Exporter le relevé élève PDF",
+      "action": "export",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.account.print",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Imprimer le relevé élève",
+      "action": "print",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.account.read",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Voir le compte/relevé élève",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.class.change",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Changer la classe",
+      "action": "update",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.create",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Créer un nouvel élève",
+      "action": "create",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.directory.export_xlsx",
+      "domain": "Élèves & inscriptions",
+      "group": "Annuaire",
+      "label": "Exporter l’annuaire des élèves",
+      "action": "export",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION",
+        "CLASS"
+      ],
+      "source_status": "POINT4C_ENRICHED",
+      "prerequisites": [],
+      "outputs": [
+        "XLSX"
+      ],
+      "sensitive": false,
+      "notes": "Respecte strictement le périmètre effectif",
+      "role_assignment": "FINAL_STANDARD_ROLE_MATRIX"
+    },
+    {
+      "code": "students.directory.print_pdf",
+      "domain": "Élèves & inscriptions",
+      "group": "Annuaire",
+      "label": "Imprimer l’annuaire des élèves",
+      "action": "print",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION",
+        "CLASS"
+      ],
+      "source_status": "POINT4C_ENRICHED",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "Respecte strictement le périmètre effectif",
+      "role_assignment": "FINAL_STANDARD_ROLE_MATRIX"
+    },
+    {
+      "code": "students.identity.update",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Modifier l’identité de l’élève",
+      "action": "update",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.lifecycle.abandon",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Déclarer un abandon avec date et motif",
+      "action": "status",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.lifecycle.history.read",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Voir l’historique du cycle de vie",
+      "action": "read",
+      "risk": "MEDIUM",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.lifecycle.reintegrate",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Réintégrer un élève",
+      "action": "status",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.lifecycle.transfer",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Déclarer un transfert",
+      "action": "status",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "students.profile.complete",
+      "domain": "Élèves & inscriptions",
+      "group": "Fiche élève",
+      "label": "Compléter les informations non bloquantes",
+      "action": "update",
+      "risk": "MEDIUM",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION",
+        "CLASS"
+      ],
+      "source_status": "POINT4C_ENRICHED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "Naissance, sexe, nationalité, adresse complétables après inscription",
+      "role_assignment": "FINAL_STANDARD_ROLE_MATRIX"
+    },
+    {
+      "code": "students.profile.print_pdf",
+      "domain": "Élèves & inscriptions",
+      "group": "Fiche élève",
+      "label": "Imprimer la fiche élève",
+      "action": "print",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL",
+        "SECTION",
+        "CLASS"
+      ],
+      "source_status": "POINT4C_ENRICHED",
+      "prerequisites": [],
+      "outputs": [
+        "PDF"
+      ],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "FINAL_STANDARD_ROLE_MATRIX"
+    },
+    {
+      "code": "students.read",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Consulter/rechercher les élèves",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.conflicts.read",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Voir les conflits de synchronisation",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.conflicts.resolve",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Résoudre un conflit autorisé",
+      "action": "resolve",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.device.register",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Enregistrer un appareil",
+      "action": "create",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.device.revoke",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Révoquer un appareil",
+      "action": "revoke",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.finance.arm",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Armer un poste pour encaissement CASH offline",
+      "action": "arm",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.finance.quarantine.read",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Voir opérations/charges en quarantaine",
+      "action": "read",
+      "risk": "HIGH",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.finance.quarantine.resolve",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Résoudre une quarantaine financière",
+      "action": "resolve",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.finance.reconcile",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Réconcilier la Finance offline",
+      "action": "reconcile",
+      "risk": "CRITICAL",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    },
+    {
+      "code": "sync.status.read",
+      "domain": "Synchronisation & offline",
+      "group": "Synchronisation",
+      "label": "Voir état de synchronisation",
+      "action": "read",
+      "risk": "LOW",
+      "offline_policy": "READ_CACHE",
+      "audit_required": false,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "",
+      "role_assignment": "UNDECIDED_BY_OWNER"
+    }
+  ],
+  "global_invariants": [
+    "A permission authorizes entry into a use case; it never bypasses domain invariants.",
+    "Tenant/school isolation is enforced independently of permissions.",
+    "Sensitive writes are audited append-only.",
+    "Idempotency and concurrency controls remain mandatory for critical writes.",
+    "Export/print capabilities are explicit per view/report where the product exposes them.",
+    "Offline permission does not imply unconditional offline execution; the offline policy metadata still applies."
+  ]
+}

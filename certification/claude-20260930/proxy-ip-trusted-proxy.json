@@ -1,0 +1,12 @@
+[
+  {
+    "check": "[trusted-proxy] attacker's failures do not lock out a different user behind the proxy",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "[trusted-proxy] the attacker's own IP is throttled",
+    "pass": true,
+    "detail": "HTTP 429"
+  }
+]

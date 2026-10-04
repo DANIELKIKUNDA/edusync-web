@@ -1,0 +1,152 @@
+[
+  {
+    "check": "valid token accepted",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "wrong-secret signature rejected",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "alg=none token rejected",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "expired token rejected",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "wrong audience rejected",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "refresh-type token rejected as access",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "validly-signed token pointing at school B refused",
+    "pass": true,
+    "detail": "HTTP 401"
+  },
+  {
+    "check": "validly-signed token with B membership but A user refused",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "platform-scope token refused on school API",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "no token -> 401",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "refresh with device cookie",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "sessions listed for user",
+    "pass": true,
+    "detail": "2"
+  },
+  {
+    "check": "logout 204",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "refresh after logout refused",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "access token after logout of its device rejected",
+    "pass": true,
+    "detail": "HTTP 401"
+  },
+  {
+    "check": "revoke with malformed id is a client error, not 500",
+    "pass": true,
+    "detail": "HTTP 422"
+  },
+  {
+    "check": "user of B cannot revoke A's live session",
+    "pass": true,
+    "detail": "HTTP 204"
+  },
+  {
+    "check": "A's token still valid after B's attempt",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "password change",
+    "pass": true,
+    "detail": "{\"status\":\"changed\",\"sessions_invalidated\":true}"
+  },
+  {
+    "check": "old access token rejected after password change",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "old refresh cookie rejected after password change",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "login with new password",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "cashier can open cash",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "revoked role effective immediately on live token",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "deactivated membership: live token rejected",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "deactivated membership: refresh rejected",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "no user enumeration by login timing (known/unknown median ratio < 1.5)",
+    "pass": true,
+    "detail": "known=0.997s unknown=1.037s ratio=1.0 codes={401}"
+  },
+  {
+    "check": "account throttled after repeated failures (429)",
+    "pass": true,
+    "detail": "[401, 401, 401, 401, 401, 401, 401, 429, 429]"
+  },
+  {
+    "check": "correct password still refused while locked",
+    "pass": true,
+    "detail": "HTTP 429"
+  },
+  {
+    "check": "IP throttle not reset by attacker's own successful login",
+    "pass": true,
+    "detail": "[401, 429, 429]"
+  }
+]

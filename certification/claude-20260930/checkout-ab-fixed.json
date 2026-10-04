@@ -1,0 +1,17 @@
+[
+  {
+    "check": "[fixed] D2 CDF payment when enrollment also owes USD",
+    "pass": true,
+    "detail": "('OK', {'id': '0a0e5c05-c7bd-40ce-877b-ec12945a0bc0', 'receipt_number': 'REC-0A0E5C05', 'amount': '100', 'currency': 'CDF', 'replayed': False, 'allocations': [{'label': 'AB CDF', 'amount': '100'}], 'advance': None})"
+  },
+  {
+    "check": "[fixed] D4 key reuse with different amount rejected",
+    "pass": true,
+    "detail": "first=OK second=('ValueError', 'Idempotency-Key déjà utilisée pour un autre encaissement')"
+  },
+  {
+    "check": "[fixed] D3 concurrent same key: no IntegrityError, one payment",
+    "pass": true,
+    "detail": "['OK', 'OK', 'OK'] payments=1"
+  }
+]

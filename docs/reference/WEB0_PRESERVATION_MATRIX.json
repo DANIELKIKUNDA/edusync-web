@@ -1,0 +1,121 @@
+{
+  "auditDate": "2026-09-11",
+  "sourceArchive": "b427a52c-cb13-4a39-87c5-90efadf15f24.zip",
+  "sourceSha256": "50e618c388346c7ebb671c12e6080fafb77d262c8daa2ba9cde05bfd97f18b71",
+  "principle": "preservation-first",
+  "modules": [
+    {
+      "module": "Paramètres",
+      "current": "certifié/industrialisé dans les artefacts",
+      "preservation": "VERY_HIGH",
+      "webAction": "port 1:1 + school_id + permissions",
+      "golden": "settings scopes, year lifecycle, tariffs, policies"
+    },
+    {
+      "module": "Élèves/inscriptions/familles",
+      "current": "recette Windows documentée",
+      "preservation": "VERY_HIGH",
+      "webAction": "port use cases + assisted household resolution",
+      "golden": "14 Windows flows + exports"
+    },
+    {
+      "module": "Effectifs & dépôts",
+      "current": "implémentation/certification documentée",
+      "preservation": "HIGH",
+      "webAction": "port read models + filters + exports",
+      "golden": "F/G/T, movements, deposit register"
+    },
+    {
+      "module": "Personnel",
+      "current": "commercial PASS",
+      "preservation": "HIGH",
+      "webAction": "port identities/assignments/history",
+      "golden": "staff lifecycle and linked access"
+    },
+    {
+      "module": "Utilisateurs & accès",
+      "current": "4 hard-coded roles",
+      "preservation": "MEDIUM",
+      "webAction": "replace with tenant RBAC/permissions",
+      "golden": "link to staff, activation, audit"
+    },
+    {
+      "module": "Finance core",
+      "current": "29/29 finance recipe PASS in archive",
+      "preservation": "MAXIMUM",
+      "webAction": "extract exact use cases; no semantic redesign",
+      "golden": "charges, allocations, cash, receipts, lifecycle, currencies"
+    },
+    {
+      "module": "Outils spécialisés",
+      "current": "certification PASS in archive",
+      "preservation": "MAXIMUM",
+      "webAction": "port article/anticipation/arrears separately",
+      "golden": "specialized collection scenarios"
+    },
+    {
+      "module": "Caisse",
+      "current": "certified behavior in finance artifacts",
+      "preservation": "MAXIMUM",
+      "webAction": "transactional PostgreSQL port",
+      "golden": "cash-day journal/closure/reopen"
+    },
+    {
+      "module": "Documents/exports",
+      "current": "16 canonical generators",
+      "preservation": "MAXIMUM",
+      "webAction": "reuse Python generators behind port",
+      "golden": "all PDF/XLSX outputs"
+    },
+    {
+      "module": "Imports",
+      "current": "staged historical import exists",
+      "preservation": "DATA_MAXIMUM_UX_EVOLVABLE",
+      "webAction": "enrich staging/mapping/preview/idempotence",
+      "golden": "source-value preservation and batch audit"
+    },
+    {
+      "module": "Backup/restore",
+      "current": "SQLite continuity certified",
+      "preservation": "DOCTRINE_HIGH_IMPLEMENTATION_REPLACE",
+      "webAction": "PostgreSQL/object storage backups + restore drills",
+      "golden": "integrity, hashes, rollback doctrine"
+    },
+    {
+      "module": "Audit",
+      "current": "audit_log exists and is used",
+      "preservation": "DOCTRINE_MAXIMUM_EXTEND",
+      "webAction": "tenant-aware append-only audit events",
+      "golden": "existing action trace plus new SaaS metadata"
+    },
+    {
+      "module": "Notifications",
+      "current": "UI toasts only, no durable notification domain",
+      "preservation": "NEW",
+      "webAction": "domain events + outbox + durable in-app notifications",
+      "golden": null
+    },
+    {
+      "module": "Intendance",
+      "current": "not a full bounded context",
+      "preservation": "NEW",
+      "webAction": "new independent domain, linked to finance by explicit workflows",
+      "golden": null
+    },
+    {
+      "module": "Atelier Pro",
+      "current": "absent",
+      "preservation": "NEW",
+      "webAction": "platform tenant provisioning/control",
+      "golden": null
+    }
+  ],
+  "gates": [
+    "G0 Preservation",
+    "G1 Tenant/IAM",
+    "G2 Audit/Events",
+    "G3 PWA/Offline Foundation",
+    "G4 Migration Harness",
+    "G5 First Domain Port"
+  ]
+}

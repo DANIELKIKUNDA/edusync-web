@@ -1,0 +1,303 @@
+[
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "auth/me",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "auth/me",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/overview",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/academic-years",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/sections",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/classes",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/fee-types",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/summary",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/families",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "personnel/summary",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "personnel",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "auth/sessions",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "import/batches/students",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "import/batches/finance-history",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/academic-years",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "PUT",
+    "path": "settings/academic-years/162f9979-4b23-4869-bbc3-383f35a95e7e",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/refresh",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/logout",
+    "status": 204,
+    "expected": 204,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/refresh",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/overview",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/academic-years",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/sections",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/classes",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/fee-types",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/summary",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/students",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "schooling/families",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "personnel/summary",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "personnel",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "auth/sessions",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "import/batches/students",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "import/batches/finance-history",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "settings/academic-years",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "PUT",
+    "path": "settings/academic-years/d16968ee-7266-465e-9432-c3faa7a8132c",
+    "status": 404,
+    "expected": 404,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/refresh",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/logout",
+    "status": 204,
+    "expected": 204,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/refresh",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  }
+]

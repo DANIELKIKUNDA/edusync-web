@@ -1,0 +1,258 @@
+{
+  "results": [
+    {
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "loginPresent": true,
+      "inputs": [
+        {
+          "type": "text",
+          "width": 226,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "email",
+          "width": 226,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "password",
+          "width": 226,
+          "height": 42,
+          "font": "16px"
+        }
+      ],
+      "buttons": [
+        {
+          "text": "Établissement",
+          "height": 44
+        },
+        {
+          "text": "Atelier Pro",
+          "height": 44
+        },
+        {
+          "text": "Se connecter",
+          "height": 44
+        }
+      ],
+      "sensitiveStorageKeys": [],
+      "pass": true
+    },
+    {
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "loginPresent": true,
+      "inputs": [
+        {
+          "type": "text",
+          "width": 266,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "email",
+          "width": 266,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "password",
+          "width": 266,
+          "height": 42,
+          "font": "16px"
+        }
+      ],
+      "buttons": [
+        {
+          "text": "Établissement",
+          "height": 44
+        },
+        {
+          "text": "Atelier Pro",
+          "height": 44
+        },
+        {
+          "text": "Se connecter",
+          "height": 44
+        }
+      ],
+      "sensitiveStorageKeys": [],
+      "pass": true
+    },
+    {
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "loginPresent": true,
+      "inputs": [
+        {
+          "type": "text",
+          "width": 296,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "email",
+          "width": 296,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "password",
+          "width": 296,
+          "height": 42,
+          "font": "16px"
+        }
+      ],
+      "buttons": [
+        {
+          "text": "Établissement",
+          "height": 44
+        },
+        {
+          "text": "Atelier Pro",
+          "height": 44
+        },
+        {
+          "text": "Se connecter",
+          "height": 44
+        }
+      ],
+      "sensitiveStorageKeys": [],
+      "pass": true
+    },
+    {
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "loginPresent": true,
+      "inputs": [
+        {
+          "type": "text",
+          "width": 336,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "email",
+          "width": 336,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "password",
+          "width": 336,
+          "height": 42,
+          "font": "16px"
+        }
+      ],
+      "buttons": [
+        {
+          "text": "Établissement",
+          "height": 44
+        },
+        {
+          "text": "Atelier Pro",
+          "height": 44
+        },
+        {
+          "text": "Se connecter",
+          "height": 44
+        }
+      ],
+      "sensitiveStorageKeys": [],
+      "pass": true
+    },
+    {
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 768,
+      "loginPresent": true,
+      "inputs": [
+        {
+          "type": "text",
+          "width": 352,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "email",
+          "width": 352,
+          "height": 42,
+          "font": "16px"
+        },
+        {
+          "type": "password",
+          "width": 352,
+          "height": 42,
+          "font": "16px"
+        }
+      ],
+      "buttons": [
+        {
+          "text": "Établissement",
+          "height": 44
+        },
+        {
+          "text": "Atelier Pro",
+          "height": 44
+        },
+        {
+          "text": "Se connecter",
+          "height": 44
+        }
+      ],
+      "sensitiveStorageKeys": [],
+      "pass": true
+    },
+    {
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "loginPresent": true,
+      "inputs": [
+        {
+          "type": "text",
+          "width": 352,
+          "height": 42,
+          "font": "13px"
+        },
+        {
+          "type": "email",
+          "width": 352,
+          "height": 42,
+          "font": "13px"
+        },
+        {
+          "type": "password",
+          "width": 352,
+          "height": 42,
+          "font": "13px"
+        }
+      ],
+      "buttons": [
+        {
+          "text": "Établissement",
+          "height": 37
+        },
+        {
+          "text": "Atelier Pro",
+          "height": 37
+        },
+        {
+          "text": "Se connecter",
+          "height": 43
+        }
+      ],
+      "sensitiveStorageKeys": [],
+      "pass": true
+    }
+  ],
+  "exceptions": [],
+  "scope": "Login page only; no authenticated modules certified"
+}

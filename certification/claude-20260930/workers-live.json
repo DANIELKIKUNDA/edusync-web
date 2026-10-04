@@ -1,0 +1,72 @@
+[
+  {
+    "check": "business mutations produced outbox events (transactional outbox)",
+    "pass": true,
+    "detail": "pending=30"
+  },
+  {
+    "check": "Redis down: event stays due in PostgreSQL with backoff",
+    "pass": true,
+    "detail": "{'published_at': None, 'attempts': 1, 'later': True, 'last_error_code': 'REDIS_UNAVAILABLE', 'locked_until': None}"
+  },
+  {
+    "check": "leased event not handed to a second worker",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "expired lease is reclaimed by another worker",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "late ack from the crashed worker does not corrupt the row",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "duplicate envelope carries the same immutable event_id (consumer dedupe key)",
+    "pass": true,
+    "detail": "2"
+  },
+  {
+    "check": "4 concurrent workers drained the outbox",
+    "pass": true,
+    "detail": "left=0"
+  },
+  {
+    "check": "no event published twice by concurrent workers",
+    "pass": true,
+    "detail": "max per event=1 total=88"
+  },
+  {
+    "check": "event dead-lettered after max attempts, never retried forever",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Redis transport queue is bounded (unconsumed envelopes cannot exhaust Redis)",
+    "pass": true,
+    "detail": "cap=100000 llen=10"
+  },
+  {
+    "check": "SMS delivery SENT only with a provider message id",
+    "pass": true,
+    "detail": "{'status': 'SENT', 'attempts': 1, 'provider_message_id': 'mock-000001'}"
+  },
+  {
+    "check": "provider outage: delivery re-queued with backoff, not SENT",
+    "pass": true,
+    "detail": "{'status': 'QUEUED', 'attempts': 1, 'last_error_code': 'PROVIDER_TIMEOUT', 'later': True}"
+  },
+  {
+    "check": "terminal FAILED after max attempts, no infinite retry",
+    "pass": true,
+    "detail": "{'status': 'FAILED', 'attempts': 5}"
+  },
+  {
+    "check": "slow provider: row leased but no DB transaction/lock held during provider I/O",
+    "pass": false,
+    "detail": "leased=None row_locks=1"
+  }
+]

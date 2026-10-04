@@ -1,0 +1,194 @@
+[
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "platform/collaborators/a0fd9cc2-ff9f-4211-bd28-7983cd2daeed/grant",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "platform/schools",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "platform/dashboard",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "platform/access",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "platform/audit",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "platform/diagnostics",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "platform/system-notifications",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "platform/collaborators/a0fd9cc2-ff9f-4211-bd28-7983cd2daeed/grant",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "platform/schools/dec9b608-06a2-4ada-ab04-3914040352df/suspend",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "platform/schools/dec9b608-06a2-4ada-ab04-3914040352df/bootstrap-admin",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "platform/collaborators/a0fd9cc2-ff9f-4211-bd28-7983cd2daeed/revoke",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/refresh",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "platform/schools",
+    "status": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "platform/audit?limit=100",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "auth/me",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "auth/sessions",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/sessions/db3f417a-c94e-4387-ae76-ba19d51e6e4e/revoke",
+    "status": 204,
+    "expected": 204,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/sessions/1792a14e-9ac0-4f43-b276-e3cd6378a0ac/revoke",
+    "status": 204,
+    "expected": 204,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/refresh",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/password",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/refresh",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "method": "GET",
+    "path": "auth/me",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "method": "POST",
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  }
+]

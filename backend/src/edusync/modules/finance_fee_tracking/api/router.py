@@ -1,0 +1,36 @@
+from uuid import UUID
+from fastapi import APIRouter,Depends,HTTPException
+from edusync.bootstrap.dependencies import get_services,require_school_actor
+from edusync.bootstrap.services import AppServices
+from edusync.shared.application.context import ActorContext
+from edusync.adapters.postgres_fee_tracking import PostgresFeeTrackingRepository
+router=APIRouter(tags=['finance-fee-tracking'])
+def need(a,p):
+    try:a.require(p)
+    except PermissionError as e:raise HTTPException(403,str(e)) from e
+def repo_call(actor,services,fn):
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return fn(PostgresFeeTrackingRepository(conn))
+@router.get('/taxonomy')
+def taxonomy(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    need(actor,'finance.analysis.by_fee.read')
+    def f(r):
+        y=r.year(actor.school_id,year_id);return {'academic_year':y,'items':r.taxonomy(actor.school_id,y['id']) if y else []}
+    return repo_call(actor,services,f)
+@router.get('/overview')
+def overview(year_id:UUID|None=None,currency:str='CDF',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    need(actor,'finance.analysis.by_fee.read')
+    def f(r):
+        y=r.year(actor.school_id,year_id);return {'academic_year':y,'currency':currency,'items':r.overview(actor.school_id,y['id'],currency) if y else []}
+    return repo_call(actor,services,f)
+@router.get('/students')
+def students(year_id:UUID|None=None,currency:str='CDF',fee_type_id:UUID|None=None,category_id:str|None=None,class_id:UUID|None=None,section_id:UUID|None=None,status:str|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    need(actor,'finance.analysis.by_fee.read')
+    def f(r):
+        y=r.year(actor.school_id,year_id);return {'academic_year':y,'currency':currency,'items':r.students(actor.school_id,y['id'],currency,fee_type_id,category_id,class_id,section_id,status) if y else []}
+    return repo_call(actor,services,f)
+@router.get('/student/{student_id}')
+def student(student_id:UUID,currency:str='CDF',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    need(actor,'finance.analysis.by_fee.read');return repo_call(actor,services,lambda r:r.student_summary(actor.school_id,student_id,currency))
+@router.get('/family/{family_id}')
+def family(family_id:UUID,currency:str='CDF',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    need(actor,'finance.analysis.by_fee.read');return repo_call(actor,services,lambda r:r.family_summary(actor.school_id,family_id,currency))

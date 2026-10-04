@@ -1,0 +1,92 @@
+[
+  {
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/contracts",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "documents/student-import-template.xlsx",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/students/analyze",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/batches/students/9d31e858-8c0c-4ee3-898e-b365df504de7/control-report.xlsx",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/students/batches/9d31e858-8c0c-4ee3-898e-b365df504de7/execute",
+    "status": 409,
+    "expected": 409,
+    "pass": true
+  },
+  {
+    "path": "import/students/batches/9d31e858-8c0c-4ee3-898e-b365df504de7/execute",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/students/batches/9d31e858-8c0c-4ee3-898e-b365df504de7/execute",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/students/analyze",
+    "status": 400,
+    "expected": 400,
+    "pass": true
+  },
+  {
+    "path": "import/staff/template.xlsx",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/staff/analyze",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/batches/staff/05b63865-0c1e-4bc2-a408-0c5dc59eeab8/control-report.xlsx",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/staff/batches/05b63865-0c1e-4bc2-a408-0c5dc59eeab8/execute",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/staff/batches/05b63865-0c1e-4bc2-a408-0c5dc59eeab8/execute",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/staff/analyze",
+    "status": 400,
+    "expected": 400,
+    "pass": true
+  }
+]

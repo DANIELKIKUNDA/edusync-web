@@ -1,0 +1,6 @@
+PASS frontend/src/effectifs.tsx
+PASS frontend/src/api.ts
+PASS frontend/src/App.tsx
+PASS frontend/src/personnel.tsx
+PASS frontend/src/schooling.tsx
+5/5 TypeScript syntax PASS

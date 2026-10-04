@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "check": "Redis failure is reported",
+      "pass": true
+    },
+    {
+      "check": "outage keeps durable event with backoff",
+      "pass": true
+    },
+    {
+      "check": "publication to real Redis succeeds after restart",
+      "pass": true
+    },
+    {
+      "check": "immutable event id transported",
+      "pass": true
+    },
+    {
+      "check": "durable acknowledgement follows Redis acceptance",
+      "pass": true
+    }
+  ],
+  "limitation": "At-least-once publisher; consumer deduplication and provider exactly-once are not certified."
+}

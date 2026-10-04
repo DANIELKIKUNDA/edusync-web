@@ -1,0 +1,132 @@
+[
+  {
+    "check": "X-Content-Type-Options: nosniff",
+    "pass": true,
+    "detail": "nosniff"
+  },
+  {
+    "check": "clickjacking protection (X-Frame-Options or CSP frame-ancestors)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Referrer-Policy set",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "API responses not cacheable (no-store)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "no server version disclosure (Server header)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "CORS: foreign origin not allowed",
+    "pass": true,
+    "detail": "HTTP 400 None"
+  },
+  {
+    "check": "CORS: configured origin echoed exactly, never *",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "TrustedHost: unknown Host rejected",
+    "pass": true,
+    "detail": "HTTP 400"
+  },
+  {
+    "check": "body > 2 MiB rejected (413)",
+    "pass": true,
+    "detail": "HTTP 413"
+  },
+  {
+    "check": "chunked body without Content-Length > 2 MiB rejected (413)",
+    "pass": true,
+    "detail": "HTTP 413"
+  },
+  {
+    "check": "query string > 8 KiB rejected (414)",
+    "pass": true,
+    "detail": "HTTP 414"
+  },
+  {
+    "check": "invalid Content-Length rejected (400, raw socket)",
+    "pass": true,
+    "detail": "HTTP/1.1 400 Bad Request"
+  },
+  {
+    "check": "SQLi on finance/checkout/search: no 500, no leak, no time-based injection",
+    "pass": true,
+    "detail": "codes=['200'] worst=0.05s"
+  },
+  {
+    "check": "SQLi on schooling/students: no 500, no leak, no time-based injection",
+    "pass": true,
+    "detail": "codes=['200'] worst=0.08s"
+  },
+  {
+    "check": "SQLi on schooling/families: no 500, no leak, no time-based injection",
+    "pass": true,
+    "detail": "codes=['200'] worst=0.04s"
+  },
+  {
+    "check": "SQLi on personnel: no 500, no leak, no time-based injection",
+    "pass": true,
+    "detail": "codes=['200'] worst=0.05s"
+  },
+  {
+    "check": "students table intact after injection attempts",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "hostile markup accepted only as inert data (JSON API)",
+    "pass": true,
+    "detail": "HTTP 201"
+  },
+  {
+    "check": "API serves application/json (never text/html) for user data",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "frontend never injects raw HTML (no dangerouslySetInnerHTML/innerHTML)",
+    "pass": true,
+    "detail": "[]"
+  },
+  {
+    "check": "student with formula-like name stored",
+    "pass": true,
+    "detail": "HTTP 201 {\"count\":1,\"family_id\":\"702279c6-f2d9-4960-b9a3-919e1e76a690\",\"student_ids\":[\"41da3a32-aefb-45b3-871a-26221ffee298\"],\"en"
+  },
+  {
+    "check": "schooling/exports/students.xlsx: user data never exported as a live formula",
+    "pass": true,
+    "detail": "formula cells=[]"
+  },
+  {
+    "check": "schooling/exports/families.xlsx: user data never exported as a live formula",
+    "pass": true,
+    "detail": "formula cells=[]"
+  },
+  {
+    "check": "mass assignment: school_id/status/matricule not writable via PATCH",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "malformed JSON -> 422 without stack trace",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "malformed id -> 422, no SQL error text",
+    "pass": true,
+    "detail": ""
+  }
+]

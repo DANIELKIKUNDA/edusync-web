@@ -1,0 +1,32 @@
+[
+  {
+    "path": "auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/finance-history/template.xlsx",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/finance-history/analyze",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "path": "import/finance-history/batches/c41a38e4-240c-44d8-a94b-0a3b307f7779/execute",
+    "status": 409,
+    "expected": 409,
+    "pass": true
+  },
+  {
+    "path": "import/finance-history/batches/c41a38e4-240c-44d8-a94b-0a3b307f7779/execute",
+    "status": 500,
+    "expected": 200,
+    "pass": false
+  }
+]

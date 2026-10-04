@@ -1,0 +1,1280 @@
+{
+  "checkpoint": "POINT4C_ELEVES_FAMILLES_INSCRIPTIONS_WEB_PRESERVATION_CORRECTED",
+  "date": "2026-09-12",
+  "supersedes": "EDUSYNC_POINT4C_ELEVES_FAMILLES_INSCRIPTIONS_WEB_2026-09-12.zip",
+  "tests": {
+    "pytest": "206 passed / 0 failed",
+    "compileall": "PASS",
+    "typescript_syntax": "3/3 PASS"
+  },
+  "preservation": {
+    "student_export_columns": 12,
+    "sex_required": true,
+    "birth_date_required_by_default": false,
+    "birth_place_required_by_default": false,
+    "desktop_document_layout_restored": true
+  },
+  "file_count": 252,
+  "files": [
+    {
+      "path": ".env.example",
+      "size": 1169,
+      "sha256": "21bb11cb3b08aa607a9a556e365d19b3897b53dd58ad1c3b38459cd47b037ff3"
+    },
+    {
+      "path": "Makefile",
+      "size": 491,
+      "sha256": "7758774b2495e82b183fe873ae36d8a14ba283c8bb1104a660f2fc8156065652"
+    },
+    {
+      "path": "POINT1_FILE_MANIFEST.json",
+      "size": 21414,
+      "sha256": "b539e6fce4f42f1709432e5852c860aca28d3ea9e79da84ba2ee6115dbe3b4b0"
+    },
+    {
+      "path": "POINT1_GATE.md",
+      "size": 807,
+      "sha256": "22936973dc60353191e82f0941c86bba2da322ddf64ee6007a6c482bef15aba4"
+    },
+    {
+      "path": "POINT1_IMPLEMENTATION_REPORT.md",
+      "size": 954,
+      "sha256": "07f2802bb721cea282af31142626f9e85a7b7b2194adcd635ab2d11fe0ada5f4"
+    },
+    {
+      "path": "POINT1_TEST_RESULTS.md",
+      "size": 782,
+      "sha256": "16efd4d321c9802ec48f507e0e606c79318177ae3c0ddcd0a1c293be89627ac6"
+    },
+    {
+      "path": "POINT2_CHECKPOINT.md",
+      "size": 770,
+      "sha256": "a5a71f2bcc35c0d448e7c1cc9e3b1026241201c5ac33b7f6b0dfead0df796b85"
+    },
+    {
+      "path": "POINT2_DECISIONS.md",
+      "size": 1663,
+      "sha256": "ae2eeef41a331c41ff214649f06a500e8c20e136e7b90b3438a45c2c5cec1f67"
+    },
+    {
+      "path": "POINT2_FILE_MANIFEST.json",
+      "size": 25253,
+      "sha256": "e2534068b3a29463be59d5795579bb72e6db736515b8a8697ce5e58653d50331"
+    },
+    {
+      "path": "POINT2_FINANCE_OFFLINE_MULTI_CAISSIER.md",
+      "size": 8170,
+      "sha256": "a931d3d918ce67ca6280f75d7ac7ec8125d3896aba8a87ab010e5f88f8b0913a"
+    },
+    {
+      "path": "POINT2_GATE.md",
+      "size": 1980,
+      "sha256": "64a2293aab0d315812d7ce65c0baed6f553a74cbd1d04df77b76f41b0622469d"
+    },
+    {
+      "path": "POINT2_IMPLEMENTATION_REPORT.md",
+      "size": 2644,
+      "sha256": "9c89e524624a396d1f845839f8c4c1efb862df8612888875d2de9302c3e63c54"
+    },
+    {
+      "path": "POINT2_RUNBOOK.md",
+      "size": 1564,
+      "sha256": "46584be08f47bd6577f617a7facbe609330e2b8818bd5b6abcc079d1852d7403"
+    },
+    {
+      "path": "POINT2_TEST_LOG.txt",
+      "size": 358,
+      "sha256": "d79753e51af17d431de955dec39bc15b349ee3f08351b5e7730767bce9165ef5"
+    },
+    {
+      "path": "POINT2_TEST_RESULTS.md",
+      "size": 634,
+      "sha256": "746bb53954865161aefbdfbee9eb0841fceea168d4332e83dbee34446e15a5be"
+    },
+    {
+      "path": "POINT3B_FILE_MANIFEST.json",
+      "size": 27279,
+      "sha256": "7c4ae35d18938b423dcd71456fb64845a596aefbe25836adeb9189f22ce8e100"
+    },
+    {
+      "path": "POINT3B_GATE.md",
+      "size": 735,
+      "sha256": "f9c46d5d1a8e24047c47f568304a4d4ddc1e34a8ae9af2456a96ee9a28f324a0"
+    },
+    {
+      "path": "POINT3B_IMPLEMENTATION_REPORT.md",
+      "size": 1102,
+      "sha256": "9bd1e316196aa7c00b918d8363f96a62688f330f6ab1aac038e5144d5f2ae987"
+    },
+    {
+      "path": "POINT3B_TEST_RESULTS.md",
+      "size": 456,
+      "sha256": "f64e9f37d1b71128af11bef2279772d719810be16fdeed73b900795377636bd8"
+    },
+    {
+      "path": "POINT4A_FILE_MANIFEST.json",
+      "size": 32739,
+      "sha256": "bc1a3ac377fbaf271984be880793d36e7632648fd73ad88c47cc27d407d4e57c"
+    },
+    {
+      "path": "POINT4A_GATE.md",
+      "size": 1403,
+      "sha256": "2246ba438660a56335f74ef0b6889665df44f29c5651ce30c8fe9353e0f9230f"
+    },
+    {
+      "path": "POINT4A_IMPLEMENTATION_REPORT.md",
+      "size": 3668,
+      "sha256": "5060efba5b353142a958fe6c0f6351a5994d378556259b796a1fb16ef1ab59d5"
+    },
+    {
+      "path": "POINT4A_PRESERVATION_MATRIX.md",
+      "size": 1851,
+      "sha256": "530828ea829f842ac0b532d7b529d0df1513a86c022d8d8e09b91f8387c21b79"
+    },
+    {
+      "path": "POINT4A_RUNBOOK.md",
+      "size": 1060,
+      "sha256": "c01de18db04e9fc066f0d8312ac036c343faf25a80e13501117322a28160b972"
+    },
+    {
+      "path": "POINT4A_TEST_RESULTS.md",
+      "size": 752,
+      "sha256": "f12d3b081fc51122203614dcb55ac980d7ac81022f57817610df0fc157b16d88"
+    },
+    {
+      "path": "POINT4C_AUDIT_PRESERVATION.md",
+      "size": 4104,
+      "sha256": "a067e07023bafc661113506d6788c01d6ad5a4ea414a17026d49fd0468918423"
+    },
+    {
+      "path": "POINT4C_GATE.md",
+      "size": 1591,
+      "sha256": "5df62fc7ccf57d904b9bb1c6df38da179cd359240e131645ebe36d2dfacce9ee"
+    },
+    {
+      "path": "POINT4C_IMPLEMENTATION_REPORT.md",
+      "size": 2746,
+      "sha256": "38dc2729279e56de498593ee0daa1861d36206a8d684ba1ac52af09f0e6fea45"
+    },
+    {
+      "path": "POINT4C_PRESERVATION_CORRECTION.md",
+      "size": 2896,
+      "sha256": "a9a85cab303c99061018614d7106d2907ba1aa3932c9e8e6e9e2264308eecc7d"
+    },
+    {
+      "path": "POINT4C_PRESERVATION_MATRIX.md",
+      "size": 1833,
+      "sha256": "c9a96c6915130155e176a3426f838df77263fecc96507ba8759b31673936324a"
+    },
+    {
+      "path": "POINT4C_PRESERVATION_TEST_LOG.txt",
+      "size": 260,
+      "sha256": "96badb23335046d0df5148a85b55ea3cc4c2cf0205ea1a209f646ecfa2c6860a"
+    },
+    {
+      "path": "POINT4C_TEST_LOG.txt",
+      "size": 260,
+      "sha256": "96badb23335046d0df5148a85b55ea3cc4c2cf0205ea1a209f646ecfa2c6860a"
+    },
+    {
+      "path": "POINT4C_TEST_RESULTS.md",
+      "size": 727,
+      "sha256": "bbe1b7de2ef0f1618c2d19e0e1902110691082f10833bc274a52d5fb7a24d461"
+    },
+    {
+      "path": "POINT4C_TS_SYNTAX_LOG.txt",
+      "size": 86,
+      "sha256": "65d813d80574aa3f62fa9467344e87c6115d2bb2db8068b0583ce7c2c91949da"
+    },
+    {
+      "path": "POINT4D_EFFECTIFS_DEPOTS_PRESERVATION_ENTRY.md",
+      "size": 986,
+      "sha256": "b61bf6211549a61e8d2b24ddb5850468a5c12bfe01915dec5b79017554a6f0ee"
+    },
+    {
+      "path": "README.md",
+      "size": 2846,
+      "sha256": "38c4014e6349ea70eef31610b934bbc16c732b7e08b544bc00b1eef1c9bf7de6"
+    },
+    {
+      "path": "RUN_G1_LINUX.sh",
+      "size": 632,
+      "sha256": "20524c31e5b24121f8b1a9479af33b43d45c728a25cd7da4d590c391c47f7155"
+    },
+    {
+      "path": "RUN_G1_WINDOWS.ps1",
+      "size": 1241,
+      "sha256": "f939073d4249052738e9f3ff702fe1f09d4ae9a1df54170bd501d56bf394f628"
+    },
+    {
+      "path": "RUN_G2_LINUX.sh",
+      "size": 402,
+      "sha256": "9d8ba1abdd14e7a2cee07976ef0ee662ef827cf89753411952c9982faa23e2b4"
+    },
+    {
+      "path": "RUN_G2_WINDOWS.ps1",
+      "size": 584,
+      "sha256": "770df6e0beb64e0f11955b5002fc304fe00181e5ead55c4754a110c4fbe8eb23"
+    },
+    {
+      "path": "RUN_POINT2_LINUX.sh",
+      "size": 498,
+      "sha256": "2b6337c4f435440d5eeabc1f82bcd1697954d84d6e0b8a17c9b863f3e4e2dd88"
+    },
+    {
+      "path": "RUN_POINT2_WINDOWS.ps1",
+      "size": 774,
+      "sha256": "ddaaefaf5ca23f9c92a76e88ce82390d74274bb8ff4c9f243085e43eb9e352bc"
+    },
+    {
+      "path": "WEB0A_GATE_RESULTS.md",
+      "size": 2040,
+      "sha256": "79c3afb024c16691a014b5e2875f1ee8e364054eca2615fafcdbfad97820bc15"
+    },
+    {
+      "path": "WEB0A_IMPLEMENTATION_REPORT.md",
+      "size": 1133,
+      "sha256": "eb99288c25f897344f702f88769f18f0c76b5895d68d697358b529c161a165e9"
+    },
+    {
+      "path": "WEB0B_FILE_MANIFEST.json",
+      "size": 11991,
+      "sha256": "2b4766c33db49a3640f74e9c7c256ae8ea142bd529ca3e3fa11ba0b3f0d9f273"
+    },
+    {
+      "path": "WEB0B_GATES.md",
+      "size": 964,
+      "sha256": "94649a10d2a6bacc3f97a299bb6cb851432ba5bd90e8c6ac0eac060be697463e"
+    },
+    {
+      "path": "WEB0B_IMPLEMENTATION_REPORT.md",
+      "size": 2269,
+      "sha256": "3788376fa28ddf177bf3ed8e4848ea943da861a89f55c8f10b3aa5aaf76c1834"
+    },
+    {
+      "path": "WEB0B_TEST_RESULTS.md",
+      "size": 715,
+      "sha256": "6bc01547d6533ede2961b4e33c0e8224702c9fd9652c6dea8d3d8d70df2076c6"
+    },
+    {
+      "path": "WEB0C_FILE_MANIFEST.json",
+      "size": 16967,
+      "sha256": "9720921f772622af4f804bf7e3e87e476013fb729b152a42f9b8861c5a9147f8"
+    },
+    {
+      "path": "WEB0C_GATES.md",
+      "size": 2365,
+      "sha256": "f8edbf01d77e23fa0b0ceafef7380eefbdea3471af96d081384494ab1a5dc7ab"
+    },
+    {
+      "path": "WEB0C_IMPLEMENTATION_REPORT.md",
+      "size": 5178,
+      "sha256": "a6d4ae07f5c1cfafbd0c7e8cca8c2704f9dbcddb95f82a8efdd81215ec22549a"
+    },
+    {
+      "path": "WEB0C_RUNBOOK.md",
+      "size": 1781,
+      "sha256": "a32895125c362558125931f726a24f5996f52caa3c5d20e1795559fd422be0b5"
+    },
+    {
+      "path": "WEB0C_TEST_RESULTS.md",
+      "size": 520,
+      "sha256": "d4a18fbeff2992eb5b8fc153216e272846dd5463b4c2f4ec8f0b76c55a250565"
+    },
+    {
+      "path": "WEB0D_CHECKPOINT.md",
+      "size": 918,
+      "sha256": "7cc54079d4bf46d52d026169ce1bccffdd31553c242d55099cb5dec8e159280b"
+    },
+    {
+      "path": "WEB0D_FILE_MANIFEST.json",
+      "size": 20024,
+      "sha256": "aee7f8e165db87a2ce681af8e3c6c7291bcbc299ba21cdeccf1f1ca6bf033ddf"
+    },
+    {
+      "path": "WEB0D_GATES.md",
+      "size": 2431,
+      "sha256": "f0882687fd30af605359f35ad85e8fedcb3d501fbcde6005942a1b305ce39282"
+    },
+    {
+      "path": "WEB0D_IMPLEMENTATION_REPORT.md",
+      "size": 5960,
+      "sha256": "950ccbfc669bf9d9906debb7cd25e74b5500474e1ee3bc06ec820d0da0fed4c4"
+    },
+    {
+      "path": "WEB0D_OFFLINE_FINANCE_DOCTRINE.md",
+      "size": 4510,
+      "sha256": "67fe4894025b2f5a077211fd14764e7e72e737c985b7d766908d2f8a64f3867b"
+    },
+    {
+      "path": "WEB0D_RUNBOOK.md",
+      "size": 1597,
+      "sha256": "0e053fa79016e50fb97b9f7fff206626a9002b4b2a23a08071a41dc8293b8b47"
+    },
+    {
+      "path": "WEB0D_TEST_RESULTS.md",
+      "size": 2218,
+      "sha256": "1754771cd3914894a9f606879afc110c2edbc2b97e4cca2b165044f92a3059c0"
+    },
+    {
+      "path": "_renders_preserved/families/page-1.png",
+      "size": 74635,
+      "sha256": "6f7df54f55a901202c2cce9ae3712b4ee9b178f4f6bd17d3fd82356eba6043cc"
+    },
+    {
+      "path": "_renders_preserved/students/page-1.png",
+      "size": 98886,
+      "sha256": "061be9ff69950770144f5bbbb95d735e21f5cebefbf6aa88824dd604e1f66911"
+    },
+    {
+      "path": "backend/Dockerfile",
+      "size": 286,
+      "sha256": "e0865f19a0be0a9d8333c259d50fffc95e3407e34f3ca5884a8b2da4f3730fd6"
+    },
+    {
+      "path": "backend/migrations/0001_foundation.sql",
+      "size": 8706,
+      "sha256": "a96959f43244173af88fcddb196968079d7db4abd4b7293744bb8e65cf2e99db"
+    },
+    {
+      "path": "backend/migrations/0002_idempotency_concurrency.sql",
+      "size": 4702,
+      "sha256": "c91862739ced68199b10ef5412693a1c4d90775033090163644a7412e5c454c3"
+    },
+    {
+      "path": "backend/migrations/0003_g1_live_security.sql",
+      "size": 5865,
+      "sha256": "e0042ecd741791494133d5dd21f375af68affe5221e694f92b1584c58f47435f"
+    },
+    {
+      "path": "backend/migrations/0004_offline_finance_safe_mode.sql",
+      "size": 17410,
+      "sha256": "816795f1389e66e494ad5bc00fe48530ed34e600eccc317585c25da38d7a2935"
+    },
+    {
+      "path": "backend/migrations/0005_offline_finance_multi_cashier.sql",
+      "size": 12293,
+      "sha256": "d270947d47c492924b6af6e511c5e6b862edd6e36a724259e78cc0725140194c"
+    },
+    {
+      "path": "backend/migrations/0006_capability_rbac_engine.sql",
+      "size": 250022,
+      "sha256": "0dbe2f4a8baf1029b10c21d1eca37d774f9487767c8586352e1d8925fda9160c"
+    },
+    {
+      "path": "backend/migrations/0007_owner_decision_manager_systeme.sql",
+      "size": 2032,
+      "sha256": "0f09cff1c53e5be67f853006e913c88a6e3d4211d86008e8c76e07c4e515cfc8"
+    },
+    {
+      "path": "backend/migrations/0008_owner_approved_school_roles.sql",
+      "size": 36908,
+      "sha256": "4db9198d15d7ffae25ea499fc7f8cf7707bd6765402a2ff9b90cfe7d563c7149"
+    },
+    {
+      "path": "backend/migrations/0009_secondary_leadership_roles.sql",
+      "size": 6992,
+      "sha256": "3806c16d7857c8e7512ed7616929b42aec455bdc48b57e63d6cda520f4061ff3"
+    },
+    {
+      "path": "backend/migrations/0010_settings_domain.sql",
+      "size": 13682,
+      "sha256": "7c99b8ff41735a0372e1aa0f89ce7d5076bac60b16a1410b8243178e5a3e20f5"
+    },
+    {
+      "path": "backend/migrations/0011_migrate_legacy_school_admin_rbac.sql",
+      "size": 1048,
+      "sha256": "189da1e73650af8a89f3691bd636e95030c065b6d4c5364f628cccfe86973461"
+    },
+    {
+      "path": "backend/migrations/0012_personnel_domain.sql",
+      "size": 17194,
+      "sha256": "60a91075774f72a0dec4706f5a693794a6da2aac34381b9ef61b3455e47506b9"
+    },
+    {
+      "path": "backend/migrations/0013_schooling_domain.sql",
+      "size": 21247,
+      "sha256": "f484b644d7e711fb189339846e7936c4d93ea03f4a792ee506cadda9b88008f3"
+    },
+    {
+      "path": "backend/migrations/0014_preservation_school_identity_and_enrollment.sql",
+      "size": 498,
+      "sha256": "62aeca69c3e1559984521c357d2ae84904c32de7dccf0a0a85338b5dc339d7fe"
+    },
+    {
+      "path": "backend/pyproject.toml",
+      "size": 731,
+      "sha256": "5d7e3398368886a1cec31cb0c32503d5db456c4c263075b92b5fc4373261f528"
+    },
+    {
+      "path": "backend/scripts/bootstrap_platform_admin.py",
+      "size": 3129,
+      "sha256": "a5a21162d781573ceb1dadc82f0d12416388f85e05425dcea26c373b8628e235"
+    },
+    {
+      "path": "backend/scripts/g1_api_probe.py",
+      "size": 5044,
+      "sha256": "f12e37c6ca97b2fa76c6d5357600640e6f7fa2adc69336b14f1873ddbf4b26ea"
+    },
+    {
+      "path": "backend/scripts/g1_live_certification.py",
+      "size": 7235,
+      "sha256": "2889fae9b1d2b4663a7efed74867377dde0855a9cc4c40919d0ca125a9349e4e"
+    },
+    {
+      "path": "backend/scripts/g1_postgres_probe.py",
+      "size": 2313,
+      "sha256": "78dfa8799453c6d09dea372cd8dd54ff4f064c819844ac5ceb9812eee88b1c51"
+    },
+    {
+      "path": "backend/scripts/g2_offline_finance_protocol_probe.py",
+      "size": 7801,
+      "sha256": "3899663ef358a30ed9dbf39b4447dfcf9f05cee6727b7985a26cc119aeca2071"
+    },
+    {
+      "path": "backend/scripts/g3_multi_cashier_probe.py",
+      "size": 8517,
+      "sha256": "fa5fd9e7d07d4546dfd238d845765b1dd973c6afe319b6a36b17d535ae027fdb"
+    },
+    {
+      "path": "backend/scripts/provision_database.py",
+      "size": 10014,
+      "sha256": "e963ef86ff9565bd273d3861368a922ba0d0b8eaf9f4b27e50313c2414dedcfe"
+    },
+    {
+      "path": "backend/src/edusync/__init__.py",
+      "size": 28,
+      "sha256": "174912f1e2790c8c5d63363bc03f167dfbd0b7837f167da38ee72bb3cb04f990"
+    },
+    {
+      "path": "backend/src/edusync/adapters/memory.py",
+      "size": 3795,
+      "sha256": "5c51a65a1f51a6d278dff824ca50124f5a27dfa31e361a2176e8712d6e3dde8f"
+    },
+    {
+      "path": "backend/src/edusync/adapters/memory_idempotency.py",
+      "size": 3296,
+      "sha256": "d60962a89eed84f838bb84332ee4a7fdcc7ec80edd0bd6e3af46be379610ec75"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_authorization.py",
+      "size": 6183,
+      "sha256": "5ba8ae1e79db26a23572e45c7b6311de39e1abff90ee830173185116158689a9"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_concurrency.py",
+      "size": 1966,
+      "sha256": "5eb405afdf84234318c5ae7a7dbd42ead5a9113574ce3888eaac16668497e2d2"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_idempotency.py",
+      "size": 5486,
+      "sha256": "d59ba6f5fb306fd33ab2d0762690f61e9208db4bb50dffb6c9593ec89b1ee6d7"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_offline_finance.py",
+      "size": 27564,
+      "sha256": "18d8b8d1e7bce22058bc77e4f5f8a73def1788e539e7ff4851c3addb38245b27"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_personnel.py",
+      "size": 26026,
+      "sha256": "0eb5bf4983851027ff2c8f7c4626f91f7a159d61f69a49d10f6bc72142c03972"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_repositories.py",
+      "size": 13085,
+      "sha256": "7226545f7f54ffea940fc3386113986c18214fc986c585a3aaa5cf020715db54"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_schooling.py",
+      "size": 35043,
+      "sha256": "a8420ccc70b0d9aebb7365c6663b465d22b3c720c9b010254f011e78451c057c"
+    },
+    {
+      "path": "backend/src/edusync/adapters/postgres_settings.py",
+      "size": 32132,
+      "sha256": "52574eaf5c390bea5b59a7652da130a6951b7991d145b20c043c6e00996d8e2a"
+    },
+    {
+      "path": "backend/src/edusync/adapters/redis_cache.py",
+      "size": 1756,
+      "sha256": "c4b2a1f2494d7022becc5223071b4be488960c0817acdd5d1e5b4236fb127065"
+    },
+    {
+      "path": "backend/src/edusync/bootstrap/app.py",
+      "size": 1695,
+      "sha256": "5c975cfc913135ce91c6782187300b33eea805e64027819eee709fed3a739b19"
+    },
+    {
+      "path": "backend/src/edusync/bootstrap/dependencies.py",
+      "size": 5882,
+      "sha256": "8e47f514e56b5e93498a8c0ee3234724a5bf822b88c28b13e6ae7887d23b735c"
+    },
+    {
+      "path": "backend/src/edusync/bootstrap/services.py",
+      "size": 707,
+      "sha256": "032cfe8ca4b1d733a218b9f168be642b9112027f209cb666f451c721992b02ed"
+    },
+    {
+      "path": "backend/src/edusync/bootstrap/settings.py",
+      "size": 3329,
+      "sha256": "b0ad123038645e614678b089a04e203adbc292d5c26681ed9c4d090d2b95683f"
+    },
+    {
+      "path": "backend/src/edusync/modules/audit/domain/audit.py",
+      "size": 825,
+      "sha256": "1bc5910261e4916fbce2a2918b576f4e938c04ccaba442833bcd3b2770a3dd3c"
+    },
+    {
+      "path": "backend/src/edusync/modules/audit/ports/repositories.py",
+      "size": 211,
+      "sha256": "33a966c3f36918b3e0c3cbb4dd8dcd06af97c87b9f7c7d03e2cb87a7d22d6336"
+    },
+    {
+      "path": "backend/src/edusync/modules/finance_offline/application/multi_cashier.py",
+      "size": 5379,
+      "sha256": "66fcc4fd5cf0aed92956b592cf628cb7af4e8b40f1f0ac6221ad608327b8e8ed"
+    },
+    {
+      "path": "backend/src/edusync/modules/finance_offline/application/service.py",
+      "size": 3277,
+      "sha256": "74202df7d99ef7aa09d207925c2eb4f5002250c1d10faf0fe603eef885db469c"
+    },
+    {
+      "path": "backend/src/edusync/modules/finance_offline/domain/models.py",
+      "size": 10467,
+      "sha256": "19b7487b7ff72e9bbb123b00682daa8989ad6ba90d599a4f4883b31876884f84"
+    },
+    {
+      "path": "backend/src/edusync/modules/finance_offline/domain/multi_cashier.py",
+      "size": 5807,
+      "sha256": "92c7abe7f397ef034390f413e825409342346196b21a08d2e353341260797db1"
+    },
+    {
+      "path": "backend/src/edusync/modules/finance_offline/ports/repositories.py",
+      "size": 3840,
+      "sha256": "092554cc3314e47664a4561bbae013c9aa1d882987507f7f0193489729b7fb46"
+    },
+    {
+      "path": "backend/src/edusync/modules/iam/api/router.py",
+      "size": 4339,
+      "sha256": "a60111ad92f3b0a601349a7b5aa49ee0c41e796ca262a1a7f4f77f7dfaffd2ca"
+    },
+    {
+      "path": "backend/src/edusync/modules/iam/application/capability_registry.py",
+      "size": 3135,
+      "sha256": "6908e8402ee7c9fcb78af57c22c1df1ea077d0349e6b50161e1fee8c4867ed2e"
+    },
+    {
+      "path": "backend/src/edusync/modules/iam/domain/authorization.py",
+      "size": 7657,
+      "sha256": "20cff6c6792b7d5017d7f9d2bf4e75f16ea4a75ba73d80f5e8ba0b3190f15698"
+    },
+    {
+      "path": "backend/src/edusync/modules/iam/domain/models.py",
+      "size": 1253,
+      "sha256": "3d624ef2ee26cc0a58cb789586e6601926782aa5bd5f82c6dab92722d43729e2"
+    },
+    {
+      "path": "backend/src/edusync/modules/iam/ports/repositories.py",
+      "size": 665,
+      "sha256": "e09cf4db06c45a00b654e2f3ac89f3a1cdc54c599750e022eaee29f719dc473f"
+    },
+    {
+      "path": "backend/src/edusync/modules/notifications/domain/models.py",
+      "size": 549,
+      "sha256": "5bfc1387607f07526a87159d9b5b9a9a37f018fb619d1ba83dbfb4ad8cf350bb"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/__init__.py",
+      "size": 46,
+      "sha256": "142dd721fa2b91f6dfbbd89bc4eaa8a71e22db33bb5b8ce6c464b83b3ba5e499"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/api/__init__.py",
+      "size": 46,
+      "sha256": "4c2e87197e20d5e8cdb7e4c61fe733fcf9cd0f1cd0d5bf3bd7414e0a9f256e34"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/api/router.py",
+      "size": 29604,
+      "sha256": "4864c4dc07305b0e7059653aab4ac0c89bb7c72eac408259b0c874301ea7e9e7"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/application/__init__.py",
+      "size": 191,
+      "sha256": "c7de3aeb05a0af3bb0b02498ff5e0b89be4509c4ef0d841117f46fd48ed29b25"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/application/documents.py",
+      "size": 6143,
+      "sha256": "e942932b8af9bc79aa0fb25dd01324575d0c0ffd589fded0220deaf330377c89"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/domain/__init__.py",
+      "size": 244,
+      "sha256": "04f2d413a7a5ba6f8f7159f3c082c972f73ce8f231180dea3c3b4eade98de627"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/domain/models.py",
+      "size": 5980,
+      "sha256": "2bfa7ebee7b7277104d560e53bff6be8712832c36b647e5d333bd31f9aaaec5a"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/ports/__init__.py",
+      "size": 78,
+      "sha256": "ba5ed3398c40cb98c396d2614972aebe46dc4e7f53034851b663fe11b5d9322a"
+    },
+    {
+      "path": "backend/src/edusync/modules/personnel/ports/repositories.py",
+      "size": 1030,
+      "sha256": "421c6c6003a63d279e3d3db248325fbe6c5d5667d8d5816525a06e2bafdcebda"
+    },
+    {
+      "path": "backend/src/edusync/modules/platform/api/router.py",
+      "size": 10456,
+      "sha256": "7657743878378c0f1c6102c7260a9cb57584907591402b2f0e877fa01a71909d"
+    },
+    {
+      "path": "backend/src/edusync/modules/platform/application/use_cases.py",
+      "size": 7327,
+      "sha256": "2231d93a4e5966cf11c97eb1997a249ea62e7f33e90d40479d942bc2bab0672d"
+    },
+    {
+      "path": "backend/src/edusync/modules/platform/domain/school.py",
+      "size": 2644,
+      "sha256": "b3702e30441238138800ef3784c414d94619743096f0a83190fad888b63a97b6"
+    },
+    {
+      "path": "backend/src/edusync/modules/platform/ports/repositories.py",
+      "size": 432,
+      "sha256": "590adc30a04ff7ceafa25c00e6bb94c4b8551a9a31ad29fa225c825b2cfeed36"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/__init__.py",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/api/__init__.py",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/api/router.py",
+      "size": 30977,
+      "sha256": "7cd6aa777e25ad2b47470d7d2518f2eacead0e2cbca21482e98b0e9127b13472"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/application/__init__.py",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/application/documents.py",
+      "size": 14239,
+      "sha256": "13a96f79579c18569fe55f6ea6d8e4b0c8ee24d469d82a47538ce895a9b06dbe"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/application/use_cases.py",
+      "size": 12330,
+      "sha256": "d5effbd01b7ed7ebaf18355a5b7b08312faed07c093f12636bb89392594958c7"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/domain/__init__.py",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/domain/models.py",
+      "size": 8343,
+      "sha256": "5568dacc36d7fc22004dd6798a08e5366970259e5926ab3c86e609d478ff611f"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/ports/__init__.py",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backend/src/edusync/modules/schooling/ports/repositories.py",
+      "size": 807,
+      "sha256": "e058b3fab4038571f6465371fb881a449720fd104086b446fc8efe035b41222c"
+    },
+    {
+      "path": "backend/src/edusync/modules/settings/api/__init__.py",
+      "size": 46,
+      "sha256": "4c2e87197e20d5e8cdb7e4c61fe733fcf9cd0f1cd0d5bf3bd7414e0a9f256e34"
+    },
+    {
+      "path": "backend/src/edusync/modules/settings/api/router.py",
+      "size": 37188,
+      "sha256": "b2c6e8b5832ae82b928521b5e060ab7ac63b891d55c020a7d2102501c0972246"
+    },
+    {
+      "path": "backend/src/edusync/modules/settings/domain/__init__.py",
+      "size": 183,
+      "sha256": "32870f0244cb3096008c482f422198ff2a23148bf37af40dddd32911ac4e1f2f"
+    },
+    {
+      "path": "backend/src/edusync/modules/settings/domain/models.py",
+      "size": 5504,
+      "sha256": "888ad82cfaa0d08a25d8dabcdeb094f8e49eef3f6a8bde23a96e217337bc63f9"
+    },
+    {
+      "path": "backend/src/edusync/modules/settings/ports/repositories.py",
+      "size": 513,
+      "sha256": "b17fe3f22dc320ec12a74c75322e3637f0cde66ff16e4cbe275f4602cd11dd96"
+    },
+    {
+      "path": "backend/src/edusync/modules/sync/domain/contracts.py",
+      "size": 3000,
+      "sha256": "1c49a6bb79242011e668b97d93e07e25d500ce901882531d43aee25961b2a4fa"
+    },
+    {
+      "path": "backend/src/edusync/modules/sync/domain/offline_policy.py",
+      "size": 6624,
+      "sha256": "86a755d82a04ef79384755645d472002f6e02758993805c778002473f7e72c30"
+    },
+    {
+      "path": "backend/src/edusync/modules/sync/domain/outbox.py",
+      "size": 603,
+      "sha256": "1acacc1ec49c4feac7050cd2f2d6030e8641a0cc75b114d7b83fd9769071b324"
+    },
+    {
+      "path": "backend/src/edusync/modules/sync/ports/repositories.py",
+      "size": 214,
+      "sha256": "a2d8f7dacdf42eda4751b21880ac6679558852e2678c3bdb0dd50cbb63187e86"
+    },
+    {
+      "path": "backend/src/edusync/shared/application/context.py",
+      "size": 1549,
+      "sha256": "57938995a1cc387cb016f61c059cb2210cd10a7a4ecc3763e495d8ed992b6351"
+    },
+    {
+      "path": "backend/src/edusync/shared/application/idempotency.py",
+      "size": 2739,
+      "sha256": "c587e87144e491c660697cf72624baa39e5b71ddeb4cb7aed2481136d452ff2e"
+    },
+    {
+      "path": "backend/src/edusync/shared/domain/concurrency.py",
+      "size": 688,
+      "sha256": "9effe9fa063f26872f13eeab4d13677e7d0a209e39efed473ddfd56d1bdc90e6"
+    },
+    {
+      "path": "backend/src/edusync/shared/domain/events.py",
+      "size": 614,
+      "sha256": "53a8c4d0d628ec151cd16974f99a560a92e67f7c07e8e102afcf85876842d357"
+    },
+    {
+      "path": "backend/src/edusync/shared/domain/ids.py",
+      "size": 447,
+      "sha256": "40e998bafd4885326a3d37104b97a1f544302a713115a0fdec7dc8ab407a78c3"
+    },
+    {
+      "path": "backend/src/edusync/shared/infrastructure/postgres.py",
+      "size": 2967,
+      "sha256": "ce1912e044e9ba7d5f6b5f147e6ff1c28913f3f85cf10a4321dd17aa4bbc1161"
+    },
+    {
+      "path": "backend/src/edusync/shared/infrastructure/security.py",
+      "size": 1701,
+      "sha256": "2627312c62df43172a81c0c90ad7c9d803014a43cec0c023f288ad0b2fffc45d"
+    },
+    {
+      "path": "backend/src/edusync/shared/ports/cache.py",
+      "size": 261,
+      "sha256": "de09609afe8403a75fc3a2219aa2774ac110540442bdc5876bfcc4ed4b6bbbe1"
+    },
+    {
+      "path": "backend/src/edusync/shared/ports/idempotency.py",
+      "size": 1002,
+      "sha256": "100b84707e7204d533881e880de70fc9149b3c942eee8adfedcfa790fa3ea525"
+    },
+    {
+      "path": "backend/src/edusync/shared/ports/uow.py",
+      "size": 240,
+      "sha256": "6d02fe6137a480956187b9c27776db21c7b2d5e57c0fc6a280bdad9d458ff5a5"
+    },
+    {
+      "path": "backend/tests/test_api_smoke.py",
+      "size": 804,
+      "sha256": "0ec791ffcff76371bc8d34e4773852dd251a148ae9200472ed947ef095e3efed"
+    },
+    {
+      "path": "backend/tests/test_cache_contract.py",
+      "size": 553,
+      "sha256": "f58521365c71e5f7610bae065b310c947d6c79c36d6327cacae78d6ba68b947c"
+    },
+    {
+      "path": "backend/tests/test_concurrency_contracts.py",
+      "size": 1232,
+      "sha256": "f70af7bd22a3f8929011944298cf3dce60d7b01c7f013d7a1de988a46a3885c5"
+    },
+    {
+      "path": "backend/tests/test_foundation_migration.py",
+      "size": 585,
+      "sha256": "308e3fc4a61e3ee096d7556b3f8494838296f8400325ca3294c381d7a1416975"
+    },
+    {
+      "path": "backend/tests/test_idempotency.py",
+      "size": 4089,
+      "sha256": "867ca2aefd8f2767a29502c2331b3d7521ed8d891b5a4ccad025c48b79b483a6"
+    },
+    {
+      "path": "backend/tests/test_offline_finance_protocol.py",
+      "size": 11227,
+      "sha256": "b01efbd86c8eed94a414a85a54fab518e24ca7a8858e1daefc77c3191a048a3d"
+    },
+    {
+      "path": "backend/tests/test_platform_domain.py",
+      "size": 585,
+      "sha256": "58f2e40210d331332a9ff797a363d051261bd0e3a36d04fc4908909c3fd2970c"
+    },
+    {
+      "path": "backend/tests/test_platform_use_cases.py",
+      "size": 2219,
+      "sha256": "21ed58e4cf07ee466f7f7f2a041692329882e24dbb133e2e79fad00cd71b21b1"
+    },
+    {
+      "path": "backend/tests/test_point1_architecture_doctrine.py",
+      "size": 2369,
+      "sha256": "c9be84efc97212a3fae44605b83529ff0adbf69421c0d0e4b7a70d70d85fabc1"
+    },
+    {
+      "path": "backend/tests/test_point2_multi_cashier.py",
+      "size": 13902,
+      "sha256": "ce9c5179e64f2fd1792470d6921728af02a9bbb7be539f3a00028a88775016c8"
+    },
+    {
+      "path": "backend/tests/test_point3b_owner_roles_final.py",
+      "size": 5417,
+      "sha256": "e560e0a2e681ec33ce68d5f9669df3cda8ce751cc8bf2bc3fe1d8e410a7aa40b"
+    },
+    {
+      "path": "backend/tests/test_point3b_rbac_engine.py",
+      "size": 8082,
+      "sha256": "04b1539940679b3ca7e2f5b72b6486beaf4f252f07b78ead37e0b14a52dcab40"
+    },
+    {
+      "path": "backend/tests/test_point3b_secondary_leadership_roles.py",
+      "size": 1622,
+      "sha256": "12e8805213a653f52805fd2770d137848c0751d7df7e35523e3570f7fbe1e7f4"
+    },
+    {
+      "path": "backend/tests/test_point4a_settings_domain.py",
+      "size": 1450,
+      "sha256": "0922b9838e0f9995382c0b561d89e2fb6f3de8130575f9ee600a486e6f51f25e"
+    },
+    {
+      "path": "backend/tests/test_point4a_settings_static_contracts.py",
+      "size": 2531,
+      "sha256": "393cd49979f966ca500921fd36a2bb8f11b7297895b3c986c280ce57bb615ba2"
+    },
+    {
+      "path": "backend/tests/test_point4b_personnel_documents.py",
+      "size": 1797,
+      "sha256": "a6c44cbc7d279848586863e8bdb20a019ae924dfc6d891c0baa5a0548a69a4c6"
+    },
+    {
+      "path": "backend/tests/test_point4b_personnel_domain.py",
+      "size": 3622,
+      "sha256": "55ea65ee61a2cce0f0a012a0689adc07ef20919cb3bb2b666e8c1bfd3e9dac28"
+    },
+    {
+      "path": "backend/tests/test_point4b_personnel_frontend_contract.py",
+      "size": 2008,
+      "sha256": "4bfe73c3e0761dd2fb77b8c165584763c6f0d7fc4fff46ff9194ad95e9702b06"
+    },
+    {
+      "path": "backend/tests/test_point4b_personnel_migration.py",
+      "size": 2508,
+      "sha256": "94b1cacfb7538db4fe73b4f409e78572902783801af44bf0d613ee4ebca8c7f7"
+    },
+    {
+      "path": "backend/tests/test_point4b_scope_and_lifecycle_contracts.py",
+      "size": 1932,
+      "sha256": "c53d9884b7d9351a3b57ae1656a48599f4ea3d0fed47ed666c0795d557c09939"
+    },
+    {
+      "path": "backend/tests/test_point4c_capability_registry.py",
+      "size": 655,
+      "sha256": "d92d1a9c30b94240432669d3d0cf53b4a24bea2e7d2c4d310b877f08c1731141"
+    },
+    {
+      "path": "backend/tests/test_point4c_schooling_documents.py",
+      "size": 2182,
+      "sha256": "9d8cafb3591bea82f5e00f5e0037820a663b4470f21b2c27f80b79011b57de57"
+    },
+    {
+      "path": "backend/tests/test_point4c_schooling_domain.py",
+      "size": 1638,
+      "sha256": "e07ecea652652bb3f3da2f150bb11b70532dfb08544203eb8f0874a48bc583fc"
+    },
+    {
+      "path": "backend/tests/test_point4c_schooling_frontend_contract.py",
+      "size": 1825,
+      "sha256": "f1448ca14a144dd6342b0b14ddf17ce6e6c5765326d54714e933f02e7a70b41b"
+    },
+    {
+      "path": "backend/tests/test_point4c_schooling_migration.py",
+      "size": 1671,
+      "sha256": "42c06a8fd156d07bced82a6cc1729b82849372e1282f30b0879f946d78c4d49a"
+    },
+    {
+      "path": "backend/tests/test_point4c_schooling_use_cases.py",
+      "size": 3403,
+      "sha256": "99e4d36d796602e6b7bb1e0489e4b2afbc7deebf55c9399a649a1942e7100916"
+    },
+    {
+      "path": "backend/tests/test_security.py",
+      "size": 294,
+      "sha256": "9a38f3c7992ae19b52ddad85bb5a2ad7b6ba19db927251b7ad3a286ce49d1192"
+    },
+    {
+      "path": "backend/tests/test_sync_contract.py",
+      "size": 604,
+      "sha256": "7fde00e558e9cd441e30a9fba912f59d44e0dfd43f3f567a793f4f4a02e55224"
+    },
+    {
+      "path": "backend/tests/test_web0b_migration.py",
+      "size": 1040,
+      "sha256": "1bc0646d1d9189901f2814a1d1f88cebf2b580bf19836b4f7b777b478ef6f96c"
+    },
+    {
+      "path": "backend/tests/test_web0c_persistence_contracts.py",
+      "size": 2050,
+      "sha256": "a638088ee4d77d0b2d7c2dd8df215effca971e324a5e08748ad9eb5b9fe507d1"
+    },
+    {
+      "path": "backend/tests/test_web0c_security_contracts.py",
+      "size": 2427,
+      "sha256": "715b1f1c613006569aaff64a2cca80af0ec58752b7fb4a46eb248270ee188523"
+    },
+    {
+      "path": "backend/tests/test_web0d_frontend_contract.py",
+      "size": 1325,
+      "sha256": "41998296a27948d13ad63b93f3434895082fe2cbf8c3daf897b6c86ecb89e9c2"
+    },
+    {
+      "path": "backend/tests/test_web0d_migration_contract.py",
+      "size": 3427,
+      "sha256": "a9e26672f819cfd77bca04039844b5de46b9247d16599b1e70e49834f31b0631"
+    },
+    {
+      "path": "contracts/CAPABILITY_REGISTRY.json",
+      "size": 147340,
+      "sha256": "c02eea4088f4d428abe76bba7e3b3da0d011c3fae19c04d7cd47f6365907741b"
+    },
+    {
+      "path": "contracts/OFFLINE_FINANCE_HASH_TEST_VECTOR.json",
+      "size": 1004,
+      "sha256": "539552477f5a845a43f6e8062c04b82b3dc476ee5562f287b88f9d6619122cbc"
+    },
+    {
+      "path": "contracts/POINT3B_ROLE_DECISIONS_DRAFT.json",
+      "size": 7188,
+      "sha256": "1c22350f4bf6e0ba5c45180870b87c06380973c4cc05f03d9cb1da0b2b258f65"
+    },
+    {
+      "path": "contracts/POINT3B_ROLE_DECISIONS_FINAL.json",
+      "size": 35342,
+      "sha256": "a48d4ef6cf4a8d33ad2b949509a50e81bab675d5d109f2d99184eb0e659f41a4"
+    },
+    {
+      "path": "docker-compose.yml",
+      "size": 2528,
+      "sha256": "922cb3728304594913df636555350fdbd9a420c31667a5ec9ab57976eea3f504"
+    },
+    {
+      "path": "docs/architecture/ADR-001-VPS-MULTITENANT.md",
+      "size": 565,
+      "sha256": "db9d94266a64e1fcba226be9e4d5bb75693dc58baf3c5d4cc88faa5a39e36212"
+    },
+    {
+      "path": "docs/architecture/ADR-002-MODULAR-MONOLITH.md",
+      "size": 412,
+      "sha256": "02d76347ae7e220c5a1f7e396ee011a6eeb7aad1290362f68b9eece6607b82ab"
+    },
+    {
+      "path": "docs/architecture/ADR-003-OFFLINE-AUTHORITY.md",
+      "size": 641,
+      "sha256": "0c54ff83ea0575aaa522a5fecf01ee853aeb1147a999c36848e98682f1d53834"
+    },
+    {
+      "path": "docs/architecture/ADR-004-FINANCE-OFFLINE-TARGET.md",
+      "size": 569,
+      "sha256": "537f124ef700bbb5827ea96043df3d35ec0a29e032423377ff8232032e25379d"
+    },
+    {
+      "path": "docs/architecture/OFFLINE_OPERATION_MATRIX.md",
+      "size": 1290,
+      "sha256": "bfe8c7d1f4700f3aff9f37d012ebc1502ae40a7196f6f295e4a73d01ed7a7b84"
+    },
+    {
+      "path": "docs/architecture/POINT1_ARCHITECTURE_LOCK.md",
+      "size": 7606,
+      "sha256": "1bb84c99d6ec5318d56a40478f497d46ebf7acea895e75773fe8f4d14f72be97"
+    },
+    {
+      "path": "docs/rbac/POINT3A_CAPABILITY_TREE.md",
+      "size": 32123,
+      "sha256": "543c7bf5877a8e49aa28f32ce70aad6157219cc236df061663ae2c916086b56b"
+    },
+    {
+      "path": "docs/rbac/POINT3A_ZERO_CONFIG_BOOTSTRAP_AUDIT.md",
+      "size": 5266,
+      "sha256": "f247526d4f3fbf4b562829cb865c3ecdd6a92486be88a9e464c87ad9cbc5a011"
+    },
+    {
+      "path": "docs/rbac/POINT3B_ADDENDUM_SECONDARY_LEADERSHIP.md",
+      "size": 1555,
+      "sha256": "643a602aafe5d54ddac956cc41b1b627e53a348ad6851d5ee4568f2ee4d09b77"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_01_MANAGER_SYSTEME.md",
+      "size": 1453,
+      "sha256": "afd4c2668a3ec25ae5fef1f7613aa65270dfee87bb2db09ababc525d34f5f272"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_02_ADMIN_SYSTEME_ECOLE.md",
+      "size": 7551,
+      "sha256": "80ded38515eb6366e6696754cadc86588576dc18de4350b5e77399bf37d53afc"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_03_PROMOTEUR.md",
+      "size": 3326,
+      "sha256": "dabac8d751b90b591cfd4b955f9b731f2b7fa33d3483b326058d0053ce4e439c"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_04_GESTIONNAIRE.md",
+      "size": 3388,
+      "sha256": "6a6dbf6dd6c9645ad3d91a4db2060269e6fd0f4a274ac6a89f1c184001960482"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_05_RESPONSABLE_FINANCE.md",
+      "size": 2263,
+      "sha256": "05d85b4a756ceecd74e5fb2fcc96edd4cbbf40c7f7a9d7214e4ee51dd2484b2a"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_06_PREFET.md",
+      "size": 2568,
+      "sha256": "305037248ac451f8dad8db356e082b2c4709f2b00ec1d9a0803206c1e6290c9b"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_07_DIRECTION_SECTION.md",
+      "size": 2533,
+      "sha256": "586973ebbbfbfcda396123216d1ffea20d28dd257299286264593c245f580fd7"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_08_CAISSIER.md",
+      "size": 2947,
+      "sha256": "5589fd96c5ae3f11ff99e4e9af12b53f4d9085b28d42f2e8c9bc20fd1e0e6d22"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_09_SECRETARIAT.md",
+      "size": 858,
+      "sha256": "07f87103afa11adfefe1831019ce2c6a1a757bbc327e5a0c9c9b474b13259288"
+    },
+    {
+      "path": "docs/rbac/POINT3B_DECISION_10_INTENDANT.md",
+      "size": 1059,
+      "sha256": "a6db7427addd8feb7c322472076d3509eeb4fc271e6d377d2ace784723e7d030"
+    },
+    {
+      "path": "docs/rbac/POINT3B_SCOPE_OWNERSHIP_POLICIES.md",
+      "size": 1756,
+      "sha256": "42a15da101318b069c38c287e2f5949ba16f06b2642eb01bf8f620d9ec2cda85"
+    },
+    {
+      "path": "docs/rbac/POINT3B_STANDARD_ROLES_FINAL.md",
+      "size": 3879,
+      "sha256": "8bb4804f023b03f4a7ff1cd63c403b8c3d48ad9f0b82742ecaf8aa56e5290c2b"
+    },
+    {
+      "path": "docs/reference/MIGRATION_READINESS_AUDIT_EDUSYNC.md",
+      "size": 11646,
+      "sha256": "9d9e2c7e9f541bad19a287edbb151323d72b31c736f5fedef6e82b0682b0fb3e"
+    },
+    {
+      "path": "docs/reference/WEB0_ARCHITECTURE_FONDATRICE_SAAS.md",
+      "size": 17455,
+      "sha256": "4df00049cdf0cbec1ade02fb029b41d53d2b91f51aafea5632a44043666e3e5e"
+    },
+    {
+      "path": "docs/reference/WEB0_AUDIT_PRESERVATION_EDUSYNC.md",
+      "size": 14134,
+      "sha256": "a75744a1157d55b9c8099b1d4bcd4f73ba5bb6748cfee93f372c06cbffe2295a"
+    },
+    {
+      "path": "docs/reference/WEB0_DECISIONS_ET_GATES.md",
+      "size": 2830,
+      "sha256": "02fd86d3d8af3da227f75e66f1af9bdc50d3e2373b3b7985c2fa2696f3800a2f"
+    },
+    {
+      "path": "docs/reference/WEB0_PRESERVATION_MATRIX.json",
+      "size": 4098,
+      "sha256": "8779a68a67cd04b8d31ad7a099943ded622fe3c68d06d034b27d772b44ee7058"
+    },
+    {
+      "path": "frontend/Dockerfile",
+      "size": 235,
+      "sha256": "834f08c473d8051ae0ce25307d3cee19639e6ea881d59b941067355f1555e145"
+    },
+    {
+      "path": "frontend/index.html",
+      "size": 358,
+      "sha256": "0cce00bf3c238fd0b1e2eb2bba0a00fef1f1edf8d37f9db341030a89a379da3c"
+    },
+    {
+      "path": "frontend/nginx.conf",
+      "size": 623,
+      "sha256": "d4a994e64267e5133ccecbf376554f059b0c8034fb3cfcc00df812ef0f156775"
+    },
+    {
+      "path": "frontend/package.json",
+      "size": 465,
+      "sha256": "4533633bb4b0f35f313c363e8e87e25dab8bfa0736745367596cb47e9e4dd675"
+    },
+    {
+      "path": "frontend/public/manifest.webmanifest",
+      "size": 145,
+      "sha256": "07612ddd90c1642d3cfe2a821082dd7b35d0643884209997758ba6f2a9b73605"
+    },
+    {
+      "path": "frontend/public/sw.js",
+      "size": 1295,
+      "sha256": "4fb5cf4a64ba935f154cf2d904569a5fb82eed1b19bfeb6581f0c2ada63302f6"
+    },
+    {
+      "path": "frontend/src/App.tsx",
+      "size": 20939,
+      "sha256": "95d1b39c480b7763153169cada428515175a2be60c22689d0b41e3e8404a005a"
+    },
+    {
+      "path": "frontend/src/api.ts",
+      "size": 26771,
+      "sha256": "437f08a94afb5f5df5beece6f10fb758327189539c51011bf8d53158eb6c9096"
+    },
+    {
+      "path": "frontend/src/main.tsx",
+      "size": 339,
+      "sha256": "fdfbf00ac9dd20eae836fbc53b7ccf88b66070232747a78541ef95cfd2cc8916"
+    },
+    {
+      "path": "frontend/src/offline/financeJournal.ts",
+      "size": 16923,
+      "sha256": "cb11cd5a8814cbc3966dcbde94b2a5e6152778d8013e9716107eb2ecf787ea35"
+    },
+    {
+      "path": "frontend/src/offline/store.ts",
+      "size": 2644,
+      "sha256": "d1f715c168b84952b123627cbe9b4f0f6f7dd22f7f6ac6f6d64bebbc4a25abda"
+    },
+    {
+      "path": "frontend/src/personnel.tsx",
+      "size": 33568,
+      "sha256": "748f299423b21996099f24fd5241bdad3ad0badaae3df761002e7d075664cd63"
+    },
+    {
+      "path": "frontend/src/schooling.tsx",
+      "size": 27656,
+      "sha256": "6a76b3a8d372ffce3e7370dbba65309a6f4ad20ad321586a352314b0775cb063"
+    },
+    {
+      "path": "frontend/src/styles.css",
+      "size": 57453,
+      "sha256": "26d343ff09c4c751cd7bf1740335c90503718772a13b3104826958961f331bbb"
+    },
+    {
+      "path": "frontend/src/vite-env.d.ts",
+      "size": 38,
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
+    },
+    {
+      "path": "frontend/tsconfig.finance-offline.json",
+      "size": 273,
+      "sha256": "341acd008a0ab9831b3e602c14727e02d3966ee5d1b7ea9286a5ad0ffd2ec7d0"
+    },
+    {
+      "path": "frontend/tsconfig.json",
+      "size": 402,
+      "sha256": "fedd317542803e74732ad4c6d9eaa8c470bec18fd39c1974cbe42a543527871f"
+    },
+    {
+      "path": "frontend/verify-offline-hash.mjs",
+      "size": 780,
+      "sha256": "fcca1be8817e9e38e95a8d227dca7e99dc274763f64b23cd18adab97cfb5bd92"
+    },
+    {
+      "path": "preservation/PRESERVATION_CONTRACT.md",
+      "size": 1092,
+      "sha256": "216ac934f1f3c2305996a2d79e1656dea0c6611797da4691b7f789bc8b2e8205"
+    },
+    {
+      "path": "preservation/WEB0A_SCOPE.md",
+      "size": 557,
+      "sha256": "be10d2b5a87e6b272220d835cc9ca76ced2b5377202685f9e9e7a85bc27edf0a"
+    },
+    {
+      "path": "preservation/effectifs_depots_desktop_certified/EFFECTIFS_DEPOTS_AUDIT.md",
+      "size": 1248,
+      "sha256": "18d2753a3b1e27bf7688ca047c52e1e7fb75479442ae6cc98f458f90f2b101c5"
+    },
+    {
+      "path": "preservation/effectifs_depots_desktop_certified/EFFECTIFS_DEPOTS_EXCEL_VALIDATION.md",
+      "size": 530,
+      "sha256": "4ace318674cea4271369143f6d86e955150ae2d6fac796af8d0b67ff1042b51b"
+    },
+    {
+      "path": "preservation/effectifs_depots_desktop_certified/EFFECTIFS_DEPOTS_IMPLEMENTATION_REPORT.md",
+      "size": 1180,
+      "sha256": "4f6d6388d45916c5e2b9d6601bb949688d6220dd7de128103f3786c035d49aa9"
+    },
+    {
+      "path": "preservation/effectifs_depots_desktop_certified/EFFECTIFS_DEPOTS_PDF_VALIDATION.md",
+      "size": 590,
+      "sha256": "c85c5d741a3beb181063aa32ae3e592a03855fa16e937c2df9eb8ad6eb511638"
+    },
+    {
+      "path": "preservation/effectifs_depots_desktop_certified/EFFECTIFS_DEPOTS_WINDOWS_RECIPE.md",
+      "size": 1120,
+      "sha256": "68c9f9863b02345bd655fa932749642948c3f7ab4cbfef6a91c6ef871b2dfe62"
+    },
+    {
+      "path": "sample_outputs/POINT4B_FICHE_AGENT_SAMPLE.pdf",
+      "size": 2694,
+      "sha256": "3c4204f3efeae00b9f990220671891deb98a13df631eb6bbd8dba8b9c2c3118a"
+    },
+    {
+      "path": "sample_outputs/POINT4B_REGISTRE_PERSONNEL_SAMPLE.pdf",
+      "size": 2562,
+      "sha256": "c7e8ac4d0cb2aebba1dea1982a33f88bd7bd2e33a88a9379845bdbdb8f567837"
+    },
+    {
+      "path": "sample_outputs/POINT4B_REGISTRE_PERSONNEL_SAMPLE.xlsx",
+      "size": 5700,
+      "sha256": "493a1d57d663aa510f99449a56e9f5bc762b740f0570935da1db4387b2c3c8e0"
+    },
+    {
+      "path": "sample_outputs_preserved/POINT4C_LISTE_ELEVES_CANONIQUE.pdf",
+      "size": 3512,
+      "sha256": "9f163484af825e6b953550618882ed523b7a531fbef651ad2d5184000acd4c9c"
+    },
+    {
+      "path": "sample_outputs_preserved/POINT4C_LISTE_ELEVES_CANONIQUE.xlsx",
+      "size": 6090,
+      "sha256": "e7149a3ecd1d70e79276e0fd1d27214adbf75aec8f4e33dc4586bb597d2f143f"
+    },
+    {
+      "path": "sample_outputs_preserved/POINT4C_REPERTOIRE_FAMILLES_CANONIQUE.pdf",
+      "size": 2812,
+      "sha256": "6585cec698b21832fa0bdf830fc297be553d57dc49faa1380e54f62f50a70ac4"
+    },
+    {
+      "path": "sample_outputs_preserved/POINT4C_REPERTOIRE_FAMILLES_CANONIQUE.xlsx",
+      "size": 5772,
+      "sha256": "a8a41663c007ecffe60351a47ec9edfd541c4095f8797455ad70b4f9c7e1e9e8"
+    }
+  ]
+}
