@@ -385,3 +385,30 @@ def test_owner_decision_personnel_roles():
     assert "personnel.reactivate" not in s  # reactivation restores access: custom roles only
     for excluded in ("PROMOTEUR", "ADMIN_SYSTEME_ECOLE", "RESPONSABLE_FINANCE"):
         assert f"('{excluded}'" not in s
+
+
+# --- School access governance (owner decision 2026-10-02): guardrails are server-side -------------
+def test_access_governance_guardrails_are_enforced_server_side():
+    s = (SRC / "modules/access/api/router.py").read_text(encoding="utf-8")
+    assert "personne ne peut s'attribuer des droits à soi-même" in s          # no self-service grant
+    assert "personne ne modifie ses propres droits" in s                       # no self-service revoke
+    assert "vous ne pouvez pas modifier un rôle que vous détenez" in s         # no editing a role you hold
+    assert "code NOT LIKE 'platform.%'" in s                                   # no platform capability
+    assert s.count("_assert_managers_remain(conn, actor.school_id)") == 2      # never zero access managers
+    assert "Les rôles standards ne se modifient pas" in s                      # standard roles immutable
+    assert s.count("_idempotent(services, actor, idempotency_key") == 5        # every mutation idempotent
+    assert s.count('_audit(conn, actor, "ACCESS_') == 5                        # every mutation journaled
+
+
+def test_access_names_resolved_only_for_this_schools_members():
+    s = (SRC / "modules/access/api/router.py").read_text(encoding="utf-8")
+    assert "def _user_cards" in s and "WHERE id=ANY(CAST(:ids AS uuid[]))" in s
+    assert "JOIN users" not in s.split("def members", 1)[1].split("def scope_options", 1)[0]
+
+
+def test_access_screen_is_wired_into_school_navigation():
+    app = (ROOT.parent / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    assert "['🔐','Accès & rôles','access']" in app and "access:['access.roles.read','audit.school.read']" in app
+    assert "module==='access'?<AccessPage" in app
+    main = (SRC / "bootstrap/app.py").read_text(encoding="utf-8")
+    assert 'prefix="/api/v1/access"' in main

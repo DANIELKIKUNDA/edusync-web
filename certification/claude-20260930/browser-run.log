@@ -1,0 +1,23 @@
+logged in ADMIN 2026-10-04T17:09:26.312Z
+ADMIN modules: Accueil | Paramètres | Personnel | Élèves & inscriptions | Effectifs & dépôts | Centre financier | Documents | Intendance | Synchronisation | Accès & rôles 2026-10-04T17:09:27.310Z
+  ADMIN Accueil 2026-10-04T17:09:28.289Z
+  ADMIN Paramètres 2026-10-04T17:09:32.382Z
+  ADMIN Personnel 2026-10-04T17:09:36.877Z
+  ADMIN Élèves & inscriptions 2026-10-04T17:09:41.359Z
+  ADMIN Effectifs & dépôts 2026-10-04T17:09:45.578Z
+  ADMIN Centre financier 2026-10-04T17:09:49.605Z
+  ADMIN Documents 2026-10-04T17:09:53.654Z
+  ADMIN Intendance 2026-10-04T17:09:58.763Z
+  ADMIN Synchronisation 2026-10-04T17:10:02.238Z
+  ADMIN Accès & rôles 2026-10-04T17:10:08.605Z
+logged in CAISSIER1 2026-10-04T17:10:16.298Z
+CAISSIER1 modules: Accueil | Paramètres | Personnel | Élèves & inscriptions | Centre financier | Documents | Synchronisation | Accès & rôles 2026-10-04T17:10:17.586Z
+  CAISSIER1 Accueil 2026-10-04T17:10:18.408Z
+  CAISSIER1 Paramètres 2026-10-04T17:10:22.490Z
+  CAISSIER1 Personnel 2026-10-04T17:10:47.413Z
+  CAISSIER1 Élèves & inscriptions 2026-10-04T17:10:51.673Z
+  CAISSIER1 Centre financier 2026-10-04T17:10:55.225Z
+  CAISSIER1 Documents 2026-10-04T17:10:59.181Z
+  CAISSIER1 Synchronisation 2026-10-04T17:11:03.068Z
+  CAISSIER1 Accès & rôles 2026-10-04T17:11:07.857Z
+{"screens":126,"failing":0,"smallTapScreens":0,"exceptions":0,"http5xx":0}

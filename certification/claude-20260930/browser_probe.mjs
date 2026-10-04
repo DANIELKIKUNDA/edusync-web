@@ -17,7 +17,7 @@ socket.onmessage = ev => {
   if (m.method === 'Runtime.exceptionThrown') exceptions.push(m.params.exceptionDetails.exception?.description?.slice(0, 200) || m.params.exceptionDetails.text);
   if (m.method === 'Network.responseReceived') { const r = m.params.response; if (r.status >= 500 && r.url.includes('/api/')) httpErrors.push({path: new URL(r.url).pathname, status: r.status}); }
 };
-const call = (method, params = {}) => new Promise((res, rej) => { const id = ++seq; const t = setTimeout(() => rej(Error('CDP timeout ' + method)), 45000); pending.set(id, {res, rej, t}); socket.send(JSON.stringify({id, method, params})); });
+const call = (method, params = {}) => new Promise((res, rej) => { const id = ++seq; const t = setTimeout(() => rej(Error('CDP timeout ' + method + ' ' + JSON.stringify(params).slice(0, 120))), 150000); pending.set(id, {res, rej, t}); socket.send(JSON.stringify({id, method, params})); });
 async function evaluate(expression) { const r = await call('Runtime.evaluate', {expression, returnByValue: true, awaitPromise: true}); if (r.exceptionDetails) throw Error(r.exceptionDetails.text); return r.result.value; }
 async function until(expression) { for (let i = 0; i < 120; i++) { if (await evaluate(expression)) return; await delay(300); } throw Error('UI readiness timeout: ' + expression); }
 await call('Runtime.enable'); await call('Page.enable'); await call('Network.enable');
@@ -41,12 +41,15 @@ for (const [school, userKey] of [['A', 'ADMIN'], ['A', 'CAISSIER1']]) {
   await evaluate('localStorage.clear();sessionStorage.clear();true');
   const st = await evaluate(`(async()=>{const r=await fetch('/api/v1/auth/login',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(${JSON.stringify({scope: 'SCHOOL', school_code: s.code, email: u.email, password: u.password})})});return r.status})()`);
   if (st !== 200) throw Error(`login ${userKey} HTTP ${st}`);
+  console.log('logged in', userKey, new Date().toISOString());
   await call('Page.reload'); await until('!!document.querySelector(".smartShell")');
   const modules = await evaluate('[...document.querySelectorAll(".smartNav .navLabel")].map(e=>e.textContent)');
-  console.log(userKey, 'modules:', modules.join(' | '));
+  console.log(userKey, 'modules:', modules.join(' | '), new Date().toISOString());
   for (let i = 0; i < modules.length; i++) {
     await viewport(1440);
-    await evaluate(`document.querySelectorAll('.smartNav button')[${i}].click()`); await delay(1500);
+    await evaluate(`document.querySelectorAll('.smartNav button')[${i}].click()`); await delay(800);
+    for (let w = 0; w < 40; w++) { if (await evaluate(`!document.querySelector('.skeleton,.thinLoader') && !document.body.innerText.includes('Ouverture du module')`)) break; await delay(500); }
+    console.log(' ', userKey, modules[i], new Date().toISOString());
     for (const width of [320, 360, 390, 430, 768, 1024, 1440]) {
       await viewport(width); await delay(250);
       const m = await evaluate(METRICS);

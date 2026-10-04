@@ -67,12 +67,18 @@ r = call(adm, "POST", f"access/members/{A['users']['ACC_GEST']['membership_id']}
 check("section-scoped assignment accepted", r.status_code == 201 and r.json()["scopes"] == [{"type": "SECTION", "value": "PRIMAIRE"}], f"HTTP {r.status_code} {r.text[:120]}")
 
 # last access manager can never be removed, even by someone allowed to revoke
-assistant = must(adm, "POST", "access/roles", 201, json={"label": "Assistant accès", "capabilities": ["access.permissions.assign", "access.roles.read"]}).json()
-must(adm, "POST", f"access/members/{A['users']['ACC_M3']['membership_id']}/roles", 201, json={"role_id": assistant["id"], "reason": "Assistant"})
-m3 = user_client(A, "ACC_M3")
-admin_assign = member_assignment(m3, A["users"]["ADMIN"]["membership_id"], "Administrateur système école")
-r = call(m3, "POST", f"access/assignments/{admin_assign}/revoke", json={"reason": "Tentative de prise de contrôle"})
+# (dedicated school C: a single access manager, and an assistant allowed to revoke but not to manage roles)
+C = ensure_school("C", ())
+ensure_user(C, "ADMIN", ())
+ensure_user(C, "ACC_M3", ())
+cadm = user_client(C, "ADMIN")
+assistant = must(cadm, "POST", "access/roles", 201, json={"label": "Assistant accès", "capabilities": ["access.permissions.assign", "access.roles.read"]}).json()
+must(cadm, "POST", f"access/members/{C['users']['ACC_M3']['membership_id']}/roles", 201, json={"role_id": assistant["id"], "reason": "Assistant"})
+m3 = user_client(C, "ACC_M3")
+c_admin_assign = member_assignment(m3, C["users"]["ADMIN"]["membership_id"], "Administrateur système école")
+r = call(m3, "POST", f"access/assignments/{c_admin_assign}/revoke", json={"reason": "Tentative de prise de contrôle"})
 check("guardrail: the school always keeps at least one access manager", r.status_code == 409, f"HTTP {r.status_code} {r.text[:100]}")
+admin_assign = str(sql("SELECT id FROM rbac_assignments WHERE school_id=:s AND active=true ORDER BY created_at LIMIT 1", {"s": A["school_id"]})[0]["id"])
 
 # 4. time-limited right expires by itself
 until = (datetime.now(timezone.utc) + timedelta(seconds=6)).isoformat()

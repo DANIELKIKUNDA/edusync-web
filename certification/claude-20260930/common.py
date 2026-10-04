@@ -104,6 +104,14 @@ def ensure_user(school: dict, key: str, roles: tuple[str, ...]) -> dict:
                  json={"role_code": role, "reason": "Recette Claude isolée — certification"})
             u["roles"].append(role)
             save()
+    # bootstrap-admin always grants ADMIN_SYSTEME_ECOLE. Realistic members keep only the roles asked for:
+    # the school's access manager is the "ADMIN" key (or whoever explicitly requests the role).
+    if key != "ADMIN" and "ADMIN_SYSTEME_ECOLE" not in roles and not u.get("admin_role_removed"):
+        r = call(mgr, "POST", f"platform/memberships/{u['membership_id']}/roles/ADMIN_SYSTEME_ECOLE/revoke",
+                 json={"reason": "Recette : membre sans rôle d'administration"})
+        if r.status_code in (200, 204, 404):
+            u["admin_role_removed"] = True
+            save()
     mgr.close()
     return u
 

@@ -1,0 +1,122 @@
+[
+  {
+    "check": "catalog offers school capabilities only (no platform.*)",
+    "pass": true,
+    "detail": "269 capabilities"
+  },
+  {
+    "check": "standard roles listed read-only",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "clone a standard role into a school role",
+    "pass": true,
+    "detail": "HTTP 201 {\"id\":\"f3c7558a-c45e-4cd9-8a7e-1029d9df4147\",\"code\":\"CUSTOM_96117307A3\",\"label\":\"Gestionnaire sans sortie d'agent\",\"vers"
+  },
+  {
+    "check": "adjust the school role (remove personnel.exit)",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"f3c7558a-c45e-4cd9-8a7e-1029d9df4147\",\"added\":[],\"label\":\"Gestionnaire sans sortie d'agent\",\"removed\":[\"personnel"
+  },
+  {
+    "check": "stale edit refused (optimistic concurrency)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "member without role cannot add an agent",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "assign the school role",
+    "pass": true,
+    "detail": "HTTP 201 {\"scopes\":[{\"type\":\"SCHOOL\",\"value\":null}],\"role_id\":\"f3c7558a-c45e-4cd9-8a7e-1029d9df4147\",\"role_label\":\"Gestionnaire s"
+  },
+  {
+    "check": "rights effective immediately (same token, no re-login)",
+    "pass": true,
+    "detail": "HTTP 201"
+  },
+  {
+    "check": "school policy applied: this gestionnaire cannot record a departure",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "guardrail: nobody grants rights to themselves",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "guardrail: no platform capability in a school role",
+    "pass": true,
+    "detail": "HTTP 422"
+  },
+  {
+    "check": "guardrail: standard roles are immutable (clone instead)",
+    "pass": true,
+    "detail": "HTTP 409"
+  },
+  {
+    "check": "unknown scope rejected",
+    "pass": true,
+    "detail": "HTTP 422"
+  },
+  {
+    "check": "section-scoped assignment accepted",
+    "pass": true,
+    "detail": "HTTP 201 {\"scopes\":[{\"type\":\"SECTION\",\"value\":\"PRIMAIRE\"}],\"role_id\":\"2caa1950-7099-4513-944e-f2c8ab9d05a2\",\"role_label\":\"Caissie"
+  },
+  {
+    "check": "guardrail: the school always keeps at least one access manager",
+    "pass": true,
+    "detail": "HTTP 409 {\"detail\":\"Refusé : l'école doit garder au moins un gestionnaire des accès\"}"
+  },
+  {
+    "check": "time-limited right works, then expires automatically",
+    "pass": true,
+    "detail": "before=201 after=403"
+  },
+  {
+    "check": "revoke assignment",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "revocation effective immediately on live token",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "archive unused school role",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Promoteur sees the rights journal (read-only)",
+    "pass": true,
+    "detail": "HTTP 200 ['ACCESS_ROLE_ARCHIVED', 'ACCESS_ROLE_ASSIGNED', 'ACCESS_ROLE_CREATED', 'ACCESS_ROLE_REVOKED', 'ACCESS_ROLE_UPDATED']"
+  },
+  {
+    "check": "Promoteur cannot change rights",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "school B never sees school A roles",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "school B cannot assign roles to A's members",
+    "pass": true,
+    "detail": "HTTP 404"
+  },
+  {
+    "check": "school B cannot revoke A's assignments",
+    "pass": true,
+    "detail": "HTTP 404"
+  }
+]

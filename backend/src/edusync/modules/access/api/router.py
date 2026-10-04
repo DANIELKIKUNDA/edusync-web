@@ -32,6 +32,8 @@ from edusync.shared.domain.concurrency import IdempotencyConflict, IdempotencyIn
 
 router = APIRouter(tags=["Accès & rôles de l'école"])
 MANAGER_CAPABILITY = "access.roles.manage"
+SECTION_EXISTS = text("SELECT 1 FROM school_sections WHERE school_id=:s AND upper(code)=:v LIMIT 1")
+CLASS_EXISTS = text("SELECT 1 FROM school_classes WHERE school_id=:s AND upper(code)=:v LIMIT 1")
 
 
 def _need(actor: ActorContext, capability: str) -> None:
@@ -72,6 +74,19 @@ def _idempotent(services: AppServices, actor: ActorContext, key: str | None, ope
         raise HTTPException(409, str(e)) from e
 
 
+def _user_cards(services: AppServices, user_ids: set[str]) -> dict[str, dict]:
+    """Names/e-mails for user ids already proven to belong to this school (read under tenant RLS).
+
+    Tenant RLS on users only exposes the caller's own row (privacy); the platform pool resolves
+    display names for exactly these ids and nothing else."""
+    ids = sorted(i for i in user_ids if i)
+    if not ids:
+        return {}
+    with services.platform_db.platform_transaction() as conn:
+        rows = conn.execute(text("SELECT id,full_name,email FROM users WHERE id=ANY(CAST(:ids AS uuid[]))"), {"ids": ids}).mappings().all()
+    return {str(r["id"]): {"full_name": r["full_name"], "email": str(r["email"])} for r in rows}
+
+
 def _school_capabilities(conn) -> dict[str, dict]:
     rows = conn.execute(text("""SELECT code,domain_name,group_name,label,risk,scope_types FROM capability_catalog
                                 WHERE code NOT LIKE 'platform.%' AND NOT (scope_types ? 'PLATFORM')
@@ -91,10 +106,14 @@ def _assert_managers_remain(conn, school_id: UUID) -> None:
 
 
 def _role(conn, role_id: UUID, *, for_update: bool = False) -> dict:
-    row = conn.execute(text(f"""SELECT id,school_id,code,label,description,kind,status,version FROM rbac_roles
-                               WHERE id=:id AND level='SCHOOL' {'FOR UPDATE' if for_update else ''}"""), {"id": str(role_id)}).mappings().first()
+    row = conn.execute(text("""SELECT id,school_id,code,label,description,kind,status,version FROM rbac_roles
+                               WHERE id=:id AND level='SCHOOL'"""), {"id": str(role_id)}).mappings().first()
     if not row:
         raise HTTPException(404, "Rôle introuvable")
+    if for_update:
+        if row["kind"] != "SCHOOL_CUSTOM":
+            raise HTTPException(409, "Les rôles standards ne se modifient pas : clonez-le pour l'adapter")
+        conn.execute(text("SELECT 1 FROM rbac_roles WHERE id=:id FOR UPDATE"), {"id": str(role_id)})
     return dict(row)
 
 
@@ -131,18 +150,27 @@ def roles(actor: ActorContext = Depends(require_school_actor), services: AppServ
 def members(q: str | None = Query(None, max_length=120), actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     _need(actor, "access.roles.read")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
-        rows = conn.execute(text("""SELECT m.id membership_id,m.active,u.full_name,u.email,
+        rows = conn.execute(text("""SELECT m.id membership_id,m.user_id,m.active,
               coalesce(json_agg(json_build_object('assignment_id',a.id,'role_id',r.id,'role_label',r.label,'role_kind',r.kind,
                  'valid_until',a.valid_until,'scopes',(SELECT coalesce(json_agg(json_build_object('type',s.scope_type,'value',s.scope_value)),'[]')
                                                         FROM rbac_assignment_scopes s WHERE s.assignment_id=a.id)) ORDER BY r.label)
                  FILTER (WHERE a.id IS NOT NULL),'[]') roles
-              FROM school_memberships m JOIN users u ON u.id=m.user_id
+              FROM school_memberships m
               LEFT JOIN rbac_assignments a ON a.membership_id=m.id AND a.school_id=m.school_id AND a.active=true AND (a.valid_until IS NULL OR a.valid_until>now())
               LEFT JOIN rbac_roles r ON r.id=a.role_id
-              WHERE m.school_id=:sid AND (CAST(:q AS text) IS NULL OR u.full_name ILIKE '%'||:q||'%' OR u.email::text ILIKE '%'||:q||'%')
-              GROUP BY m.id,m.active,u.full_name,u.email ORDER BY lower(u.full_name) LIMIT 300"""),
-                            {"sid": str(actor.school_id), "q": (q or "").strip() or None}).mappings().all()
-    return {"items": [{**_json(dict(r)), "is_me": str(r["membership_id"]) == str(actor.membership_id)} for r in rows]}
+              WHERE m.school_id=:sid GROUP BY m.id,m.user_id,m.active"""), {"sid": str(actor.school_id)}).mappings().all()
+    cards = _user_cards(services, {str(r["user_id"]) for r in rows})
+    needle = (q or "").strip().lower()
+    items = []
+    for r in rows:
+        card = cards.get(str(r["user_id"]), {"full_name": "Compte inconnu", "email": ""})
+        item = {**_json(dict(r)), **card, "is_me": str(r["membership_id"]) == str(actor.membership_id)}
+        item.pop("user_id", None)
+        hay = f"{card['full_name']} {card['email']} {' '.join(x['role_label'] for x in r['roles'])}".lower()
+        if not needle or needle in hay:
+            items.append(item)
+    items.sort(key=lambda x: x["full_name"].lower())
+    return {"items": items[:300]}
 
 
 @router.get("/scope-options")
@@ -164,11 +192,17 @@ def journal(limit: int = Query(50, ge=1, le=200), actor: ActorContext = Depends(
     if "access.roles.read" not in actor.permissions and "audit.school.read" not in actor.permissions:
         raise HTTPException(403, "Permission requise: audit.school.read")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
-        rows = conn.execute(text("""SELECT e.created_at,e.action,e.reason,e.new_data,e.old_data,u.full_name actor
-              FROM audit_events e LEFT JOIN users u ON u.id=e.actor_user_id
-              WHERE e.school_id=:sid AND e.action LIKE 'ACCESS_%' ORDER BY e.created_at DESC LIMIT :lim"""),
+        rows = conn.execute(text("""SELECT e.occurred_at created_at,e.action,e.reason,e.new_json new_data,e.old_json old_data,e.actor_user_id
+              FROM audit_events e WHERE e.school_id=:sid AND e.action LIKE 'ACCESS_%' ORDER BY e.occurred_at DESC LIMIT :lim"""),
                             {"sid": str(actor.school_id), "lim": limit}).mappings().all()
-    return {"items": [_json(dict(r)) for r in rows]}
+    cards = _user_cards(services, {str(r["actor_user_id"]) for r in rows if r["actor_user_id"]})
+    items = []
+    for r in rows:
+        item = _json(dict(r))
+        item["actor"] = cards.get(str(r["actor_user_id"]), {}).get("full_name")
+        item.pop("actor_user_id", None)
+        items.append(item)
+    return {"items": items}
 
 
 # --------------------------------------------------------------------------------------- roles
@@ -311,8 +345,8 @@ def assign(membership_id: UUID, b: AssignInput, idempotency_key: str | None = He
                 scopes.append(("SCHOOL", None))
                 continue
             value = (s.value or "").strip().upper()
-            table = "school_sections" if s.type == "SECTION" else "school_classes"
-            if not value or not conn.execute(text(f"SELECT 1 FROM {table} WHERE school_id=:s AND upper(code)=:v LIMIT 1"),
+            lookup = SECTION_EXISTS if s.type == "SECTION" else CLASS_EXISTS
+            if not value or not conn.execute(lookup,
                                              {"s": str(actor.school_id), "v": value}).first():
                 raise HTTPException(422, f"Périmètre inconnu dans cette école : {s.type} {s.value}")
             scopes.append((s.type, value))
