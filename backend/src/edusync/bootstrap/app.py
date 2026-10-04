@@ -55,6 +55,18 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         expose_headers=["Idempotent-Replayed", "ETag", "X-Correlation-ID"],
     )
 
+    @app.on_event("startup")
+    def warm_up_database_pools() -> None:
+        """Open the tenant/platform pools before the first user request, so the first login after a deploy
+        or restart is not slowed by connection setup. Best effort: the API still starts if PostgreSQL is down."""
+        from sqlalchemy import text as _sql
+        for runtime in (getattr(app.state.services, "tenant_db", None), getattr(app.state.services, "platform_db", None)):
+            try:
+                with runtime.engine.connect() as conn:
+                    conn.execute(_sql("SELECT 1"))
+            except Exception:  # noqa: BLE001 — warm-up must never prevent startup
+                pass
+
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
         # POINT-5-DOCUMENTS-EXPORTS extends the certified Point 4D baseline without invalidating its health contract.

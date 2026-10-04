@@ -1,0 +1,37 @@
+[
+  {
+    "step": "log in through the form",
+    "pass": true,
+    "ms": 7260
+  },
+  {
+    "step": "open Personnel",
+    "pass": true,
+    "ms": 6910
+  },
+  {
+    "step": "create a teacher record",
+    "pass": true,
+    "ms": 2375
+  },
+  {
+    "step": "find the new teacher in the directory",
+    "pass": true,
+    "ms": 4425
+  },
+  {
+    "step": "open the teacher profile",
+    "pass": true,
+    "ms": 5914
+  },
+  {
+    "step": "record the departure with a reason",
+    "pass": true,
+    "ms": 7164
+  },
+  {
+    "step": "no JavaScript error, no server error",
+    "pass": true,
+    "ms": 0
+  }
+]

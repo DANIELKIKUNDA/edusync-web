@@ -28,8 +28,10 @@ const METRICS = `(()=>{const vw=innerWidth;const mobile=vw<768;
   const small=taps.filter(e=>{const r=e.getBoundingClientRect();return Math.min(r.width,r.height)<40&&!e.closest('table')}).slice(0,6).map(e=>(e.getAttribute('aria-label')||e.textContent||e.tagName).trim().slice(0,30));
   const inputs=[...document.querySelectorAll('input,select,textarea')].filter(vis);
   const tinyFont=inputs.filter(e=>parseFloat(getComputedStyle(e).fontSize)<16).length;
+  const named=e=>!!(e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||(e.id&&document.querySelector('label[for="'+CSS.escape(e.id)+'"]'))||e.closest('label')||e.title);
+  const unnamed=inputs.filter(e=>!named(e)&&e.type!=='hidden').slice(0,6).map(e=>(e.placeholder||e.name||e.type||e.tagName).slice(0,30));
   const overflow=[...document.querySelectorAll('main *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>vw+2&&getComputedStyle(e).position!=='fixed'&&!e.closest('.tableWrap,.tableScroll,.table-scroll,[class*=scroll],[class*=Scroll]')}).slice(0,5).map(e=>e.tagName+'.'+String(e.className).slice(0,40));
-  return {width:vw,scrollWidth:document.documentElement.scrollWidth,overflow,tapTargets:taps.length,smallTapTargets:mobile?small:[],inputs:inputs.length,inputsUnder16px:mobile?tinyFont:0,
+  return {width:vw,scrollWidth:document.documentElement.scrollWidth,overflow,tapTargets:taps.length,smallTapTargets:mobile?small:[],inputs:inputs.length,inputsUnder16px:mobile?tinyFont:0,unnamedInputs:unnamed,
     tokenInStorage:[...Object.keys(localStorage),...Object.keys(sessionStorage)].filter(k=>/token|session|jwt|auth/i.test(k))};})()`;
 
 const results = [];
@@ -64,8 +66,9 @@ for (const [school, userKey] of [['A', 'ADMIN'], ['A', 'CAISSIER1']]) {
 }
 const failing = results.filter(r => !r.pass);
 const smallTaps = results.filter(r => r.smallTapTargets?.length);
+const unnamed = [...new Set(results.flatMap(r => (r.unnamedInputs||[]).map(x => `${r.module}: ${x}`)))];
 const out = {app: APP, build: 'production (vite build + vite preview)', viewports: [320, 360, 390, 430, 768, 1024, 1440], screens: results.length,
-  failing, smallTapTargetScreens: smallTaps.map(r => ({role: r.role, module: r.module, viewport: r.viewport, examples: r.smallTapTargets})), exceptions, httpErrors, results};
+  failing, unnamedInputs: unnamed, smallTapTargetScreens: smallTaps.map(r => ({role: r.role, module: r.module, viewport: r.viewport, examples: r.smallTapTargets})), exceptions, httpErrors, results};
 await fs.writeFile(new URL('browser-live.json', dir), JSON.stringify(out, null, 2));
-console.log(JSON.stringify({screens: results.length, failing: failing.length, smallTapScreens: smallTaps.length, exceptions: exceptions.length, http5xx: httpErrors.length}));
+console.log(JSON.stringify({screens: results.length, failing: failing.length, smallTapScreens: smallTaps.length, unnamedInputs: unnamed.length, exceptions: exceptions.length, http5xx: httpErrors.length}));
 socket.close();

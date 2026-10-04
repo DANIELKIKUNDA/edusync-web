@@ -142,6 +142,14 @@ class AcademicYearCreate(BaseModel):
     start_date:date
     end_date:date
 
+@router.get('/academic-years/selector')
+def year_selector(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Minimal, non-sensitive year list for the shell's year selector, readable by every school member.
+    Full year administration stays behind settings.academic_year.read / management capabilities."""
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return [{k:v for k,v in year_json(y).items() if k in ('id','code','label','status','start_date','end_date')}
+                for y in PostgresSettingsRepository(conn).list_academic_years(actor.school_id)]
+
 @router.get('/academic-years')
 def list_years(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'settings.academic_year.read')
@@ -297,6 +305,14 @@ class ClassCreate(BaseModel):
     reference_code:str|None=Field(default=None,max_length=48)
     code:str=Field(min_length=1,max_length=64)
     label:str=Field(min_length=1,max_length=140)
+
+@router.get('/classes/selector')
+def classes_selector(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Minimal class list for operational screens (enrollment, cash desk filters), readable by every school member.
+    Class structure administration stays behind settings.structure.read / management capabilities."""
+    # Class labels/sections are not sensitive: same shape as the administration list, so screens render identically.
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresSettingsRepository(conn).list_classes(actor.school_id,year_id))
 
 @router.get('/classes')
 def classes(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):

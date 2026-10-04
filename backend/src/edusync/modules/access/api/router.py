@@ -298,7 +298,7 @@ def archive_role(role_id: UUID, b: ReasonInput, idempotency_key: str | None = He
         if n:
             raise HTTPException(409, f"Rôle encore attribué à {n} personne(s) : retirez d'abord ces attributions")
         conn.execute(text("UPDATE rbac_roles SET status='ARCHIVED',version=version+1,updated_at=now() WHERE id=:r"), {"r": str(role_id)})
-        out = {"id": str(role_id), "status": "ARCHIVED"}
+        out = {"id": str(role_id), "label": role["label"], "status": "ARCHIVED"}
         _audit(conn, actor, "ACCESS_ROLE_ARCHIVED", "rbac_role", role_id, out, reason=b.reason)
         return 200, out
 

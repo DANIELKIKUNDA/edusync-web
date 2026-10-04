@@ -13,7 +13,8 @@ def test_point9_ui_is_permission_driven():
  a=read('frontend/src/App.tsx'); h=read('frontend/src/home.tsx'); u=read('frontend/src/stewardship.tsx')
  assert "stewardship:['inventory.']" in a
  assert "inventory.assets.create" in h and "inventory.assets.manage" not in h
- assert 'Intendance possède le stock; le Centre financier reste propriétaire de l’encaissement.' in u
+ # Ownership split kept (stock vs cash collection), wording rewritten for end users in the 2026-10 certification.
+ assert 'L’Intendance gère le stock ; le Centre financier encaisse les ventes.' in u
 def test_secondary_directors_baseline_excludes_finance_and_personnel():
  s=read('backend/migrations/0024_stewardship_industrial.sql')
  assert "r.code IN ('DIRECTEUR_ETUDES','DIRECTEUR_DISCIPLINE')" in s

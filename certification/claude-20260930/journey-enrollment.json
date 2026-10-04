@@ -1,0 +1,42 @@
+[
+  {
+    "step": "log in through the form",
+    "pass": true,
+    "ms": 6704
+  },
+  {
+    "step": "open Pupils & enrollment",
+    "pass": true,
+    "ms": 749
+  },
+  {
+    "step": "start a new enrollment and create a new household",
+    "pass": true,
+    "ms": 2217
+  },
+  {
+    "step": "fill the 5 blocking fields of the child",
+    "pass": true,
+    "ms": 1312
+  },
+  {
+    "step": "review step",
+    "pass": true,
+    "ms": 693
+  },
+  {
+    "step": "confirm the enrollment",
+    "pass": true,
+    "ms": 4031
+  },
+  {
+    "step": "the child appears in the pupil directory",
+    "pass": true,
+    "ms": 952
+  },
+  {
+    "step": "no JavaScript error, no server error",
+    "pass": true,
+    "ms": 0
+  }
+]

@@ -34,4 +34,5 @@ def test_recovery_monthly_is_scope_aware_for_prefet_and_secondary_directors():
     assert "actor.scopes_for('finance.recovery.monthly.read')" in ROUTER
 
 def test_intendance_does_not_invent_point9_metrics():
-    assert "aucun stock, local ou patrimoine fictif" in HOME
+    # Wording rewritten for end users (2026-10 certification); intent unchanged: no invented stewardship data.
+    assert "Aucune donnée d’intendance n’est encore enregistrée" in HOME

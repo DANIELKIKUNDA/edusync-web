@@ -3,7 +3,9 @@ ROOT=Path(__file__).resolve().parents[2]
 def test_compact_topbar_keeps_year_selector():
  s=(ROOT/'frontend/src/App.tsx').read_text(encoding='utf-8')
  assert 'Année scolaire consultée' in s
- assert 'listAcademicYears(session.token)' in s
+ # Every school member needs the shell selector (cashier had a 403 on the admin list): minimal selector route.
+ assert 'listYearSelector(session.token)' in s
+ assert "@router.get('/academic-years/selector')" in (ROOT/'backend/src/edusync/modules/settings/api/router.py').read_text(encoding='utf-8')
  assert "edusync.year.${session.school.id}" in s
  assert "status==='ACTIVE'" in s
 def test_year_context_reaches_read_models():

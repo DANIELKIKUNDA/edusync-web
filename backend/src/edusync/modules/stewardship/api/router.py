@@ -30,6 +30,45 @@ def stock(limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),actor:ActorC
  need(actor,'inventory.stock.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:p={'sid':str(actor.school_id),'limit':limit,'offset':offset}; items=rows(c,"SELECT i.*,l.label location_label FROM inventory_items i LEFT JOIN inventory_locations l ON l.id=i.location_id WHERE i.school_id=:sid AND i.enabled ORDER BY i.item_kind,i.label LIMIT :limit OFFSET :offset",p); total=c.execute(text("SELECT count(*) FROM inventory_items i WHERE i.school_id=:sid AND i.enabled"),{'sid':str(actor.school_id)}).scalar_one(); return {'items':items,'total':int(total),'limit':limit,'offset':offset}
 class Movement(BaseModel):item_id:UUID;movement_type:Literal['RECEIPT','ISSUE','ADJUSTMENT'];quantity:Decimal=Field(gt=0);adjustment_direction:Literal['INCREASE','DECREASE']|None=None;reason:str=Field(min_length=3,max_length=700);destination:str|None=Field(None,max_length=180);reference:str|None=Field(None,max_length=96)
+class ItemInput(BaseModel):
+ code:str=Field(min_length=1,max_length=64);label:str=Field(min_length=2,max_length=180);unit:str=Field(min_length=1,max_length=32)
+ low_threshold:Decimal=Field(default=Decimal('0'),ge=0);location_id:UUID|None=None
+class ItemUpdate(BaseModel):
+ label:str=Field(min_length=2,max_length=180);unit:str=Field(min_length=1,max_length=32);low_threshold:Decimal=Field(ge=0);location_id:UUID|None=None;enabled:bool=True
+def _audit_item(c,actor,action,item_id,data):
+ from edusync.adapters.postgres_repositories import PostgresAuditRepository
+ from edusync.modules.audit.domain.audit import AuditRecord
+ PostgresAuditRepository(c).append(AuditRecord(action=action,entity_type='inventory_item',entity_id=item_id,actor_user_id=actor.user_id,membership_id=actor.membership_id,school_id=actor.school_id,source=actor.source,new_data={k:str(v) if v is not None else None for k,v in data.items()}))
+@router.post('/items',status_code=201)
+def create_item(b:ItemInput,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """New consumable: stock always starts at 0 and only moves through traced movements (receipt/issue/count)."""
+ need(actor,'inventory.stock.item.manage')
+ if not (idempotency_key or '').strip():raise HTTPException(400,'Idempotency-Key obligatoire')
+ def action(c):
+  code=b.code.strip().upper()
+  if c.execute(text('SELECT 1 FROM inventory_items WHERE school_id=:sid AND upper(code)=:c'),{'sid':str(actor.school_id),'c':code}).first():raise HTTPException(409,'Ce code article existe déjà')
+  if b.location_id and not c.execute(text('SELECT 1 FROM inventory_locations WHERE id=:l AND school_id=:sid'),{'l':str(b.location_id),'sid':str(actor.school_id)}).first():raise HTTPException(404,'Local introuvable')
+  row=c.execute(text("INSERT INTO inventory_items(school_id,code,label,item_kind,unit,low_threshold,location_id) VALUES(:sid,:c,:l,'CONSUMABLE',:u,:t,:loc) RETURNING id,code,label,unit,quantity,low_threshold,version"),
+   {'sid':str(actor.school_id),'c':code,'l':b.label.strip(),'u':b.unit.strip(),'t':b.low_threshold,'loc':str(b.location_id) if b.location_id else None}).mappings().one()
+  out={k:(str(v) if not isinstance(v,(int,str)) else v) for k,v in dict(row).items()}
+  _audit_item(c,actor,'INVENTORY_ITEM_CREATED',row['id'],out);return 201,out
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+   return IdempotentExecutor(PostgresIdempotencyRepository(c)).execute(scope_key=str(actor.school_id),idempotency_key=idempotency_key,operation='STEWARDSHIP_ITEM_CREATE',
+     payload=b.model_dump(mode='json'),school_id=str(actor.school_id),actor_user_id=str(actor.user_id),action=lambda:action(c)).body
+ except (IdempotencyConflict,IdempotencyInProgress) as e:raise HTTPException(409,str(e)) from e
+@router.put('/items/{item_id}')
+def update_item(item_id:UUID,b:ItemUpdate,if_match:str|None=Header(None,alias='If-Match'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Edits the item card only; quantity is never writable here (movements own it)."""
+ need(actor,'inventory.stock.item.manage')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  cur=c.execute(text('SELECT version FROM inventory_items WHERE id=:id AND school_id=:sid FOR UPDATE'),{'id':str(item_id),'sid':str(actor.school_id)}).scalar_one_or_none()
+  if cur is None:raise HTTPException(404,'Article introuvable')
+  if if_match is not None and if_match.strip('"')!=str(cur):raise HTTPException(409,'Article modifié par un autre utilisateur : rechargez')
+  row=c.execute(text('UPDATE inventory_items SET label=:l,unit=:u,low_threshold=:t,location_id=:loc,enabled=:e,version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid RETURNING id,code,label,unit,quantity,low_threshold,enabled,version'),
+   {'l':b.label.strip(),'u':b.unit.strip(),'t':b.low_threshold,'loc':str(b.location_id) if b.location_id else None,'e':b.enabled,'id':str(item_id),'sid':str(actor.school_id)}).mappings().one()
+  out={k:(str(v) if not isinstance(v,(int,str,bool)) else v) for k,v in dict(row).items()}
+  _audit_item(c,actor,'INVENTORY_ITEM_UPDATED',item_id,out);return out
 @router.post('/stock/movements',status_code=201)
 def movement(b:Movement,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  cap={'RECEIPT':'inventory.stock.receive','ISSUE':'inventory.stock.issue','ADJUSTMENT':'inventory.stock.adjust'}[b.movement_type];need(actor,cap)

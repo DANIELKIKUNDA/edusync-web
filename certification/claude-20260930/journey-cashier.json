@@ -1,0 +1,110 @@
+[
+  {
+    "journey": "desktop",
+    "step": "log in through the form",
+    "pass": true,
+    "ms": 8880
+  },
+  {
+    "journey": "desktop",
+    "step": "open the Finance centre",
+    "pass": true,
+    "ms": 3382
+  },
+  {
+    "journey": "desktop",
+    "step": "open my cash desk (or find it open)",
+    "pass": true,
+    "ms": 992
+  },
+  {
+    "journey": "desktop",
+    "step": "search the pupil (instant search)",
+    "pass": true,
+    "ms": 1505
+  },
+  {
+    "journey": "desktop",
+    "step": "select the pupil and see what is owed",
+    "pass": true,
+    "ms": 433
+  },
+  {
+    "journey": "desktop",
+    "step": "select the due fee and type the amount handed over",
+    "pass": true,
+    "ms": 870
+  },
+  {
+    "journey": "desktop",
+    "step": "collect and get a receipt",
+    "pass": true,
+    "ms": 655
+  },
+  {
+    "journey": "desktop",
+    "step": "remaining amount updated on screen",
+    "pass": true,
+    "ms": 3
+  },
+  {
+    "journey": "desktop",
+    "step": "no JavaScript error, no server error",
+    "pass": true,
+    "ms": 0
+  },
+  {
+    "journey": "phone",
+    "step": "log in through the form",
+    "pass": true,
+    "ms": 5030
+  },
+  {
+    "journey": "phone",
+    "step": "open the Finance centre",
+    "pass": true,
+    "ms": 827
+  },
+  {
+    "journey": "phone",
+    "step": "open my cash desk (or find it open)",
+    "pass": true,
+    "ms": 898
+  },
+  {
+    "journey": "phone",
+    "step": "search the pupil (instant search)",
+    "pass": true,
+    "ms": 1461
+  },
+  {
+    "journey": "phone",
+    "step": "select the pupil and see what is owed",
+    "pass": true,
+    "ms": 425
+  },
+  {
+    "journey": "phone",
+    "step": "select the due fee and type the amount handed over",
+    "pass": true,
+    "ms": 880
+  },
+  {
+    "journey": "phone",
+    "step": "collect and get a receipt",
+    "pass": true,
+    "ms": 2118
+  },
+  {
+    "journey": "phone",
+    "step": "remaining amount updated on screen",
+    "pass": true,
+    "ms": 2
+  },
+  {
+    "journey": "phone",
+    "step": "no JavaScript error, no server error",
+    "pass": true,
+    "ms": 1
+  }
+]

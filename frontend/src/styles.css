@@ -257,3 +257,19 @@ input,select,textarea{border-color:var(--line-strong)!important;border-radius:7p
   .chipX{position:relative}
   .chipX:after{content:"";position:absolute;inset:-7px}
 }
+
+/* Cash desk amount field: input shares the row with its currency, never overflows its card on phones */
+.amountEntry{width:100%;min-width:0}
+.amountEntry input{width:0;flex:1 1 auto;max-width:100%}
+.amountEntry b{flex:none}
+
+/* Payment confirmation stays visible above the phone bottom bar; year selector shows the full code */
+.checkoutMessage{scroll-margin-bottom:96px}
+@media(max-width:720px){.yearContext select{min-width:122px;padding-left:8px;padding-right:22px;font-size:16px}}
+
+/* Enrollment wizard steps: number and label no longer overlap ("1. Foyer") */
+.wizardSteps{counter-reset:wizstep;padding-bottom:22px}
+.wizardSteps i{font-size:0;line-height:0}
+.wizardSteps i span{font-size:10px;line-height:1.2;white-space:nowrap}
+.wizardSteps i span:before{counter-increment:wizstep;content:counter(wizstep) ". "}
+.wizardSteps i.done span{color:#4f46e5}
