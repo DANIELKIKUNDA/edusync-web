@@ -26,23 +26,32 @@ class PostgresFeeTrackingRepository:
         if class_id:filters.append("e.class_id=%s");p.append(class_id)
         if section_id:filters.append("sc.section_id=%s");p.append(section_id)
         having=''
-        if status=='IN_ORDER':having="HAVING sum(fc.paid_amount+coalesce(reg.outside_cash,0))>=sum(fc.effective_net_amount)"
-        elif status=='PARTIAL':having="HAVING sum(fc.paid_amount+coalesce(reg.outside_cash,0))>0 AND sum(fc.paid_amount+coalesce(reg.outside_cash,0))<sum(fc.effective_net_amount)"
-        elif status=='NOT_IN_ORDER':having="HAVING sum(fc.paid_amount+coalesce(reg.outside_cash,0))=0 AND sum(fc.effective_net_amount)>0"
+        if status=='IN_ORDER':having="HAVING sum(fc.paid_amount+fc.outside_cash_amount)>=sum(fc.effective_net_amount)"
+        elif status=='PARTIAL':having="HAVING sum(fc.paid_amount+fc.outside_cash_amount)>0 AND sum(fc.paid_amount+fc.outside_cash_amount)<sum(fc.effective_net_amount)"
+        elif status=='NOT_IN_ORDER':having="HAVING sum(fc.paid_amount+fc.outside_cash_amount)=0 AND sum(fc.effective_net_amount)>0"
         sql=f"""SELECT s.id student_id,s.matricule,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student_name,sc.label class_label,
           ft.id fee_type_id,ft.label fee_label,coalesce(cat.label,CASE WHEN ft.regulatory THEN 'Frais de l’État' ELSE 'Frais scolaires' END) category_label,
-          sum(fc.effective_net_amount) net_expected,sum(fc.paid_amount+coalesce(reg.outside_cash,0)) regularized,
-          greatest(sum(fc.effective_net_amount)-sum(fc.paid_amount+coalesce(reg.outside_cash,0)),0) remaining,
+          sum(fc.effective_net_amount) net_expected,sum(fc.paid_amount+fc.outside_cash_amount) regularized,
+          greatest(sum(fc.effective_net_amount)-sum(fc.paid_amount+fc.outside_cash_amount),0) remaining,
           sum(fc.decision_amount) decisions
           FROM finance_charge_effective fc JOIN enrollments e ON e.id=fc.enrollment_id JOIN students s ON s.id=e.student_id
           JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id LEFT JOIN fee_categories cat ON cat.id=ft.category_id
-          LEFT JOIN LATERAL(SELECT sum(r.amount) outside_cash FROM finance_charge_regularizations r WHERE r.school_id=fc.school_id AND r.charge_id=fc.id) reg ON true
           WHERE {' AND '.join(filters)} GROUP BY s.id,s.matricule,s.last_name,s.middle_name,s.first_name,sc.label,ft.id,ft.label,cat.label,ft.regulatory {having}
-          ORDER BY sc.label,s.last_name,s.middle_name,s.first_name,ft.label"""
+          ORDER BY sc.label,s.last_name,s.middle_name,s.first_name,ft.label,s.id,ft.id"""
         return sql,p
     def students(self,*args,**kwargs):
         sql,p=self._base(*args,**kwargs)
         with self.conn.cursor(row_factory=dict_row) as c:c.execute(sql,p);return [dict(r) for r in c.fetchall()]
+    def students_page(self,*args,limit,offset,**kwargs):
+        # A whole school is 10 000+ pupil lines: the screen pages through them instead of loading 4 MB at once.
+        sql,p=self._base(*args,**kwargs)
+        with self.conn.cursor(row_factory=dict_row) as c:
+            c.execute(f"SELECT page.*,count(*) OVER() total_rows FROM ({sql}) page LIMIT %s OFFSET %s",[*p,limit,offset]);rows=[dict(r) for r in c.fetchall()]
+            if rows:total=rows[0]['total_rows']
+            elif offset==0:total=0
+            else:c.execute(f"SELECT count(*) n FROM ({sql}) page",p);total=c.fetchone()['n']
+        for r in rows:r.pop('total_rows',None)
+        return rows,total
     def overview(self,school_id,year_id,currency):
         rows=self.students(school_id,year_id,currency)
         groups={}

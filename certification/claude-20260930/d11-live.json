@@ -17,7 +17,7 @@
   {
     "check": "partial exemption recorded via API",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"08651faf-1bca-45d3-b3ee-b72af7a767b1\",\"school_id\":\"66e29137-f8da-4ab5-8a65-7fd6934c8630\",\"enrollment_id\":\"35b47cbf-e2a8-4694-b505-2f9c2d282072\",\"charge_i"
+    "detail": "HTTP 200 {\"id\":\"b96672e6-c695-4363-8aa8-1908dae4559d\",\"school_id\":\"1661f089-3d74-475c-9f41-6d08ea1ecd93\",\"enrollment_id\":\"ba278e16-5806-4ffb-bed4-d96d0bed9095\",\"charge_i"
   },
   {
     "check": "balance shows obligation net of exemption (25 000)",
@@ -32,7 +32,7 @@
   {
     "check": "cash desk collects exactly what is owed after exemption",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"f3284bbb-ac46-45e9-b6e1-6dcc20fac502\",\"receipt_number\":\"REC-F3284BBB\",\"amount\":\"25000\",\"currency\":\"CDF\",\"replayed"
+    "detail": "HTTP 200 {\"id\":\"6a8ac6de-75a0-43ee-a18c-93b012dba7de\",\"receipt_number\":\"REC-6A8AC6DE\",\"amount\":\"25000\",\"currency\":\"CDF\",\"replayed"
   },
   {
     "check": "DB trigger rejects a raw over-regularization (tenant role)",

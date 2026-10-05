@@ -12,12 +12,12 @@
   {
     "check": "clone a standard role into a school role",
     "pass": true,
-    "detail": "HTTP 201 {\"id\":\"f3c7558a-c45e-4cd9-8a7e-1029d9df4147\",\"code\":\"CUSTOM_96117307A3\",\"label\":\"Gestionnaire sans sortie d'agent\",\"vers"
+    "detail": "HTTP 201 {\"id\":\"ff98ee18-37da-4542-b963-488d5dabe100\",\"code\":\"CUSTOM_537D346023\",\"label\":\"Gestionnaire sans sortie d'agent\",\"vers"
   },
   {
     "check": "adjust the school role (remove personnel.exit)",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"f3c7558a-c45e-4cd9-8a7e-1029d9df4147\",\"added\":[],\"label\":\"Gestionnaire sans sortie d'agent\",\"removed\":[\"personnel"
+    "detail": "HTTP 200 {\"id\":\"ff98ee18-37da-4542-b963-488d5dabe100\",\"added\":[],\"label\":\"Gestionnaire sans sortie d'agent\",\"removed\":[\"personnel"
   },
   {
     "check": "stale edit refused (optimistic concurrency)",
@@ -32,7 +32,7 @@
   {
     "check": "assign the school role",
     "pass": true,
-    "detail": "HTTP 201 {\"scopes\":[{\"type\":\"SCHOOL\",\"value\":null}],\"role_id\":\"f3c7558a-c45e-4cd9-8a7e-1029d9df4147\",\"role_label\":\"Gestionnaire s"
+    "detail": "HTTP 201 {\"scopes\":[{\"type\":\"SCHOOL\",\"value\":null}],\"role_id\":\"ff98ee18-37da-4542-b963-488d5dabe100\",\"role_label\":\"Gestionnaire s"
   },
   {
     "check": "rights effective immediately (same token, no re-login)",
@@ -67,7 +67,7 @@
   {
     "check": "section-scoped assignment accepted",
     "pass": true,
-    "detail": "HTTP 201 {\"scopes\":[{\"type\":\"SECTION\",\"value\":\"PRIMAIRE\"}],\"role_id\":\"2caa1950-7099-4513-944e-f2c8ab9d05a2\",\"role_label\":\"Caissie"
+    "detail": "HTTP 201 {\"scopes\":[{\"type\":\"SECTION\",\"value\":\"PRIMAIRE\"}],\"role_id\":\"abf52a67-20ef-4330-ac2a-7ca82d4bb5cf\",\"role_label\":\"Caissie"
   },
   {
     "check": "guardrail: the school always keeps at least one access manager",

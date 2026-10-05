@@ -10,8 +10,9 @@
     1024,
     1440
   ],
-  "screens": 126,
+  "screens": 112,
   "failing": [],
+  "unnamedInputs": [],
   "smallTapTargetScreens": [],
   "exceptions": [],
   "httpErrors": [],
@@ -27,6 +28,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -41,6 +43,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -55,6 +58,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -69,6 +73,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -83,6 +88,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -97,6 +103,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -111,6 +118,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -131,6 +139,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -151,6 +160,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -171,6 +181,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -191,6 +202,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -211,6 +223,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -225,6 +238,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -239,6 +253,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -259,6 +274,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -279,6 +295,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -299,6 +316,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -319,6 +337,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -339,6 +358,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -359,6 +379,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -373,6 +394,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -392,6 +414,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -411,6 +434,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -430,6 +454,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -449,6 +474,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -466,6 +492,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -480,6 +507,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -494,6 +522,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -514,6 +543,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -534,6 +564,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -554,6 +585,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -574,6 +606,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -594,6 +627,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -614,6 +648,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -628,6 +663,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -648,6 +684,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -668,6 +705,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -688,6 +726,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -708,6 +747,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -725,6 +765,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -739,6 +780,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -753,6 +795,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -767,6 +810,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -781,6 +825,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -795,6 +840,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -809,6 +855,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -823,6 +870,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -837,6 +885,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -851,6 +900,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -860,11 +910,17 @@
       "viewport": 320,
       "width": 320,
       "scrollWidth": 320,
-      "overflow": [],
-      "tapTargets": 11,
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "tapTargets": 13,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -874,11 +930,17 @@
       "viewport": 360,
       "width": 360,
       "scrollWidth": 360,
-      "overflow": [],
-      "tapTargets": 11,
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "tapTargets": 13,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -888,11 +950,16 @@
       "viewport": 390,
       "width": 390,
       "scrollWidth": 390,
-      "overflow": [],
-      "tapTargets": 11,
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "tapTargets": 13,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -902,11 +969,16 @@
       "viewport": 430,
       "width": 430,
       "scrollWidth": 430,
-      "overflow": [],
-      "tapTargets": 11,
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "tapTargets": 13,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -917,10 +989,11 @@
       "width": 768,
       "scrollWidth": 768,
       "overflow": [],
-      "tapTargets": 11,
+      "tapTargets": 13,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -931,10 +1004,11 @@
       "width": 1024,
       "scrollWidth": 1024,
       "overflow": [],
-      "tapTargets": 18,
+      "tapTargets": 20,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -945,10 +1019,11 @@
       "width": 1440,
       "scrollWidth": 1440,
       "overflow": [],
-      "tapTargets": 18,
+      "tapTargets": 20,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -969,6 +1044,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -989,6 +1065,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1009,6 +1086,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1029,6 +1107,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1043,6 +1122,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1057,6 +1137,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1071,6 +1152,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1084,10 +1166,11 @@
         "BUTTON.",
         "SPAN."
       ],
-      "tapTargets": 78,
+      "tapTargets": 54,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1101,10 +1184,11 @@
         "BUTTON.",
         "SPAN."
       ],
-      "tapTargets": 78,
+      "tapTargets": 54,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1118,10 +1202,11 @@
         "BUTTON.",
         "SPAN."
       ],
-      "tapTargets": 78,
+      "tapTargets": 54,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1132,10 +1217,11 @@
       "width": 430,
       "scrollWidth": 430,
       "overflow": [],
-      "tapTargets": 78,
+      "tapTargets": 54,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1146,10 +1232,11 @@
       "width": 768,
       "scrollWidth": 753,
       "overflow": [],
-      "tapTargets": 78,
+      "tapTargets": 54,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1160,10 +1247,11 @@
       "width": 1024,
       "scrollWidth": 1009,
       "overflow": [],
-      "tapTargets": 85,
+      "tapTargets": 61,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1174,10 +1262,11 @@
       "width": 1440,
       "scrollWidth": 1425,
       "overflow": [],
-      "tapTargets": 85,
+      "tapTargets": 61,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1192,6 +1281,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1206,6 +1296,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1220,6 +1311,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1234,6 +1326,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1248,12 +1341,134 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
     {
       "role": "CAISSIER1",
       "module": "Accueil",
+      "viewport": 1024,
+      "width": 1024,
+      "scrollWidth": 1024,
+      "overflow": [],
+      "tapTargets": 10,
+      "smallTapTargets": [],
+      "inputs": 1,
+      "inputsUnder16px": 0,
+      "unnamedInputs": [],
+      "tokenInStorage": [],
+      "pass": true
+    },
+    {
+      "role": "CAISSIER1",
+      "module": "Accueil",
+      "viewport": 1440,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "overflow": [],
+      "tapTargets": 10,
+      "smallTapTargets": [],
+      "inputs": 1,
+      "inputsUnder16px": 0,
+      "unnamedInputs": [],
+      "tokenInStorage": [],
+      "pass": true
+    },
+    {
+      "role": "CAISSIER1",
+      "module": "Paramètres",
+      "viewport": 320,
+      "width": 320,
+      "scrollWidth": 320,
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "SPAN."
+      ],
+      "tapTargets": 9,
+      "smallTapTargets": [],
+      "inputs": 1,
+      "inputsUnder16px": 0,
+      "unnamedInputs": [],
+      "tokenInStorage": [],
+      "pass": true
+    },
+    {
+      "role": "CAISSIER1",
+      "module": "Paramètres",
+      "viewport": 360,
+      "width": 360,
+      "scrollWidth": 360,
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "SPAN."
+      ],
+      "tapTargets": 9,
+      "smallTapTargets": [],
+      "inputs": 1,
+      "inputsUnder16px": 0,
+      "unnamedInputs": [],
+      "tokenInStorage": [],
+      "pass": true
+    },
+    {
+      "role": "CAISSIER1",
+      "module": "Paramètres",
+      "viewport": 390,
+      "width": 390,
+      "scrollWidth": 390,
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "SPAN."
+      ],
+      "tapTargets": 9,
+      "smallTapTargets": [],
+      "inputs": 1,
+      "inputsUnder16px": 0,
+      "unnamedInputs": [],
+      "tokenInStorage": [],
+      "pass": true
+    },
+    {
+      "role": "CAISSIER1",
+      "module": "Paramètres",
+      "viewport": 430,
+      "width": 430,
+      "scrollWidth": 430,
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "SPAN."
+      ],
+      "tapTargets": 9,
+      "smallTapTargets": [],
+      "inputs": 1,
+      "inputsUnder16px": 0,
+      "unnamedInputs": [],
+      "tokenInStorage": [],
+      "pass": true
+    },
+    {
+      "role": "CAISSIER1",
+      "module": "Paramètres",
+      "viewport": 768,
+      "width": 768,
+      "scrollWidth": 768,
+      "overflow": [],
+      "tapTargets": 9,
+      "smallTapTargets": [],
+      "inputs": 1,
+      "inputsUnder16px": 0,
+      "unnamedInputs": [],
+      "tokenInStorage": [],
+      "pass": true
+    },
+    {
+      "role": "CAISSIER1",
+      "module": "Paramètres",
       "viewport": 1024,
       "width": 1024,
       "scrollWidth": 1024,
@@ -1262,12 +1477,13 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
     {
       "role": "CAISSIER1",
-      "module": "Accueil",
+      "module": "Paramètres",
       "viewport": 1440,
       "width": 1440,
       "scrollWidth": 1440,
@@ -1276,265 +1492,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Paramètres",
-      "viewport": 320,
-      "width": 320,
-      "scrollWidth": 320,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "SPAN.",
-        "BUTTON.",
-        "SPAN."
-      ],
-      "tapTargets": 13,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Paramètres",
-      "viewport": 360,
-      "width": 360,
-      "scrollWidth": 360,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "SPAN.",
-        "BUTTON.",
-        "SPAN."
-      ],
-      "tapTargets": 13,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Paramètres",
-      "viewport": 390,
-      "width": 390,
-      "scrollWidth": 390,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "SPAN.",
-        "BUTTON.",
-        "SPAN."
-      ],
-      "tapTargets": 13,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Paramètres",
-      "viewport": 430,
-      "width": 430,
-      "scrollWidth": 430,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "SPAN.",
-        "BUTTON.",
-        "SPAN."
-      ],
-      "tapTargets": 13,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Paramètres",
-      "viewport": 768,
-      "width": 768,
-      "scrollWidth": 768,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "SPAN.",
-        "BUTTON.",
-        "SPAN."
-      ],
-      "tapTargets": 13,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Paramètres",
-      "viewport": 1024,
-      "width": 1024,
-      "scrollWidth": 1024,
-      "overflow": [],
-      "tapTargets": 18,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Paramètres",
-      "viewport": 1440,
-      "width": 1440,
-      "scrollWidth": 1440,
-      "overflow": [],
-      "tapTargets": 18,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Personnel",
-      "viewport": 320,
-      "width": 320,
-      "scrollWidth": 320,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "svg.[object SVGAnimatedString]",
-        "path.[object SVGAnimatedString]",
-        "path.[object SVGAnimatedString]"
-      ],
-      "tapTargets": 10,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Personnel",
-      "viewport": 360,
-      "width": 360,
-      "scrollWidth": 360,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "svg.[object SVGAnimatedString]",
-        "path.[object SVGAnimatedString]",
-        "path.[object SVGAnimatedString]"
-      ],
-      "tapTargets": 10,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Personnel",
-      "viewport": 390,
-      "width": 390,
-      "scrollWidth": 390,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "svg.[object SVGAnimatedString]",
-        "path.[object SVGAnimatedString]",
-        "path.[object SVGAnimatedString]"
-      ],
-      "tapTargets": 10,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Personnel",
-      "viewport": 430,
-      "width": 430,
-      "scrollWidth": 430,
-      "overflow": [
-        "BUTTON.",
-        "BUTTON.",
-        "svg.[object SVGAnimatedString]",
-        "path.[object SVGAnimatedString]",
-        "path.[object SVGAnimatedString]"
-      ],
-      "tapTargets": 10,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Personnel",
-      "viewport": 768,
-      "width": 768,
-      "scrollWidth": 753,
-      "overflow": [
-        "DIV.personRow head",
-        "SPAN.",
-        "SPAN.",
-        "SPAN."
-      ],
-      "tapTargets": 10,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Personnel",
-      "viewport": 1024,
-      "width": 1024,
-      "scrollWidth": 1009,
-      "overflow": [
-        "DIV.personRow head",
-        "SPAN.",
-        "SPAN."
-      ],
-      "tapTargets": 15,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Personnel",
-      "viewport": 1440,
-      "width": 1440,
-      "scrollWidth": 1425,
-      "overflow": [],
-      "tapTargets": 15,
-      "smallTapTargets": [],
-      "inputs": 1,
-      "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1553,6 +1511,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1571,6 +1530,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1589,6 +1549,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1607,6 +1568,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1623,6 +1585,7 @@
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1633,10 +1596,11 @@
       "width": 1024,
       "scrollWidth": 1009,
       "overflow": [],
-      "tapTargets": 30,
+      "tapTargets": 28,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1647,10 +1611,11 @@
       "width": 1440,
       "scrollWidth": 1440,
       "overflow": [],
-      "tapTargets": 30,
+      "tapTargets": 28,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1671,6 +1636,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1691,6 +1657,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1711,6 +1678,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1730,6 +1698,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1746,6 +1715,7 @@
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1756,10 +1726,11 @@
       "width": 1024,
       "scrollWidth": 1024,
       "overflow": [],
-      "tapTargets": 19,
+      "tapTargets": 17,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1770,10 +1741,11 @@
       "width": 1440,
       "scrollWidth": 1440,
       "overflow": [],
-      "tapTargets": 19,
+      "tapTargets": 17,
       "smallTapTargets": [],
       "inputs": 2,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1788,6 +1760,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1802,6 +1775,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1816,6 +1790,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1830,6 +1805,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1844,6 +1820,7 @@
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1854,10 +1831,11 @@
       "width": 1024,
       "scrollWidth": 1009,
       "overflow": [],
-      "tapTargets": 11,
+      "tapTargets": 9,
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1868,10 +1846,11 @@
       "width": 1440,
       "scrollWidth": 1425,
       "overflow": [],
-      "tapTargets": 11,
+      "tapTargets": 9,
       "smallTapTargets": [],
       "inputs": 3,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1888,10 +1867,11 @@
         "SPAN.",
         "DIV.tr th"
       ],
-      "tapTargets": 6,
+      "tapTargets": 5,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1908,10 +1888,11 @@
         "DIV.tr th",
         "SPAN."
       ],
-      "tapTargets": 6,
+      "tapTargets": 5,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1928,10 +1909,11 @@
         "DIV.tr th",
         "SPAN."
       ],
-      "tapTargets": 6,
+      "tapTargets": 5,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1948,10 +1930,11 @@
         "DIV.tr th",
         "SPAN."
       ],
-      "tapTargets": 6,
+      "tapTargets": 5,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1960,12 +1943,13 @@
       "module": "Synchronisation",
       "viewport": 768,
       "width": 768,
-      "scrollWidth": 753,
+      "scrollWidth": 768,
       "overflow": [],
-      "tapTargets": 6,
+      "tapTargets": 5,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1974,12 +1958,13 @@
       "module": "Synchronisation",
       "viewport": 1024,
       "width": 1024,
-      "scrollWidth": 1009,
+      "scrollWidth": 1024,
       "overflow": [],
-      "tapTargets": 11,
+      "tapTargets": 8,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     },
@@ -1988,119 +1973,13 @@
       "module": "Synchronisation",
       "viewport": 1440,
       "width": 1440,
-      "scrollWidth": 1425,
+      "scrollWidth": 1440,
       "overflow": [],
-      "tapTargets": 11,
+      "tapTargets": 8,
       "smallTapTargets": [],
       "inputs": 1,
       "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Accès & rôles",
-      "viewport": 320,
-      "width": 320,
-      "scrollWidth": 320,
-      "overflow": [
-        "BUTTON.",
-        "SPAN."
-      ],
-      "tapTargets": 85,
-      "smallTapTargets": [],
-      "inputs": 2,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Accès & rôles",
-      "viewport": 360,
-      "width": 360,
-      "scrollWidth": 360,
-      "overflow": [
-        "BUTTON.",
-        "SPAN."
-      ],
-      "tapTargets": 85,
-      "smallTapTargets": [],
-      "inputs": 2,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Accès & rôles",
-      "viewport": 390,
-      "width": 390,
-      "scrollWidth": 390,
-      "overflow": [
-        "BUTTON.",
-        "SPAN."
-      ],
-      "tapTargets": 85,
-      "smallTapTargets": [],
-      "inputs": 2,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Accès & rôles",
-      "viewport": 430,
-      "width": 430,
-      "scrollWidth": 430,
-      "overflow": [],
-      "tapTargets": 85,
-      "smallTapTargets": [],
-      "inputs": 2,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Accès & rôles",
-      "viewport": 768,
-      "width": 768,
-      "scrollWidth": 753,
-      "overflow": [],
-      "tapTargets": 85,
-      "smallTapTargets": [],
-      "inputs": 2,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Accès & rôles",
-      "viewport": 1024,
-      "width": 1024,
-      "scrollWidth": 1009,
-      "overflow": [],
-      "tapTargets": 90,
-      "smallTapTargets": [],
-      "inputs": 2,
-      "inputsUnder16px": 0,
-      "tokenInStorage": [],
-      "pass": true
-    },
-    {
-      "role": "CAISSIER1",
-      "module": "Accès & rôles",
-      "viewport": 1440,
-      "width": 1440,
-      "scrollWidth": 1425,
-      "overflow": [],
-      "tapTargets": 90,
-      "smallTapTargets": [],
-      "inputs": 2,
-      "inputsUnder16px": 0,
+      "unnamedInputs": [],
       "tokenInStorage": [],
       "pass": true
     }

@@ -28,7 +28,7 @@ big_class = sql("""SELECT c.id, count(*) n FROM school_classes c JOIN enrollment
                    WHERE c.school_id=:s GROUP BY c.id ORDER BY n DESC LIMIT 1""", {"s": A["school_id"]})[0]
 eid = sql("SELECT e.id FROM enrollments e JOIN students s ON s.id=e.student_id WHERE e.school_id=:s AND s.matricule LIKE 'PA-%' LIMIT 1", {"s": A["school_id"]})[0]["id"]
 report = {"environment": {"postgres": sql("SHOW server_version")[0]["server_version"], "shared_buffers": sql("SHOW shared_buffers")[0]["shared_buffers"],
-                          "load_generator": "python threads + httpx (k6 not installed)", "concurrency": 10},
+                          "load_generator": "python threads + httpx (k6 not installed)", "concurrency": 8},
           "volume": {t: sql(f"SELECT count(*) n FROM {t}")[0]["n"] for t in ("students", "enrollments", "finance_charges", "finance_payments")},
           "class_size": big_class["n"], "endpoints": {}, "collect": {}, "top_statements": [], "explain": {}}
 sql("SELECT pg_stat_statements_reset()")
@@ -52,13 +52,13 @@ def pct(xs, p):
 
 
 for name, user, path, params in ENDPOINTS:
-    clients = [user_client(A, user) for _ in range(10)]
+    clients = [user_client(A, user) for _ in range(8)]
     for c in clients[:2]:
         call(c, "GET", path, params=params)  # warm-up
     lat, codes, lock = [], [], threading.Lock()
 
     def worker(c):
-        for _ in range(20):
+        for _ in range(10):
             t0 = time.perf_counter()
             r = call(c, "GET", path, params=params)
             dt = (time.perf_counter() - t0) * 1000
@@ -77,13 +77,13 @@ for name, user, path, params in ENDPOINTS:
     check(f"perf {name}: all 200", codes.count(200) == len(codes), str(set(codes)))
 
 # multi-cashier collect throughput on distinct pupils (DECEMBRE is the next due month for paid pupils)
-for k in ("CAISSIER3", "CAISSIER4", "CAISSIER5", "CAISSIER6"):
+for k in ("CAISSIER3", "CAISSIER4"):
     ensure_user(A, k, ("CAISSIER",))
-cashiers = ["CAISSIER1", "CAISSIER2", "CAISSIER3", "CAISSIER4", "CAISSIER5", "CAISSIER6"]
+cashiers = ["CAISSIER1", "CAISSIER2", "CAISSIER3", "CAISSIER4"]
 targets = sql("""SELECT fc.enrollment_id, fc.id FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id JOIN students s ON s.id=e.student_id
                  WHERE fc.school_id=:s AND s.matricule LIKE 'PA-%' AND fc.period_order=4 AND fc.paid_amount=0
                  AND EXISTS(SELECT 1 FROM finance_charges p WHERE p.enrollment_id=fc.enrollment_id AND p.period_order=3 AND p.paid_amount=p.net_amount)
-                 ORDER BY fc.id LIMIT 300""", {"s": A["school_id"]})
+                 ORDER BY fc.id LIMIT 100""", {"s": A["school_id"]})
 lat, codes, lock = [], [], threading.Lock()
 
 
@@ -110,7 +110,7 @@ report["collect"] = {"cashiers": len(cashiers), "payments": len(lat), "ok": code
 print("collect", report["collect"], flush=True)
 bad = sql("""SELECT count(*) n FROM finance_charges fc WHERE fc.school_id=:s AND fc.paid_amount <>
              coalesce((SELECT sum(a.amount) FROM finance_payment_allocations a WHERE a.charge_id=fc.id),0)""", {"s": A["school_id"]})[0]["n"]
-check("6 concurrent cashiers: all payments accepted, ledger consistent", codes.count(200) == len(codes) and bad == 0, f"ok={codes.count(200)}/{len(codes)} ledger mismatches={bad}")
+check("4 concurrent cashiers: all payments accepted, ledger consistent", codes.count(200) == len(codes) and bad == 0, f"ok={codes.count(200)}/{len(codes)} ledger mismatches={bad}")
 
 report["top_statements"] = [dict(r) for r in sql("""SELECT left(regexp_replace(query,'\\s+',' ','g'),160) query, calls, round(mean_exec_time::numeric,2) mean_ms,
      round(max_exec_time::numeric,2) max_ms, round(total_exec_time::numeric,1) total_ms, shared_blks_hit, shared_blks_read

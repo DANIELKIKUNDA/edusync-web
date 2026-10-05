@@ -2,11 +2,11 @@
   {
     "check": "BOLA sweep: no GET route returns school A data to school B",
     "pass": true,
-    "detail": "1510 requests; statuses={404: 586, 200: 917, 422: 7}; leaks=[]"
+    "detail": "1409 requests; statuses={404: 458, 200: 944, 422: 7}; leaks=[]"
   },
   {
     "check": "BOLA sweep: B's writes on A identifiers never modify A",
     "pass": true,
-    "detail": "1720 write requests; 2xx=['POST sync/devices/002fecf5-0752-4382-bc85-8bbada122d8a/revoke -> 204', 'POST sync/devices/00a7be17-672b-41b9-a721-336afd076798/revoke -> 204', 'POST sync/devices/01067268-9275-4ef2-95f0-df182e9203e6/revoke -> 204', 'POST sync/devices/02ae97a8-efe1-440c-9ef7-3a61ba1def97/re"
+    "detail": "1920 write requests; 2xx=['POST sync/devices/009f773b-0159-424f-a103-d4f2ee4f6d5b/revoke -> 204', 'POST sync/devices/07eac7c6-91bd-4ca4-86fb-71c3a2a7f487/revoke -> 204', 'POST sync/devices/0950dd7b-7262-418a-8419-4099a56a4707/revoke -> 204', 'POST sync/devices/095734e7-ecde-409b-b92a-cbf7f1a6990e/re"
   }
 ]

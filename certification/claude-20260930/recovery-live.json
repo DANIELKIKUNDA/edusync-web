@@ -2,7 +2,7 @@
   {
     "check": "recovery summary/section available",
     "pass": true,
-    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"08b6bb1e-e7b7-4c13-93cc-7f5a2a1cd89b\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE DE LA SECTION"
+    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"a5343bd2-183d-4ba2-be06-b1c13d45d1c8\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE DE LA SECTION"
   },
   {
     "check": "summary/section totals reconcile with ledger (expected net of exemptions, cash, outside cash)",
@@ -22,7 +22,7 @@
   {
     "check": "recovery summary/school available",
     "pass": true,
-    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"08b6bb1e-e7b7-4c13-93cc-7f5a2a1cd89b\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE GLOBALE DE L'"
+    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"a5343bd2-183d-4ba2-be06-b1c13d45d1c8\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE GLOBALE DE L'"
   },
   {
     "check": "summary/school totals reconcile with ledger (expected net of exemptions, cash, outside cash)",
@@ -42,7 +42,7 @@
   {
     "check": "recovery summary/class available",
     "pass": true,
-    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"08b6bb1e-e7b7-4c13-93cc-7f5a2a1cd89b\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE MENSUELLE PAR"
+    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"a5343bd2-183d-4ba2-be06-b1c13d45d1c8\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE MENSUELLE PAR"
   },
   {
     "check": "recovery summary/class.pdf export",
@@ -92,6 +92,6 @@
   {
     "check": "school B summary never includes school A money",
     "pass": true,
-    "detail": "{\"academic_year\":{\"id\":\"058f2863-9086-435f-9732-0e6cd2876fb6\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE GLOBALE DE L'ÉCOLE\",\"items\":[{\"label\":\"Primaire\",\"deb"
+    "detail": "{\"academic_year\":{\"id\":\"9b41ee8e-3a48-48b6-9707-5ecc2513c286\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE GLOBALE DE L'ÉCOLE\",\"items\":[{\"label\":\"Primaire\",\"deb"
   }
 ]

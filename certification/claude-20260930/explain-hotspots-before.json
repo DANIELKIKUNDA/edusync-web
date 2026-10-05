@@ -1,0 +1,54 @@
+[
+  {
+    "label": "recovery monthly",
+    "wall_ms": 28284,
+    "execution": "Execution Time: 28160.702 ms",
+    "top_nodes": [
+      "28018 ms · Subquery Scan on agg  (cost=4835.16..5042.96 rows=807 width=252) (actual time=5151.098..28017.726 rows=10 loops=1)",
+      "28018 ms · ->  GroupAggregate  (cost=4835.16..5024.80 rows=807 width=156) (actual time=5151.055..28017.596 rows=10 loops=1)",
+      "3720 ms · ->  Aggregate  (cost=0.02..0.03 rows=1 width=32) (actual time=0.031..0.031 rows=1 loops=120004)",
+      "3720 ms · ->  Aggregate  (cost=0.02..0.03 rows=1 width=32) (actual time=0.031..0.031 rows=1 loops=120004)",
+      "3600 ms · ->  Result  (cost=0.01..0.01 rows=1 width=20) (actual time=0.030..0.030 rows=0 loops=120004)",
+      "3480 ms · ->  Result  (cost=0.01..0.01 rows=1 width=20) (actual time=0.029..0.029 rows=0 loops=120004)"
+    ]
+  },
+  {
+    "label": "recovery summary school",
+    "wall_ms": 10018,
+    "execution": "Execution Time: 10001.859 ms",
+    "top_nodes": [
+      "10001 ms · GroupAggregate  (cost=5074.18..5124.36 rows=200 width=271) (actual time=9938.828..10000.735 rows=31 loops=1)",
+      "9941 ms · ->  Sort  (cost=5074.18..5076.26 rows=832 width=151) (actual time=9938.766..9941.258 rows=12003 loops=1)",
+      "9873 ms · ->  Subquery Scan on per_student  (cost=80.53..5033.83 rows=832 width=151) (actual time=31.703..9872.713 rows=12003 loops=1)",
+      "9864 ms · ->  GroupAggregate  (cost=80.53..5025.51 rows=832 width=167) (actual time=31.701..9864.312 rows=12003 loops=1)",
+      "3600 ms · ->  Aggregate  (cost=0.02..0.03 rows=1 width=32) (actual time=0.030..0.030 rows=1 loops=120004)",
+      "3600 ms · ->  Aggregate  (cost=0.02..0.03 rows=1 width=32) (actual time=0.029..0.030 rows=1 loops=120004)"
+    ]
+  },
+  {
+    "label": "recovery class register",
+    "wall_ms": 610,
+    "execution": "Execution Time: 562.972 ms",
+    "top_nodes": [
+      "559 ms · Sort  (cost=139.67..139.68 rows=3 width=496) (actual time=558.374..558.953 rows=4390 loops=1)",
+      "446 ms · ->  Result  (cost=1.16..139.65 rows=3 width=496) (actual time=0.356..446.068 rows=4390 loops=1)",
+      "158 ms · ->  Aggregate  (cost=0.02..0.03 rows=1 width=32) (actual time=0.036..0.036 rows=1 loops=4390)",
+      "140 ms · ->  Aggregate  (cost=0.02..0.03 rows=1 width=32) (actual time=0.032..0.032 rows=1 loops=4390)",
+      "132 ms · ->  Result  (cost=0.01..0.01 rows=1 width=20) (actual time=0.030..0.030 rows=0 loops=4390)",
+      "110 ms · ->  Result  (cost=0.01..0.01 rows=1 width=20) (actual time=0.025..0.025 rows=0 loops=4390)"
+    ]
+  },
+  {
+    "label": "fee tracking students",
+    "wall_ms": 19964,
+    "execution": "Execution Time: 19942.449 ms",
+    "top_nodes": [
+      "19806 ms · Incremental Sort  (cost=4605.31..4649.78 rows=262 width=867) (actual time=6910.788..19805.928 rows=12003 loops=1)",
+      "19489 ms · ->  GroupAggregate  (cost=4603.46..4641.45 rows=262 width=867) (actual time=6831.407..19489.015 rows=12003 loops=1)",
+      "7250 ms · ->  Sort  (cost=4603.46..4604.12 rows=262 width=751) (actual time=6831.201..7249.637 rows=120004 loops=1)",
+      "5459 ms · ->  Result  (cost=1589.83..4592.94 rows=262 width=751) (actual time=29.255..5458.672 rows=120004 loops=1)",
+      "5365 ms · ->  Nested Loop Left Join  (cost=1589.83..4592.94 rows=262 width=751) (actual time=29.234..5364.836 rows=120004 loops=1)",
+      "3840 ms · ->  Aggregate  (cost=0.02..0.03 rows=1 width=32) (actual time=0.032..0.032 rows=1 loops=120004)"
+    ]
+  }
+]

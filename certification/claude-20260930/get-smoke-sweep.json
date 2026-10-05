@@ -2,6 +2,6 @@
   {
     "check": "GET smoke sweep: no route returns HTTP 500",
     "pass": true,
-    "detail": "101 routes; statuses={200: 99, 404: 1, 422: 1}; 500=[]"
+    "detail": "108 routes; statuses={200: 106, 404: 1, 422: 1}; 500=[]"
   }
 ]

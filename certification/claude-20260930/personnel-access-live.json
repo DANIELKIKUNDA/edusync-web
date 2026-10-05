@@ -2,7 +2,7 @@
   {
     "check": "link staff to access account",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"a41fa213-fc27-4360-a209-ff3f67aa4132\",\"active\":true,\"reason\":\"Compte de l'agent\",\"staff_id\":\"df9b3eb5-2adb-4690-b54c-0f602f4493e8\",\"linked_at\":"
+    "detail": "HTTP 200 {\"id\":\"36d2dc92-00bc-4a60-8ce0-c1cf1e6f7fa6\",\"active\":true,\"reason\":\"Compte de l'agent\",\"staff_id\":\"a1bde304-34ad-45d1-8caa-66a098ebb7fb\",\"linked_at\":"
   },
   {
     "check": "linked user can use API before exit",
@@ -12,7 +12,7 @@
   {
     "check": "staff exit with linked access succeeds",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"df9b3eb5-2adb-4690-b54c-0f602f4493e8\",\"email\":null,\"notes\":null,\"phone\":null,\"gender\":null,\"status\":\"LEFT\",\"address\":null,\"version\":2,\"category"
+    "detail": "HTTP 200 {\"id\":\"a1bde304-34ad-45d1-8caa-66a098ebb7fb\",\"email\":null,\"notes\":null,\"phone\":null,\"gender\":null,\"status\":\"LEFT\",\"address\":null,\"version\":2,\"category"
   },
   {
     "check": "linked membership deactivated after exit",

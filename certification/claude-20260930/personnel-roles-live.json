@@ -7,7 +7,7 @@
   {
     "check": "GESTIONNAIRE can record a departure",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"324aeac0-5b0e-45c6-b170-707c1d336d0d\",\"email\":null,\"notes\":null,\"phone\":null,\"gender\":null,\"s"
+    "detail": "HTTP 200 {\"id\":\"e5eb4493-0dea-4680-861c-4456f84b8db4\",\"email\":null,\"notes\":null,\"phone\":null,\"gender\":null,\"s"
   },
   {
     "check": "GESTIONNAIRE cannot reactivate (custom-role only)",

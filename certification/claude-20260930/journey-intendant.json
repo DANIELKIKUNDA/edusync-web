@@ -2,42 +2,42 @@
   {
     "step": "log in through the form",
     "pass": true,
-    "ms": 5847
+    "ms": 5496
   },
   {
     "step": "open Intendance",
     "pass": true,
-    "ms": 1358
+    "ms": 9399
   },
   {
     "step": "create a consumable item",
     "pass": true,
-    "ms": 2262
+    "ms": 4973
   },
   {
     "step": "record a receipt of 50",
     "pass": true,
-    "ms": 1222
+    "ms": 5961
   },
   {
     "step": "record an issue of 12 to a destination",
     "pass": true,
-    "ms": 1235
+    "ms": 1249
   },
   {
     "step": "an impossible issue (more than in stock) is blocked on screen",
     "pass": true,
-    "ms": 1243
+    "ms": 1443
   },
   {
     "step": "physical inventory: count, justify the variance, validate",
     "pass": true,
-    "ms": 3554
+    "ms": 3338
   },
   {
     "step": "movement history shows receipt, issue and inventory variance in French",
     "pass": true,
-    "ms": 1160
+    "ms": 921
   },
   {
     "step": "no JavaScript error, no server error",

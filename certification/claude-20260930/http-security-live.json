@@ -62,22 +62,22 @@
   {
     "check": "SQLi on finance/checkout/search: no 500, no leak, no time-based injection",
     "pass": true,
-    "detail": "codes=['200'] worst=0.05s"
+    "detail": "codes=['200'] worst=0.06s"
   },
   {
     "check": "SQLi on schooling/students: no 500, no leak, no time-based injection",
     "pass": true,
-    "detail": "codes=['200'] worst=0.08s"
+    "detail": "codes=['200'] worst=0.47s"
   },
   {
     "check": "SQLi on schooling/families: no 500, no leak, no time-based injection",
     "pass": true,
-    "detail": "codes=['200'] worst=0.04s"
+    "detail": "codes=['200'] worst=0.13s"
   },
   {
     "check": "SQLi on personnel: no 500, no leak, no time-based injection",
     "pass": true,
-    "detail": "codes=['200'] worst=0.05s"
+    "detail": "codes=['200'] worst=0.32s"
   },
   {
     "check": "students table intact after injection attempts",
@@ -102,7 +102,7 @@
   {
     "check": "student with formula-like name stored",
     "pass": true,
-    "detail": "HTTP 201 {\"count\":1,\"family_id\":\"702279c6-f2d9-4960-b9a3-919e1e76a690\",\"student_ids\":[\"41da3a32-aefb-45b3-871a-26221ffee298\"],\"en"
+    "detail": "HTTP 201 {\"count\":1,\"family_id\":\"b4558030-9067-48d7-8ef3-e52ad6a3f9fa\",\"student_ids\":[\"b3209832-5b46-4692-9690-2c837639843a\"],\"en"
   },
   {
     "check": "schooling/exports/students.xlsx: user data never exported as a live formula",

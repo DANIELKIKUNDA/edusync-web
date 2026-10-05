@@ -1,0 +1,52 @@
+[
+  {
+    "check": "perf auth/me (auth + session + RBAC reload): all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "perf checkout search: all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "perf checkout balance: all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "perf cash current: all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "perf students list (search): all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "perf fee tracking students: all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "perf recovery monthly: all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "perf recovery summary school: all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "perf recovery class register (largest class): all 200",
+    "pass": true,
+    "detail": "{200}"
+  },
+  {
+    "check": "4 concurrent cashiers: all payments accepted, ledger consistent",
+    "pass": true,
+    "detail": "ok=100/100 ledger mismatches=0"
+  }
+]

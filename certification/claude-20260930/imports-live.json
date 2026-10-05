@@ -7,7 +7,7 @@
   {
     "check": "official template intact -> analyzed, 0 error",
     "pass": true,
-    "detail": "{\"batch_id\":\"af6d846c-85a9-438c-a6ab-3493aa2081e6\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
+    "detail": "{\"batch_id\":\"3dc9a19b-b301-4f90-b526-e568eeaaa9c2\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
   },
   {
     "check": "rejected: renamed column",
@@ -97,7 +97,7 @@
   {
     "check": "staff analyze",
     "pass": true,
-    "detail": "{\"batch_id\":\"24ce3df8-a1a5-442e-aeec-60d24181c15d\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
+    "detail": "{\"batch_id\":\"fabf96c1-96e7-40a2-a573-6504c1bd4a1d\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
   },
   {
     "check": "staff execute + replay -> 1 agent",
@@ -107,7 +107,7 @@
   {
     "check": "finance history analyzed (both batches see the full remaining)",
     "pass": true,
-    "detail": "{\"batch_id\":\"e866e34f-3e1b-41b1-b429-82a6aacdfeab\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
+    "detail": "{\"batch_id\":\"cb689720-bdd8-454c-bf1b-dafc4d7c40ca\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
   },
   {
     "check": "two stale batches cannot regularize more than what is owed",

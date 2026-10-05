@@ -2,17 +2,17 @@
   {
     "check": "cash.open",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"7dfbbcf9-63c4-4111-af9b-d462e3b8a85f\",\"school_id\":\"68406b06-d8db-4f86-8cd2-67cc16376320\",\"membership_id\":\"d011128b-eac3-4abd-9c76-27243f447790\""
+    "detail": "HTTP 200 {\"id\":\"6b7daa96-f4c5-4516-83c9-662857104f5f\",\"school_id\":\"1661f089-3d74-475c-9f41-6d08ea1ecd93\",\"membership_id\":\"ee617b4b-a4f7-4e1c-87e0-9fbe84a12df2\""
   },
   {
     "check": "cash.open",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"da42188f-e95a-477b-9285-3a4320023ab1\",\"school_id\":\"68406b06-d8db-4f86-8cd2-67cc16376320\",\"membership_id\":\"2667d262-15c3-4c1b-a919-5bdbfe09497f\""
+    "detail": "HTTP 200 {\"id\":\"8bb5fe7e-dfd3-4246-b20a-3178458b7976\",\"school_id\":\"1661f089-3d74-475c-9f41-6d08ea1ecd93\",\"membership_id\":\"c9e45158-92c7-4c85-843a-7cdfb3178bbd\""
   },
   {
     "check": "cash.open",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"77340b95-2a3d-4d3f-a560-e6fd5a583f62\",\"school_id\":\"b6ada894-6190-41c9-bc95-3bd3178c1fbd\",\"membership_id\":\"ae4671a3-fdcb-41df-9fd7-4a1ae5c192d2\""
+    "detail": "HTTP 200 {\"id\":\"98288077-1385-4a4a-8233-e82ab06e3f48\",\"school_id\":\"0e9eb815-e89f-4fd6-895c-fc87293d2962\",\"membership_id\":\"b3886ddf-d628-4b0c-bc4d-beb6421cb8c5\""
   },
   {
     "check": "sequential: OCTOBRE locked while SEPTEMBRE due",
@@ -22,12 +22,12 @@
   {
     "check": "collect CDF partial payment (fresh install)",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"345d4738-02b0-45d5-a78e-de5d46d2d2ca\",\"receipt_number\":\"REC-345D4738\",\"amount\":\"20000\",\"currency\":\"CDF\",\"replayed\":false,\"allocations\":[{\"label\":\"SEPTEMBRE\",\"amount\":\"20000\"}],\"advance\":null}"
+    "detail": "HTTP 200 {\"id\":\"b6ed0c07-a025-4345-9821-ee4f7459cfa4\",\"receipt_number\":\"REC-B6ED0C07\",\"amount\":\"20000\",\"currency\":\"CDF\",\"replayed\":false,\"allocations\":[{\"label\":\"SEPTEMBRE\",\"amount\":\"20000\"}],\"advance\":null}"
   },
   {
     "check": "replay same key+payload returns same receipt",
     "pass": true,
-    "detail": "{\"id\":\"345d4738-02b0-45d5-a78e-de5d46d2d2ca\",\"receipt_number\":\"REC-345D4738\",\"amount\":20000.0,\"currency\":\"CDF\",\"replayed\":true}"
+    "detail": "{\"id\":\"b6ed0c07-a025-4345-9821-ee4f7459cfa4\",\"receipt_number\":\"REC-B6ED0C07\",\"amount\":20000.0,\"currency\":\"CDF\",\"replayed\":true}"
   },
   {
     "check": "replay same key with different payload is rejected (409)",
@@ -52,12 +52,12 @@
   {
     "check": "collect CDF on enrollment that also owes USD",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"7973eeb4-5e79-4893-8c44-045bf23f6cb7\",\"receipt_number\":\"REC-7973EEB4\",\"amount\":\"10000\",\"currency\":\"CDF\",\"replayed\":false,\"allocations\":[{\"label\":\"SEPTEMBRE\",\"amount\":\"10000\"}],\"advance\":null}"
+    "detail": "HTTP 200 {\"id\":\"de543fa3-3226-4852-8c65-3c3f209f0f35\",\"receipt_number\":\"REC-DE543FA3\",\"amount\":\"10000\",\"currency\":\"CDF\",\"replayed\":false,\"allocations\":[{\"label\":\"SEPTEMBRE\",\"amount\":\"10000\"}],\"advance\":null}"
   },
   {
     "check": "collect USD on same enrollment",
     "pass": true,
-    "detail": "HTTP 200 {\"id\":\"a836b081-d0a7-44a1-a3f4-e899e8b837fb\",\"receipt_number\":\"REC-A836B081\",\"amount\":\"5\",\"currency\":\"USD\",\"replayed\":false,\"allocations\":[{\"label\":\"Frais d'inscription\",\"amount\":\"5\"}],\"advance\":null}"
+    "detail": "HTTP 200 {\"id\":\"10de6eeb-9dcd-4093-8ec3-0cd2fb999222\",\"receipt_number\":\"REC-10DE6EEB\",\"amount\":\"5\",\"currency\":\"USD\",\"replayed\":false,\"allocations\":[{\"label\":\"Frais d'inscription\",\"amount\":\"5\"}],\"advance\":null}"
   },
   {
     "check": "CDF+USD in one payment refused",
@@ -102,7 +102,7 @@
   {
     "check": "concurrent same Idempotency-Key: one payment, all responses 200 with same receipt",
     "pass": true,
-    "detail": "payments=1 responses=[(200, 'REC-C1AE98C8'), (200, 'REC-C1AE98C8'), (200, 'REC-C1AE98C8')]"
+    "detail": "payments=1 responses=[(200, 'REC-F07FFC66'), (200, 'REC-F07FFC66'), (200, 'REC-F07FFC66')]"
   },
   {
     "check": "ledger: paid_amount == sum(allocations) for every charge",
@@ -127,6 +127,6 @@
   {
     "check": "cash session projection readable after payments",
     "pass": true,
-    "detail": "{'opening': '0', 'receipts': '31000.00', 'expenses': '0', 'expected_cash': '31000.00', 'counted': None, 'variance': None}"
+    "detail": "{'opening': '0', 'receipts': '71000.00', 'expenses': '0', 'expected_cash': '71000.00', 'counted': None, 'variance': None}"
   }
 ]

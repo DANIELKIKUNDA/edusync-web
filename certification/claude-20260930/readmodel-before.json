@@ -1,0 +1,22 @@
+{
+  "recovery monthly": {
+    "ms": 10287,
+    "sha256": "7b6d32feb2245c90ff1e8d8ab43ad3f83635dd03f32ddd4bef7ba1675ebd9c6d",
+    "size": 2616
+  },
+  "recovery summary school": {
+    "ms": 4062,
+    "sha256": "f1039f9e5f8d3d3c3bc9e0f14c982c36ec0e76304ac80bb5939b66d3b8fb59a1",
+    "size": 12130
+  },
+  "recovery class register": {
+    "ms": 463,
+    "sha256": "8b6d9dedd3521fe918cb3846dcf2afd617cec04c3b83002c149c5e9e4420652e",
+    "size": 652685
+  },
+  "fee tracking students": {
+    "ms": 11614,
+    "sha256": "2d1dd976b32c1d32139e87ed3e39f75112fdb718df475ce89f7f9802af0f8392",
+    "size": 4042288
+  }
+}

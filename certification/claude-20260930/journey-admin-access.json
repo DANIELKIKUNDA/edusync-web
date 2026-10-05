@@ -1,0 +1,47 @@
+[
+  {
+    "step": "log in as the school access manager",
+    "pass": true,
+    "ms": 2635
+  },
+  {
+    "step": "open Accès & rôles",
+    "pass": true,
+    "ms": 2330
+  },
+  {
+    "step": "own row is locked (no self-service)",
+    "pass": true,
+    "ms": 4
+  },
+  {
+    "step": "clone the standard Gestionnaire role",
+    "pass": true,
+    "ms": 764
+  },
+  {
+    "step": "remove \"record a departure\" and name the role",
+    "pass": true,
+    "ms": 3105
+  },
+  {
+    "step": "grant the new role to a member for one month",
+    "pass": true,
+    "ms": 2279
+  },
+  {
+    "step": "revoke it with a reason (immediate)",
+    "pass": true,
+    "ms": 447
+  },
+  {
+    "step": "rights journal shows creation, grant and revocation with reasons",
+    "pass": true,
+    "ms": 933
+  },
+  {
+    "step": "no JavaScript error, no server error",
+    "pass": true,
+    "ms": 0
+  }
+]

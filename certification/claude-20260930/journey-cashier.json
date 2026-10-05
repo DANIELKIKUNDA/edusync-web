@@ -3,43 +3,43 @@
     "journey": "desktop",
     "step": "log in through the form",
     "pass": true,
-    "ms": 8880
+    "ms": 4541
   },
   {
     "journey": "desktop",
     "step": "open the Finance centre",
     "pass": true,
-    "ms": 3382
+    "ms": 906
   },
   {
     "journey": "desktop",
     "step": "open my cash desk (or find it open)",
     "pass": true,
-    "ms": 992
+    "ms": 1017
   },
   {
     "journey": "desktop",
     "step": "search the pupil (instant search)",
     "pass": true,
-    "ms": 1505
+    "ms": 1165
   },
   {
     "journey": "desktop",
     "step": "select the pupil and see what is owed",
     "pass": true,
-    "ms": 433
+    "ms": 431
   },
   {
     "journey": "desktop",
     "step": "select the due fee and type the amount handed over",
     "pass": true,
-    "ms": 870
+    "ms": 947
   },
   {
     "journey": "desktop",
     "step": "collect and get a receipt",
     "pass": true,
-    "ms": 655
+    "ms": 580
   },
   {
     "journey": "desktop",
@@ -57,49 +57,49 @@
     "journey": "phone",
     "step": "log in through the form",
     "pass": true,
-    "ms": 5030
+    "ms": 5457
   },
   {
     "journey": "phone",
     "step": "open the Finance centre",
     "pass": true,
-    "ms": 827
+    "ms": 765
   },
   {
     "journey": "phone",
     "step": "open my cash desk (or find it open)",
     "pass": true,
-    "ms": 898
+    "ms": 902
   },
   {
     "journey": "phone",
     "step": "search the pupil (instant search)",
     "pass": true,
-    "ms": 1461
+    "ms": 1654
   },
   {
     "journey": "phone",
     "step": "select the pupil and see what is owed",
     "pass": true,
-    "ms": 425
+    "ms": 430
   },
   {
     "journey": "phone",
     "step": "select the due fee and type the amount handed over",
     "pass": true,
-    "ms": 880
+    "ms": 806
   },
   {
     "journey": "phone",
     "step": "collect and get a receipt",
     "pass": true,
-    "ms": 2118
+    "ms": 596
   },
   {
     "journey": "phone",
     "step": "remaining amount updated on screen",
     "pass": true,
-    "ms": 2
+    "ms": 3
   },
   {
     "journey": "phone",

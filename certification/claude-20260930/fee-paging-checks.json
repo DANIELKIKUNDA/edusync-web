@@ -1,0 +1,42 @@
+[
+  {
+    "check": "default page is bounded to 200 lines",
+    "pass": true,
+    "detail": "200 lines in 2590 ms"
+  },
+  {
+    "check": "total equals the unpaged repository count",
+    "pass": true,
+    "detail": "total=12003 full=12003"
+  },
+  {
+    "check": "first page answers fast at school scale",
+    "pass": true,
+    "detail": "2590 ms (before: whole school, 4 MB)"
+  },
+  {
+    "check": "limit above 1000 is refused",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "negative offset is refused",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "pages chain without gap or duplicate",
+    "pass": true,
+    "detail": "12003 lines over 13 pages"
+  },
+  {
+    "check": "paged lines equal the unpaged lines, to the cent",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "offset past the end returns empty items with the true total",
+    "pass": true,
+    "detail": ""
+  }
+]

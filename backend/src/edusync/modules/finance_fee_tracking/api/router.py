@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends,HTTPException,Query
 from edusync.bootstrap.dependencies import get_services,require_school_actor
 from edusync.bootstrap.services import AppServices
 from edusync.shared.application.context import ActorContext
@@ -23,10 +23,13 @@ def overview(year_id:UUID|None=None,currency:str='CDF',actor:ActorContext=Depend
         y=r.year(actor.school_id,year_id);return {'academic_year':y,'currency':currency,'items':r.overview(actor.school_id,y['id'],currency) if y else []}
     return repo_call(actor,services,f)
 @router.get('/students')
-def students(year_id:UUID|None=None,currency:str='CDF',fee_type_id:UUID|None=None,category_id:str|None=None,class_id:UUID|None=None,section_id:UUID|None=None,status:str|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def students(year_id:UUID|None=None,currency:str='CDF',fee_type_id:UUID|None=None,category_id:str|None=None,class_id:UUID|None=None,section_id:UUID|None=None,status:str|None=None,limit:int=Query(200,ge=1,le=1000),offset:int=Query(0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     need(actor,'finance.analysis.by_fee.read')
     def f(r):
-        y=r.year(actor.school_id,year_id);return {'academic_year':y,'currency':currency,'items':r.students(actor.school_id,y['id'],currency,fee_type_id,category_id,class_id,section_id,status) if y else []}
+        y=r.year(actor.school_id,year_id)
+        if not y:return {'academic_year':None,'currency':currency,'items':[],'total':0,'limit':limit,'offset':offset}
+        items,total=r.students_page(actor.school_id,y['id'],currency,fee_type_id,category_id,class_id,section_id,status,limit=limit,offset=offset)
+        return {'academic_year':y,'currency':currency,'items':items,'total':total,'limit':limit,'offset':offset}
     return repo_call(actor,services,f)
 @router.get('/student/{student_id}')
 def student(student_id:UUID,currency:str='CDF',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):

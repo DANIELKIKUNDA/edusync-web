@@ -132,7 +132,7 @@
   {
     "check": "no user enumeration by login timing (known/unknown median ratio < 1.5)",
     "pass": true,
-    "detail": "known=0.997s unknown=1.037s ratio=1.0 codes={401}"
+    "detail": "known=1.241s unknown=1.385s ratio=0.9 codes={401}"
   },
   {
     "check": "account throttled after repeated failures (429)",

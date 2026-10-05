@@ -412,3 +412,42 @@ def test_access_screen_is_wired_into_school_navigation():
     assert "module==='access'?<AccessPage" in app
     main = (SRC / "bootstrap/app.py").read_text(encoding="utf-8")
     assert 'prefix="/api/v1/access"' in main
+
+
+def test_d21_finance_read_models_aggregate_once_instead_of_per_charge():
+    # Measured on 132 000 charges: correlated sums ran 120 004 times per screen (10 s to 28 s).
+    mig = (ROOT / "migrations/0045_finance_read_model_performance.sql").read_text(encoding="utf-8")
+    view = mig.split("CREATE OR REPLACE VIEW finance_charge_effective", 1)[1].split(";", 1)[0]
+    assert "WITH (security_invoker = true)" in view                  # tenant RLS still applies
+    assert "(SELECT sum(" not in view and "GROUP BY school_id, charge_id, currency" in view
+    assert "status = 'ACTIVE'" in view and "d.currency = fc.currency" in view
+    cols = re.findall(r"AS (\w+)", view.split("FROM finance_charges fc", 1)[0])
+    assert cols == ["effective_net_amount", "decision_amount", "outside_cash_amount"]  # appended, order kept
+    for name in ("postgres_finance_recovery.py", "postgres_fee_tracking.py"):
+        src = (SRC / "adapters" / name).read_text(encoding="utf-8")
+        assert "finance_charge_regularizations" not in src and "fc.outside_cash_amount" in src
+    prov = (ROOT / "scripts/provision_database.py").read_text(encoding="utf-8")
+    assert '"0045_finance_read_model_performance.sql"' in prov
+
+
+def test_d22_fee_tracking_detail_is_paged_server_side():
+    # A whole school returned 12 003 lines (4 MB) per call and ignored ?limit: 24 s at 8 users.
+    from edusync.modules.finance_fee_tracking.api import router as ft
+    import inspect
+    sig = inspect.signature(ft.students)
+    assert sig.parameters["limit"].default.default == 200 and sig.parameters["offset"].default.default == 0
+    src = (SRC / "modules/finance_fee_tracking/api/router.py").read_text(encoding="utf-8")
+    assert "le=1000" in src and "students_page(" in src and "'total':total" in src
+    repo = (SRC / "adapters/postgres_fee_tracking.py").read_text(encoding="utf-8")
+    assert "count(*) OVER() total_rows" in repo and "LIMIT %s OFFSET %s" in repo
+    assert "ft.label,s.id,ft.id" in repo                                # deterministic paging order
+    ui = (ROOT.parent / "frontend/src/finance.tsx").read_text(encoding="utf-8")
+    assert "limit:FEE_PAGE" in ui and "offset:rows.length" in ui
+
+
+def test_u10_search_and_filter_fields_have_accessible_names():
+    # Final browser sweep (112 screens) found 3 fields announced only by their placeholder.
+    fin = (ROOT.parent / "frontend/src/finance.tsx").read_text(encoding="utf-8")
+    assert fin.count('aria-label="Rechercher un élève ou une famille" placeholder="Nom, matricule, famille ou téléphone…"') == 2
+    docs = (ROOT.parent / "frontend/src/documents.tsx").read_text(encoding="utf-8")
+    assert 'aria-label="Rechercher un document"' in docs and 'aria-label="Filtrer par module"' in docs

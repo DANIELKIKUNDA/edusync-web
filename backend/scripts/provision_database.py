@@ -162,6 +162,7 @@ def main() -> None:
             ("0042_tenant_membership_deactivation", "0042_tenant_membership_deactivation.sql"),
             ("0043_finance_charge_capacity_guard", "0043_finance_charge_capacity_guard.sql"),
             ("0044_owner_decision_personnel_roles", "0044_owner_decision_personnel_roles.sql"),
+            ("0045_finance_read_model_performance", "0045_finance_read_model_performance.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):

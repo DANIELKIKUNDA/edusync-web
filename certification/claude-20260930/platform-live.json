@@ -40,7 +40,7 @@
     "detail": "HTTP 200 "
   },
   {
-    "check": "manager GET schools/66e29137-f8da-4ab5-8a65-7fd6934c8630/detail",
+    "check": "manager GET schools/1661f089-3d74-475c-9f41-6d08ea1ecd93/detail",
     "pass": true,
     "detail": "HTTP 200 "
   },
@@ -57,7 +57,7 @@
   {
     "check": "manager can send a system notification",
     "pass": true,
-    "detail": "HTTP 201 {\"id\":\"ca1c69db-e1a2-44b5-9d95-c3369d2946b6\",\"severity\":\"INFO\",\"target_scope\":\"ALL_ACTIVE_SCHOOLS\",\"recipient_count\":8}"
+    "detail": "HTTP 201 {\"id\":\"3f539b08-9805-4596-8afc-e55d115e05c6\",\"severity\":\"INFO\",\"target_scope\":\"ALL_ACTIVE_SCHOOLS\",\"recipient_count\":10}"
   },
   {
     "check": "school A user can read notifications after system broadcast",
