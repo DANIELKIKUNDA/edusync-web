@@ -20,7 +20,7 @@ Le dépôt Git a été créé pendant la mission (`git init`, branche `main`) pu
 | `54e8346` | Base Codex importée + corrections D1–D20 + gouvernance des accès (API + écran) |
 | `fd517c1` | Gouvernance des accès vérifiée en réel, finitions UI |
 | `dbe7fbc` | Parcours utilisateurs réels, Intendance rendue opérationnelle |
-| *(final)* | voir §30 |
+| `b0265d2` | D21–D22, U10, relecture finale sur base neuve, rapport de certification |
 
 ## 2. État initial du working tree
 
@@ -284,7 +284,7 @@ Déploiement Docker/VPS avec HTTPS et nginx · test sur téléphones réels (And
 
 ## 30. Commit final
 
-Commit de clôture sur `main`, poussé sur https://github.com/DANIELKIKUNDA/edusync-web (privé) : **COMMIT_FINAL** (D21, D22, U10, relecture finale, rapport). Avant chaque commit, un contrôle automatique vérifie qu'aucun des 47 secrets réels de l'environnement de recette n'apparaît dans les fichiers versionnés : **0 fuite**. Le dossier `.local/` (instance PostgreSQL, mots de passe, jetons) n'est pas versionné.
+Commit de clôture sur `main`, poussé sur https://github.com/DANIELKIKUNDA/edusync-web (privé) : **`b0265d2`** (D21, D22, U10, relecture finale, rapport). Avant chaque commit, un contrôle automatique vérifie qu'aucun des 47 secrets réels de l'environnement de recette n'apparaît dans les fichiers versionnés : **0 fuite**. Le dossier `.local/` (instance PostgreSQL, mots de passe, jetons) n'est pas versionné.
 
 ---
 
