@@ -1,0 +1,149 @@
+import React, {useEffect, useId, useRef, useState} from 'react';
+import {NavGlyph} from './nav_icons';
+import {connectivityLabel, getConnectivity, subscribeActivity, subscribeConnectivity, type ConnectivityState, type WriteActivity} from './connectivity';
+import './shell.css';
+
+export type ShellNavItem = {key: string; label: string; icon: string; active: boolean; onSelect: () => void; primary?: boolean; shortLabel?: string};
+export type ShellMenuItem = {key: string; label: string; icon: string; onSelect: () => void; danger?: boolean};
+export type ShellAccount = {name: string; email?: string; context?: string; detail?: string; items: ShellMenuItem[]};
+
+const COLLAPSED_KEY = 'edusync.shell.collapsed';
+function readCollapsed() { try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; } }
+function writeCollapsed(v: boolean) { try { localStorage.setItem(COLLAPSED_KEY, v ? '1' : '0'); } catch { /* préférence locale facultative */ } }
+
+export function initialsOf(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'U';
+}
+
+function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) close(); };
+    window.addEventListener('keydown', onKey); window.addEventListener('mousedown', onDown);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('mousedown', onDown); };
+  }, [open, close, ref]);
+}
+
+/* Connection + write activity, in words a school user understands. */
+export function StatusChip({compact = false}: {compact?: boolean}) {
+  const [state, setState] = useState<ConnectivityState>(getConnectivity().state);
+  const [act, setAct] = useState<WriteActivity>({pending: 0, retrying: false, last: 'none', at: 0});
+  const [, tick] = useState(0);
+  useEffect(() => subscribeConnectivity(s => setState(s.state)), []);
+  useEffect(() => subscribeActivity(a => { setAct(a); window.setTimeout(() => tick(x => x + 1), 4200); }), []);
+  const recentOk = act.last === 'ok' && Date.now() - act.at < 4000;
+  const recentFail = act.last === 'failed' && Date.now() - act.at < 60000;
+  let tone = 'ok', icon = 'wifi', label = 'En ligne', detail = 'Connexion au serveur EduSync active.';
+  if (state === 'OFFLINE') { tone = 'bad'; icon = 'wifiOff'; label = 'Hors ligne'; detail = 'Pas de connexion au serveur. Les enregistrements reprendront quand la connexion reviendra ; rien n’est envoyé en attendant.'; }
+  else if (state === 'SUSPECTED_OFFLINE' || state === 'DEGRADED') { tone = 'warn'; icon = 'wifi'; label = connectivityLabel(state); detail = 'Le réseau répond mal. EduSync réessaie automatiquement les opérations sûres.'; }
+  else if (state === 'RECOVERING') { tone = 'warn'; icon = 'sync'; label = 'Reconnexion…'; detail = 'La connexion revient, vérification en cours.'; }
+  if (act.pending > 0) { tone = act.retrying ? 'warn' : 'busy'; icon = act.retrying ? 'sync' : 'cloudUp'; label = act.retrying ? 'Nouvel essai d’envoi…' : 'Enregistrement…'; detail = `${act.pending} opération(s) en cours d’envoi au serveur.`; }
+  else if (recentFail) { tone = 'bad'; icon = 'alert'; label = 'Envoi non confirmé'; detail = 'La dernière opération n’a pas pu être confirmée par le serveur. Réessayez : EduSync empêche les doublons.'; }
+  else if (recentOk) { tone = 'ok'; icon = 'checkCircle'; label = 'Enregistré'; detail = 'La dernière opération a été enregistrée sur le serveur.'; }
+  return <span className={`es-status es-${tone} ${compact ? 'es-status-compact' : ''}`} role="status" aria-live="polite" title={detail}>
+    <NavGlyph g={icon} size={15}/><span className={compact ? 'es-sr' : ''}>{label}</span>
+  </span>;
+}
+
+export function AccountMenu({account}: {account: ShellAccount}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  useDismiss(open, () => setOpen(false), ref);
+  const initials = initialsOf(account.name);
+  return <div className="es-account" ref={ref}>
+    <button className="es-account-btn" aria-haspopup="menu" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen(x => !x)} title={account.name}>
+      <span className="es-avatar" aria-hidden="true">{initials}</span>
+      <span className="es-account-name">{account.name.split(/\s+/)[0]}</span>
+      <NavGlyph g="chevronDown" size={14}/>
+    </button>
+    {open && <div className="es-menu" id={menuId} role="menu" aria-label="Compte">
+      <div className="es-menu-head">
+        <span className="es-avatar es-avatar-lg" aria-hidden="true">{initials}</span>
+        <div><b>{account.name}</b>{account.email && <small>{account.email}</small>}{account.context && <em>{account.context}</em>}{account.detail && <small>{account.detail}</small>}</div>
+      </div>
+      {account.items.map(item => <button key={item.key} role="menuitem" className={item.danger ? 'es-danger' : ''} onClick={() => { setOpen(false); item.onSelect(); }}>
+        <NavGlyph g={item.icon} size={17}/><span>{item.label}</span>
+      </button>)}
+    </div>}
+  </div>;
+}
+
+export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerTools, account, children, mobileTitle}: {
+  orgLabel: string; orgCode?: string; nav: ShellNavItem[]; title: string; context?: string; tools?: React.ReactNode; drawerTools?: React.ReactNode;
+  account: ShellAccount; children: React.ReactNode; mobileTitle?: string;
+}) {
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [drawer, setDrawer] = useState(false);
+  const [tip, setTip] = useState<{label: string; top: number} | null>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  useDismiss(drawer, () => setDrawer(false), drawerRef);
+  useEffect(() => { document.title = `${title} · EduSync`; }, [title]);
+  function toggle() { setCollapsed(v => { writeCollapsed(!v); return !v; }); setTip(null); }
+  const railOnly = () => collapsed || window.matchMedia('(min-width:768px) and (max-width:1100px)').matches;
+  const showTip = (label: string) => (e: React.MouseEvent | React.FocusEvent) => {
+    if (!railOnly()) return;
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setTip({label, top: r.top + r.height / 2});
+  };
+  const primary = nav.filter(n => n.primary).slice(0, 4);
+  const go = (n: ShellNavItem) => { n.onSelect(); setDrawer(false); };
+  return <div className={`es-shell ${collapsed ? 'es-collapsed' : ''}`}>
+    <a className="es-skip" href="#es-content">Aller au contenu</a>
+    <aside className="es-side" aria-label="Navigation principale">
+      <div className="es-brand">
+        <img src="/icons/edusync-mark.svg" alt="" width={32} height={32}/>
+        <span className="es-brand-text"><b>EduSync</b><small title={orgLabel}>{orgLabel}</small></span>
+      </div>
+      <nav className="es-nav">
+        {nav.map(n => <button key={n.key} className={n.active ? 'es-active' : ''} aria-current={n.active ? 'page' : undefined}
+          aria-label={n.label} onClick={n.onSelect}
+          onMouseEnter={showTip(n.label)} onMouseLeave={() => setTip(null)} onFocus={showTip(n.label)} onBlur={() => setTip(null)}>
+          <NavGlyph g={n.icon} size={19}/><span className="es-nav-label">{n.label}</span>
+        </button>)}
+      </nav>
+      <button className="es-collapse" onClick={toggle} aria-label={collapsed ? 'Déployer le menu' : 'Réduire le menu'} aria-expanded={!collapsed}
+        onMouseEnter={showTip(collapsed ? 'Déployer le menu' : 'Réduire le menu')} onMouseLeave={() => setTip(null)}>
+        <NavGlyph g={collapsed ? 'chevronRight' : 'chevronLeft'} size={17}/><span className="es-nav-label">Réduire le menu</span>
+      </button>
+    </aside>
+    {tip && <div className="es-tip" role="tooltip" style={{top: tip.top}}>{tip.label}</div>}
+    <div className="es-main">
+      <header className="es-top">
+        <button className="es-burger" aria-label="Ouvrir le menu" aria-expanded={drawer} onClick={() => setDrawer(true)}><NavGlyph g="menu" size={21}/></button>
+        <div className="es-title"><h1>{title}</h1>{context && <p>{context}</p>}</div>
+        <div className="es-tools">{tools}<AccountMenu account={account}/></div>
+      </header>
+      <main className="es-content" id="es-content" tabIndex={-1}>{children}</main>
+    </div>
+    <nav className="es-bottom" aria-label="Navigation rapide">
+      {primary.map(n => <button key={n.key} className={n.active ? 'es-active' : ''} aria-current={n.active ? 'page' : undefined} onClick={n.onSelect}>
+        <NavGlyph g={n.icon} size={21}/><small>{n.shortLabel || n.label}</small>
+      </button>)}
+      <button className={!primary.some(n => n.active) ? 'es-active' : ''} onClick={() => setDrawer(true)} aria-label="Tous les modules"><NavGlyph g="menu" size={21}/><small>Menu</small></button>
+    </nav>
+    {drawer && <div className="es-drawer-backdrop">
+      <aside className="es-drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-label="Menu EduSync">
+        <div className="es-drawer-head">
+          <img src="/icons/edusync-mark.svg" alt="" width={30} height={30}/>
+          <div><b>{mobileTitle || orgLabel}</b>{orgCode && <small>{orgCode}</small>}</div>
+          <button aria-label="Fermer le menu" onClick={() => setDrawer(false)}><NavGlyph g="close" size={20}/></button>
+        </div>
+        <div className="es-drawer-status"><StatusChip/>{drawerTools}</div>
+        <nav className="es-drawer-nav">
+          {nav.map(n => <button key={n.key} className={n.active ? 'es-active' : ''} aria-current={n.active ? 'page' : undefined} onClick={() => go(n)}>
+            <NavGlyph g={n.icon} size={20}/><span>{n.label}</span>
+          </button>)}
+        </nav>
+        <div className="es-drawer-account">
+          <div className="es-menu-head"><span className="es-avatar es-avatar-lg" aria-hidden="true">{initialsOf(account.name)}</span>
+            <div><b>{account.name}</b>{account.email && <small>{account.email}</small>}{account.context && <em>{account.context}</em>}</div></div>
+          {account.items.map(item => <button key={item.key} className={item.danger ? 'es-danger' : ''} onClick={() => { setDrawer(false); item.onSelect(); }}>
+            <NavGlyph g={item.icon} size={18}/><span>{item.label}</span>
+          </button>)}
+        </div>
+      </aside>
+    </div>}
+  </div>;
+}

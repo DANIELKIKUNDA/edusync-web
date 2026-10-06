@@ -1,1 +1,20 @@
-{"name":"EduSync — Gestion scolaire","short_name":"EduSync","description":"Gestion scolaire professionnelle par VolcanoTech","start_url":"/","scope":"/","display":"standalone","orientation":"any","background_color":"#071a35","theme_color":"#0f4fbf","lang":"fr","icons":[{"src":"/icons/icon-192.svg","sizes":"192x192","type":"image/svg+xml","purpose":"any maskable"},{"src":"/icons/icon-512.svg","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "name": "EduSync — Gestion scolaire",
+  "short_name": "EduSync",
+  "description": "Gestion scolaire professionnelle par VolcanoTech",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#071a35",
+  "theme_color": "#0b2a5c",
+  "lang": "fr",
+  "icons": [
+    {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+    {"src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+    {"src": "/icons/edusync-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}

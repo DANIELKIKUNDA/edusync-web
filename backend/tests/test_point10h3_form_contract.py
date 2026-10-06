@@ -22,6 +22,8 @@ def test_key_legacy_forms_now_use_schema_driven_validation():
     app=(FRONT/'App.tsx').read_text(encoding='utf-8')
     personnel=(FRONT/'personnel.tsx').read_text(encoding='utf-8')
     schooling=(FRONT/'schooling.tsx').read_text(encoding='utf-8')
-    assert 'schoolForm.handleSubmit' in app and 'yearForm.handleSubmit' in app and 'passwordForm.handleSubmit' in app
+    # Closure 2026-10: the password form moved to platform/account.tsx (SecurityDialog), still schema-driven.
+    account=(FRONT.parent.parent/'frontend/src/platform/account.tsx').read_text(encoding='utf-8')
+    assert 'schoolForm.handleSubmit' in app and 'yearForm.handleSubmit' in app and 'form.handleSubmit' in account and 'zodResolver(passwordSchema)' in account
     assert 'function FunctionsPanel' in personnel and 'zodResolver(schema)' in personnel
     assert 'function EditStudent' in schooling and 'zodResolver(schema)' in schooling

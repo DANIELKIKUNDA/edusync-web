@@ -1,0 +1,75 @@
+/* EduSync sign-in (local closure 2026-10). Own namespace (lg-*). */
+.lg-page{--lg-brand:#0f4fbf;--lg-ink:#14213d;--lg-muted:#5f6b82;--lg-line:#d9dfe9;
+  min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(380px,46%) 1fr;background:#f4f6fa;color:var(--lg-ink)}
+.lg-visual{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;gap:32px;padding:44px clamp(32px,5vw,72px);color:#fff;
+  background:radial-gradient(1200px 600px at 110% -10%,rgba(37,185,255,.22),transparent 60%),radial-gradient(900px 500px at -20% 120%,rgba(23,105,232,.35),transparent 60%),linear-gradient(160deg,#081c3b 0%,#0b2a5c 55%,#0c3577 100%)}
+.lg-visual::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.07;
+  background-image:linear-gradient(rgba(255,255,255,.9) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.9) 1px,transparent 1px);background-size:44px 44px;
+  mask-image:linear-gradient(180deg,transparent,#000 30%,#000 70%,transparent)}
+.lg-visual>*{position:relative;z-index:1}
+.lg-brand{display:flex;align-items:center;gap:12px}
+.lg-brand img{border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.lg-brand span{display:grid;line-height:1.1}
+.lg-brand b{font-size:22px;letter-spacing:-.3px}
+.lg-brand small{font-size:12.5px;opacity:.75;font-weight:600;letter-spacing:.2px}
+.lg-pitch{max-width:470px}
+.lg-pitch h1{margin:0 0 26px;font-size:clamp(26px,2.6vw,36px);line-height:1.18;letter-spacing:-.6px;font-weight:780}
+.lg-pitch ul{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.lg-pitch li{display:flex;align-items:flex-start;gap:12px;font-size:15px;line-height:1.45;color:rgba(255,255,255,.88)}
+.lg-pitch li svg{flex:none;margin-top:2px;color:#7cc8ff}
+.lg-sign{font-size:12.5px;color:rgba(255,255,255,.6);font-weight:600}
+.lg-pane{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px 24px}
+.lg-mobile-brand{display:none}
+.lg-card{width:100%;max-width:400px;display:grid;gap:14px;background:#fff;border:1px solid #e4e8f0;border-radius:16px;padding:28px 28px 22px;box-shadow:0 1px 2px rgba(15,27,51,.04),0 18px 44px rgba(15,27,51,.08)}
+.lg-head{display:grid;gap:4px;margin-bottom:4px}
+.lg-head h2{margin:0;font-size:22px;letter-spacing:-.3px;line-height:1.2}
+.lg-head p{margin:0;font-size:13.5px;color:var(--lg-muted);line-height:1.45}
+.lg-step{justify-self:start;font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--lg-brand);background:#ecf2ff;padding:4px 8px;border-radius:999px}
+.lg-field{display:grid;gap:6px}
+.lg-field label{font-size:13px;font-weight:700;color:var(--lg-ink)}
+.lg-field input{width:100%;height:44px;padding:0 12px;border:1px solid var(--lg-line);border-radius:10px;background:#fff;color:var(--lg-ink);font-size:15px;outline:none;transition:border-color .15s,box-shadow .15s}
+.lg-field input::placeholder{color:#9aa4b5}
+.lg-field input:focus{border-color:var(--lg-brand);box-shadow:0 0 0 3px rgba(15,79,191,.16)}
+.lg-field small{font-size:12px;color:#b42318;font-weight:600}
+.lg-field small.lg-hint{color:var(--lg-muted);font-weight:500}
+.lg-invalid input{border-color:#e4a29b}
+.lg-pass{position:relative}
+.lg-pass input{padding-right:46px}
+.lg-pass button{position:absolute;right:4px;top:4px;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--lg-muted);cursor:pointer}
+.lg-pass button:hover{background:#f1f4f9;color:var(--lg-ink)}
+.lg-pass button:focus-visible,.lg-switch:focus-visible,.lg-submit:focus-visible{outline:2px solid var(--lg-brand);outline-offset:2px}
+.lg-error,.lg-ok{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.4}
+.lg-error{background:#fdecea;color:#b42318}
+.lg-ok{background:#e8f6ef;color:#167a4a}
+.lg-error svg,.lg-ok svg{flex:none;margin-top:1px}
+.lg-submit{height:46px;border:0;border-radius:10px;background:var(--lg-brand);color:#fff;font-size:15px;font-weight:750;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 6px 16px rgba(15,79,191,.24);transition:background .15s}
+.lg-submit:hover{background:#0b3f9c}
+.lg-submit:disabled{opacity:.7;cursor:progress}
+.lg-spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:lg-rot .8s linear infinite}
+@keyframes lg-rot{to{transform:rotate(360deg)}}
+.lg-note{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;color:var(--lg-muted)}
+.lg-switch{justify-self:center;border:0;background:transparent;color:var(--lg-brand);font-size:13px;font-weight:700;padding:6px 8px;border-radius:8px;cursor:pointer}
+.lg-switch:hover{background:#ecf2ff}
+.lg-foot{font-size:12px;color:#8a94a6}
+/* Tablet: brand band on top. */
+@media (max-width:1023.98px){
+  .lg-page{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .lg-visual{padding:28px 32px;gap:18px}
+  .lg-pitch h1{font-size:24px;margin-bottom:14px;max-width:560px}
+  .lg-pitch ul{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .lg-pitch li{font-size:13px}
+  .lg-sign{display:none}
+  .lg-pane{justify-content:flex-start;padding:32px 20px}
+}
+/* Phone: no marketing band, compact brand above the form. */
+@media (max-width:640px){
+  .lg-visual{display:none}
+  .lg-page{background:linear-gradient(180deg,#0b2a5c 0,#0b2a5c 170px,#f4f6fa 170px)}
+  .lg-pane{padding:26px 16px 20px;gap:16px}
+  .lg-mobile-brand{display:block;color:#fff;align-self:flex-start;padding:0 4px}
+  .lg-card{padding:22px 18px 18px;border-radius:14px}
+  .lg-head h2{font-size:20px}
+  .lg-field input{font-size:16px}
+}
+@media (max-width:359.98px){.lg-card{padding:18px 14px}.lg-pane{padding:20px 10px}}
+@media (prefers-reduced-motion:reduce){.lg-spin{animation:none}}

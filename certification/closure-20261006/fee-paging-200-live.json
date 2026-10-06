@@ -1,0 +1,75 @@
+{
+  "dataset": {
+    "school_lines": 12003,
+    "lot": 200
+  },
+  "passed": 13,
+  "total": 13,
+  "results": [
+    {
+      "check": "toute l'école en lots de 200 : nombre de lots exact",
+      "pass": true,
+      "detail": "12003 lignes -> 61 lots de 200 (attendu 61 = 60 x 200 + 3)"
+    },
+    {
+      "check": "aucune perte, aucun doublon",
+      "pass": true,
+      "detail": "12003 lues, 12003 uniques"
+    },
+    {
+      "check": "lignes paginées = lignes non paginées, au centime",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "totaux serveur = somme de toutes les lignes (pas seulement la page)",
+      "pass": true,
+      "detail": "{'net_expected': 6000210000.0, 'regularized': 1107371000.0, 'remaining': 4892839000.0}"
+    },
+    {
+      "check": "ordre stable : deux lectures complètes identiques",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "temps par lot de 200 (12 003 élèves, 1 utilisateur)",
+      "pass": true,
+      "detail": "p50 1577 ms · p95 2579 ms · 61 lots"
+    },
+    {
+      "check": "filtre classe conservé sur tous les lots",
+      "pass": true,
+      "detail": "Classe perf 22: 402 lignes, 3 lots"
+    },
+    {
+      "check": "recherche conservée sur tous les lots (nom)",
+      "pass": true,
+      "detail": "« NOM361 » : 12 lignes, 1 lots"
+    },
+    {
+      "check": "totaux recalculés pour la recherche",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "recherche par matricule",
+      "pass": true,
+      "detail": "PA-004181: 1"
+    },
+    {
+      "check": "caractères spéciaux de recherche neutralisés (%, _, \\)",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "check": "filtre « Non en ordre » conservé sur tous les lots",
+      "pass": true,
+      "detail": "4818 lignes, 25 lots"
+    },
+    {
+      "check": "au-delà de la fin : liste vide, total et totaux exacts",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

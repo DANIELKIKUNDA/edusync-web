@@ -409,7 +409,8 @@ def test_access_names_resolved_only_for_this_schools_members():
 
 def test_access_screen_is_wired_into_school_navigation():
     app = (ROOT.parent / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    assert "['🔐','Accès & rôles','access']" in app and "access:['access.roles.read','audit.school.read']" in app
+    # Closure 2026-10: navigation icons are SVG keys, no emoji.
+    assert "['lock','Accès & rôles','access']" in app and "access:['access.roles.read','audit.school.read']" in app
     assert "module==='access'?<AccessPage" in app
     main = (SRC / "bootstrap/app.py").read_text(encoding="utf-8")
     assert 'prefix="/api/v1/access"' in main
@@ -451,4 +452,5 @@ def test_u10_search_and_filter_fields_have_accessible_names():
     fin = (ROOT.parent / "frontend/src/finance.tsx").read_text(encoding="utf-8")
     assert fin.count('aria-label="Rechercher un élève ou une famille" placeholder="Nom, matricule, famille ou téléphone…"') == 2
     docs = (ROOT.parent / "frontend/src/documents.tsx").read_text(encoding="utf-8")
-    assert 'aria-label="Rechercher un document"' in docs and 'aria-label="Filtrer par module"' in docs
+    # Closure 2026-10: documents page split into history and catalogue, each search field keeps an accessible name.
+    assert 'aria-label="Rechercher dans les documents générés"' in docs and 'aria-label="Rechercher dans le catalogue"' in docs and 'aria-label="Filtrer par module"' in docs

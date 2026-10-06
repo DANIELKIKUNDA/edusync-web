@@ -221,3 +221,67 @@ def test_closure_migrations_are_provisioned_in_order():
     assert positions == sorted(positions) and prov.index('"0045_finance_read_model_performance.sql"') < positions[0]
     for n in names:
         assert (ROOT / "migrations" / f"{n}.sql").exists()
+
+
+# --- frontend shell / UX (static contracts; visual proof in certification/closure-20261006/screens) ------
+FRONT = ROOT.parent / "frontend" / "src"
+
+
+def test_no_emoji_is_used_as_an_interface_icon():
+    import re
+    pictograph = re.compile("[\U0001F300-\U0001FAFF☀-⛿✀-➿]")
+    offenders = {}
+    for path in FRONT.rglob("*.tsx"):
+        if path.name == "nav_icons.tsx":  # historical glyph keys mapped to SVG, never rendered
+            continue
+        found = {c for c in pictograph.findall(path.read_text(encoding="utf-8")) if c not in "✓✔"}
+        if found:
+            offenders[path.name] = sorted(found)
+    assert not offenders, offenders
+
+
+def test_shell_geometry_and_persistence():
+    css = (FRONT / "platform/shell.css").read_text(encoding="utf-8")
+    shell = (FRONT / "platform/shell.tsx").read_text(encoding="utf-8")
+    assert "--es-side:216px" in css and "--es-rail:64px" in css
+    assert "localStorage.setItem(COLLAPSED_KEY" in shell and "es-drawer" in shell and "es-bottom" in shell
+    assert "@media (max-width:767.98px)" in css  # phone: drawer + bottom bar, not a squeezed desktop sidebar
+
+
+def test_form_fields_are_explicitly_labelled():
+    forms = (FRONT / "platform/forms.tsx").read_text(encoding="utf-8")
+    assert "htmlFor={child?id:undefined}" in forms and "'aria-describedby'" in forms and "'aria-invalid'" in forms
+
+
+def test_sign_in_offers_first_run_setup_only_when_the_server_allows_it():
+    login = (FRONT / "login.tsx").read_text(encoding="utf-8")
+    assert "setupStatus()" in login and "setup?.setup_required&&setup.setup_available" in login and "createFirstManager(" in login
+    assert "Accès Atelier Pro (Manager système)" in login
+
+
+def test_technical_codes_are_translated_for_users():
+    app = (FRONT / "App.tsx").read_text(encoding="utf-8")
+    assert "auditActionLabel(x.action)" in app and "resultLabel(x.result)" in app and "schoolStatusLabel(x.status)" in app
+    assert "Outbox en attente" not in app and "Verrou global" not in app and "readiness</span>" not in app
+
+
+def test_fee_tracking_pages_are_stable_and_searchable():
+    repo = (SRC / "adapters/postgres_fee_tracking.py").read_text(encoding="utf-8")
+    assert "ORDER BY class_label,sort_k1,sort_k2,sort_k3,fee_label,student_id,fee_type_id LIMIT %s OFFSET %s" in repo
+    assert ".replace('_'," in repo and "ILIKE %s" in repo and "sum(remaining) OVER()" in repo
+    fin = (FRONT / "finance.tsx").read_text(encoding="utf-8")
+    assert "const my=++gen.current" in fin and "if(my!==gen.current)return" in fin
+
+
+def test_unknown_outcome_writes_reuse_their_idempotency_key():
+    conn = (FRONT / "platform/connectivity.ts").read_text(encoding="utf-8")
+    assert "UNKNOWN_OUTCOME_MS" in conn and "h.set('Idempotency-Key',prev.key)" in conn
+    errors = (FRONT / "platform/errors.ts").read_text(encoding="utf-8")
+    assert "sera repris dès que possible" not in errors  # no false promise of offline resumption
+
+
+def test_device_sessions_get_a_readable_label():
+    from edusync.shared.infrastructure.persistent_sessions import describe_user_agent
+    assert describe_user_agent("Mozilla/5.0 (Windows NT 10.0) AppleWebKit Chrome/140 Safari/537 Edg/145") == "Edge · Windows"
+    assert describe_user_agent("Mozilla/5.0 (Linux; Android 14) Chrome/140 Mobile Safari/537") == "Chrome · Android"
+    assert describe_user_agent("") == "Navigateur"

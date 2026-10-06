@@ -5,7 +5,8 @@ CSS=Path('../frontend/src/styles.css').read_text(encoding='utf-8')
 API=Path('../frontend/src/api.ts').read_text(encoding='utf-8')
 
 def test_personnel_is_real_navigation_target():
-    assert "['👥','Personnel','personnel']" in APP
+    # Closure 2026-10: navigation icons are SVG keys, no emoji.
+    assert "['users','Personnel','personnel']" in APP
     assert '<PersonnelPage' in APP
 
 def test_personnel_ui_has_centered_kpis_and_professional_tabs():

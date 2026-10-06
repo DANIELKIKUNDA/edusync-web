@@ -1,0 +1,134 @@
+import React, {useEffect, useRef, useState} from 'react';
+import {useForm} from 'react-hook-form';
+import {z} from 'zod';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {toast} from 'sonner';
+import {changeMyPassword, dismissNotification, listMySessions, listNotifications, revokeMySession, type DeviceSession, type InternalNotification} from '../api';
+import {FormField, formDefaults} from './forms';
+import {friendlyError} from './errors';
+import {NavGlyph} from './nav_icons';
+import {initialsOf} from './shell';
+
+function Modal({title, subtitle, onClose, children, wide}: {title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; wide?: boolean}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    ref.current?.querySelector<HTMLElement>('input,button,select,textarea')?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); prev?.focus?.(); };
+  }, [onClose]);
+  return <div className="es-modal-backdrop" onMouseDown={e => e.currentTarget === e.target && onClose()}>
+    <div className={`es-modal ${wide ? 'es-modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
+      <div className="es-modal-head"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
+        <button className="es-icon-btn" aria-label="Fermer" onClick={onClose}><NavGlyph g="close" size={18}/></button></div>
+      {children}
+    </div>
+  </div>;
+}
+
+export function ProfileDialog({name, email, context, detail, onClose}: {name: string; email?: string; context?: string; detail?: string; onClose: () => void}) {
+  return <Modal title="Mon profil" subtitle="Informations de votre compte EduSync." onClose={onClose}>
+    <div className="es-profile">
+      <span className="es-avatar es-avatar-xl" aria-hidden="true">{initialsOf(name)}</span>
+      <dl>
+        <dt>Nom</dt><dd>{name}</dd>
+        {email && <><dt>Adresse e-mail</dt><dd>{email}</dd></>}
+        {context && <><dt>Espace de travail</dt><dd>{context}</dd></>}
+        {detail && <><dt>Année consultée</dt><dd>{detail}</dd></>}
+      </dl>
+      <p className="es-hint">Le nom et l’adresse e-mail sont gérés par l’administrateur des accès de votre école.</p>
+    </div>
+    <div className="es-modal-foot"><button className="es-btn" onClick={onClose}>Fermer</button></div>
+  </Modal>;
+}
+
+const passwordSchema = z.object({
+  current: z.string().min(1, 'Le mot de passe actuel est obligatoire.'),
+  next: z.string().min(10, 'Au moins 10 caractères sont requis.'),
+  confirm: z.string().min(1, 'Confirmez le nouveau mot de passe.'),
+}).refine(v => v.next === v.confirm, {message: 'Les deux nouveaux mots de passe ne correspondent pas.', path: ['confirm']});
+type PasswordForm = z.infer<typeof passwordSchema>;
+
+function relative(iso: string) {
+  const d = new Date(iso); const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 2) return 'à l’instant';
+  if (mins < 60) return `il y a ${mins} min`;
+  if (mins < 60 * 24) return `il y a ${Math.round(mins / 60)} h`;
+  return d.toLocaleDateString('fr-FR', {day: '2-digit', month: 'short', year: 'numeric'});
+}
+
+export function SecurityDialog({token, onClose, onPasswordChanged}: {token: string; onClose: () => void; onPasswordChanged: () => void}) {
+  const [tab, setTab] = useState<'devices' | 'password'>('devices');
+  const [sessions, setSessions] = useState<DeviceSession[] | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
+  const form = useForm<PasswordForm>({resolver: zodResolver(passwordSchema), defaultValues: {current: '', next: '', confirm: ''}, ...formDefaults});
+  async function load() { try { setError(''); setSessions((await listMySessions(token)).items); } catch (e) { setError(friendlyError(e)); } }
+  useEffect(() => { void load(); }, [token]);
+  const active = (sessions || []).filter(s => !s.revoked_at);
+  async function revoke(s: DeviceSession) {
+    try { setBusy(s.id); await revokeMySession(token, s.id); toast.success('Appareil déconnecté'); await load(); }
+    catch (e) { setError(friendlyError(e)); } finally { setBusy(''); }
+  }
+  const save = form.handleSubmit(async v => {
+    setError('');
+    try { await changeMyPassword(token, {current_password: v.current, new_password: v.next}); toast.success('Mot de passe modifié. Reconnectez-vous.'); onPasswordChanged(); }
+    catch (e) { setError(friendlyError(e)); }
+  });
+  return <Modal title="Sécurité et appareils" subtitle="Vos connexions actives et votre mot de passe." onClose={onClose} wide>
+    <div className="es-tabs" role="tablist">
+      <button role="tab" aria-selected={tab === 'devices'} className={tab === 'devices' ? 'es-on' : ''} onClick={() => setTab('devices')}><NavGlyph g="device" size={16}/>Appareils connectés</button>
+      <button role="tab" aria-selected={tab === 'password'} className={tab === 'password' ? 'es-on' : ''} onClick={() => setTab('password')}><NavGlyph g="key" size={16}/>Mot de passe</button>
+    </div>
+    {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
+    {tab === 'devices' && <div className="es-sessions">
+      <p className="es-hint">Une session reste ouverte sur un appareil 30 jours sans activité, 90 jours au maximum. Déconnectez un appareil perdu ou partagé.</p>
+      {sessions === null ? <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div> : active.length === 0 ? <div className="es-empty">Aucune session active.</div> :
+        <ul>{active.map((s, i) => <li key={s.id}>
+          <NavGlyph g="device" size={20}/>
+          <div><b>{s.label || 'Navigateur'}{i === 0 && <em className="es-tag">Activité la plus récente</em>}</b><small>Ouverte le {new Date(s.created_at).toLocaleDateString('fr-FR')} · activité {relative(s.last_seen_at)}</small></div>
+          <button className="es-btn es-btn-ghost" disabled={busy === s.id} onClick={() => void revoke(s)}>{busy === s.id ? 'Déconnexion…' : 'Déconnecter'}</button>
+        </li>)}</ul>}
+    </div>}
+    {tab === 'password' && <form className="es-form" onSubmit={save} noValidate>
+      <p className="es-hint">Changer votre mot de passe déconnecte immédiatement tous vos appareils.</p>
+      <FormField label="Mot de passe actuel *" error={form.formState.errors.current?.message}><input type="password" autoComplete="current-password" {...form.register('current')}/></FormField>
+      <FormField label="Nouveau mot de passe *" error={form.formState.errors.next?.message}><input type="password" autoComplete="new-password" {...form.register('next')}/></FormField>
+      <FormField label="Confirmer le nouveau mot de passe *" error={form.formState.errors.confirm?.message}><input type="password" autoComplete="new-password" {...form.register('confirm')}/></FormField>
+      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
+        <button className="es-btn es-btn-primary" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? 'Modification…' : 'Modifier le mot de passe'}</button></div>
+    </form>}
+  </Modal>;
+}
+
+export function NotificationBell({token, canDismiss}: {token: string; canDismiss: boolean}) {
+  const [items, setItems] = useState<InternalNotification[]>([]);
+  const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  async function load() { try { setItems((await listNotifications(token)).items); setFailed(false); } catch { setFailed(true); } }
+  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 120_000); return () => window.clearInterval(t); }, [token]);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('mousedown', onDown); window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
+  }, [open]);
+  const unread = items.filter(n => !n.read_at).length;
+  async function markRead(n: InternalNotification) { try { await dismissNotification(token, n.id); await load(); } catch { /* reste non lue */ } }
+  return <div className="es-account" ref={ref}>
+    <button className="es-icon-btn" aria-label={unread ? `Notifications, ${unread} non lue(s)` : 'Notifications'} aria-expanded={open} onClick={() => setOpen(x => !x)}>
+      <NavGlyph g="bell" size={18}/>{unread > 0 && <span className="es-badge">{unread > 9 ? '9+' : unread}</span>}
+    </button>
+    {open && <div className="es-pop" role="dialog" aria-label="Notifications">
+      <div className="es-pop-head"><span>Notifications</span>{unread > 0 && <small>{unread} non lue(s)</small>}</div>
+      {failed ? <div className="es-pop-empty">Notifications momentanément indisponibles.</div> : items.length === 0 ? <div className="es-pop-empty">Aucune notification.</div> :
+        items.slice(0, 30).map(n => <div key={n.id} className={`es-note ${n.read_at ? '' : 'es-unread'}`}>
+          <b>{n.title}</b><p>{n.body}</p><small>{new Date(n.created_at).toLocaleString('fr-FR', {dateStyle: 'medium', timeStyle: 'short'})}</small>
+          {!n.read_at && canDismiss && <button onClick={() => void markRead(n)}>Marquer comme lue</button>}
+        </div>)}
+    </div>}
+  </div>;
+}

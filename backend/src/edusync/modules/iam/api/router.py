@@ -21,7 +21,7 @@ from edusync.shared.infrastructure.security import create_access_token, verify_p
 from edusync.shared.infrastructure.login_guard import LoginAttemptGuard
 from sqlalchemy import text
 from datetime import datetime, timezone
-from edusync.shared.infrastructure.persistent_sessions import new_session_token, hash_token, hash_user_agent
+from edusync.shared.infrastructure.persistent_sessions import new_session_token, hash_token, hash_user_agent, describe_user_agent
 
 router = APIRouter(tags=["Authentification"])
 # Unknown accounts still pay one Argon2 verification so response time does not reveal which emails exist.
@@ -39,7 +39,7 @@ def _new_device_session(conn, settings, *, user, school=None, membership=None, u
     row = conn.execute(text("""INSERT INTO user_device_sessions(user_id,school_id,membership_id,token_hash,label,user_agent_hash,user_version,membership_version,expires_at)
         VALUES(:uid,:sid,:mid,:th,:label,:uah,:uv,:mv,now()+make_interval(days=>:days)) RETURNING id,expires_at"""), {
         "uid": str(user.id), "sid": str(school.id) if school else None, "mid": str(membership.id) if membership else None,
-        "th": session_hash, "label": "Navigateur EduSync", "uah": hash_user_agent(user_agent), "uv": user.version,
+        "th": session_hash, "label": describe_user_agent(user_agent), "uah": hash_user_agent(user_agent), "uv": user.version,
         "mv": membership.version if membership else None, "days": settings.session_absolute_days}).one()
     return raw_session, str(row[0]), row[1]
 

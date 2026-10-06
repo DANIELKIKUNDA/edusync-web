@@ -5,11 +5,11 @@ CSS=(ROOT/'frontend/src/styles.css').read_text(encoding='utf-8')
 PKG=(ROOT/'frontend/package.json').read_text(encoding='utf-8')
 
 def test_mobile_navigation_is_real_not_hidden_desktop_only():
-    assert 'mobileBottomNav' in APP
-    assert 'aria-label="Navigation principale"' in APP
-    assert 'aria-label="Navigation Atelier Pro"' in APP
-    assert 'mobileModuleGrid' in APP
-    assert "['home','students','finance']" in APP
+    # Closure 2026-10: shell replaced by platform/shell.tsx (AppShell); same intent, new implementation.
+    shell=(ROOT/'frontend/src/platform/shell.tsx').read_text(encoding='utf-8')
+    assert 'es-bottom' in shell and 'aria-label="Navigation principale"' in shell and 'aria-label="Navigation rapide"' in shell
+    assert 'es-drawer' in shell and 'aria-label="Menu EduSync"' in shell
+    assert "['home','students','finance','documents']" in APP
 
 def test_mobile_preserves_rbac_and_all_school_modules():
     assert 'visibleNav.map' in APP
@@ -24,9 +24,10 @@ def test_mobile_safe_area_touch_and_table_contracts():
     assert 'mobileSheetBackdrop' in CSS
 
 def test_mobile_keeps_academic_year_context():
-    assert 'yearContext' in APP
+    # Closure 2026-10: shell replaced by platform/shell.tsx (AppShell); same intent, new implementation.
+    assert 'es-year' in APP and "yearSelect('drawer')" in APP
     assert 'selectShellYear' in APP
-    assert 'schoolMobileProfile' in APP
+    assert 'drawerTools' in APP
 
 def test_mobile_release_version():
     assert '0.52.0-point17-environment-closure' in PKG

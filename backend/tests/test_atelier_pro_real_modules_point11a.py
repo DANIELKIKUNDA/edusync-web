@@ -11,7 +11,8 @@ def test_atelier_pro_backend_has_real_read_models():
 def test_atelier_pro_frontend_no_longer_placeholder_nav():
     s=(ROOT/'frontend/src/App.tsx').read_text()
     assert 'Administration technique légère de la plateforme' not in s
-    for label in ('Cockpit','Écoles','Accès','Audit','Diagnostics'):
+    # Closure 2026-10: shell replaced by platform/shell.tsx (AppShell); same intent, new implementation.
+    for label in ('Tableau de bord','Écoles','Accès','Journal d’audit','État du service'):
         assert label in s
     assert "platformAudit(token,audit.next_cursor)" in s
 

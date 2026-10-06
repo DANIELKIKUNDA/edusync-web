@@ -1,4 +1,4 @@
-const CACHE='edusync-shell-web0c-v1';
+const CACHE='edusync-shell-2026-10-closure';
 const SHELL=['/','/manifest.webmanifest'];
 
 self.addEventListener('install',event=>{
