@@ -39,3 +39,59 @@ def send(b:Draft,actor:ActorContext=Depends(require_school_actor),services:AppSe
   # Recipient expansion is deliberately server-side and scope-aware; unresolved destinations stay pending, never falsely SENT.
   c.execute(text('''INSERT INTO outbox_events(school_id,event_type,aggregate_type,aggregate_id,payload) VALUES(:sid,'COMMUNICATION_REQUESTED','communication_message',:mid,jsonb_build_object('message_id',:mid,'channel',:ch))'''),{'sid':str(actor.school_id),'mid':str(mid),'ch':channel})
   return {'id':str(mid),'status':'QUEUED','channel':channel,'estimated_segments':sms_segments(b.body) if channel=='SMS' else None}
+
+
+# --- Templates and delivery retry (local closure 2026-10) -----------------------------------------
+from edusync.modules.communications.domain.models import TEMPLATE_VARIABLES,render_template,validate_template
+
+
+class TemplateBody(BaseModel):
+ code:str=Field(min_length=2,max_length=96,pattern=r'^[A-Z0-9_]+$');label:str=Field(min_length=2,max_length=180);channel:str=Field(default='SMS',pattern='^(SMS|IN_APP)$');body:str=Field(min_length=1,max_length=1000)
+
+
+@router.get('/templates')
+def list_templates(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'communications.read')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  rows=c.execute(text('SELECT id,code,label,channel,body,enabled,version,updated_at FROM communication_templates WHERE school_id=:sid ORDER BY label'),{'sid':str(actor.school_id)}).mappings().all()
+ return {'items':[dict(r) for r in rows],'variables':sorted(TEMPLATE_VARIABLES)}
+
+
+@router.post('/templates',status_code=201)
+def save_template(b:TemplateBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'communications.templates.manage')
+ try:validate_template(b.body)
+ except ValueError as e:raise HTTPException(422,str(e)) from e
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  row=c.execute(text('''INSERT INTO communication_templates(school_id,code,label,channel,body) VALUES(:sid,:code,:label,:ch,:body)
+   ON CONFLICT(school_id,code,channel) DO UPDATE SET label=EXCLUDED.label,body=EXCLUDED.body,updated_at=now(),version=communication_templates.version+1 RETURNING id,version'''),
+   {'sid':str(actor.school_id),'code':b.code,'label':b.label,'ch':b.channel,'body':b.body}).mappings().one()
+  c.execute(text('''INSERT INTO audit_events(school_id,actor_user_id,membership_id,action,entity_type,entity_id,source,new_json) VALUES(:sid,:uid,:mid,'COMMUNICATION_TEMPLATE_SAVED','CommunicationTemplate',:id,'WEB',jsonb_build_object('code',CAST(:code AS text),'version',CAST(:v AS int)))'''),
+   {'sid':str(actor.school_id),'uid':str(actor.user_id),'mid':str(actor.membership_id),'id':str(row['id']),'code':b.code,'v':row['version']})
+ return {'id':str(row['id']),'version':row['version']}
+
+
+class PreviewBody(BaseModel):
+ body:str=Field(min_length=1,max_length=1000);values:dict[str,str]=Field(default_factory=dict)
+
+
+@router.post('/templates/preview')
+def preview_template(b:PreviewBody,actor:ActorContext=Depends(require_school_actor)):
+ need(actor,'communications.compose')
+ try:text_=render_template(b.body,b.values)
+ except ValueError as e:raise HTTPException(422,str(e)) from e
+ return {'text':text_,'estimated_segments':sms_segments(text_)}
+
+
+@router.post('/deliveries/{delivery_id}/retry')
+def retry_delivery(delivery_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Manual retry of a terminal failure. Idempotent: a delivery already queued/sent/delivered is left unchanged."""
+ need(actor,'communications.delivery.retry')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  row=c.execute(text("""UPDATE communication_deliveries SET status='QUEUED',attempts=0,next_attempt_at=NULL,last_error_code=NULL,failed_at=NULL
+   WHERE id=:id AND school_id=:sid AND status='FAILED' RETURNING id"""),{'id':str(delivery_id),'sid':str(actor.school_id)}).first()
+  current=c.execute(text('SELECT status FROM communication_deliveries WHERE id=:id AND school_id=:sid'),{'id':str(delivery_id),'sid':str(actor.school_id)}).scalar_one_or_none()
+  if current is None:raise HTTPException(404,'Envoi introuvable')
+  if row:c.execute(text('''INSERT INTO audit_events(school_id,actor_user_id,membership_id,action,entity_type,entity_id,source) VALUES(:sid,:uid,:mid,'COMMUNICATION_DELIVERY_RETRIED','CommunicationDelivery',:id,'WEB')'''),
+   {'sid':str(actor.school_id),'uid':str(actor.user_id),'mid':str(actor.membership_id),'id':str(delivery_id)})
+ return {'status':current,'requeued':bool(row)}

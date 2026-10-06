@@ -18,6 +18,7 @@ from edusync.adapters.postgres_schooling import PostgresSchoolingRepository
 from edusync.bootstrap.dependencies import get_services, require_school_actor
 from edusync.bootstrap.services import AppServices
 from edusync.modules.audit.domain.audit import AuditRecord
+from edusync.modules.documents.application.object_store import archive_generated
 from edusync.modules.schooling.application.documents import family_directory_pdf, family_directory_xlsx, student_directory_pdf, student_directory_xlsx, student_profile_pdf
 from edusync.modules.schooling.application.use_cases import SchoolingService
 from edusync.modules.schooling.domain.models import Guardian, GuardianRole
@@ -281,7 +282,8 @@ def remove_guardian(family_id:UUID,guardian_id:UUID,idempotency_key:str|None=Hea
 def _school_identity(conn,school_id:UUID)->dict[str,Any]:
     school=PostgresSchoolRepository(conn).get(school_id)
     if not school:return {'name':'École'}
-    return {'name':school.name,'logo_url':school.logo_url,'email':school.email,'phone':school.phone,'address':school.address,'city':school.city,'province':school.province}
+    logo_key=conn.execute(text("SELECT logo_object_key FROM school_branding WHERE school_id=:sid"),{'sid':str(school_id)}).scalar_one_or_none()
+    return {'id':str(school_id),'name':school.name,'logo_object_key':logo_key,'email':school.email,'phone':school.phone,'address':school.address,'city':school.city,'province':school.province}
 
 def _school_name(conn,school_id:UUID)->str:
     return _school_identity(conn,school_id).get('name') or 'École'
@@ -317,6 +319,7 @@ def export_students_pdf(q:str|None=None,academic_year_id:UUID|None=None,section_
         filters += [f"Section : {'sélectionnée' if section_id else 'Toutes'}",f"Classe : {'sélectionnée' if class_id else 'Toutes'}",f"Statut : {status or 'Tous'}",f"Sexe : {gender or 'M/F'}"]
         if q:filters.append(f'Recherche : {q}')
         data=student_directory_pdf(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='students.directory.print_pdf',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.pdf',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="annuaire_eleves.pdf"'})
 
 @router.get('/exports/students.xlsx')
@@ -332,6 +335,7 @@ def export_students_xlsx(q:str|None=None,academic_year_id:UUID|None=None,section
         filters += [f"Section : {'sélectionnée' if section_id else 'Toutes'}",f"Classe : {'sélectionnée' if class_id else 'Toutes'}",f"Statut : {status or 'Tous'}",f"Sexe : {gender or 'M/F'}"]
         if q:filters.append(f'Recherche : {q}')
         data=student_directory_xlsx(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
+        archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='students.directory.export_xlsx',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.xlsx',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="annuaire_eleves.xlsx"'})
 
 @router.get('/exports/families.pdf')
@@ -343,6 +347,7 @@ def export_families_pdf(q:str|None=None,academic_year_id:UUID|None=None,enrolled
         filters=[f"Année : {(year or {}).get('label','Année sélectionnée')}",'Inscrits dans l’année consultée' if enrolled_only else 'Répertoire global']
         if q:filters.append(f'Recherche : {q}')
         data=family_directory_pdf(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='families.directory.print_pdf',document_code='families.directory',title='Répertoire des familles',file_name='repertoire_familles.pdf',academic_year_id=academic_year_id if 'families.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="repertoire_familles.pdf"'})
 
 @router.get('/exports/families.xlsx')
@@ -354,6 +359,7 @@ def export_families_xlsx(q:str|None=None,academic_year_id:UUID|None=None,enrolle
         filters=[f"Année : {(year or {}).get('label','Année sélectionnée')}",'Inscrits dans l’année consultée' if enrolled_only else 'Répertoire global']
         if q:filters.append(f'Recherche : {q}')
         data=family_directory_xlsx(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
+        archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='families.directory.export_xlsx',document_code='families.directory',title='Répertoire des familles',file_name='repertoire_familles.xlsx',academic_year_id=academic_year_id if 'families.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="repertoire_familles.xlsx"'})
 
 @router.get('/students/{student_id}/profile.pdf')
@@ -363,4 +369,5 @@ def export_student_profile(student_id:UUID,actor:ActorContext=Depends(require_sc
         student=PostgresSchoolingRepository(conn).get_student(actor.school_id,student_id,scopes=scopes)
         if not student:raise HTTPException(status_code=404,detail='Élève introuvable')
         data=student_profile_pdf(school=_school_identity(conn,actor.school_id),student=student)
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='students.profile.print_pdf',document_code='students.profile',title='Fiche élève',file_name=f'fiche_eleve_{student_id}.pdf',academic_year_id=academic_year_id if 'students.profile'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="fiche_eleve.pdf"'})

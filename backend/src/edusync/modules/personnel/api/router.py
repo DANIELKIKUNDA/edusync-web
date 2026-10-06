@@ -326,11 +326,13 @@ def unlink_access(staff_id:UUID,membership_id:UUID,body:UnlinkBody,idempotency_k
         return _mutate(services=services,actor=actor,key=key,operation='PERSONNEL_UNLINK_ACCESS',payload={**body.model_dump(mode='json'),'staff_id':str(staff_id),'membership_id':str(membership_id)},action=action).body
     except Exception as exc:_error(exc)
 
+from edusync.modules.documents.application.object_store import archive_generated
 @router.get('/exports/register.pdf')
 def register_pdf(q:str|None=None,status:str|None=None,category:str|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'personnel.directory.print_pdf');scopes=_scopes(actor,'personnel.directory.print_pdf')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresPersonnelRepository(conn);rows=repo.list_staff(actor.school_id,query=q,status=status,category=category,scopes=scopes,limit=1000);school=PostgresSchoolRepository(conn).get(actor.school_id);data=build_staff_register_pdf(rows,school_name=school.name if school else 'École')
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='personnel.directory.print_pdf',document_code='personnel.register',title='Registre du personnel',file_name='registre_personnel.pdf')
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="registre_personnel.pdf"'})
 
 @router.get('/exports/register.xlsx')
@@ -338,6 +340,7 @@ def register_xlsx(q:str|None=None,status:str|None=None,category:str|None=None,ac
     _need(actor,'personnel.directory.export_xlsx');scopes=_scopes(actor,'personnel.directory.export_xlsx')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresPersonnelRepository(conn);rows=repo.list_staff(actor.school_id,query=q,status=status,category=category,scopes=scopes,limit=1000);school=PostgresSchoolRepository(conn).get(actor.school_id);data=build_staff_register_xlsx(rows,school_name=school.name if school else 'École')
+        archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='personnel.directory.export_xlsx',document_code='personnel.register',title='Registre du personnel',file_name='registre_personnel.xlsx')
     return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="registre_personnel.xlsx"'})
 
 @router.get('/{staff_id}/profile.pdf')
@@ -347,4 +350,5 @@ def profile_pdf(staff_id:UUID,actor:ActorContext=Depends(require_school_actor),s
         repo=PostgresPersonnelRepository(conn);item=repo.get_staff(actor.school_id,staff_id,scopes=scopes)
         if item is None: raise HTTPException(status_code=404,detail='Agent introuvable dans votre périmètre')
         school=PostgresSchoolRepository(conn).get(actor.school_id);data=build_staff_profile_pdf(item,school_name=school.name if school else 'École')
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='personnel.profile.print_pdf',document_code=f'personnel.profile.{staff_id}',title='Fiche agent',file_name=f'fiche_agent_{staff_id}.pdf')
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="agent_{staff_id}.pdf"'})

@@ -139,7 +139,8 @@ def test_d6_access_tokens_are_bound_to_a_live_device_session():
     deps = (SRC / "bootstrap/dependencies.py").read_text(encoding="utf-8")
     # platform login, school login and refresh all embed the device session id
     assert iam.count('"sid": str(session_id)') == 2 and "'sid':str(row['id'])" in iam
-    assert iam.count("RETURNING id\"") == 2
+    # Closure 2026-10: both logins create their device session through one helper (with server-side expiry).
+    assert iam.count("_new_device_session(conn, services.settings") == 2 and "RETURNING id,expires_at" in iam
     # both actor resolvers reject a token whose session was revoked (logout / device revocation)
     assert deps.count("_assert_device_session_live(conn, claims, user_id)") == 2
     assert "revoked_at IS NULL" in deps

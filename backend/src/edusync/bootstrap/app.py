@@ -28,6 +28,7 @@ from edusync.modules.sync.api.router import router as sync_router
 from edusync.modules.communications.api.router import router as communications_router
 from edusync.modules.migration_import.api.router import router as migration_import_router
 from edusync.modules.access.api.router import router as access_router
+from edusync.modules.setup.api.router import router as setup_router
 from edusync.shared.infrastructure.observability import CorrelationLoggingMiddleware, configure_logging
 from edusync.shared.infrastructure.security_headers import SecurityHeadersMiddleware
 from edusync.shared.infrastructure.api_guard import ApiGuardMiddleware
@@ -38,6 +39,8 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     configure_logging()
     app = FastAPI(title="EduSync Web API", version="0.52.0-point17-environment-closure")
     app.state.services = services or AppServices.build(cfg)
+    from edusync.modules.documents.application.object_store import configure_storage
+    configure_storage(getattr(app.state.services, "object_storage", None))
     @app.exception_handler(CapabilityDenied)
     async def capability_denied_handler(request, exc):
         return JSONResponse(status_code=403, content={"detail": str(exc)})
@@ -92,4 +95,5 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.include_router(communications_router, prefix="/api/v1/communications")
     app.include_router(migration_import_router, prefix="/api/v1/import")
     app.include_router(access_router, prefix="/api/v1/access")
+    app.include_router(setup_router, prefix="/api/v1/setup")
     return app

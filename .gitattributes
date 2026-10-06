@@ -1,0 +1,9 @@
+# Binary evidence and assets must never be touched by end-of-line conversion.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.xlsx binary
+*.zip binary
+*.woff2 binary

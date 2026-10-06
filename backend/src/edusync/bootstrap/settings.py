@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     jwt_audience: str = "edusync-web"
     access_token_minutes: int = 15
     persistent_session_cookie: str = "edusync_session"
-    persistent_session_cookie_days: int = 3650
+    # Persistent device session: absolute lifetime + idle timeout, token rotated on each renewal.
+    session_absolute_days: int = 90
+    session_idle_days: int = 30
+    session_rotation_grace_seconds: int = 60
 
     offline_finance_enabled: bool = False
     offline_finance_certified: bool = False
@@ -37,6 +40,23 @@ class Settings(BaseSettings):
     sms_provider: str = "disabled"
     orange_sms_endpoint: str = ""
     orange_sms_bearer_token: str = ""
+
+    # Object storage (S3-compatible). Empty endpoint + backend "auto" = documents storage disabled (503, clear message).
+    object_storage_backend: str = "auto"  # auto | s3 | local
+    object_storage_endpoint: str = ""
+    object_storage_access_key: str = ""
+    object_storage_secret_key: str = ""
+    object_storage_bucket: str = "edusync-documents"
+    object_storage_region: str = "us-east-1"
+    object_storage_path_style: bool = True
+    object_storage_local_root: str = ".local/object-storage"
+    # Secret for short-lived download links issued by the API. Defaults to a key derived from the JWT secret.
+    document_link_secret: str = ""
+    document_link_seconds: int = 300
+
+    # First Manager Système from the login page. Allowed only while no platform manager exists, and only
+    # from loopback in dev; staging/production additionally require this one-time setup token.
+    setup_token: str = ""
 
     @field_validator("jwt_secret")
     @classmethod

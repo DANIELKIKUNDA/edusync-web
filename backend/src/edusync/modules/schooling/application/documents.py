@@ -31,14 +31,10 @@ def _contact_lines(school: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _logo_path(school: dict[str, Any]) -> Path | None:
-    for key in ("logo_path", "logo_url"):
-        raw = school.get(key)
-        if raw and not str(raw).startswith(("http://", "https://")):
-            path = Path(str(raw)).expanduser()
-            if path.is_file():
-                return path
-    return None
+def _logo_path(school: dict[str, Any]):
+    # Logo bytes come only from this school's object storage (never from a server file path).
+    from edusync.modules.documents.application.object_store import logo_stream
+    return logo_stream(school)
 
 
 def _column_width(header: object, values: list[object]) -> float:
@@ -94,7 +90,7 @@ def export_schooling_pdf_bytes(*, school: dict[str, Any], title: str, filters: l
     identity = Paragraph("<b>%s</b><br/>%s" % (str(school.get("name") or "EduSync École"), "<br/>".join(_contact_lines(school))), center)
     logo = _logo_path(school)
     if logo:
-        try: brand = Table([[Image(str(logo), width=18*mm, height=18*mm), identity]], colWidths=[22*mm, landscape(A4)[0]-40*mm])
+        try: brand = Table([[Image(logo, width=18*mm, height=18*mm), identity]], colWidths=[22*mm, landscape(A4)[0]-40*mm])
         except Exception: brand = Table([[identity]], colWidths=[landscape(A4)[0]-18*mm])
     else:
         brand = Table([[identity]], colWidths=[landscape(A4)[0]-18*mm])
@@ -123,7 +119,7 @@ def export_schooling_xlsx_bytes(*, school: dict[str, Any], title: str, filters: 
     if logo:
         from openpyxl.drawing.image import Image
         try:
-            img=Image(str(logo)); img.width=54; img.height=54; ws.add_image(img,"A1")
+            img=Image(logo); img.width=54; img.height=54; ws.add_image(img,"A1")
         except Exception: identity_start=1
     for row in range(1,5): ws.row_dimensions[row].height=19
     ws.merge_cells(start_row=1,start_column=identity_start,end_row=1,end_column=width)

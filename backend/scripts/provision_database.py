@@ -163,6 +163,11 @@ def main() -> None:
             ("0043_finance_charge_capacity_guard", "0043_finance_charge_capacity_guard.sql"),
             ("0044_owner_decision_personnel_roles", "0044_owner_decision_personnel_roles.sql"),
             ("0045_finance_read_model_performance", "0045_finance_read_model_performance.sql"),
+            ("0046_session_lifetime_rotation", "0046_session_lifetime_rotation.sql"),
+            ("0047_platform_first_manager_setup", "0047_platform_first_manager_setup.sql"),
+            ("0048_document_object_storage", "0048_document_object_storage.sql"),
+            ("0049_finance_family_basket", "0049_finance_family_basket.sql"),
+            ("0050_receipt_printing", "0050_receipt_printing.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):

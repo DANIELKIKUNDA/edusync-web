@@ -1,0 +1,86 @@
+{
+  "passed": 16,
+  "total": 16,
+  "results": [
+    {
+      "check": "connexion : cookie de session posé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "durée maximale serveur = 90 jours (plus de session de 10 ans)",
+      "pass": true,
+      "detail": "90 days, 0:00:00"
+    },
+    {
+      "check": "renouvellement : jeton tourné",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "cookie HttpOnly, SameSite=Lax, chemin limité, durée bornée",
+      "pass": true,
+      "detail": "7ZhoZ7gyybOeetd1CqH0mDx3UuEBbErunvUuhdl2llDG_z3MvZo9Ik76gGkm; HttpOnly; Max-Age=7775998; Path=/api/v1/auth; SameSite=lax"
+    },
+    {
+      "check": "onglet concurrent : ancien jeton accepté dans la fenêtre de grâce",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "jeton tourné rejoué après la grâce : refusé",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "check": "réutilisation détectée : session entière révoquée",
+      "pass": true,
+      "detail": "ROTATED_TOKEN_REUSED"
+    },
+    {
+      "check": "le jeton légitime ne fonctionne plus non plus",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "le jeton d'accès lié à la session est coupé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "inactivité > 30 jours : renouvellement refusé",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "check": "inactivité : session révoquée (IDLE_TIMEOUT)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "durée maximale dépassée : jeton d'accès coupé immédiatement",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "durée maximale dépassée : renouvellement refusé et révoqué",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "check": "session active : renouvellements successifs (rechargement de page)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "déconnexion 204",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "après déconnexion : renouvellement refusé",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

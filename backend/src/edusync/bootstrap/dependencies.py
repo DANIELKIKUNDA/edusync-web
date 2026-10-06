@@ -49,7 +49,7 @@ def _assert_device_session_live(conn, claims: dict, user_id: UUID) -> None:
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=401, detail="Session du jeton invalide", headers={"WWW-Authenticate": "Bearer"}) from exc
     live = conn.execute(
-        text("SELECT 1 FROM user_device_sessions WHERE id=:id AND user_id=:uid AND revoked_at IS NULL"),
+        text("SELECT 1 FROM user_device_sessions WHERE id=:id AND user_id=:uid AND revoked_at IS NULL AND expires_at>now()"),
         {"id": str(session_id), "uid": str(user_id)},
     ).first()
     if live is None:

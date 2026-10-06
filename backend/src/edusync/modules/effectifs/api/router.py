@@ -138,9 +138,11 @@ def _export_counts(group_by:str,scope:HeadcountScope,year_id:UUID|None,actor:Act
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresEffectifsRepository(conn);y=_year(repo,actor.school_id,year_id);rows=repo.counts(actor.school_id,y["id"],scopes=scopes,scope=scope.value,group_by=group_by);school=repo.school_identity(actor.school_id)
         data=headcounts_xlsx(school=school,rows=rows,title=title,scope_label=_scope_label(scope),year_label=y["label"],sheet_name=sheet) if xlsx else headcounts_pdf(school=school,rows=rows,title=title,scope_label=_scope_label(scope),year_label=y["label"])
+        archive_generated(conn,actor,data=data,fmt="XLSX" if xlsx else "PDF",required_capability=group_cap,document_code=f"headcounts.{group_by}",title=title,file_name=f"effectifs_{group_by}.{'xlsx' if xlsx else 'pdf'}",academic_year_id=y["id"],filters={"scope":scope.value})
     media="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if xlsx else "application/pdf";ext="xlsx" if xlsx else "pdf";disp="attachment" if xlsx else "inline"
     return StreamingResponse(BytesIO(data),media_type=media,headers={"Content-Disposition":f'{disp}; filename="effectifs_{group_by}.{ext}"'})
 
+from edusync.modules.documents.application.object_store import archive_generated
 @router.get("/exports/counts.pdf")
 def export_counts_pdf(group_by:Literal["class","section","option"]="class",year_id:UUID|None=None,scope:HeadcountScope=HeadcountScope.ALL,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):return _export_counts(group_by,scope,year_id,actor,services,xlsx=False)
 @router.get("/exports/counts.xlsx")
@@ -154,4 +156,5 @@ def export_deposits(year_id:UUID|None=None,scope:HeadcountScope=HeadcountScope.A
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresEffectifsRepository(conn);y=_year(repo,actor.school_id,year_id);rows=repo.deposits(actor.school_id,y["id"],scopes=scopes,scope=scope.value,class_id=class_id,contribution_type_id=contribution_type_id,q=q,limit=5000,offset=0)["items"]
         data=deposits_xlsx(school=repo.school_identity(actor.school_id),rows=rows,scope_label=_scope_label(scope),year_label=y["label"])
+        archive_generated(conn,actor,data=data,fmt="XLSX",required_capability="contributions.register.read",document_code="contributions.register",title="Registre des dépôts matériels",file_name="registre_depots_materiels.xlsx",academic_year_id=y["id"],filters={"scope":scope.value})
     return StreamingResponse(BytesIO(data),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":'attachment; filename="registre_depots_materiels.xlsx"'})

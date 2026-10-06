@@ -111,6 +111,85 @@ class PostgresFinanceCheckoutRepository:
    advance_detail={'amount':str(advance),'target':target,'plan_label':plan['label'],'targets':target_lines}
   return {'id':str(pid),'receipt_number':receipt,'amount':str(amount),'currency':currency,'replayed':False,'allocations':details,'advance':advance_detail}
 
+ def family_collect(self,school_id:UUID,user_id:UUID,membership_id:UUID,family_id:UUID,lines:list[dict],idempotency_key:str):
+  """Family basket: several explicit lines committed atomically (all or none) under one Idempotency-Key.
+  Each line is an ordinary payment (own receipt) allocated by the unchanged collect() rule. The cashier
+  chooses child, charges and amount per line; EduSync never spreads one family amount across children."""
+  import hashlib,json
+  self._lock_idempotency_key(school_id,'family-basket:'+idempotency_key)
+  canon=json.dumps({'family_id':str(family_id),'lines':[{'enrollment_id':str(l['enrollment_id']),'charge_ids':sorted(str(c) for c in l['charge_ids']),'amount':str(Decimal(str(l['amount'])).normalize()),'currency':l['currency']} for l in lines]},sort_keys=True)
+  digest=hashlib.sha256(canon.encode()).hexdigest()
+  prev=self.conn.execute(text('SELECT id,request_sha256 FROM finance_family_baskets WHERE school_id=:sid AND idempotency_key=:k'),{'sid':str(school_id),'k':idempotency_key}).mappings().first()
+  if prev:
+   if prev['request_sha256']!=digest:raise ValueError('Idempotency-Key déjà utilisée pour un autre panier')
+   return {**self.family_basket(school_id,UUID(str(prev['id']))),'replayed':True}
+  if not 1<=len(lines)<=20:raise ValueError('Un panier contient de 1 à 20 lignes')
+  seen=set()
+  for l in lines:
+   pair=(str(l['enrollment_id']),l['currency'])
+   if pair in seen:raise ValueError('Une seule ligne par élève et par devise : regroupez les frais')
+   seen.add(pair)
+  ids=sorted({str(l['enrollment_id']) for l in lines})
+  owned={str(r[0]) for r in self.conn.execute(text('''SELECT e.id FROM enrollments e JOIN students s ON s.id=e.student_id AND s.school_id=e.school_id
+   WHERE e.school_id=:sid AND s.family_id=:fid AND e.id=ANY(CAST(:ids AS uuid[]))'''),{'sid':str(school_id),'fid':str(family_id),'ids':ids}).all()}
+  if owned!=set(ids):raise ValueError('Un élève du panier n’appartient pas à cette famille')
+  session=self.conn.execute(text("SELECT id FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' ORDER BY opened_at DESC LIMIT 1"),{'sid':str(school_id),'mid':str(membership_id)}).scalar_one_or_none()
+  if not session:raise ValueError('Aucune caisse ouverte pour cet utilisateur')
+  paid=[]
+  for n,l in enumerate(lines,start=1):
+   r=self.collect(school_id,user_id,membership_id,UUID(str(l['enrollment_id'])),[UUID(str(c)) for c in l['charge_ids']],Decimal(str(l['amount'])),l['currency'],f'{idempotency_key}#L{n}',False)
+   if r.get('replayed'):raise ValueError('Ligne de panier déjà encaissée séparément : actualisez le panier')
+   paid.append((n,r))
+  totals:dict[str,Decimal]={}
+  for _,r in paid:totals[r['currency']]=totals.get(r['currency'],Decimal('0'))+Decimal(r['amount'])
+  basket=uuid4()
+  self.conn.execute(text('''INSERT INTO finance_family_baskets(id,school_id,family_id,idempotency_key,request_sha256,cash_session_id,actor_user_id,line_count,totals_json)
+   VALUES(:id,:sid,:fid,:k,:h,:cs,:uid,:n,CAST(:t AS jsonb))'''),{'id':str(basket),'sid':str(school_id),'fid':str(family_id),'k':idempotency_key,'h':digest,'cs':str(session),'uid':str(user_id),'n':len(paid),'t':json.dumps({k:str(v) for k,v in totals.items()})})
+  for n,r in paid:
+   self.conn.execute(text('INSERT INTO finance_family_basket_payments(basket_id,school_id,line_no,payment_id) VALUES(:b,:sid,:n,:p)'),{'b':str(basket),'sid':str(school_id),'n':n,'p':r['id']})
+  return {**self.family_basket(school_id,basket),'replayed':False}
+
+ def family_basket(self,school_id:UUID,basket_id:UUID):
+  head=self.conn.execute(text('SELECT id,family_id,totals_json,created_at,line_count FROM finance_family_baskets WHERE school_id=:sid AND id=:id'),{'sid':str(school_id),'id':str(basket_id)}).mappings().one()
+  rows=self.conn.execute(text('''SELECT bp.line_no,p.id payment_id,p.receipt_number,p.amount,p.currency,p.enrollment_id,s.last_name,s.middle_name,s.first_name,c.label class_label,
+    (SELECT coalesce(json_agg(json_build_object('label',coalesce(fc.period_label,fc.label),'amount',a.amount::text) ORDER BY fc.period_order NULLS LAST,fc.label),'[]'::json)
+       FROM finance_payment_allocations a JOIN finance_charges fc ON fc.id=a.charge_id WHERE a.payment_id=p.id AND a.school_id=p.school_id) allocations
+   FROM finance_family_basket_payments bp JOIN finance_payments p ON p.id=bp.payment_id AND p.school_id=bp.school_id
+   JOIN enrollments e ON e.id=p.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes c ON c.id=e.class_id
+   WHERE bp.school_id=:sid AND bp.basket_id=:id ORDER BY bp.line_no'''),{'sid':str(school_id),'id':str(basket_id)}).mappings().all()
+  return {'basket_id':str(head['id']),'family_id':str(head['family_id']),'totals':head['totals_json'],'created_at':head['created_at'].isoformat(),
+   'lines':[{**{k:(str(v) if k in ('payment_id','enrollment_id','amount') else v) for k,v in dict(r).items()}} for r in rows]}
+
+ # --- receipts (printing is separate from the payment commit) -------------------------------------------
+ def receipt_facts(self,school_id:UUID,payment_id:UUID)->dict|None:
+  # users is readable by the tenant role only for the caller's own row (privacy): the cashier name is
+  # resolved by the router through the platform role once access to this payment is authorised.
+  p=self.conn.execute(text('''SELECT p.id,p.receipt_number,p.amount,p.currency,p.created_at,p.actor_user_id,u.full_name cashier,
+    s.last_name,s.middle_name,s.first_name,s.matricule,c.label class_label,y.label academic_year
+   FROM finance_payments p LEFT JOIN users u ON u.id=p.actor_user_id
+   LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students s ON s.id=e.student_id
+   LEFT JOIN school_classes c ON c.id=e.class_id LEFT JOIN academic_years y ON y.id=e.academic_year_id
+   WHERE p.school_id=:sid AND p.id=:pid'''),{'sid':str(school_id),'pid':str(payment_id)}).mappings().first()
+  if not p:return None
+  lines=[dict(r) for r in self.conn.execute(text('''SELECT coalesce(fc.period_label,fc.label) AS label,a.amount FROM finance_payment_allocations a
+   JOIN finance_charges fc ON fc.id=a.charge_id WHERE a.school_id=:sid AND a.payment_id=:pid ORDER BY fc.period_order NULLS LAST,fc.label'''),{'sid':str(school_id),'pid':str(payment_id)}).mappings()]
+  lines+=[dict(r) for r in self.conn.execute(text('''SELECT pr.label||' × '||trim(to_char(ps.quantity,'FM999999990.###')) AS label,ps.total AS amount FROM finance_product_sales ps
+   JOIN school_products pr ON pr.id=ps.product_id WHERE ps.school_id=:sid AND ps.payment_id=:pid'''),{'sid':str(school_id),'pid':str(payment_id)}).mappings()]
+  adv=self.conn.execute(text('SELECT amount,target_summary FROM finance_advance_allocations WHERE school_id=:sid AND payment_id=:pid'),{'sid':str(school_id),'pid':str(payment_id)}).mappings().first()
+  out=dict(p);out['lines']=lines
+  if adv:out['advance_amount']=adv['amount'];out['advance_target']=adv['target_summary']
+  return out
+ def record_receipt_print(self,school_id:UUID,payment_id:UUID,user_id:UUID)->int:
+  self.conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k,0))"),{'k':f'receipt-print:{payment_id}'})
+  n=int(self.conn.execute(text('SELECT coalesce(max(copy_no),0) FROM finance_receipt_prints WHERE school_id=:sid AND payment_id=:pid'),{'sid':str(school_id),'pid':str(payment_id)}).scalar_one())+1
+  self.conn.execute(text("INSERT INTO finance_receipt_prints(school_id,payment_id,copy_no,kind,printed_by) VALUES(:sid,:pid,:n,:k,:u)"),{'sid':str(school_id),'pid':str(payment_id),'n':n,'k':'ORIGINAL' if n==1 else 'DUPLICATA','u':str(user_id)})
+  return n
+ def receipt_copies(self,school_id:UUID,payment_id:UUID)->int:
+  return int(self.conn.execute(text('SELECT count(*) FROM finance_receipt_prints WHERE school_id=:sid AND payment_id=:pid'),{'sid':str(school_id),'pid':str(payment_id)}).scalar_one())
+ def print_settings(self,school_id:UUID)->dict:
+  r=self.conn.execute(text('SELECT receipt_policy,receipt_format,version FROM school_print_settings WHERE school_id=:sid'),{'sid':str(school_id)}).mappings().first()
+  return dict(r) if r else {'receipt_policy':'NONE','receipt_format':'A5','version':0}
+
  def historical_debts(self,school_id:UUID,student_id:UUID):
   rows=self.conn.execute(text("""SELECT e.id enrollment_id,y.id academic_year_id,y.label academic_year,c.label class_label,
    fc.id charge_id,fc.label,fc.currency,fc.net_amount,fc.paid_amount,(fc.net_amount-fc.paid_amount) remaining,

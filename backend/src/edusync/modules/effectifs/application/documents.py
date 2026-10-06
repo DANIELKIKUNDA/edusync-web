@@ -21,13 +21,10 @@ LIGHT="#F8FAFC"
 BORDER="#D0D5DD"
 
 
-def _logo_path(school:dict[str,Any])->Path|None:
-    for k in ("logo_path","logo_url"):
-        v=school.get(k)
-        if not v or str(v).startswith(("http://","https://")):continue
-        p=Path(str(v))
-        if p.exists() and p.is_file():return p
-    return None
+def _logo_path(school:dict[str,Any]):
+    # Logo bytes come only from this school's object storage (never from a server file path).
+    from edusync.modules.documents.application.object_store import logo_stream
+    return logo_stream(school)
 
 
 def _identity_lines(school:dict[str,Any])->list[str]:
@@ -49,7 +46,7 @@ def _header_block(school:dict[str,Any], title:str, context:str, width:float):
     for line in _identity_lines(school):identity.append(Paragraph(line,meta_style))
     logo=_logo_path(school)
     if logo:
-        try:left=Image(str(logo),width=15*mm,height=15*mm)
+        try:left=Image(logo,width=15*mm,height=15*mm)
         except Exception:left=""
     else:left=""
     brand=Table([[left,identity,"" ]],colWidths=[19*mm,width-38*mm,19*mm])
@@ -122,7 +119,7 @@ def headcounts_xlsx(*,school:dict[str,Any],rows:list[HeadcountRow],title:str,sco
     ws.freeze_panes(6,2);ws.autofilter(5,0,ti,13);ws.hide_gridlines(2);ws.set_landscape();ws.fit_to_pages(1,0);ws.set_paper(9)
     logo=_logo_path(school)
     if logo:
-        try:ws.insert_image(0,0,str(logo),{"x_scale":.30,"y_scale":.30,"x_offset":4,"y_offset":2})
+        try:ws.insert_image(0,0,"logo.png",{"image_data":logo,"x_scale":.30,"y_scale":.30,"x_offset":4,"y_offset":2})
         except Exception:pass
     wb.close();out.seek(0);return out.getvalue()
 

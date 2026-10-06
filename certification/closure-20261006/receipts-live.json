@@ -1,0 +1,76 @@
+{
+  "passed": 14,
+  "total": 14,
+  "results": [
+    {
+      "check": "reçu PDF généré à la demande (A5 par défaut)",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "première impression = ORIGINAL tracé",
+      "pass": true,
+      "detail": "[{'copy_no': 1, 'kind': 'ORIGINAL'}]"
+    },
+    {
+      "check": "réimpression = DUPLICATA n°1 (format ticket 80 mm)",
+      "pass": true,
+      "detail": "[{'copy_no': 1, 'kind': 'ORIGINAL'}, {'copy_no': 2, 'kind': 'DUPLICATA'}]"
+    },
+    {
+      "check": "impression et réimpression auditées",
+      "pass": true,
+      "detail": "[{'action': 'FINANCE_RECEIPT_PRINTED'}, {'action': 'FINANCE_RECEIPT_REPRINTED'}]"
+    },
+    {
+      "check": "imprimer ne crée aucune opération financière",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Responsable Finance : réimpression refusée (pas finance.receipts.reprint)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "école B : reçu de A introuvable",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "reçu inexistant : 404",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "lot familial : un PDF, un reçu par enfant",
+      "pass": true,
+      "detail": "200 1 reçus"
+    },
+    {
+      "check": "lot familial : chaque reçu tracé",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "check": "politique d'impression enregistrée (administrateur)",
+      "pass": true,
+      "detail": "{\"receipt_policy\":\"PROPOSE\",\"receipt_format\":\"80MM\",\"version\":3}"
+    },
+    {
+      "check": "caissier : politique en lecture seule",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "politique relue par le caissier",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "valeur de politique inconnue refusée",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

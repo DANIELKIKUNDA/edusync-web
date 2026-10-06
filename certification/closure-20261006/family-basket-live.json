@@ -1,0 +1,101 @@
+{
+  "passed": 19,
+  "total": 19,
+  "results": [
+    {
+      "check": "panier familial de 3 enfants encaissé",
+      "pass": true,
+      "detail": "{\"basket_id\":\"6af8f4a6-5382-4658-b945-92fa2e0b038f\",\"family_id\":\"ec0426d5-f763-4a44-bb83-7e2941cd9f05\",\"totals\":{\"CDF\":\"90000\",\"USD\":\"15\"},\"created_at\":\"2026-10-06T18:06:32.957244+01:00\",\"lines\":[{\"li"
+    },
+    {
+      "check": "un reçu distinct par ligne (par enfant)",
+      "pass": true,
+      "detail": "['REC-2AE8ABB4', 'REC-600594CF', 'REC-5AFF0442']"
+    },
+    {
+      "check": "CDF et USD totalisés séparément",
+      "pass": true,
+      "detail": "{'CDF': '90000', 'USD': '15'}"
+    },
+    {
+      "check": "allocations explicites sur les frais choisis",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "chaque ligne : allocation = montant",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "rejeu même clé : même panier, aucun nouveau paiement",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "même clé, autre contenu : refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "ligne invalide : panier entier refusé (tout ou rien)",
+      "pass": true,
+      "detail": "409 0.00"
+    },
+    {
+      "check": "élève d'une autre école/famille : refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "devise incohérente dans une ligne : refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "deux lignes même élève/devise : refusées (à regrouper)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "sans Idempotency-Key : refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "rôle sans finance.checkout.family.collect : 403",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "check": "caissier sans caisse ouverte : refusé",
+      "pass": true,
+      "detail": "{\"detail\":\"Aucune caisse ouverte pour cet utilisateur\"}"
+    },
+    {
+      "check": "2 caissiers simultanés sur le même frais : un seul encaissement",
+      "pass": true,
+      "detail": "[200, 409]"
+    },
+    {
+      "check": "même clé envoyée 3 fois en parallèle : 1 panier, réponses identiques",
+      "pass": true,
+      "detail": "[200, 200, 200]"
+    },
+    {
+      "check": "grand livre : chaque paiement de panier = somme de ses allocations",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "check": "école B : panier de A introuvable",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "panier append-only pour le rôle applicatif",
+      "pass": true,
+      "detail": "ProgrammingError"
+    }
+  ]
+}

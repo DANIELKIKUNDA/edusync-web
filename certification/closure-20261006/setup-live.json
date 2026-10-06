@@ -1,0 +1,76 @@
+{
+  "passed": 14,
+  "total": 14,
+  "results": [
+    {
+      "check": "base vierge : aucun Manager Système",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "check": "statut : installation requise et disponible en local",
+      "pass": true,
+      "detail": "{'setup_required': True, 'setup_available': True, 'token_required': False}"
+    },
+    {
+      "check": "mot de passe trop court refusé (422)",
+      "pass": true,
+      "detail": "422"
+    },
+    {
+      "check": "adresse e-mail invalide refusée (422)",
+      "pass": true,
+      "detail": "422"
+    },
+    {
+      "check": "6 créations simultanées : exactement une réussit",
+      "pass": true,
+      "detail": "[409, 409, 409, 409, 201, 409]"
+    },
+    {
+      "check": "statut après création : fermé",
+      "pass": true,
+      "detail": "{'setup_required': False, 'setup_available': False, 'token_required': False}"
+    },
+    {
+      "check": "second bootstrap public refusé (409)",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "un seul Manager Système en base",
+      "pass": true,
+      "detail": "[('manager4@edusync.test',)]"
+    },
+    {
+      "check": "aucun compte créé pour les perdants ni l'attaquant",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "verrou irréversible posé (SETUP_PAGE)",
+      "pass": true,
+      "detail": "[('SETUP_PAGE', True)]"
+    },
+    {
+      "check": "création auditée",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "check": "le Manager créé se connecte à l'Atelier Pro",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "le rôle applicatif ne peut pas rouvrir l'installation",
+      "pass": true,
+      "detail": "ProgrammingError"
+    },
+    {
+      "check": "Manager désactivé : la page publique reste fermée",
+      "pass": true,
+      "detail": "{'setup_required': False, 'setup_available': False, 'token_required': False}"
+    }
+  ]
+}

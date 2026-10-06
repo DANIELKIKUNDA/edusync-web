@@ -45,7 +45,7 @@ class PostgresEffectifsRepository:
     connection:Connection
 
     def school_identity(self,school_id:UUID)->dict[str,Any]:
-        r=self.connection.execute(text("SELECT id,name,code,logo_url,email,phone,address,city,province FROM schools WHERE id=:sid"),{"sid":school_id}).first()
+        r=self.connection.execute(text("SELECT s.id,s.name,s.code,s.email,s.phone,s.address,s.city,s.province,b.logo_object_key FROM schools s LEFT JOIN school_branding b ON b.school_id=s.id WHERE s.id=:sid"),{"sid":school_id}).first()
         return dict(r._mapping) if r else {"name":"EduSync École"}
 
     def year(self,school_id:UUID,year_id:UUID|None=None)->dict[str,Any]|None:

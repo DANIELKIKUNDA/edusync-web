@@ -17,16 +17,28 @@ def _ensure_manager_assignment(conn, user_id) -> None:
           AND valid_from<=now() AND (valid_until IS NULL OR valid_until>now()) LIMIT 1
     """), {"uid":user_id,"rid":role[0]}).first()
     if existing is not None:
+        _close_public_setup(conn, user_id)
         return
     aid = conn.execute(text("""
         INSERT INTO rbac_assignments(user_id,role_id,school_id,membership_id,active,reason)
         VALUES (:uid,:rid,NULL,NULL,true,'PLATFORM_BOOTSTRAP') RETURNING id
     """), {"uid":user_id,"rid":role[0]}).scalar_one()
     conn.execute(text("INSERT INTO rbac_assignment_scopes(assignment_id,scope_type,scope_value) VALUES (:aid,'PLATFORM',NULL)"), {"aid":aid})
+    _close_public_setup(conn, user_id)
+
+
+def _close_public_setup(conn, user_id) -> None:
+    # A manager now exists: the first-run page must never be offered again (migration 0047).
+    conn.execute(text("""INSERT INTO platform_setup_completion(singleton,manager_user_id,method)
+        VALUES (true,:uid,'OPERATOR_SCRIPT') ON CONFLICT (singleton) DO NOTHING"""), {"uid": user_id})
 
 
 def main() -> None:
     settings = Settings()
+    if not os.environ.get("EDUSYNC_PLATFORM_ADMIN_PASSWORD", "").strip():
+        # Blank installation: the first Manager Système is created from the login page (first-run setup).
+        print("POINT4 platform manager not provisioned by script (EDUSYNC_PLATFORM_ADMIN_PASSWORD empty): first-run setup page stays available")
+        return
     settings.assert_provisioning_safe()
     email = settings.platform_admin_email.strip().lower()
     engine = create_engine(settings.platform_database_url, future=True, pool_pre_ping=True)

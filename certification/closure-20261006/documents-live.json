@@ -1,0 +1,146 @@
+{
+  "passed": 28,
+  "total": 28,
+  "results": [
+    {
+      "check": "stockage objet disponible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "logo PNG accepté (administrateur)",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "logo refusé sans settings.documents.manage",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "check": "faux PNG (HTML déguisé) refusé",
+      "pass": true,
+      "detail": "{\"detail\":\"Format refusé : seuls les logos PNG ou JPEG sont acceptés.\"}"
+    },
+    {
+      "check": "PNG corrompu refusé",
+      "pass": true,
+      "detail": "{\"detail\":\"Image illisible ou corrompue.\"}"
+    },
+    {
+      "check": "logo trop petit refusé",
+      "pass": true,
+      "detail": "{\"detail\":\"Dimensions refusées : entre 32 et 4096 pixels.\"}"
+    },
+    {
+      "check": "logo > 1 Mo refusé",
+      "pass": true,
+      "detail": "413 (3635980 octets)"
+    },
+    {
+      "check": "logo relu à l'identique (école A)",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "école B ne voit pas le logo de A",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "check": "clé objet sous le préfixe de l'école",
+      "pass": true,
+      "detail": "schools/1661f089-3d74-475c-9f41-6d08ea1ecd93/branding/logo-046af5513d9aab79bed6ddef.png"
+    },
+    {
+      "check": "bucket privé : accès anonyme refusé",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "check": "contrainte base : clé d'une autre école impossible",
+      "pass": true,
+      "detail": "IntegrityError"
+    },
+    {
+      "check": "export PDF élèves (téléchargement inchangé)",
+      "pass": true,
+      "detail": "200 3.1s"
+    },
+    {
+      "check": "le PDF intègre le logo stocké",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "document archivé et listé dans l'historique",
+      "pass": true,
+      "detail": "['students.directory']"
+    },
+    {
+      "check": "même document régénéré : une version courante, historique conservé",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "check": "lien signé de courte durée",
+      "pass": true,
+      "detail": "299.170117855072"
+    },
+    {
+      "check": "ouverture du lien signé : PDF identique, inline",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "lien falsifié refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "lien expiré refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "lien pointant un document de A au nom de l'école B : refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "école B : document de A introuvable (BOLA)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "école B : historique sans document de A",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "caissier : registre du personnel absent de son historique",
+      "pass": true,
+      "detail": "['students.directory']"
+    },
+    {
+      "check": "caissier : lien vers le registre du personnel refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "accès retiré après émission du lien : lien refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "toutes les clés archivées sous le préfixe de leur école",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "check": "chaque document récent porte sa permission productrice",
+      "pass": true,
+      "detail": "0"
+    }
+  ]
+}

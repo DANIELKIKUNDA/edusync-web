@@ -1,0 +1,101 @@
+{
+  "passed": 19,
+  "total": 19,
+  "results": [
+    {
+      "check": "idempotence : même message + même numéro refusé en double",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "queued -> sent : uniquement avec preuve fournisseur",
+      "pass": true,
+      "detail": "{'status': 'SENT', 'attempts': 1, 'provider_message_id': 'sbx-d6700380a39ed97f4a5c', 'last_error_code': None, 'provider_code': 'sandbox'}"
+    },
+    {
+      "check": "rejet fournisseur : retry planifié (pas de faux succès)",
+      "pass": true,
+      "detail": "{'status': 'QUEUED', 'attempts': 1, 'provider_message_id': None, 'last_error_code': 'PROVIDER_REJECTED', 'provider_code': None}"
+    },
+    {
+      "check": "délai dépassé : retry planifié",
+      "pass": true,
+      "detail": "{'status': 'QUEUED', 'attempts': 1, 'provider_message_id': None, 'last_error_code': 'PROVIDER_TIMEOUT', 'provider_code': None}"
+    },
+    {
+      "check": "numéro invalide : jamais marqué envoyé",
+      "pass": true,
+      "detail": "{'status': 'QUEUED', 'attempts': 1, 'provider_message_id': None, 'last_error_code': 'INVALID_DESTINATION', 'provider_code': None}"
+    },
+    {
+      "check": "sent ne devient pas delivered sans accusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "accusé fournisseur : sent -> delivered",
+      "pass": true,
+      "detail": "{'status': 'DELIVERED', 'attempts': 1, 'provider_message_id': 'sbx-d6700380a39ed97f4a5c', 'last_error_code': None, 'provider_code': 'sandbox'}"
+    },
+    {
+      "check": "accusé négatif : sent -> failed (UNDELIVERABLE)",
+      "pass": true,
+      "detail": "4"
+    },
+    {
+      "check": "rejouer les accusés ne change plus rien",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "échecs répétés : statut terminal FAILED après 5 tentatives",
+      "pass": true,
+      "detail": "{'status': 'FAILED', 'attempts': 5, 'provider_message_id': None, 'last_error_code': 'PROVIDER_REJECTED', 'provider_code': None}"
+    },
+    {
+      "check": "relance manuelle d'un échec terminal (auditée)",
+      "pass": true,
+      "detail": "{\"status\":\"QUEUED\",\"requeued\":true}"
+    },
+    {
+      "check": "relance d'un SMS distribué : sans effet (idempotent)",
+      "pass": true,
+      "detail": "{\"status\":\"DELIVERED\",\"requeued\":false}"
+    },
+    {
+      "check": "caissier : relance refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "modèle SMS enregistré (variables déclarées)",
+      "pass": true,
+      "detail": "{\"id\":\"ccc53979-6d9c-4e3c-86aa-7074afe83d2d\",\"version\":1}"
+    },
+    {
+      "check": "variable inconnue refusée",
+      "pass": true,
+      "detail": "422"
+    },
+    {
+      "check": "aperçu rendu + estimation des segments",
+      "pass": true,
+      "detail": "{\"text\":\"Reçu REC-1 : 50 000 CDF\",\"estimated_segments\":1}"
+    },
+    {
+      "check": "valeur manquante : jamais envoyé avec {{...}}",
+      "pass": true,
+      "detail": "422"
+    },
+    {
+      "check": "production : fournisseurs de test refusés",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "fournisseur inconnu : aucun envoi simulé",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}
