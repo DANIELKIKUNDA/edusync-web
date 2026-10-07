@@ -1,3 +1,4 @@
+from decimal import Decimal
 from datetime import date
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,Field
@@ -42,5 +43,5 @@ def preview(template_code:str,period:str='TODAY',start:date|None=None,end:date|N
   where='' if all_cash else ' AND cs.membership_id=:mid'
   p={'s':str(actor.school_id),'a':a,'b':b,'cur':currency,'mid':str(actor.membership_id)}
   rows=c.execute(text("""SELECT COALESCE(ft.label,ch.label,'Autres encaissements') category,COALESCE(sum(fp.amount),0) amount,count(*) operations FROM finance_payments fp JOIN finance_cash_sessions cs ON cs.id=fp.cash_session_id LEFT JOIN finance_payment_allocations pa ON pa.payment_id=fp.id LEFT JOIN finance_charges ch ON ch.id=pa.charge_id LEFT JOIN fee_types ft ON ft.id=ch.fee_type_id WHERE fp.school_id=:s AND fp.currency=:cur AND fp.created_at::date BETWEEN :a AND :b"""+where+" GROUP BY 1 ORDER BY 1"),p).mappings().all()
-  total=sum(float(x['amount']) for x in rows)
+  total=sum((Decimal(str(x['amount'])) for x in rows),Decimal('0'))
  return {'template':dict(tpl),'period':{'start':str(a),'end':str(b)},'currency':currency,'items':[dict(x) for x in rows],'total':str(total),'doctrine':'date_encaissement_preserve_annee_origine_obligation'}

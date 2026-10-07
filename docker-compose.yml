@@ -45,8 +45,8 @@ services:
       EDUSYNC_OFFLINE_FINANCE_ENABLED: ${EDUSYNC_OFFLINE_FINANCE_ENABLED:-false}
       EDUSYNC_OFFLINE_FINANCE_CERTIFIED: ${EDUSYNC_OFFLINE_FINANCE_CERTIFIED:-false}
       EDUSYNC_CORS_ORIGINS: ${EDUSYNC_CORS_ORIGINS:-http://localhost:5173,http://localhost:8080}
-      EDUSYNC_SESSION_ABSOLUTE_DAYS: ${EDUSYNC_SESSION_ABSOLUTE_DAYS:-90}
-      EDUSYNC_SESSION_IDLE_DAYS: ${EDUSYNC_SESSION_IDLE_DAYS:-30}
+      EDUSYNC_SESSION_ABSOLUTE_DAYS: ${EDUSYNC_SESSION_ABSOLUTE_DAYS:-0}
+      EDUSYNC_SESSION_IDLE_DAYS: ${EDUSYNC_SESSION_IDLE_DAYS:-0}
       EDUSYNC_OBJECT_STORAGE_ENDPOINT: ${EDUSYNC_OBJECT_STORAGE_ENDPOINT:-}
       EDUSYNC_OBJECT_STORAGE_ACCESS_KEY: ${EDUSYNC_OBJECT_STORAGE_ACCESS_KEY:-}
       EDUSYNC_OBJECT_STORAGE_SECRET_KEY: ${EDUSYNC_OBJECT_STORAGE_SECRET_KEY:-}
@@ -69,6 +69,38 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
+
+  # Background workers: dedicated least-privilege PostgreSQL role (edusync_worker), never the owner.
+  outbox-worker:
+    build: ./backend
+    command: ["python", "-m", "edusync.modules.sync.outbox_worker"]
+    environment:
+      EDUSYNC_ENV: ${EDUSYNC_ENV:-dev}
+      EDUSYNC_WORKER_DATABASE_URL: ${EDUSYNC_WORKER_DATABASE_URL:?EDUSYNC_WORKER_DATABASE_URL required}
+      EDUSYNC_REDIS_URL: ${EDUSYNC_REDIS_URL:-redis://redis:6379/0}
+      EDUSYNC_JWT_SECRET: ${EDUSYNC_JWT_SECRET:?EDUSYNC_JWT_SECRET required}
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  communications-worker:
+    build: ./backend
+    command: ["python", "-m", "edusync.modules.communications.worker"]
+    environment:
+      EDUSYNC_ENV: ${EDUSYNC_ENV:-dev}
+      EDUSYNC_WORKER_DATABASE_URL: ${EDUSYNC_WORKER_DATABASE_URL:?EDUSYNC_WORKER_DATABASE_URL required}
+      EDUSYNC_REDIS_URL: ${EDUSYNC_REDIS_URL:-redis://redis:6379/0}
+      EDUSYNC_JWT_SECRET: ${EDUSYNC_JWT_SECRET:?EDUSYNC_JWT_SECRET required}
+      EDUSYNC_SMS_PROVIDER: ${EDUSYNC_SMS_PROVIDER:-disabled}
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   frontend:

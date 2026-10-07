@@ -10,4 +10,4 @@ installResilientFetch();
 if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
 createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><App/><Toaster position="top-right" richColors closeButton/></ErrorBoundary></React.StrictMode>);
 
-requestAnimationFrame(()=>document.getElementById('edusync-boot')?.remove());
+// The static boot screen stays until the session check ends: App (or ErrorBoundary) calls dismissBoot. No timer.

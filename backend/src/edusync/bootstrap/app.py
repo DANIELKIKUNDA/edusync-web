@@ -34,7 +34,16 @@ from edusync.shared.infrastructure.security_headers import SecurityHeadersMiddle
 from edusync.shared.infrastructure.api_guard import ApiGuardMiddleware
 
 
+def _exact_decimal_json() -> None:
+    """Money is exact end to end: every Decimal leaves the API as a plain decimal string ("50000.00"),
+    never a binary float. Applies to all routes returning dicts or models."""
+    from decimal import Decimal
+    from fastapi import encoders
+    encoders.ENCODERS_BY_TYPE[Decimal] = lambda d: format(d, 'f')
+
+
 def create_app(*, settings: Settings | None = None, services: AppServices | None = None) -> FastAPI:
+    _exact_decimal_json()
     cfg = settings or Settings()
     configure_logging()
     app = FastAPI(title="EduSync Web API", version="0.52.0-point17-environment-closure")

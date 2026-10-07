@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "migrations"
 TENANT_ROLE = "edusync_tenant"
 PLATFORM_ROLE = "edusync_platform"
+WORKER_ROLE = "edusync_worker"
 
 
 def _sql_literal(value: str) -> str:
@@ -89,6 +90,11 @@ def main() -> None:
 
         _ensure_role(conn, TENANT_ROLE, tenant_url.password)
         _ensure_role(conn, PLATFORM_ROLE, platform_url.password)
+        worker_url = make_url(settings.worker_database_url) if settings.worker_database_url else None
+        if worker_url is not None:
+            if worker_url.username != WORKER_ROLE or not worker_url.password:
+                raise RuntimeError("EDUSYNC_WORKER_DATABASE_URL doit utiliser edusync_worker avec un mot de passe")
+            _ensure_role(conn, WORKER_ROLE, worker_url.password)
 
         if not _migration_applied(conn, "0003_g1_live_security"):
             _execute_sql_file(conn, MIGRATIONS / "0003_g1_live_security.sql")
@@ -168,6 +174,7 @@ def main() -> None:
             ("0048_document_object_storage", "0048_document_object_storage.sql"),
             ("0049_finance_family_basket", "0049_finance_family_basket.sql"),
             ("0050_receipt_printing", "0050_receipt_printing.sql"),
+            ("0051_persistent_sessions_worker_role", "0051_persistent_sessions_worker_role.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):
@@ -262,6 +269,17 @@ def main() -> None:
         conn.exec_driver_sql(f"GRANT SELECT ON capability_catalog TO {PLATFORM_ROLE}")
         conn.exec_driver_sql(f"REVOKE UPDATE, DELETE ON audit_events FROM {PLATFORM_ROLE}")
         conn.exec_driver_sql(f"GRANT SELECT ON roles, permissions, role_permissions TO {PLATFORM_ROLE}")
+
+        if worker_url is not None:
+            # Queue tables only (see migration 0051). Re-applied on every run so an existing database gains the
+            # worker role even when 0051 ran before the role existed.
+            conn.exec_driver_sql(f"GRANT CONNECT ON DATABASE \"{dbname.replace(chr(34), chr(34)*2)}\" TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT USAGE ON SCHEMA public TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT SELECT, UPDATE ON outbox_events, communication_deliveries TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT SELECT ON communication_messages, communication_settings TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"REVOKE INSERT, DELETE ON outbox_events, communication_deliveries FROM {WORKER_ROLE}")
+            sql = (MIGRATIONS / "0051_persistent_sessions_worker_role.sql").read_text(encoding="utf-8")
+            conn.exec_driver_sql(sql[sql.index("DO $$"):], execution_options={"no_parameters": True})  # policies only
 
         conn.exec_driver_sql("ALTER TABLE idempotency_registry VALIDATE CONSTRAINT idempotency_scope_school_consistency")
 

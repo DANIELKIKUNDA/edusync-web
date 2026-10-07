@@ -1,4 +1,5 @@
 from __future__ import annotations
+from decimal import Decimal
 from edusync.shared.infrastructure.xlsx_safety import neutralize_formulas
 from io import BytesIO
 from openpyxl import Workbook
@@ -9,7 +10,7 @@ from reportlab.lib.pagesizes import A4,landscape
 from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle
 
-def _m(v): return f"{float(v or 0):,.0f}".replace(',',' ')
+def _m(v): return f"{Decimal(str(v or 0)):,.0f}".replace(',',' ')
 def monthly_xlsx(*,school,year_label,currency,rows,total):
     wb=Workbook();ws=wb.active;ws.title='Suivi mensuel';ws.merge_cells('A1:J1');ws['A1']=school.get('name','École');ws['A1'].font=Font(size=16,bold=True);ws['A1'].alignment=Alignment(horizontal='center')
     ws.merge_cells('A2:J2');ws['A2']='SUIVI MENSUEL DU RECOUVREMENT';ws['A2'].font=Font(size=13,bold=True);ws['A2'].alignment=Alignment(horizontal='center')
@@ -65,7 +66,7 @@ def class_register_xlsx(*,school,year_label,data):
         for j,col in enumerate(cols,4):
             cell=st['cells'].get(col['key']);term=_terminal_for(st,col)
             if term: val=term
-            elif cell: val=float(cell['paid'] or 0)+float(cell['advance'] or 0) or ''
+            elif cell: val=float(Decimal(str(cell['paid'] or 0))+Decimal(str(cell['advance'] or 0))) or ''
             else: val=''
             ws.cell(r,j,val);ws.cell(r,j).alignment=Alignment(horizontal='center',vertical='center',wrap_text=True)
     r=7+len(data['students']);f=data['footer'];footer=[('Élèves redevables',f['debtors']),('Montant attendu',float(f['expected'])),('Montant régularisé',float(f['regularized'])),('Reste à recouvrer',float(f['remaining'])),('Élèves à l’ordre',f['in_order']),('Élèves non à l’ordre',f['not_in_order']),('Taux de recouvrement',float(f['recovery_rate'])/100)]
@@ -86,7 +87,7 @@ def class_register_pdf(*,school,year_label,data):
         vals=[]
         for col in cols:
             cell=st['cells'].get(col['key']);term=_terminal_for(st,col)
-            vals.append(term or (_m(float(cell['paid'] or 0)+float(cell['advance'] or 0)) if cell and (cell['paid'] or cell['advance']) else ''))
+            vals.append(term or (_m(Decimal(str(cell['paid'] or 0))+Decimal(str(cell['advance'] or 0))) if cell and (cell['paid'] or cell['advance']) else ''))
         rows.append([i,st['student_name'],str(st['enrolled_on'])]+vals)
     t=Table(rows,repeatRows=1);t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#E9EEF5')),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('GRID',(0,0),(-1,-1),.3,colors.HexColor('#94A3B8')),('FONTSIZE',(0,0),(-1,-1),6),('VALIGN',(0,0),(-1,-1),'MIDDLE')]))
     f=data['footer'];foot=[['Élèves redevables',f['debtors']],['Montant attendu',_m(f['expected'])],['Montant régularisé',_m(f['regularized'])],['Reste à recouvrer',_m(f['remaining'])],['Élèves à l’ordre',f['in_order']],['Élèves non à l’ordre',f['not_in_order']],['Taux de recouvrement',f"{f['recovery_rate']} %"]]

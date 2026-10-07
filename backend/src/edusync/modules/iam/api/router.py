@@ -13,7 +13,7 @@ from edusync.adapters.postgres_repositories import (
     PostgresSchoolRepository,
     PostgresUserRepository,
 )
-from edusync.bootstrap.dependencies import get_services, require_school_actor
+from edusync.bootstrap.dependencies import get_services, require_platform_actor, require_school_actor
 from edusync.bootstrap.services import AppServices
 from edusync.shared.application.context import ActorContext
 from edusync.modules.platform.domain.school import SchoolStatus
@@ -28,16 +28,19 @@ router = APIRouter(tags=["Authentification"])
 _DUMMY_PASSWORD_HASH = hash_password(new_session_token()[0])
 
 
-def _set_session_cookie(response: Response, services: AppServices, raw: str, expires_at: datetime) -> None:
-    """Opaque device-session cookie: HttpOnly, SameSite=Lax, limited to /api/v1/auth, never beyond the server-side expiry."""
-    max_age = max(0, int((expires_at - datetime.now(timezone.utc)).total_seconds()))
+def _set_session_cookie(response: Response, services: AppServices, raw: str, expires_at: datetime | None) -> None:
+    """Opaque device-session cookie: HttpOnly, SameSite=Lax, limited to /api/v1/auth. Re-issued at every renewal, so an
+    approved device stays signed in; never beyond a server-side expiry when the owner configures one."""
+    max_age = services.settings.session_cookie_max_age_days * 86400
+    if expires_at is not None:
+        max_age = min(max_age, max(0, int((expires_at - datetime.now(timezone.utc)).total_seconds())))
     response.set_cookie(services.settings.persistent_session_cookie, raw, max_age=max_age, httponly=True, secure=services.settings.env.lower() in {"prod","production"}, samesite="lax", path="/api/v1/auth")
 
 
 def _new_device_session(conn, settings, *, user, school=None, membership=None, user_agent: str = "") -> tuple[str, str, datetime]:
     raw_session, session_hash = new_session_token()
     row = conn.execute(text("""INSERT INTO user_device_sessions(user_id,school_id,membership_id,token_hash,label,user_agent_hash,user_version,membership_version,expires_at)
-        VALUES(:uid,:sid,:mid,:th,:label,:uah,:uv,:mv,now()+make_interval(days=>:days)) RETURNING id,expires_at"""), {
+        VALUES(:uid,:sid,:mid,:th,:label,:uah,:uv,:mv,CASE WHEN :days>0 THEN now()+make_interval(days=>:days) END) RETURNING id,expires_at"""), {
         "uid": str(user.id), "sid": str(school.id) if school else None, "mid": str(membership.id) if membership else None,
         "th": session_hash, "label": describe_user_agent(user_agent), "uah": hash_user_agent(user_agent), "uv": user.version,
         "mv": membership.version if membership else None, "days": settings.session_absolute_days}).one()
@@ -47,12 +50,41 @@ def _new_device_session(conn, settings, *, user, school=None, membership=None, u
 class LoginInput(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=512)
-    scope: Literal["PLATFORM", "SCHOOL"] = "SCHOOL"
+    # AUTO: the context is derived from the account after authentication (no school code to type).
+    scope: Literal["AUTO", "PLATFORM", "SCHOOL"] = "AUTO"
     school_code: str | None = Field(default=None, max_length=32)
+
+
+def _login_contexts(conn, user_id) -> list[dict]:
+    """Every context this account may open: active memberships of active schools, plus the platform console."""
+    rows = conn.execute(text("""SELECT s.code, s.name FROM school_memberships m JOIN schools s ON s.id=m.school_id
+        WHERE m.user_id=:u AND m.active AND s.status='ACTIVE' ORDER BY s.name"""), {"u": str(user_id)}).mappings().all()
+    out = [{"scope": "SCHOOL", "school_code": r["code"], "label": r["name"]} for r in rows]
+    platform = conn.execute(text("""SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
+        WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM' AND r.status='ACTIVE'
+          AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"""), {"u": str(user_id)}).first()
+    if platform:
+        out.append({"scope": "PLATFORM", "school_code": None, "label": "Atelier Pro — administration de la plateforme"})
+    return out
+
+
+def _assert_same_origin(request: Request, services: AppServices) -> None:
+    """CSRF defence for cookie-authenticated endpoints (refresh, logout, logout-all, login): a browser always sends
+    Origin on POST; a foreign origin is refused. SameSite=Lax is the first layer, this is the second."""
+    origin = request.headers.get("origin")
+    if not origin:
+        if request.headers.get("sec-fetch-site", "same-origin") not in {"same-origin", "same-site", "none"}:
+            raise HTTPException(403, "Origine refusée")
+        return
+    host = request.headers.get("host", "")
+    allowed = set(services.settings.cors_origin_list) | {f"http://{host}", f"https://{host}"}
+    if origin not in allowed:
+        raise HTTPException(403, "Origine refusée")
 
 
 @router.post("/login")
 def login(body: LoginInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    _assert_same_origin(request, services)
     ip = request.client.host if request.client else "unknown"
     guard = LoginAttemptGuard(services.settings.redis_url, window_seconds=services.settings.login_window_seconds, max_attempts=services.settings.login_max_attempts, lock_seconds=services.settings.login_lock_seconds)
     decision = guard.check(body.email, ip)
@@ -69,6 +101,15 @@ def login(body: LoginInput, request: Request, response: Response, services: AppS
             guard.failure(body.email, ip)
             raise HTTPException(status_code=401, detail="Connexion impossible")
         guard.success(body.email, ip)
+
+        if body.scope == "AUTO":
+            contexts = _login_contexts(conn, user.id)
+            if not contexts:
+                raise HTTPException(status_code=403, detail="Connexion impossible")
+            if len(contexts) > 1:
+                # No session yet: the client asks the user which space to open, then signs in with that choice.
+                return {"choice_required": True, "contexts": contexts}
+            body = body.model_copy(update={"scope": contexts[0]["scope"], "school_code": contexts[0]["school_code"]})
 
         if body.scope == "PLATFORM":
             authz = PostgresAuthorizationRepository(conn)
@@ -141,27 +182,44 @@ class PasswordChangeInput(BaseModel):
     current_password: str = Field(min_length=1, max_length=512)
     new_password: str = Field(min_length=10, max_length=512)
 
-@router.post("/password")
-def change_password(body: PasswordChangeInput, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+def _security_audit(conn, *, user_id, action: str, school_id=None, detail: dict | None = None) -> None:
+    """Security events of an account (password, sessions) are audited like any sensitive operation."""
+    import json as _json
+    conn.execute(text("""INSERT INTO audit_events(school_id,actor_user_id,action,entity_type,entity_id,source,new_json)
+        VALUES(:sid,:uid,:a,'UserSecurity',:uid,'WEB',CAST(:d AS jsonb))"""),
+        {"sid": str(school_id) if school_id else None, "uid": str(user_id), "a": action, "d": _json.dumps(detail or {})})
+
+
+def _change_password(services: AppServices, user_id, body: "PasswordChangeInput", school_id=None) -> dict:
     if body.current_password == body.new_password:
         raise HTTPException(status_code=422, detail="Le nouveau mot de passe doit être différent")
-    # Accounts and their sessions span schools, like login/refresh. The target is
-    # exclusively the authenticated actor, never a user id supplied by the client.
-    # Keep tenant SQL credentials unable to update global account rows.
     with services.platform_db.platform_transaction() as conn:
-        user = PostgresUserRepository(conn).get(actor.user_id)
+        user = PostgresUserRepository(conn).get(user_id)
         if user is None or not user.active or not verify_password(body.current_password, user.password_hash):
             raise HTTPException(status_code=400, detail="Modification impossible")
         encoded = hash_password(body.new_password)
-        result = conn.execute(text("UPDATE users SET password_hash=:password_hash, version=version+1 WHERE id=:user_id AND version=:version"), {"password_hash": encoded, "user_id": actor.user_id, "version": user.version})
-        conn.execute(text("UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason='PASSWORD_CHANGED' WHERE user_id=:uid"),{'uid':actor.user_id})
+        result = conn.execute(text("UPDATE users SET password_hash=:password_hash, version=version+1 WHERE id=:user_id AND version=:version"), {"password_hash": encoded, "user_id": user_id, "version": user.version})
+        n = conn.execute(text("UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason='PASSWORD_CHANGED' WHERE user_id=:uid AND revoked_at IS NULL"), {'uid': user_id}).rowcount
         if result.rowcount != 1:
             raise HTTPException(status_code=409, detail="Compte modifié; reconnectez-vous")
+        _security_audit(conn, user_id=user_id, action="PASSWORD_CHANGED", school_id=school_id, detail={"sessions_revoked": n})
     return {"status": "changed", "sessions_invalidated": True}
+
+
+@router.post("/platform/password")
+def change_platform_password(body: PasswordChangeInput, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Platform accounts change their own password with the same guarantees as school accounts."""
+    return _change_password(services, actor.user_id, body)
+
+
+@router.post("/password")
+def change_password(body: PasswordChangeInput, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    return _change_password(services, actor.user_id, body, actor.school_id)
 
 
 @router.post('/refresh')
 def refresh_session(request:Request,response:Response,services:AppServices=Depends(get_services)):
+    _assert_same_origin(request, services)
     raw=request.cookies.get(services.settings.persistent_session_cookie)
     if not raw: raise HTTPException(401,'Session à renouveler')
     th=hash_token(raw)
@@ -173,7 +231,8 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
             WHERE revoked_at IS NULL AND (
               -- a rotated token replayed after its grace window: the cookie was copied, kill the whole session
               (previous_token_hash=:th AND previous_valid_until<=now())
-              OR (token_hash=:th AND (expires_at<=now() OR last_seen_at<=now()-make_interval(days=>:idle))))
+              -- optional owner policies (disabled by default: no periodic re-authentication)
+              OR (token_hash=:th AND (expires_at<=now() OR (:idle>0 AND last_seen_at<=now()-make_interval(days=>:idle)))))
             RETURNING id"""),{'th':th,'idle':cfg.session_idle_days}).first()
     if revoked:
         denied=JSONResponse(status_code=401,content={'detail':'Session à renouveler'})
@@ -182,7 +241,7 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
     with services.platform_db.platform_transaction() as conn:
         row=conn.execute(text("""SELECT s.*,u.active,u.version current_user_version,u.is_platform_admin,(s.token_hash=:th) current_token
             FROM user_device_sessions s JOIN users u ON u.id=s.user_id
-            WHERE s.revoked_at IS NULL AND s.expires_at>now() AND (s.token_hash=:th OR (s.previous_token_hash=:th AND s.previous_valid_until>now())) FOR UPDATE OF s"""),{'th':th}).mappings().first()
+            WHERE s.revoked_at IS NULL AND (s.expires_at IS NULL OR s.expires_at>now()) AND (s.token_hash=:th OR (s.previous_token_hash=:th AND s.previous_valid_until>now())) FOR UPDATE OF s"""),{'th':th}).mappings().first()
         if not row: raise HTTPException(401,'Session à renouveler')
         if not row['active'] or int(row['user_version'])!=int(row['current_user_version']): raise HTTPException(401,'Session à renouveler')
         claims={'scope':'platform','user_version':row['current_user_version'],'sid':str(row['id'])}
@@ -211,6 +270,7 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
 
 @router.post('/logout',status_code=204)
 def logout(request:Request,response:Response,services:AppServices=Depends(get_services)):
+    _assert_same_origin(request, services)
     raw=request.cookies.get(services.settings.persistent_session_cookie)
     if raw:
         with services.platform_db.platform_transaction() as conn: conn.execute(text("UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason=coalesce(revoked_reason,'USER_LOGOUT') WHERE token_hash=:th OR previous_token_hash=:th"),{'th':hash_token(raw)})
@@ -226,3 +286,41 @@ def sessions(actor:ActorContext=Depends(require_school_actor),services:AppServic
 def revoke_session(session_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
         c.execute(text("UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason='USER_REVOKED' WHERE id=:id AND user_id=:uid AND school_id=:sid"),{'id':str(session_id),'uid':actor.user_id,'sid':actor.school_id})
+
+
+@router.post('/logout-all', status_code=204)
+def logout_all(request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """Sign out of every device of this account (cookie-authenticated, CSRF-checked, audited)."""
+    _assert_same_origin(request, services)
+    raw = request.cookies.get(services.settings.persistent_session_cookie)
+    if not raw:
+        raise HTTPException(401, 'Session à renouveler')
+    th = hash_token(raw)
+    with services.platform_db.platform_transaction() as conn:
+        uid = conn.execute(text("SELECT user_id FROM user_device_sessions WHERE revoked_at IS NULL AND (token_hash=:th OR previous_token_hash=:th)"), {'th': th}).scalar_one_or_none()
+        if uid is None:
+            raise HTTPException(401, 'Session à renouveler')
+        n = conn.execute(text("UPDATE user_device_sessions SET revoked_at=now(),revoked_reason='USER_LOGOUT_ALL' WHERE user_id=:u AND revoked_at IS NULL"), {'u': str(uid)}).rowcount
+        _security_audit(conn, user_id=uid, action='SESSIONS_REVOKED_ALL', detail={'sessions_revoked': n})
+    response.delete_cookie(services.settings.persistent_session_cookie, path='/api/v1/auth')
+
+
+@router.get('/platform/sessions')
+def platform_sessions(request: Request, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """All devices of this platform account (its platform and school sessions alike: the account owns them)."""
+    raw = request.cookies.get(services.settings.persistent_session_cookie)
+    th = hash_token(raw) if raw else ''
+    with services.platform_db.platform_transaction() as conn:
+        rows = conn.execute(text("""SELECT s.id,s.label,s.created_at,s.last_seen_at,s.revoked_at,(s.token_hash=:th OR s.previous_token_hash=:th) AS current,
+              coalesce(sc.name,'Atelier Pro') AS context
+            FROM user_device_sessions s LEFT JOIN schools sc ON sc.id=s.school_id
+            WHERE s.user_id=:u AND s.revoked_at IS NULL ORDER BY s.last_seen_at DESC LIMIT 100"""), {'u': str(actor.user_id), 'th': th}).mappings()
+        return {'items': [dict(r) for r in rows]}
+
+
+@router.post('/platform/sessions/{session_id}/revoke', status_code=204)
+def platform_revoke_session(session_id: UUID, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    with services.platform_db.platform_transaction() as conn:
+        n = conn.execute(text("UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason='USER_REVOKED' WHERE id=:id AND user_id=:u AND revoked_at IS NULL"), {'id': str(session_id), 'u': str(actor.user_id)}).rowcount
+        if n:
+            _security_audit(conn, user_id=actor.user_id, action='SESSION_REVOKED', detail={'session_id': str(session_id)})

@@ -130,17 +130,18 @@ def test_archive_visibility_is_bound_to_the_producing_capability():
 
 
 # --- sessions / first-run setup -----------------------------------------------------------------------
-def test_session_cookie_is_bounded_and_rotated():
+def test_session_is_persistent_rotated_and_revocable():
+    # Owner decision 2026-10-07 (N0): an approved device stays signed in; no periodic re-authentication.
+    # Security is rotation + reuse detection + revocation + password/deactivation invalidation + CSRF origin check.
     iam = (SRC / "modules/iam/api/router.py").read_text(encoding="utf-8")
     assert "persistent_session_cookie_days" not in iam
-    assert "ROTATED_TOKEN_REUSED" in iam and "IDLE_TIMEOUT" in iam and "ABSOLUTE_EXPIRY" in iam
-    assert "previous_valid_until=now()+make_interval(secs=>:grace)" in iam
+    assert "ROTATED_TOKEN_REUSED" in iam and "previous_valid_until=now()+make_interval(secs=>:grace)" in iam
+    assert "_assert_same_origin(request, services)" in iam and iam.count("_assert_same_origin(request, services)") >= 4
     from edusync.bootstrap.settings import Settings
     s = Settings(jwt_secret="x" * 40)
-    assert s.session_absolute_days == 90 and s.session_idle_days == 30 and s.session_rotation_grace_seconds <= 120
+    assert s.session_absolute_days == 0 and s.session_idle_days == 0 and s.session_cookie_max_age_days >= 365
     deps = (SRC / "bootstrap/dependencies.py").read_text(encoding="utf-8")
-    assert "revoked_at IS NULL AND expires_at>now()" in deps
-
+    assert "revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())" in deps
 
 def test_first_manager_setup_is_locked_and_token_gated():
     from edusync.modules.setup.api import router as setup

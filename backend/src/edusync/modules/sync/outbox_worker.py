@@ -10,7 +10,7 @@ import json, logging, time
 from uuid import uuid4
 from sqlalchemy import create_engine, text
 import redis
-from edusync.bootstrap.settings import Settings
+from edusync.bootstrap.settings import Settings, worker_url
 
 QUEUE='edusync:outbox'
 MAX_ATTEMPTS=12
@@ -71,7 +71,7 @@ def run_once(cfg,r,engine):
 
 def run():
     logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    cfg=Settings();engine=create_engine(cfg.owner_database_url,pool_pre_ping=True,pool_recycle=1800)
+    cfg=Settings();engine=create_engine(worker_url(cfg),pool_pre_ping=True,pool_recycle=1800)
     r=redis.Redis.from_url(cfg.redis_url,decode_responses=True,socket_connect_timeout=3,socket_timeout=3)
     while True:
         try:

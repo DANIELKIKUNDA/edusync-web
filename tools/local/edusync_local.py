@@ -93,7 +93,7 @@ def load_env(profile: str) -> dict[str, str]:
             k, v = line.split("=", 1)
             env[k] = v
     db = PROFILES[profile]
-    for k in ("EDUSYNC_OWNER_DATABASE_URL", "EDUSYNC_TENANT_DATABASE_URL", "EDUSYNC_PLATFORM_DATABASE_URL"):
+    for k in ("EDUSYNC_OWNER_DATABASE_URL", "EDUSYNC_TENANT_DATABASE_URL", "EDUSYNC_PLATFORM_DATABASE_URL", "EDUSYNC_WORKER_DATABASE_URL"):
         env[k] = env[k].rsplit("/", 1)[0] + "/" + db
     if env.get("EDUSYNC_REDIS_URL"):
         head, _, tail = env["EDUSYNC_REDIS_URL"].rpartition("@")

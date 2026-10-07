@@ -160,6 +160,9 @@
 .es-btn-primary{background:#0f4fbf;border-color:#0f4fbf;color:#fff}
 .es-btn-primary:hover{background:#0b3f9c}
 .es-btn-ghost{background:transparent}
+.es-btn-danger{background:#fff;border-color:#e7b4ae;color:#b42318}
+.es-btn-danger:hover{background:#fdecea}
+.es-grow{flex:1;margin:0}
 .es-tabs{display:flex;gap:4px;padding:4px;background:#f1f4f9;border-radius:10px;margin-bottom:12px}
 .es-tabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;border:0;border-radius:8px;background:transparent;color:#3d4a63;font-weight:700;font-size:13px;cursor:pointer}
 .es-tabs button.es-on{background:#fff;color:#0f4fbf;box-shadow:0 1px 3px rgba(15,27,51,.1)}

@@ -1,0 +1,212 @@
+[
+  {
+    "check": "AUTO : compte mono-école connecté sans code établissement",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "AUTO : cookie de session posé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "AUTO : Manager plateforme seul contexte -> Atelier Pro",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "AUTO : compte multi-écoles -> choix demandé",
+    "pass": true,
+    "detail": "200 ['choice_required', 'contexts']"
+  },
+  {
+    "check": "AUTO : aucun jeton ni cookie avant le choix",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "AUTO : aucune session créée avant le choix",
+    "pass": true,
+    "detail": "2->2"
+  },
+  {
+    "check": "AUTO : choix explicite d'une école -> session de cette école",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "AUTO : mauvais mot de passe et compte inconnu -> même réponse (pas d'énumération)",
+    "pass": true,
+    "detail": "401/401"
+  },
+  {
+    "check": "AUTO : mauvais mot de passe ne révèle pas les contextes",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 session sans expiration absolue imposée (expires_at NULL)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 session de 400 jours inactive 120 jours : toujours renouvelée (pas de reconnexion périodique)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "1.1 rotation du jeton à chaque renouvellement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 cookie HttpOnly, SameSite=Lax, chemin /api/v1/auth",
+    "pass": true,
+    "detail": "dusync_session=3mMUmRZBHjYmZiujAN6vJO-XUvi8zHdaut3ZOrcPbO2ISdZH5k2cnA3_dd5MQXM1; HttpOnly; Max-Age=34560000; Path=/api/v1/auth; SameSite=lax"
+  },
+  {
+    "check": "1.1 jeton tourné rejoué hors grâce : refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 réutilisation : session entière révoquée",
+    "pass": true,
+    "detail": "ROTATED_TOKEN_REUSED"
+  },
+  {
+    "check": "1.1 réutilisation : jeton d'accès coupé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 CSRF : refresh depuis une origine étrangère refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 CSRF : refresh cross-site sans Origin refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 CSRF : login depuis une origine étrangère refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 CSRF : logout étranger refusé, session intacte",
+    "pass": true,
+    "detail": "403"
+  },
+  {
+    "check": "1.1 déconnexion de tous les appareils (204)",
+    "pass": true,
+    "detail": "204"
+  },
+  {
+    "check": "1.1 logout-all : l'autre appareil est coupé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.1 logout-all audité",
+    "pass": true,
+    "detail": "2"
+  },
+  {
+    "check": "1.4 Manager : liste de ses appareils",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "1.4 Manager : appareil courant signalé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.4 Manager : révocation d'un appareil -> coupé immédiatement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.4 Manager : révocation auditée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.4 Manager : ne peut pas révoquer la session d'un autre compte (BOLA)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.4 compte école : route mot de passe plateforme refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.4 Manager : mauvais mot de passe actuel refusé sans révoquer",
+    "pass": true,
+    "detail": "400"
+  },
+  {
+    "check": "1.2 montant USD 12345.67 : aller-retour exact en chaîne (pas de float)",
+    "pass": true,
+    "detail": "201 '12345.67'"
+  },
+  {
+    "check": "1.2 montant CDF 1500000.05 : aller-retour exact en chaîne (pas de float)",
+    "pass": true,
+    "detail": "201 '1500000.05'"
+  },
+  {
+    "check": "1.2 aucune représentation flottante binaire dans la réponse JSON",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "1.3 rôle worker : NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB",
+    "pass": true,
+    "detail": "(False, False, False, False)"
+  },
+  {
+    "check": "1.3 rôle worker : propriétaire d'aucune table",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "check": "1.3 rôle worker : lecture users refusé",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "1.3 rôle worker : lecture élèves refusé",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "1.3 rôle worker : lecture paiements refusé",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "1.3 rôle worker : insertion outbox refusé",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "1.3 rôle worker : suppression livraisons refusé",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "1.3 rôle worker : DDL refusé",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "1.3 rôle worker : lecture de sa file autorisée",
+    "pass": true,
+    "detail": ""
+  }
+]

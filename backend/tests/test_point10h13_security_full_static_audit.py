@@ -5,7 +5,8 @@ ROOT=Path(__file__).resolve().parents[1]
 SRC=ROOT/'src'/'edusync'
 # setup_status/create_first_manager: first-run setup, public by design but locked (see test_local_closure_20261006).
 # open_signed_document: authenticated by a short-lived HMAC link, re-checks membership and tenant ownership.
-PUBLIC_AUTH={'login','refresh_session','logout','setup_status','create_first_manager','open_signed_document'}
+# logout_all: authenticated by the device-session cookie like logout (CSRF origin check, audited).
+PUBLIC_AUTH={'login','refresh_session','logout','logout_all','setup_status','create_first_manager','open_signed_document'}
 HTTP={'get','post','put','patch','delete'}
 
 def _routes(path:Path):

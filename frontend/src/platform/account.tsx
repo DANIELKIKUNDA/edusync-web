@@ -3,7 +3,7 @@ import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {toast} from 'sonner';
-import {changeMyPassword, dismissNotification, listMySessions, listNotifications, revokeMySession, type DeviceSession, type InternalNotification} from '../api';
+import {changeMyPassword, changePlatformPassword, dismissNotification, listMySessions, listNotifications, listPlatformSessions, logoutAllDevices, revokeMySession, revokePlatformSession, type DeviceSession, type InternalNotification} from '../api';
 import {FormField, formDefaults} from './forms';
 import {friendlyError} from './errors';
 import {NavGlyph} from './nav_icons';
@@ -58,22 +58,28 @@ function relative(iso: string) {
   return d.toLocaleDateString('fr-FR', {day: '2-digit', month: 'short', year: 'numeric'});
 }
 
-export function SecurityDialog({token, onClose, onPasswordChanged}: {token: string; onClose: () => void; onPasswordChanged: () => void}) {
+export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {token: string; onClose: () => void; onPasswordChanged: () => void; platform?: boolean}) {
   const [tab, setTab] = useState<'devices' | 'password'>('devices');
   const [sessions, setSessions] = useState<DeviceSession[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const [confirmAll, setConfirmAll] = useState(false);
   const form = useForm<PasswordForm>({resolver: zodResolver(passwordSchema), defaultValues: {current: '', next: '', confirm: ''}, ...formDefaults});
-  async function load() { try { setError(''); setSessions((await listMySessions(token)).items); } catch (e) { setError(friendlyError(e)); } }
+  const api = platform ? {list: listPlatformSessions, revoke: revokePlatformSession, password: changePlatformPassword} : {list: listMySessions, revoke: revokeMySession, password: changeMyPassword};
+  async function load() { try { setError(''); setSessions((await api.list(token)).items); } catch (e) { setError(friendlyError(e)); } }
   useEffect(() => { void load(); }, [token]);
   const active = (sessions || []).filter(s => !s.revoked_at);
   async function revoke(s: DeviceSession) {
-    try { setBusy(s.id); await revokeMySession(token, s.id); toast.success('Appareil déconnecté'); await load(); }
+    try { setBusy(s.id); await api.revoke(token, s.id); toast.success('Appareil déconnecté'); if (s.current) { onPasswordChanged(); return; } await load(); }
     catch (e) { setError(friendlyError(e)); } finally { setBusy(''); }
+  }
+  async function logoutAll() {
+    try { setBusy('all'); await logoutAllDevices(); toast.success('Tous vos appareils ont été déconnectés.'); onPasswordChanged(); }
+    catch (e) { setError(friendlyError(e)); setBusy(''); }
   }
   const save = form.handleSubmit(async v => {
     setError('');
-    try { await changeMyPassword(token, {current_password: v.current, new_password: v.next}); toast.success('Mot de passe modifié. Reconnectez-vous.'); onPasswordChanged(); }
+    try { await api.password(token, {current_password: v.current, new_password: v.next}); toast.success('Mot de passe modifié. Reconnectez-vous.'); onPasswordChanged(); }
     catch (e) { setError(friendlyError(e)); }
   });
   return <Modal title="Sécurité et appareils" subtitle="Vos connexions actives et votre mot de passe." onClose={onClose} wide>
@@ -83,13 +89,16 @@ export function SecurityDialog({token, onClose, onPasswordChanged}: {token: stri
     </div>
     {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
     {tab === 'devices' && <div className="es-sessions">
-      <p className="es-hint">Une session reste ouverte sur un appareil 30 jours sans activité, 90 jours au maximum. Déconnectez un appareil perdu ou partagé.</p>
+      <p className="es-hint">Vous restez connecté sur vos appareils jusqu’à ce que vous vous déconnectiez. Déconnectez ici un appareil perdu ou partagé : l’accès est coupé immédiatement.</p>
       {sessions === null ? <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div> : active.length === 0 ? <div className="es-empty">Aucune session active.</div> :
         <ul>{active.map((s, i) => <li key={s.id}>
           <NavGlyph g="device" size={20}/>
-          <div><b>{s.label || 'Navigateur'}{i === 0 && <em className="es-tag">Activité la plus récente</em>}</b><small>Ouverte le {new Date(s.created_at).toLocaleDateString('fr-FR')} · activité {relative(s.last_seen_at)}</small></div>
+          <div><b>{s.label || 'Navigateur'}{s.current ? <em className="es-tag">Cet appareil</em> : s.current === undefined && i === 0 && <em className="es-tag">Activité la plus récente</em>}</b><small>{s.context ? `${s.context} · ` : ''}Ouverte le {new Date(s.created_at).toLocaleDateString('fr-FR')} · activité {relative(s.last_seen_at)}</small></div>
           <button className="es-btn es-btn-ghost" disabled={busy === s.id} onClick={() => void revoke(s)}>{busy === s.id ? 'Déconnexion…' : 'Déconnecter'}</button>
         </li>)}</ul>}
+      {active.length > 0 && <div className="es-modal-foot">{confirmAll
+        ? <><span className="es-hint es-grow" role="status">Tous vos appareils, y compris celui-ci, seront déconnectés.</span><button className="es-btn es-btn-ghost" onClick={() => setConfirmAll(false)}>Annuler</button><button className="es-btn es-btn-danger" autoFocus disabled={busy === 'all'} onClick={() => void logoutAll()}>{busy === 'all' ? 'Déconnexion…' : 'Confirmer'}</button></>
+        : <button className="es-btn es-btn-danger" onClick={() => setConfirmAll(true)}>Déconnecter tous les appareils</button>}</div>}
     </div>}
     {tab === 'password' && <form className="es-form" onSubmit={save} noValidate>
       <p className="es-hint">Changer votre mot de passe déconnecte immédiatement tous vos appareils.</p>

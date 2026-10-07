@@ -19,6 +19,10 @@ def test_pwa_identity_assets_declared():
     for name in ('edusync-mark.svg','icon-192.png','icon-512.png','icon-maskable-192.png','icon-maskable-512.png','apple-touch-icon.png','favicon.ico'):
         assert (ROOT/'frontend/public/icons'/name).exists(), name
 def test_no_artificial_boot_delay():
-    main=(ROOT/'frontend/src/main.tsx').read_text()
+    # N0 certification 2026-10 (justified adaptation): the boot screen no longer disappears on the first frame to be
+    # replaced by a second, different loader; it stays until the real session check ends (App dismisses it when
+    # `restoring` becomes false). The intent is unchanged: no timer, no artificial delay.
+    main=(ROOT/'frontend/src/main.tsx').read_text(encoding='utf-8')
     assert 'setTimeout' not in main
-    assert "requestAnimationFrame" in main
+    app=(ROOT/'frontend/src/App.tsx').read_text(encoding='utf-8')
+    assert 'if(!restoring)dismissBoot()' in app and 'setTimeout' not in (ROOT/'frontend/src/platform/boot.ts').read_text(encoding='utf-8').split('el.classList.add')[0]

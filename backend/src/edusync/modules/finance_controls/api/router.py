@@ -1,3 +1,4 @@
+from decimal import Decimal
 from datetime import date
 from uuid import UUID
 from fastapi import APIRouter,Depends,HTTPException,Query
@@ -19,7 +20,7 @@ def decisions(status:str='ACTIVE',actor:ActorContext=Depends(require_school_acto
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   return {'items':rows(c,"""SELECT d.*,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label,ft.label fee_label FROM finance_decisions d JOIN enrollments e ON e.id=d.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN finance_charges ch ON ch.id=d.charge_id LEFT JOIN fee_types ft ON ft.id=ch.fee_type_id WHERE d.school_id=:s AND (:st='ALL' OR d.status=:st) ORDER BY d.effective_date DESC,d.created_at DESC""",{'s':str(actor.school_id),'st':status})}
 class DecisionBody(BaseModel):
- enrollment_id:UUID;charge_id:UUID|None=None;decision_type:str;currency:str=Field(pattern='^(CDF|USD)$');amount:float=Field(ge=0);reason:str=Field(min_length=3,max_length=500);effective_date:date
+ enrollment_id:UUID;charge_id:UUID|None=None;decision_type:str;currency:str=Field(pattern='^(CDF|USD)$');amount:Decimal=Field(ge=0,max_digits=18,decimal_places=2);reason:str=Field(min_length=3,max_length=500);effective_date:date
 @router.post('/decisions')
 def create_decision(b:DecisionBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.decisions.create')

@@ -22,6 +22,15 @@ export async function loginPlatform(email:string,password:string):Promise<Platfo
   const r=await fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,scope:'PLATFORM'})});
   if(!r.ok)throw new Error(await errorDetail(r,'Connexion impossible'));return r.json();
 }
+export type LoginContext={scope:'SCHOOL'|'PLATFORM';school_code:string|null;label:string};
+export type AutoLoginResult=PlatformLoginResult|SchoolLoginResult|{choice_required:true;contexts:LoginContext[]};
+/** Sign-in without a school code: the server determines the context after authentication. When the account
+ * opens several spaces it returns the list and no session is created until the user picks one. */
+export async function loginAuto(email:string,password:string):Promise<AutoLoginResult>{
+  const r=await fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,scope:'AUTO'})});
+  if(!r.ok)throw new HttpLoginError(r.status);return r.json();
+}
+export class HttpLoginError extends Error{constructor(public status:number){super(`HTTP ${status}`)}}
 export async function loginSchool(email:string,password:string,schoolCode:string):Promise<SchoolLoginResult>{
   const r=await fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,scope:'SCHOOL',school_code:schoolCode})});
   if(!r.ok)throw new Error(await errorDetail(r,'Connexion école impossible'));return r.json();
@@ -273,7 +282,7 @@ export async function platformGrantCollaborator(token:string,userId:string,reaso
 export async function platformRevokeCollaborator(token:string,userId:string,reason:string):Promise<any>{const r=await fetch(`${API}/platform/collaborators/${userId}/revoke`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({reason})});if(!r.ok)throw new Error(await errorDetail(r,'Retrait du rôle collaborateur impossible'));return r.json();}
 
 // --- Local closure 2026-10: account, first-run setup, documents, receipts, family basket -------------
-export type DeviceSession={id:string;label:string|null;created_at:string;last_seen_at:string;revoked_at:string|null};
+export type DeviceSession={id:string;label:string|null;created_at:string;last_seen_at:string;revoked_at:string|null;current?:boolean;context?:string};
 export type InternalNotification={id:string;category:string;title:string;body:string;created_at:string;read_at:string|null};
 export type SetupStatus={setup_required:boolean;setup_available:boolean;token_required:boolean};
 export type ArchivedDocument={id:string;document_code:string;format:'PDF'|'XLSX'|'CSV';title:string;byte_size:number;updated_at:string;file_name:string|null;generated_by:string|null;generations:number};
@@ -288,6 +297,11 @@ async function serverDetail(r:Response,fallback:string){try{const b=await r.clon
 export async function listNotifications(token:string){return json<{items:InternalNotification[]}>(await fetch(`${API}/notifications`,{headers:auth(token)}),'Notifications indisponibles')}
 export async function dismissNotification(token:string,id:string){return json<{id:string}>(await fetch(`${API}/notifications/${id}/dismiss`,{method:'POST',headers:mutationHeaders(token)}),'Action impossible')}
 export async function listMySessions(token:string){return json<{items:DeviceSession[]}>(await fetch(`${API}/auth/sessions`,{headers:auth(token)}),'Sessions indisponibles')}
+export async function listPlatformSessions(token:string){return json<{items:DeviceSession[]}>(await fetch(`${API}/auth/platform/sessions`,{headers:auth(token),credentials:'include'}),'Sessions indisponibles')}
+export async function revokePlatformSession(token:string,id:string){const r=await fetch(`${API}/auth/platform/sessions/${id}/revoke`,{method:'POST',headers:mutationHeaders(token)});if(!r.ok)throw new UserFacingError(await serverDetail(r,'Révocation impossible'))}
+export async function changePlatformPassword(token:string,input:{current_password:string;new_password:string}){const r=await fetch(`${API}/auth/platform/password`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(input)});if(!r.ok)throw new UserFacingError(await serverDetail(r,'Modification du mot de passe impossible'));return r.json()}
+/** Signs this account out of every device (cookie-authenticated on the server, audited). */
+export async function logoutAllDevices(){const r=await fetch(`${API}/auth/logout-all`,{method:'POST',credentials:'include'});if(!r.ok&&r.status!==401)throw new UserFacingError(await serverDetail(r,'Déconnexion impossible'))}
 export async function revokeMySession(token:string,id:string){const r=await fetch(`${API}/auth/sessions/${id}/revoke`,{method:'POST',headers:mutationHeaders(token)});if(!r.ok)throw new UserFacingError(await serverDetail(r,'Révocation impossible'))}
 export async function setupStatus(){return json<SetupStatus>(await fetch(`${API}/setup/status`,{cache:'no-store'}),'Statut indisponible')}
 export async function createFirstManager(body:{full_name:string;email:string;password:string;setup_token?:string}){return json<{status:string;email:string}>(await fetch(`${API}/setup/first-manager`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),'Création impossible')}

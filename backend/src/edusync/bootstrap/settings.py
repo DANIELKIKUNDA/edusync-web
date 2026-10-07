@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     tenant_database_url: str = "postgresql+psycopg://edusync_tenant:tenant-change-me@localhost:5432/edusync"
     platform_database_url: str = "postgresql+psycopg://edusync_platform:platform-change-me@localhost:5432/edusync"
     owner_database_url: str = "postgresql+psycopg://edusync_owner:owner-change-me@localhost:5432/edusync"
+    # Background workers (outbox, SMS). Never the owner/migrator credentials.
+    worker_database_url: str = ""
     redis_url: str = "redis://localhost:6379/0"
 
     jwt_secret: str = "dev-only-change-me-dev-only-change-me"
@@ -18,10 +20,13 @@ class Settings(BaseSettings):
     jwt_audience: str = "edusync-web"
     access_token_minutes: int = 15
     persistent_session_cookie: str = "edusync_session"
-    # Persistent device session: absolute lifetime + idle timeout, token rotated on each renewal.
-    session_absolute_days: int = 90
-    session_idle_days: int = 30
+    # Persistent device session (owner decision 2026-10-07): no periodic re-authentication.
+    # 0 = disabled (default). Rotation at every renewal + reuse detection + per-device revocation stay on.
+    session_absolute_days: int = 0
+    session_idle_days: int = 0
     session_rotation_grace_seconds: int = 60
+    # Browsers cap cookie lifetimes (about 400 days); the cookie is re-issued at every renewal.
+    session_cookie_max_age_days: int = 400
 
     offline_finance_enabled: bool = False
     offline_finance_certified: bool = False
@@ -111,3 +116,13 @@ class Settings(BaseSettings):
     # Compatibility name for existing foundation tests/scripts. Provisioning is the stricter profile.
     def assert_production_safe(self) -> None:
         self.assert_provisioning_safe()
+
+
+def worker_url(cfg: Settings) -> str:
+    """Background workers connect with the dedicated least-privilege role, never the owner/migrator."""
+    url = cfg.worker_database_url
+    if not url:
+        raise RuntimeError("EDUSYNC_WORKER_DATABASE_URL obligatoire : les workers n'utilisent jamais le compte propriétaire")
+    if "edusync_worker" not in url.split("@", 1)[0]:
+        raise RuntimeError("EDUSYNC_WORKER_DATABASE_URL doit utiliser le rôle edusync_worker")
+    return url
