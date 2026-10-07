@@ -73,3 +73,4 @@
 }
 @media (max-width:359.98px){.lg-card{padding:18px 14px}.lg-pane{padding:20px 10px}}
 @media (prefers-reduced-motion:reduce){.lg-spin{animation:none}}
+@media (max-width:767.98px){.lg-field input{height:48px}.lg-pass input{padding-right:52px}.lg-pass button{width:44px;height:44px;top:2px;right:2px}.lg-switch{min-height:44px}}

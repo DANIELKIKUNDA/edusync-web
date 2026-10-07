@@ -32,13 +32,14 @@ async function settle() { for (let i = 0; i < 40; i++) { if (await ev(`!document
 const METRICS = `(()=>{const vw=innerWidth;const mobile=vw<768;
  const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&s.opacity!=='0'};
  const taps=[...document.querySelectorAll('button,a[href],[role=button],[role=tab],select,input:not([type=hidden])')].filter(vis);
- const small=taps.filter(e=>{const r=e.getBoundingClientRect();return Math.min(r.width,r.height)<40&&!e.closest('table,.dataTable')&&e.type!=='checkbox'&&e.type!=='radio'}).slice(0,6).map(e=>(e.getAttribute('aria-label')||e.innerText||e.placeholder||e.tagName).trim().slice(0,30));
+ const inScroller=e=>{let p=e.parentElement;while(p&&p!==document.body){const o=getComputedStyle(p).overflowX;if(o==='auto'||o==='scroll'||o==='hidden')return true;p=p.parentElement}return false};
+ const small=taps.filter(e=>{const r=e.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight&&r.right>0&&!e.classList.contains('es-skip')&&!e.classList.contains('es-sr')&&Math.min(r.width,r.height)<40&&!e.closest('table,.dataTable')&&e.type!=='checkbox'&&e.type!=='radio'}).slice(0,6).map(e=>(e.getAttribute('aria-label')||e.innerText||e.placeholder||e.tagName).trim().slice(0,30));
  const inputs=[...document.querySelectorAll('input,select,textarea')].filter(e=>vis(e)&&e.type!=='hidden'&&!e.classList.contains('es-sr'));
  const tinyFont=inputs.filter(e=>parseFloat(getComputedStyle(e).fontSize)<16).map(e=>(e.getAttribute('aria-label')||e.placeholder||e.name||e.type).slice(0,24)).slice(0,5);
  const named=e=>!!(e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||(e.id&&document.querySelector('label[for="'+CSS.escape(e.id)+'"]'))||e.closest('label')||e.title);
  const unnamed=inputs.filter(e=>!named(e)).slice(0,6).map(e=>(e.placeholder||e.name||e.type||e.tagName).slice(0,30));
  const unnamedButtons=[...document.querySelectorAll('button')].filter(e=>vis(e)&&!(e.innerText||'').trim()&&!e.getAttribute('aria-label')&&!e.title).length;
- const overflow=[...document.querySelectorAll('.es-content *,.lg-page *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>vw+2&&getComputedStyle(e).position!=='fixed'&&!e.closest('.tableWrap,.tableScroll,.table-scroll,[class*=scroll],[class*=Scroll],.dataTable,[role=tablist]')}).slice(0,5).map(e=>e.tagName+'.'+String(e.className).slice(0,40));
+ const overflow=[...document.querySelectorAll('.es-content *,.lg-page *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>vw+2&&getComputedStyle(e).position!=='fixed'&&!inScroller(e)&&!e.closest('.tableWrap,.tableScroll,.table-scroll,[class*=scroll],[class*=Scroll],.dataTable,[role=tablist]')}).slice(0,5).map(e=>e.tagName+'.'+String(e.className).slice(0,40));
  const text=document.body.innerText;
  const emoji=[...new Set((text.match(/[\\u{1F300}-\\u{1FAFF}\\u{2600}-\\u{26FF}\\u{2700}-\\u{27BF}]/gu)||[]))].filter(c=>!'✓✔'.includes(c));
  const codes=[...new Set((text.match(/\\b[A-Z][A-Z0-9]{2,}(?:_[A-Z0-9]{2,})+\\b/g)||[]))].slice(0,8);

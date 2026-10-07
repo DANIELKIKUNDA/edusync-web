@@ -50,3 +50,6 @@ export function severityLabel(code: string | null | undefined) {
 export function yearStatusLabel(code: string | null | undefined) {
   return code === 'ACTIVE' ? 'En cours' : code === 'PREPARED' ? 'Préparée' : code === 'CLOSED' ? 'Clôturée' : code === 'ARCHIVED' ? 'Archivée' : (code || '—');
 }
+
+// Sync / outbox event types shown in the synchronisation screen.
+Object.assign(ACTIONS,{COMMUNICATION_REQUESTED:'Message à envoyer',PAYMENT_RECORDED:'Paiement enregistré',STUDENT_ENROLLED:'Élève inscrit',communication_message:'message',finance_payment:'paiement'});

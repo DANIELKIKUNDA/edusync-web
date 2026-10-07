@@ -285,3 +285,12 @@ def test_device_sessions_get_a_readable_label():
     assert describe_user_agent("Mozilla/5.0 (Windows NT 10.0) AppleWebKit Chrome/140 Safari/537 Edg/145") == "Edge · Windows"
     assert describe_user_agent("Mozilla/5.0 (Linux; Android 14) Chrome/140 Mobile Safari/537") == "Chrome · Android"
     assert describe_user_agent("") == "Navigateur"
+
+
+def test_local_launcher_never_hangs_and_never_duplicates():
+    src = (ROOT.parent / "tools" / "local" / "edusync_local.py").read_text(encoding="utf-8")
+    start = src.index('"-w", "-t", "180", "start"]')
+    assert "stdout=subprocess.DEVNULL" in src[start:start + 300]  # pg_ctl start must not capture: postgres inherits pipes
+    assert "if port_open(PORTS[\"api\"])" in src and "if not _alive(name)" in src  # reuse running services
+    assert "wsl_ip()" in src and '"--no-server-header"' in src
+    assert "assert db=={db!r}" in src  # reset-blank can only ever drop the blank database

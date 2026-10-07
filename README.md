@@ -1,3 +1,7 @@
+# EduSync Web — clôture locale (octobre 2026)
+
+État courant et preuves : `CLOTURE_LOCALE_EDUSYNC.md`. Lanceur local : `tools/local/README.md`.
+
 # EduSync Web — Point 4D Effectifs & Dépôts
 
 Checkpoint preservation-first du 12 septembre 2026. Le module Desktop certifié reste l'oracle : périmètres, KPI, F/G/T, tableaux, mouvements, dépôts, PDF/Excel et total général sont copiés avant tout enrichissement. Voir `POINT4D_IMPLEMENTATION_REPORT.md`, `POINT4D_PRESERVATION_MATRIX.md` et `POINT4D_GATE.md`.

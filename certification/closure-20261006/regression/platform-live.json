@@ -1,0 +1,147 @@
+[
+  {
+    "check": "manager GET schools",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET audit-count",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET dashboard",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET schools-page",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET access",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET audit",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET diagnostics",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET system-notifications",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET schools/e9f04fe8-f086-4da8-a8b6-7c6a5c11c7bd/detail",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "manager GET rbac/roles",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "multi-role user listed once with one school membership",
+    "pass": true,
+    "detail": "rows=1 memberships=1 (user holds 3 roles)"
+  },
+  {
+    "check": "manager can send a system notification",
+    "pass": true,
+    "detail": "HTTP 201 {\"id\":\"8b16d00e-932b-4fc6-a4b1-7733df9bf991\",\"severity\":\"INFO\",\"target_scope\":\"ALL_ACTIVE_SCHOOLS\",\"recipient_count\":8}"
+  },
+  {
+    "check": "school A user can read notifications after system broadcast",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "manager grants collaborator",
+    "pass": true,
+    "detail": "{\"status\":\"granted\",\"role_code\":\"COLLABORATEUR_PLATEFORME\"}"
+  },
+  {
+    "check": "collaborator can read platform/schools",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "collaborator can read platform/audit",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "collaborator can read platform/diagnostics",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "collaborator forbidden: POST schools…",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "collaborator forbidden: POST schools…",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "collaborator forbidden: POST schools…",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "collaborator forbidden: POST memberships…",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "collaborator forbidden: POST memberships…",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "collaborator forbidden: POST collaborators…",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "collaborator forbidden: POST system-notifications…",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "collaborator token refused on school API",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "school A still ACTIVE after collaborator attempts",
+    "pass": true,
+    "detail": "ACTIVE"
+  },
+  {
+    "check": "manager revokes collaborator",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "revoked collaborator token rejected",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "school user cannot use platform API",
+    "pass": true,
+    "detail": ""
+  }
+]

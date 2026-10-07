@@ -1,0 +1,18 @@
+﻿setup_school exit=0 
+finance_probe exit=0 == 26/26 PASS -> finance-live.json
+d11_probe exit=0 == 8/8 PASS -> d11-live.json
+imports_probe exit=0 == 25/25 PASS -> imports-live.json
+sessions_probe exit=0 == 30/30 PASS -> sessions-live.json
+platform_probe exit=0 == 29/29 PASS -> platform-live.json
+http_security_probe exit=0 == 25/26 PASS -> http-security-live.json
+recovery_probe exit=0 == 19/19 PASS -> recovery-live.json
+stewardship_probe exit=0 == 13/13 PASS -> stewardship-live.json
+personnel_access_probe exit=0 == 10/10 PASS -> personnel-access-live.json
+personnel_roles_probe exit=0 == 7/7 PASS -> personnel-roles-live.json
+access_governance_probe exit=0 == 24/24 PASS -> access-governance-live.json
+workers_probe exit=0 == 14/14 PASS -> workers-live.json
+get_smoke_sweep exit=0 == 1/1 PASS -> get-smoke-sweep.json
+bola_sweep exit=0 == 2/2 PASS -> bola-sweep.json
+REGRESSION DONE
+http_security_probe exit=0 == 26/26 PASS -> http-security-live.json
+REGRESSION DONE

@@ -1,0 +1,42 @@
+[
+  {
+    "check": "balance: regularized charge no longer shown as due",
+    "pass": true,
+    "detail": "None"
+  },
+  {
+    "check": "cash desk refuses to collect a charge settled outside cash",
+    "pass": true,
+    "detail": "HTTP 409 {\"detail\":\"Déjà soldé\"}"
+  },
+  {
+    "check": "money received (cash + outside cash) never exceeds the obligation",
+    "pass": true,
+    "detail": "total=30000.00"
+  },
+  {
+    "check": "partial exemption recorded via API",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"5520bd68-6662-468c-becc-9aef2da056e7\",\"school_id\":\"e9f04fe8-f086-4da8-a8b6-7c6a5c11c7bd\",\"enrollment_id\":\"0920ba05-f74e-4c5c-aacf-8ab9c69d1792\",\"charge_i"
+  },
+  {
+    "check": "balance shows obligation net of exemption (25 000)",
+    "pass": true,
+    "detail": "25000.00"
+  },
+  {
+    "check": "cash desk refuses to collect the exempted part",
+    "pass": true,
+    "detail": "HTTP 409"
+  },
+  {
+    "check": "cash desk collects exactly what is owed after exemption",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"e41b65ee-906d-4eec-b16d-69377da9d696\",\"receipt_number\":\"REC-E41B65EE\",\"amount\":\"25000\",\"currency\":\"CDF\",\"replayed"
+  },
+  {
+    "check": "DB trigger rejects a raw over-regularization (tenant role)",
+    "pass": true,
+    "detail": "IntegrityError: (psycopg.errors.CheckViolation) Montant reçu (25001.00) supérieur à l'obligation (25000.00) pour ce frais"
+  }
+]

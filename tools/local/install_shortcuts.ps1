@@ -12,8 +12,8 @@ function New-EduSyncShortcut($name, $target, $arguments, $description, $style) {
   $lnk.Description = $description
   $lnk.WindowStyle = $style
   $lnk.Save()
-  Write-Output "Raccourci cree : $name"
+  Write-Output "Raccourci créé : $name"
 }
-New-EduSyncShortcut 'EduSync' (Join-Path $root 'tools\local\EduSync-Demarrer.cmd') '' 'Demarrer EduSync et ouvrir l''application' 1
-New-EduSyncShortcut 'Arreter EduSync' (Join-Path $root 'tools\local\EduSync-Arreter.cmd') '' 'Arreter proprement tous les services EduSync' 1
+New-EduSyncShortcut 'EduSync' (Join-Path $root 'tools\local\EduSync-Demarrer.cmd') '' 'Démarrer EduSync et ouvrir l''application' 1
+New-EduSyncShortcut 'Arrêter EduSync' (Join-Path $root 'tools\local\EduSync-Arreter.cmd') '' 'Arrêter proprement tous les services EduSync' 1
 New-EduSyncShortcut 'Journaux EduSync' (Join-Path $root 'tools\local\EduSync-Journaux.cmd') '' 'Ouvrir le dossier des journaux EduSync' 7

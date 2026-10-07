@@ -1,0 +1,72 @@
+{
+  "app": "http://127.0.0.1:55175/",
+  "passed": 13,
+  "total": 13,
+  "results": [
+    {
+      "check": "caissier connecté par l’interface",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "encaissement enregistré, numéro de reçu affiché",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "aperçu du reçu ouvert dans EduSync (impression = choix du caissier)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "panier : 2 lignes, totaux par devise",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "panier encaissé : un reçu par enfant",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "reçus du panier en un seul aperçu",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "coupure réseau signalée en clair",
+      "pass": true,
+      "detail": "Connexion instable | Le réseau répond mal. EduSync réessaie automatiquement les opérations sûres."
+    },
+    {
+      "check": "retour en ligne affiché",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "réponse perdue : message honnête (opération non confirmée)",
+      "pass": true,
+      "detail": "Connexion interrompue : l’opération n’a pas pu être confirmée. Réessayez dès que la connexion revient ; EduSync empêche tout doublon."
+    },
+    {
+      "check": "nouvel essai : le serveur renvoie l’encaissement déjà enregistré",
+      "pass": true,
+      "detail": "3 réponse(s) coupée(s)"
+    },
+    {
+      "check": "rechargement de page : session conservée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "nouvel onglet du navigateur : session conservée (cookie appareil)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "après déconnexion : retour à la connexion, même après rechargement",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

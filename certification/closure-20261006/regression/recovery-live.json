@@ -1,0 +1,97 @@
+[
+  {
+    "check": "recovery summary/section available",
+    "pass": true,
+    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"8a88ab0a-4aed-4be5-9ed4-1d20802dabc0\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE DE LA SECTION"
+  },
+  {
+    "check": "summary/section totals reconcile with ledger (expected net of exemptions, cash, outside cash)",
+    "pass": true,
+    "detail": "api expected=265000.0 cash=96000.0 outside=80000.0 | db {'expected': Decimal('265000.00'), 'cash': Decimal('96000.00'), 'outside': Decimal('80000.00')}"
+  },
+  {
+    "check": "recovery summary/section.pdf export",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "recovery summary/section.xlsx export",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "recovery summary/school available",
+    "pass": true,
+    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"8a88ab0a-4aed-4be5-9ed4-1d20802dabc0\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE GLOBALE DE L'"
+  },
+  {
+    "check": "summary/school totals reconcile with ledger (expected net of exemptions, cash, outside cash)",
+    "pass": true,
+    "detail": "api expected=265000.0 cash=96000.0 outside=80000.0 | db {'expected': Decimal('265000.00'), 'cash': Decimal('96000.00'), 'outside': Decimal('80000.00')}"
+  },
+  {
+    "check": "recovery summary/school.pdf export",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "recovery summary/school.xlsx export",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "recovery summary/class available",
+    "pass": true,
+    "detail": "HTTP 200 {\"academic_year\":{\"id\":\"8a88ab0a-4aed-4be5-9ed4-1d20802dabc0\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE MENSUELLE PAR"
+  },
+  {
+    "check": "recovery summary/class.pdf export",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "recovery summary/class.xlsx export",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "monthly (json) available",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "monthly.pdf available",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "monthly.xlsx available",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "class-register (json) available",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "class-register.pdf available",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "class-register.xlsx available",
+    "pass": true,
+    "detail": "HTTP 200 "
+  },
+  {
+    "check": "class register reflects exemptions (net, not gross tariff)",
+    "pass": true,
+    "detail": "exempted D11 charge expected at 25 000"
+  },
+  {
+    "check": "school B summary never includes school A money",
+    "pass": true,
+    "detail": "{\"academic_year\":{\"id\":\"f0ef28cc-85a8-4b40-b72e-fdb60cb48564\",\"label\":\"Année 2026-2027\"},\"title\":\"SYNTHÈSE GLOBALE DE L'ÉCOLE\",\"items\":[{\"label\":\"Primaire\",\"deb"
+  }
+]

@@ -210,3 +210,17 @@
 .es-shell .kpis article>b{font-size:21px;line-height:1.15;font-variant-numeric:tabular-nums}
 .es-shell .kpis article>small{font-size:12.5px;color:#6b778c;line-height:1.3}
 @media (max-width:767.98px){.es-shell .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.es-shell .kpis article{grid-template-columns:34px minmax(0,1fr);padding:10px;column-gap:9px;min-height:64px}.es-shell .kpis article>span{width:34px;height:34px}.es-shell .kpis article>b{font-size:18px}}
+
+/* Phone forms: one column, controls never wider than their container (no page-level horizontal scroll). */
+.es-shell .es-content input:not([type=checkbox]):not([type=radio]),.es-shell .es-content select,.es-shell .es-content textarea{max-width:100%;min-width:0}
+.es-shell .formField{min-width:0}
+@media (max-width:767.98px){
+  .es-shell .settingsEditorGrid,.es-shell .settingsEditorGrid.compact,.es-shell .gridForm,.es-shell .inlineForm{grid-template-columns:minmax(0,1fr)!important}
+  .es-shell .formField input,.es-shell .formField select,.es-shell .formField textarea,.es-shell .gridForm>*,.es-shell .inlineForm>*{width:100%}
+  .es-shell .es-top .es-icon-btn,.es-shell .es-account-btn{width:42px;height:42px}
+  .es-shell .es-avatar{width:32px;height:32px}
+}
+.es-skip:not(:focus){width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:767.98px){.es-shell .es-content button,.es-shell .es-content select,.es-shell .es-content input:not([type=checkbox]):not([type=radio]),.es-shell .es-content [role=tab]{min-height:44px}.es-shell .es-content a.es-btn,.es-shell .es-content label.es-btn{min-height:44px}}
+@media (max-width:767.98px){.es-shell .docSearch{height:44px}.es-shell .es-content table button,.es-shell .es-content .dataTable button{min-height:40px;min-width:44px}}
+@media (max-width:767.98px){.es-shell .es-content .textBtn,.es-shell .es-content button[aria-label^='Exporter en']{min-height:44px!important;min-width:44px!important}.es-shell .docToolbar{flex-direction:column;align-items:stretch}.es-shell .docToolbar select{width:100%}}

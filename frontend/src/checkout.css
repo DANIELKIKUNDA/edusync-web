@@ -29,3 +29,9 @@
 .feeTotals b{font-variant-numeric:tabular-nums;margin-left:4px}
 .feeTotals small{flex-basis:100%;font-size:11.5px;color:#6b778c}
 @media (max-width:767.98px){.feeSearch{max-width:none;width:100%}}
+/* Brand consistency: the finance module used a teal accent; EduSync's accent is blue everywhere. */
+.es-shell .financeTabs button.active,.es-shell .checkoutSubtabs button.active,.es-shell .recoverySubtabs button.active{color:#0f4fbf;border-bottom-color:#0f4fbf}
+.es-shell .checkoutSearchBox:focus-within{border-color:#0f4fbf;box-shadow:0 0 0 4px rgba(15,79,191,.10)}
+.es-shell .familyChips button.active,.es-shell .paymentChoice button.active{border-color:#0f4fbf;color:#0f4fbf;background:#f5f8ff}
+.es-shell .payerAvatar{background:#0f4fbf}
+.es-shell .recoveryRow strong,.es-shell .recoveryRow.total{color:#0b3f9c}

@@ -1,0 +1,132 @@
+[
+  {
+    "check": "cash.open",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"bfda4a84-0745-404a-bd99-b6fb1aadabc2\",\"school_id\":\"e9f04fe8-f086-4da8-a8b6-7c6a5c11c7bd\",\"membership_id\":\"cb942051-6822-43f0-b1fc-cffe4ce9aeb7\""
+  },
+  {
+    "check": "cash.open",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"394af3fe-d04e-4243-86a1-65ceb07ad188\",\"school_id\":\"e9f04fe8-f086-4da8-a8b6-7c6a5c11c7bd\",\"membership_id\":\"7f4c9c6c-c01b-4cfd-b4f9-81b401290686\""
+  },
+  {
+    "check": "cash.open",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"79d8e946-ce5f-4a76-a623-b2c63328c184\",\"school_id\":\"c3fc01a5-9577-4c96-ae99-7ec22d9a6f7e\",\"membership_id\":\"6a700705-763b-40d4-a0e8-6a9a0141a5fc\""
+  },
+  {
+    "check": "sequential: OCTOBRE locked while SEPTEMBRE due",
+    "pass": true,
+    "detail": "SEPTEMBRE doit être soldé d’abord"
+  },
+  {
+    "check": "collect CDF partial payment (fresh install)",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"d05b6139-62c9-4514-b23d-e2cf087f83b8\",\"receipt_number\":\"REC-D05B6139\",\"amount\":\"20000\",\"currency\":\"CDF\",\"replayed\":false,\"allocations\":[{\"label\":\"SEPTEMBRE\",\"amount\":\"20000\"}],\"advance\":null}"
+  },
+  {
+    "check": "replay same key+payload returns same receipt",
+    "pass": true,
+    "detail": "{\"id\":\"d05b6139-62c9-4514-b23d-e2cf087f83b8\",\"receipt_number\":\"REC-D05B6139\",\"amount\":20000.0,\"currency\":\"CDF\",\"replayed\":true}"
+  },
+  {
+    "check": "replay same key with different payload is rejected (409)",
+    "pass": true,
+    "detail": "HTTP 409 {\"detail\":\"Idempotency-Key déjà utilisée pour un autre encaissement\"}"
+  },
+  {
+    "check": "replays did not double-allocate",
+    "pass": true,
+    "detail": "paid=20000.00"
+  },
+  {
+    "check": "over-payment without anticipation plan refused",
+    "pass": true,
+    "detail": "HTTP 409"
+  },
+  {
+    "check": "OCTOBRE refused before SEPTEMBRE settled",
+    "pass": true,
+    "detail": "HTTP 409"
+  },
+  {
+    "check": "collect CDF on enrollment that also owes USD",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"d2c3d46e-9e6f-45bb-8843-56f4caa142b1\",\"receipt_number\":\"REC-D2C3D46E\",\"amount\":\"10000\",\"currency\":\"CDF\",\"replayed\":false,\"allocations\":[{\"label\":\"SEPTEMBRE\",\"amount\":\"10000\"}],\"advance\":null}"
+  },
+  {
+    "check": "collect USD on same enrollment",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"c37bd7e7-39c3-4408-bcd5-cc1fa12c90d5\",\"receipt_number\":\"REC-C37BD7E7\",\"amount\":\"5\",\"currency\":\"USD\",\"replayed\":false,\"allocations\":[{\"label\":\"Frais d'inscription\",\"amount\":\"5\"}],\"advance\":null}"
+  },
+  {
+    "check": "CDF+USD in one payment refused",
+    "pass": true,
+    "detail": "HTTP 409"
+  },
+  {
+    "check": "currency mismatch with selected charge refused",
+    "pass": true,
+    "detail": "HTTP 409"
+  },
+  {
+    "check": "B cannot read A balance by known enrollment id",
+    "pass": true,
+    "detail": "HTTP 200 {\"items\":[]}"
+  },
+  {
+    "check": "B cannot collect on A charge",
+    "pass": true,
+    "detail": "HTTP 409 {\"detail\":\"Frais inconnu\"}"
+  },
+  {
+    "check": "B search does not return A students",
+    "pass": true,
+    "detail": "HTTP 200 n=0"
+  },
+  {
+    "check": "B cannot list A family children",
+    "pass": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "check": "A charge untouched by B attempts",
+    "pass": true,
+    "detail": "paid=20000.00"
+  },
+  {
+    "check": "2 cashiers concurrent: one full payment + one capped/refused, no over-allocation",
+    "pass": true,
+    "detail": "statuses=[200, 409] paid=40000.00 alloc=40000.00"
+  },
+  {
+    "check": "concurrent same Idempotency-Key: one payment, all responses 200 with same receipt",
+    "pass": true,
+    "detail": "payments=1 responses=[(200, 'REC-D71951B7'), (200, 'REC-D71951B7'), (200, 'REC-D71951B7')]"
+  },
+  {
+    "check": "ledger: paid_amount == sum(allocations) for every charge",
+    "pass": true,
+    "detail": "mismatches=0"
+  },
+  {
+    "check": "no duplicate receipt numbers",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "no cross-school allocation rows",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "no payment allocates more than its amount",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "cash session projection readable after payments",
+    "pass": true,
+    "detail": "{'opening': '0', 'receipts': '71000.00', 'expenses': '0', 'expected_cash': '71000.00', 'counted': None, 'variance': None}"
+  }
+]

@@ -1,0 +1,7 @@
+﻿{
+    "probe":  "http_security_probe",
+    "exit":  0,
+    "result":  "== 26/26 PASS -\u003e http-security-live.json",
+    "seconds":  13,
+    "fails":  ""
+}

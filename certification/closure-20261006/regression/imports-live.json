@@ -1,0 +1,127 @@
+[
+  {
+    "check": "3 official contracts, 5000 rows max",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "official template intact -> analyzed, 0 error",
+    "pass": true,
+    "detail": "{\"batch_id\":\"c1fb7211-3ca6-4ad9-ba47-a7b07eca0270\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
+  },
+  {
+    "check": "rejected: renamed column",
+    "pass": true,
+    "detail": "HTTP 400 {\"detail\":\"Structure du modèle EduSync modifiée : restaurez les colonnes officielles\"}"
+  },
+  {
+    "check": "rejected: deleted column",
+    "pass": true,
+    "detail": "HTTP 400 {\"detail\":\"Structure du modèle EduSync modifiée : restaurez les colonnes officielles\"}"
+  },
+  {
+    "check": "rejected: added column in the middle",
+    "pass": true,
+    "detail": "HTTP 400 {\"detail\":\"Structure du modèle EduSync modifiée : restaurez les colonnes officielles\"}"
+  },
+  {
+    "check": "rejected: contract sheet removed",
+    "pass": true,
+    "detail": "HTTP 400 {\"detail\":\"Ce fichier n’est pas un modèle officiel EduSync. Téléchargez d’abord le modèle proposé dans l’écran d’import."
+  },
+  {
+    "check": "rejected: wrong contract kind (staff template)",
+    "pass": true,
+    "detail": "HTTP 400 {\"detail\":\"Modèle EduSync incompatible avec ce type d’import\"}"
+  },
+  {
+    "check": "non-XLSX rejected (415)",
+    "pass": true,
+    "detail": "HTTP 415"
+  },
+  {
+    "check": "file > 10 MiB rejected (413)",
+    "pass": true,
+    "detail": "HTTP 413"
+  },
+  {
+    "check": "5001 rows rejected (413), nothing staged",
+    "pass": true,
+    "detail": "HTTP 413"
+  },
+  {
+    "check": "garbage bytes rejected (400, no 500)",
+    "pass": true,
+    "detail": "HTTP 400"
+  },
+  {
+    "check": "analysis writes nothing to students (staging only)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "execute without household confirmation refused",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "execute without Idempotency-Key refused",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "B cannot execute A's batch",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "B cannot download A's control report",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "B batch list does not show A's batch",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "3 concurrent executions of one batch -> 1 student",
+    "pass": true,
+    "detail": "students=1 outs=[None, True, True]"
+  },
+  {
+    "check": "same file staged twice: 2nd execution does not silently create a duplicate",
+    "pass": true,
+    "detail": "students=1 second=HTTP 409"
+  },
+  {
+    "check": "staff analyze",
+    "pass": true,
+    "detail": "{\"batch_id\":\"88a03da6-7aa3-48ab-aede-5dbba640572f\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
+  },
+  {
+    "check": "staff execute + replay -> 1 agent",
+    "pass": true,
+    "detail": "200/200 n=1"
+  },
+  {
+    "check": "finance history analyzed (both batches see the full remaining)",
+    "pass": true,
+    "detail": "{\"batch_id\":\"88826032-f7bd-4919-9d07-e83091a1afd7\",\"filename\":\"recette.xlsx\",\"total_rows\":1,\"valid_rows\":1,\"warning_rows\":0,\"error_rows\":0,\"can_execute\":true,\"preview\":[{\"row_number\":6,\"status\":\"VALID"
+  },
+  {
+    "check": "two stale batches cannot regularize more than what is owed",
+    "pass": true,
+    "detail": "net=50000.00 paid=0.00 regularized=50000.00 2nd=HTTP 409"
+  },
+  {
+    "check": "finance history creates no cash payment/receipt/cash event",
+    "pass": true,
+    "detail": "{'p': 6, 'e': 2} -> {'p': 6, 'e': 2}"
+  },
+  {
+    "check": "B's finance-history analysis never resolves A's charge",
+    "pass": true,
+    "detail": "cross-school rows=0"
+  }
+]

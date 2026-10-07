@@ -55,6 +55,18 @@ def port_open(port: int, host: str = "127.0.0.1") -> bool:
         return s.connect_ex((host, port)) == 0
 
 
+_WSL_IP: str | None = None
+
+
+def wsl_ip() -> str:
+    """Current WSL address (it changes across reboots); cached for the run."""
+    global _WSL_IP
+    if _WSL_IP is None:
+        r = subprocess.run(["wsl.exe", "-d", WSL_DISTRO, "--", "hostname", "-I"], capture_output=True, text=True, timeout=60)
+        _WSL_IP = (r.stdout.split() or ["127.0.0.1"])[0]
+    return _WSL_IP
+
+
 def wait(check, seconds: int, what: str) -> None:
     end = time.time() + seconds
     while time.time() < end:
@@ -85,7 +97,7 @@ def load_env(profile: str) -> dict[str, str]:
         env[k] = env[k].rsplit("/", 1)[0] + "/" + db
     if env.get("EDUSYNC_REDIS_URL"):
         head, _, tail = env["EDUSYNC_REDIS_URL"].rpartition("@")
-        env["EDUSYNC_REDIS_URL"] = f"{head}@127.0.0.1:{PORTS['redis']}/" + tail.split("/", 1)[1] if "/" in tail else env["EDUSYNC_REDIS_URL"]
+        env["EDUSYNC_REDIS_URL"] = f"{head}@{wsl_ip()}:{PORTS['redis']}/" + tail.split("/", 1)[1] if "/" in tail else env["EDUSYNC_REDIS_URL"]
     env.update(PYTHONUTF8="1", PYTHONPATH=str(ROOT / "backend" / "src"), EDUSYNC_API_BASE_URL=f"http://127.0.0.1:{PORTS['api']}/api/v1")
     env["EDUSYNC_CORS_ORIGINS"] = f"http://localhost:{PORTS['app']},http://127.0.0.1:{PORTS['app']}"
     return env
@@ -132,23 +144,26 @@ def start(profile: str, open_browser: bool) -> None:
     else:
         say("Base de données : démarrage…")
         subprocess.run([str(PG_BIN / "pg_ctl.exe"), "-D", str(PG_DATA), "-l", str(LOCAL / "postgres-certification.log"),
-                        "-o", f"-p {PORTS['postgres']} -c listen_addresses=127.0.0.1", "-w", "-t", "180", "start"], capture_output=True)
+                        "-o", f"-p {PORTS['postgres']} -c listen_addresses=127.0.0.1", "-w", "-t", "180", "start"],
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # never capture: postgres inherits the handles and would keep them open forever
         wait(lambda: port_open(PORTS["postgres"]), 240, "La base de données")
         say("Base de données : prête")
 
     # 2. Redis in WSL (kept alive by a hidden wsl.exe process).
-    if port_open(PORTS["redis"]):
+    ip = wsl_ip()
+    if port_open(PORTS["redis"], ip):
         say("Messagerie interne (Redis) : déjà démarrée")
     else:
         say("Messagerie interne (Redis) : démarrage…")
-        # Loopback-only copy of the private config: the WSL address changes across reboots, localhost does not
-        # (Windows forwards localhost to WSL).
+        # The WSL address can change after a reboot: the private config is rewritten with the current one
+        # (WSL loopback + current WSL address only; password and protected mode unchanged).
+        subprocess.run(["wsl.exe", "-d", WSL_DISTRO, "--", "sh", "-c", f"pkill -f 'redis-server.*:{PORTS['redis']}' || true"], capture_output=True)
         RUN.mkdir(parents=True, exist_ok=True)
-        lines = [("bind 127.0.0.1" if l.startswith("bind ") else l) for l in (LOCAL / "redis-certification.conf").read_text(encoding="utf-8").splitlines()]
+        lines = [(f"bind 127.0.0.1 {ip}" if l.startswith("bind ") else l) for l in (LOCAL / "redis-certification.conf").read_text(encoding="utf-8").splitlines()]
         (RUN / "redis.conf").write_text("\n".join(lines) + "\n", encoding="utf-8")
         conf = "/mnt/" + str(RUN / "redis.conf")[0].lower() + str(RUN / "redis.conf")[2:].replace("\\", "/")
         spawn("redis", ["wsl.exe", "-d", WSL_DISTRO, "--", "redis-server", conf])
-        wait(lambda: port_open(PORTS["redis"]), 60, "Redis")
+        wait(lambda: port_open(PORTS["redis"], ip), 60, "Redis")
         say("Messagerie interne (Redis) : prête")
 
     # 3. S3-compatible document storage (SeaweedFS, loopback only).
@@ -156,7 +171,10 @@ def start(profile: str, open_browser: bool) -> None:
         say("Stockage des documents : déjà démarré")
     else:
         say("Stockage des documents : démarrage…")
-        spawn("s3", ["cmd.exe", "/c", str(LOCAL / "s3" / "start-s3.cmd")])
+        s3dir = LOCAL / "s3"
+        spawn("s3", [str(s3dir / "bin" / "weed.exe"), "server", "-ip=127.0.0.1", "-ip.bind=127.0.0.1", "-dir=data",
+                     "-master.port=19333", "-master.telemetry=false", "-volume.port=18080", "-volume.max=8", "-filer",
+                     "-filer.port=18888", "-s3", f"-s3.port={PORTS['s3']}", "-s3.config=s3.json"], cwd=s3dir)
         wait(lambda: port_open(PORTS["s3"]), 90, "Le stockage des documents")
         say("Stockage des documents : prêt")
 
@@ -169,7 +187,7 @@ def start(profile: str, open_browser: bool) -> None:
         say("Serveur EduSync : déjà démarré")
     else:
         say("Serveur EduSync : démarrage…")
-        spawn("api", [str(PY), "-m", "uvicorn", "edusync.bootstrap.app:create_app", "--factory", "--host", "127.0.0.1", "--port", str(PORTS["api"])], env)
+        spawn("api", [str(PY), "-m", "uvicorn", "edusync.bootstrap.app:create_app", "--factory", "--host", "127.0.0.1", "--port", str(PORTS["api"]), "--no-server-header"], env)
         wait(lambda: http_ok(f"http://127.0.0.1:{PORTS['api']}/health"), 120, "Le serveur EduSync")
         say("Serveur EduSync : prêt")
     for name, module in (("outbox-worker", "edusync.modules.sync.outbox_worker"), ("communications-worker", "edusync.modules.communications.worker")):
@@ -283,7 +301,7 @@ def reset_blank(confirmed: bool) -> None:
 
 def status() -> None:
     profile = (RUN / "profile").read_text().strip() if (RUN / "profile").exists() else "—"
-    print(json.dumps({**{k: port_open(v) for k, v in PORTS.items()}, "profile": profile, "url": APP_URL}, indent=2, ensure_ascii=False))
+    print(json.dumps({**{k: port_open(v, wsl_ip() if k == "redis" else "127.0.0.1") for k, v in PORTS.items()}, "profile": profile, "url": APP_URL}, indent=2, ensure_ascii=False))
 
 
 def logs() -> None:

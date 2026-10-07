@@ -1,0 +1,52 @@
+[
+  {
+    "check": "link staff to access account",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"28cfce26-a9f4-4276-9814-4bcb8cea9c8b\",\"active\":true,\"reason\":\"Compte de l'agent\",\"staff_id\":\"dd3ffb97-aeb9-4245-8306-3e2d3943bfe5\",\"linked_at\":"
+  },
+  {
+    "check": "linked user can use API before exit",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "staff exit with linked access succeeds",
+    "pass": true,
+    "detail": "HTTP 200 {\"id\":\"dd3ffb97-aeb9-4245-8306-3e2d3943bfe5\",\"email\":null,\"notes\":null,\"phone\":null,\"gender\":null,\"status\":\"LEFT\",\"address\":null,\"version\":2,\"category"
+  },
+  {
+    "check": "linked membership deactivated after exit",
+    "pass": true,
+    "detail": "active=False"
+  },
+  {
+    "check": "existing access token of exited agent rejected",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "exited agent cannot log in again",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "check": "tenant role cannot reactivate a membership (RESTRICTIVE policy)",
+    "pass": true,
+    "detail": "('ProgrammingError', '(psycopg.errors.InsufficientPrivilege) la nouvelle ligne viole la politique de sécurité au niveau li')"
+  },
+  {
+    "check": "tenant role of A cannot deactivate a membership of B",
+    "pass": true,
+    "detail": "('OK', 0)"
+  },
+  {
+    "check": "B membership still active",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "tenant role cannot move a membership to another school",
+    "pass": true,
+    "detail": "('ProgrammingError', '(psycopg.errors.InsufficientPrivilege) droit refusé pour la table school_memberships')"
+  }
+]
