@@ -1,7 +1,7 @@
 # EduSync Web — rapport de clôture locale (avant staging)
 
 **Période** : 6 → 7 octobre 2026 · **Ingénieur** : Claude (Opus 5.5), mandat de Daniel KIKUNDA
-**Dépôt** : https://github.com/DANIELKIKUNDA/edusync-web · **Départ** : `1f801da` · **Candidat final** : voir §13
+**Dépôt** : https://github.com/DANIELKIKUNDA/edusync-web · **Départ** : `1f801da` · **Candidat final** : `52e226d`
 **Règle appliquée** : aucun comportement Desktop n'a été deviné (l'application Desktop n'est pas accessible).
 Toute règle métier non documentée dans le dépôt est classée **À CONFIRMER PAR LE PROPRIÉTAIRE**.
 
@@ -303,6 +303,13 @@ pilote dans une ou deux écoles.
 
 ---
 
-## 13. Commits
+## 13. Commits (branche `main`, poussés sur GitHub)
 
-(complété en fin de passe)
+| Commit | Contenu |
+|---|---|
+| `ecca42f` | Sessions bornées, installation vierge, stockage S3, SMS bac à sable, panier familial, reçus (migrations 0046–0050) |
+| `c9506c2` | Shell, connexion, compte, documents, interface du panier, connectivité honnête, lanceur local |
+| **`52e226d`** | **Candidat final** : corrections de l'audit des écrans, durcissement du lanceur, régression sur base neuve, rapport |
+
+Le commit qui suit ne fait qu'inscrire ce SHA dans le rapport. Rien n'a été déployé en production.
+`git status` propre ; les données et secrets locaux restent dans `.local/` (non versionné).
