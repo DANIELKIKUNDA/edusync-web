@@ -1,0 +1,82 @@
+[
+  {
+    "check": "Interface : CSP stricte (script-src 'self', pas de unsafe-eval ni d'inline script)",
+    "pass": true,
+    "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' dat"
+  },
+  {
+    "check": "Interface : frame-ancestors 'none' + X-Frame-Options DENY",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Interface : nosniff, Referrer-Policy, Permissions-Policy, COOP",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Interface : HTML revalidé à chaque visite (mise à jour garantie)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Interface : aucun en-tête serveur révélateur",
+    "pass": true,
+    "detail": "None"
+  },
+  {
+    "check": "API authentifiée : réponse non mise en cache partagé",
+    "pass": true,
+    "detail": "no-store, private, no-cache"
+  },
+  {
+    "check": "API : CSP, nosniff, DENY, pas d'en-tête Server",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "CORS : origine étrangère non autorisée",
+    "pass": true,
+    "detail": "None"
+  },
+  {
+    "check": "Cookie de session : HttpOnly, SameSite=Lax, chemin restreint",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Jeton d'accès jamais dans l'URL ni dans un cookie lisible par script",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "HSTS : non émis en HTTP local (HTTPS public : BLOCKED_EXTERNAL)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Création d'école : limitée à 150/h par compte (puis 429)",
+    "pass": true,
+    "detail": "premier 429 à l'essai 150"
+  },
+  {
+    "check": "429 : Retry-After et message en français",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compteur par compte : un autre compte n'est pas bloqué",
+    "pass": true,
+    "detail": "422"
+  },
+  {
+    "check": "Changement de mot de passe : limité à 50/h (anti-devinette)",
+    "pass": true,
+    "detail": "50 refus puis 429"
+  },
+  {
+    "check": "Connexion : verrouillage après tentatives répétées (garde dédiée)",
+    "pass": true,
+    "detail": "[401, 401, 401, 401, 401, 401, 429, 429, 429]"
+  }
+]

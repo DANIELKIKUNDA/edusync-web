@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     backup_status_file: str = ""
     # Push notifications: "disabled" (default) or "mock" (local certification). Real providers: BLOCKED_EXTERNAL.
     push_provider: str = "disabled"
+    # Multiplies every sensitive-operation rate limit (1 in production; raised only for local certification runs).
+    rate_limit_multiplier: float = 1.0
     redis_url: str = "redis://localhost:6379/0"
 
     jwt_secret: str = "dev-only-change-me-dev-only-change-me"

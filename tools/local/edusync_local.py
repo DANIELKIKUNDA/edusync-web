@@ -38,6 +38,8 @@ PROFILES = {"demo": "edusync_claude_fresh", "blank": "edusync_closure_blank"}
 PORTS = {"postgres": 55432, "redis": 16379, "s3": 18333, "api": 58100, "app": 5180}
 APP_URL = f"http://localhost:{PORTS['app']}/"
 DETACHED = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+BREAKAWAY_FROM_JOB = 0x01000000  # CREATE_BREAKAWAY_FROM_JOB
+HIDDEN_CONSOLE = 0x00000010 | 0x00000200  # CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP (window hidden via STARTUPINFO)
 
 
 def say(msg: str) -> None:
@@ -107,7 +109,17 @@ def spawn(name: str, args: list[str], env: dict[str, str] | None = None, cwd: Pa
     LOGS.mkdir(parents=True, exist_ok=True); RUN.mkdir(parents=True, exist_ok=True)
     log = open(LOGS / f"{name}.log", "ab")
     log.write(f"\n===== {time.strftime('%Y-%m-%d %H:%M:%S')} start {name}\n".encode())
-    proc = subprocess.Popen(args, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, creationflags=DETACHED)
+    # Each service gets its own hidden console. A console-less (DETACHED_PROCESS) service was killed with
+    # STATUS_CONTROL_C_EXIT whenever wsl.exe ran afterwards (Redis checks of a later start/status): reproduced
+    # 4/4, and 0/4 with a private hidden console. It also leaves the caller's job object when allowed.
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 0  # SW_HIDE
+    common = dict(cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, startupinfo=si)
+    try:
+        proc = subprocess.Popen(args, creationflags=HIDDEN_CONSOLE | BREAKAWAY_FROM_JOB, **common)
+    except OSError:
+        proc = subprocess.Popen(args, creationflags=HIDDEN_CONSOLE, **common)  # the job forbids breakaway
     (RUN / f"{name}.pid").write_text(str(proc.pid))
 
 
@@ -175,7 +187,8 @@ def start(profile: str, open_browser: bool) -> None:
         spawn("s3", [str(s3dir / "bin" / "weed.exe"), "server", "-ip=127.0.0.1", "-ip.bind=127.0.0.1", "-dir=data",
                      "-master.port=19333", "-master.telemetry=false", "-volume.port=18080", "-volume.max=8", "-filer",
                      "-filer.port=18888", "-s3", f"-s3.port={PORTS['s3']}", "-s3.config=s3.json"], cwd=s3dir)
-        wait(lambda: port_open(PORTS["s3"]), 90, "Le stockage des documents")
+        # Cold start right after a Windows reboot measured at ~4 min (2026-10-08): allow 6 min.
+        wait(lambda: port_open(PORTS["s3"]), 360, "Le stockage des documents")
         say("Stockage des documents : prêt")
 
     # 4. Database schema up to date for the chosen profile.
@@ -200,8 +213,16 @@ def start(profile: str, open_browser: bool) -> None:
         say("Interface : déjà démarrée")
     else:
         cfg = RUN / "vite.local.config.mjs"
-        cfg.write_text("export default {preview:{host:'127.0.0.1',port:%d,strictPort:true,proxy:{'/api':'http://127.0.0.1:%d','/health':'http://127.0.0.1:%d'}}};\n"
-                       % (PORTS["app"], PORTS["api"], PORTS["api"]), encoding="utf-8")
+        # Same security headers as the production nginx (frontend/nginx.conf).
+        headers = {
+            "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+                                       "font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; "
+                                       "base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+            "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin",
+            "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()", "Cross-Origin-Opener-Policy": "same-origin",
+        }
+        cfg.write_text("export default {preview:{host:'127.0.0.1',port:%d,strictPort:true,headers:%s,proxy:{'/api':'http://127.0.0.1:%d','/health':'http://127.0.0.1:%d'}}};\n"
+                       % (PORTS["app"], json.dumps(headers), PORTS["api"], PORTS["api"]), encoding="utf-8")
         spawn("app", ["node", str(ROOT / "frontend" / "node_modules" / "vite" / "bin" / "vite.js"), "preview", str(ROOT / "frontend"), "--config", str(cfg)])
         wait(lambda: http_ok(f"http://127.0.0.1:{PORTS['app']}/"), 60, "L’interface")
         say("Interface : prête")

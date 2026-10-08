@@ -36,6 +36,7 @@ from edusync.modules.setup.api.router import router as setup_router
 from edusync.shared.infrastructure.observability import CorrelationLoggingMiddleware, configure_logging
 from edusync.shared.infrastructure.security_headers import SecurityHeadersMiddleware
 from edusync.shared.infrastructure.api_guard import ApiGuardMiddleware
+from edusync.shared.infrastructure.rate_limit import RateLimitMiddleware
 
 
 def _exact_decimal_json() -> None:
@@ -58,6 +59,7 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     async def capability_denied_handler(request, exc):
         return JSONResponse(status_code=403, content={"detail": str(exc)})
 
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(ApiGuardMiddleware, max_body_bytes=cfg.api_max_body_bytes, max_query_bytes=cfg.api_max_query_bytes)
     app.add_middleware(CorrelationLoggingMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)

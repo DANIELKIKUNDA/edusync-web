@@ -117,3 +117,22 @@ def test_notifications_are_unique_per_recipient_with_safe_links_and_no_real_push
     assert Settings(_env_file=None).push_provider == "disabled"
     router = (ROOT / "backend/src/edusync/modules/notifications_center/api/router.py").read_text(encoding="utf-8")
     assert "ON CONFLICT DO NOTHING" in router and "hashlib.sha256(body.endpoint" in router and "actor.require(SEND_CAP)" in router
+
+
+def test_sensitive_operations_are_rate_limited_and_web_app_sends_security_headers():
+    rl = (ROOT / "backend/src/edusync/shared/infrastructure/rate_limit.py").read_text(encoding="utf-8")
+    for bucket in ("setup", "password", "school_create", "user_create", "role_manage", "mass_notify", "user_critical", "audit_export"):
+        assert f'"{bucket}"' in rl
+    assert "app.add_middleware(RateLimitMiddleware)" in (ROOT / "backend/src/edusync/bootstrap/app.py").read_text(encoding="utf-8")
+    from edusync.bootstrap.settings import Settings
+    assert Settings(_env_file=None).rate_limit_multiplier == 1.0
+    nginx = (FRONT / "nginx.conf").read_text(encoding="utf-8")
+    for h in ("Content-Security-Policy", "frame-ancestors 'none'", "X-Content-Type-Options", "Referrer-Policy", "immutable"):
+        assert h in nginx
+    assert "script-src 'self';" in nginx and "unsafe-eval" not in nginx
+
+
+def test_local_launcher_survives_wsl_and_terminal_closure():
+    s = (ROOT / "tools/local/edusync_local.py").read_text(encoding="utf-8")
+    assert "HIDDEN_CONSOLE | BREAKAWAY_FROM_JOB" in s and "si.wShowWindow = 0" in s
+    assert 'wait(lambda: port_open(PORTS["s3"]), 360' in s
