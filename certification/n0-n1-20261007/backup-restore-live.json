@@ -1,0 +1,53 @@
+{
+  "database": "edusync_claude_fresh",
+  "started_at": "2026-10-08T17:12:27.831463+00:00",
+  "checks": [
+    {
+      "check": "Sauvegarde PostgreSQL (pg_dump, format custom)",
+      "pass": true,
+      "detail": "764 Ko en 1.0 s"
+    },
+    {
+      "check": "Sauvegarde des objets référencés",
+      "pass": true,
+      "detail": "5 objet(s), 0 introuvable(s)"
+    },
+    {
+      "check": "Objets sauvegardés conformes à l'empreinte enregistrée en base",
+      "pass": true,
+      "detail": "0 écart(s)"
+    },
+    {
+      "check": "Restauration PostgreSQL dans une base isolée",
+      "pass": true,
+      "detail": "22.2 s"
+    },
+    {
+      "check": "Écoles, comptes, rôles, attributions, documents, audit : comptes identiques",
+      "pass": true,
+      "detail": "{\"schools\": 13, \"users\": 54, \"school_memberships\": 45, \"rbac_roles\": 40, \"rbac_role_capabilities\": 1687, \"rbac_assignments\": 103, \"generated_documents\": 6, \"school_branding\": 1, \"audit_events\": 282, \"notifications\": 203, \"platform_account_status\": 4}"
+    },
+    {
+      "check": "Objets restaurés : empreintes SHA-256 identiques",
+      "pass": true,
+      "detail": "5/5"
+    },
+    {
+      "check": "Audit restauré toujours en ajout seul",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Sécurité au niveau des lignes (RLS) restaurée",
+      "pass": true,
+      "detail": "3/3 tables"
+    }
+  ],
+  "finished_at": "2026-10-08T17:13:06.623102+00:00",
+  "ok": true,
+  "restore_verified": true,
+  "duration_s": 38.8,
+  "backup_dir": ".local\\backups\\edusync_claude_fresh-20261008-181227",
+  "objects": 5,
+  "dump_bytes": 782644
+}
