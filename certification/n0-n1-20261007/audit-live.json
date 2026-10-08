@@ -1,0 +1,127 @@
+[
+  {
+    "check": "Audit : liste paginée (200), curseur suivant",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Audit : page suivante sans recouvrement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Filtre par action",
+    "pass": true,
+    "detail": "9"
+  },
+  {
+    "check": "Filtre par école (code)",
+    "pass": true,
+    "detail": "50"
+  },
+  {
+    "check": "Filtre portée plateforme",
+    "pass": true,
+    "detail": "50"
+  },
+  {
+    "check": "Filtre par auteur",
+    "pass": true,
+    "detail": "50"
+  },
+  {
+    "check": "Filtre par période (jour inclus)",
+    "pass": true,
+    "detail": "50"
+  },
+  {
+    "check": "Recherche plein texte (action, objet, motif)",
+    "pass": true,
+    "detail": "36"
+  },
+  {
+    "check": "Filtre invalide refusé proprement (422)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Détail : avant/après, auteur, portée, corrélation",
+    "pass": true,
+    "detail": "['id', 'occurred_at', 'school_id', 'actor_user_id', 'membership_id', 'action', 'entity_type', 'entity_id']"
+  },
+  {
+    "check": "Détail : clé d'idempotence interne non exposée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Détail inconnu -> 404",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Export sans date de début refusé (borne obligatoire)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Export > 92 jours refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Export CSV (UTF-8 BOM, ; séparateur, en-tête français)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Export : no-store et pièce jointe",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Export : aucune cellule ne commence par = + - @ (injection de formule neutralisée)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Export lui-même tracé dans l'audit",
+    "pass": true,
+    "detail": "1"
+  },
+  {
+    "check": "Append-only : UPDATE refusé (propriétaire)",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "Append-only : UPDATE refusé (plateforme)",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "Append-only : DELETE refusé (propriétaire)",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "Append-only : DELETE refusé (plateforme)",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "Sans platform.audit.read : lecture refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Sans platform.audit.export : export refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Performance : recherche d'audit < 300 ms en moyenne",
+    "pass": true,
+    "detail": "34 ms sur 266 événements"
+  }
+]

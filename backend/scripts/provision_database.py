@@ -177,6 +177,7 @@ def main() -> None:
             ("0051_persistent_sessions_worker_role", "0051_persistent_sessions_worker_role.sql"),
             ("0052_platform_governance", "0052_platform_governance.sql"),
             ("0053_school_suspension_effects", "0053_school_suspension_effects.sql"),
+            ("0054_platform_audit_indexes", "0054_platform_audit_indexes.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):

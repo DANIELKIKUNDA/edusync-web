@@ -343,3 +343,10 @@ export async function teamResetPassword(token:string,id:string,new_password:stri
 export type HealthComponent={key:string;label:string;state:'OK'|'DEGRADED'|'DOWN'|'NOT_CONFIGURED';detail:string;measured_ms?:number|null;age_seconds?:number|null;value?:number|null};
 export type SystemHealth={checked_at:string;overall:'OK'|'DEGRADED'|'DOWN';components:HealthComponent[];figures:{schools_active?:number;sessions_open?:number}};
 export async function systemHealth(token:string){return json<SystemHealth>(await fetch(`${API}/platform/system/health`,{headers:auth(token),cache:'no-store'}),'Santé du système indisponible')}
+
+export type AuditFilters={q:string;action:string;scope:string;school:string;actor:string;result:string;date_from:string;date_to:string};
+export type AuditRow={id:string;occurred_at:string;school_id:string|null;school_code:string|null;school_name:string|null;actor_user_id:string|null;actor:string|null;action:string;entity_type:string;entity_id:string|null;source:string;result:string;reason:string|null;correlation_id:string|null;has_changes:boolean};
+function auditQuery(f:AuditFilters,extra:Record<string,string|undefined>={}){return qp({...Object.fromEntries(Object.entries(f).map(([k,v])=>[k,v||undefined])),...extra})}
+export async function auditLog(token:string,f:AuditFilters,cursor:{at:string;id:string}|null){return json<{items:AuditRow[];has_more:boolean;actions:string[];next_cursor:{at:string;id:string}|null}>(await fetch(`${API}/platform/audit-log${auditQuery(f,{limit:'50',cursor_at:cursor?.at,cursor_id:cursor?.id})}`,{headers:auth(token)}),'Audit indisponible')}
+export async function auditEvent(token:string,id:string){return json<any>(await fetch(`${API}/platform/audit-log/${id}`,{headers:auth(token)}),'Événement indisponible')}
+export async function auditExport(token:string,f:AuditFilters){const r=await fetch(`${API}/platform/audit-log/export.csv${auditQuery(f)}`,{headers:auth(token)});if(!r.ok)throw new UserFacingError(await serverDetail(r,'Export impossible'));return r.blob()}
