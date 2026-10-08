@@ -7,6 +7,7 @@ import json,logging,time
 from uuid import uuid4
 from sqlalchemy import create_engine,text
 import redis
+from edusync.shared.infrastructure.heartbeat import beat
 from edusync.bootstrap.settings import Settings, worker_url
 from edusync.modules.communications.providers import provider_for
 
@@ -105,6 +106,7 @@ def run():
   try:
    if time.monotonic()-last_reports>=30:
     reconcile_delivery_reports(cfg,engine);last_reports=time.monotonic()
+   beat(r,'communications')
    if not run_once(cfg,r,engine):time.sleep(.5)
   except Exception:
    log.exception('communications worker iteration failed')

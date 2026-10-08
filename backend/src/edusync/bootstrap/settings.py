@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     owner_database_url: str = "postgresql+psycopg://edusync_owner:owner-change-me@localhost:5432/edusync"
     # Background workers (outbox, SMS). Never the owner/migrator credentials.
     worker_database_url: str = ""
+    # JSON report written by the backup job ({"finished_at", "ok", "restore_verified"}); empty = not configured.
+    backup_status_file: str = ""
     redis_url: str = "redis://localhost:6379/0"
 
     jwt_secret: str = "dev-only-change-me-dev-only-change-me"

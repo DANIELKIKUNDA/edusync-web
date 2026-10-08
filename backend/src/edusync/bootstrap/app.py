@@ -11,6 +11,7 @@ from edusync.bootstrap.settings import Settings
 from edusync.modules.iam.api.router import router as auth_router
 from edusync.modules.platform.api.router import router as platform_router
 from edusync.modules.platform_team.api.router import router as platform_team_router
+from edusync.modules.platform_health.api.router import router as platform_health_router
 from edusync.modules.personnel.api.router import router as personnel_router
 from edusync.modules.settings.api.router import router as settings_router
 from edusync.modules.schooling.api.router import router as schooling_router
@@ -87,6 +88,7 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
 
     app.include_router(auth_router, prefix="/api/v1/auth")
     app.include_router(platform_team_router, prefix="/api/v1/platform/team")
+    app.include_router(platform_health_router, prefix="/api/v1/platform/system")
     app.include_router(platform_router, prefix="/api/v1/platform")
     app.include_router(settings_router, prefix="/api/v1/settings")
     app.include_router(personnel_router, prefix="/api/v1/personnel")

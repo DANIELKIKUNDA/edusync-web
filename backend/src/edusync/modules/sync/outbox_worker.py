@@ -10,6 +10,7 @@ import json, logging, time
 from uuid import uuid4
 from sqlalchemy import create_engine, text
 import redis
+from edusync.shared.infrastructure.heartbeat import beat
 from edusync.bootstrap.settings import Settings, worker_url
 
 QUEUE='edusync:outbox'
@@ -75,6 +76,7 @@ def run():
     r=redis.Redis.from_url(cfg.redis_url,decode_responses=True,socket_connect_timeout=3,socket_timeout=3)
     while True:
         try:
+            beat(r,'outbox')
             if not run_once(cfg,r,engine):time.sleep(0.5)
         except Exception:
             log.exception('outbox worker iteration failed')

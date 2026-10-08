@@ -1,0 +1,20 @@
+/* Atelier Pro — santé du système (hl-*). State is conveyed by text + icon, never by colour alone. */
+.hl{display:grid;gap:14px}
+.hl-banner{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;border:1px solid}
+.hl-banner>div{flex:1;display:grid;gap:2px}.hl-banner b{font-size:15px}.hl-banner small{font-size:12.5px;opacity:.8}
+.hl-banner.hl-ok{background:#ecf8f2;border-color:#bfe6d0;color:#14583a}
+.hl-banner.hl-warn{background:#fff7e8;border-color:#f3d9a6;color:#7a4b00}
+.hl-banner.hl-bad{background:#fdecea;border-color:#f3c3be;color:#8e1f17}
+.hl-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.hl-grid li{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid #e4e9f1;border-radius:14px}
+.hl-grid li>div{flex:1;display:grid;min-width:0}.hl-grid b{font-size:14px}.hl-grid small{font-size:12.5px;color:#5b6578;line-height:1.4}
+.hl-ico{width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:11px;background:#eef2f8;color:#33415c}
+.hl-pill{display:inline-flex;align-items:center;gap:6px;flex:none;padding:4px 10px;border-radius:999px;font-style:normal;font-size:12px;font-weight:700}
+.hl-pill i{width:8px;height:8px;border-radius:50%}
+.hl-ok .hl-pill{background:#e6f5ee;color:#166a43}.hl-ok .hl-pill i{background:#22a06b}
+.hl-warn .hl-pill{background:#fff1d6;color:#7a4b00}.hl-warn .hl-pill i{background:#e0a100}
+.hl-bad .hl-pill{background:#fde2df;color:#8e1f17}.hl-bad .hl-pill i{background:#d93c2f}
+.hl-off .hl-pill{background:#eef0f3;color:#4d5768}.hl-off .hl-pill i{background:#9aa3b2}
+.hl-bad.hl-grid li,.hl-grid li.hl-bad{border-color:#f3c3be}
+.hl-foot{margin:0;font-size:12.5px;color:#7f899b}
+@media (max-width:640px){.hl-banner{flex-wrap:wrap}.hl-banner .es-btn{width:100%;min-height:44px}.hl-grid{grid-template-columns:1fr}}

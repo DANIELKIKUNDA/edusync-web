@@ -1,0 +1,62 @@
+[
+  {
+    "check": "Santé : 200 pour le Manager",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Composants mesurés : API, base, cache, 2 workers, stockage, erreurs, sauvegarde",
+    "pass": true,
+    "detail": "['api', 'backup', 'database', 'errors', 'redis', 'storage', 'worker_communications', 'worker_outbox']"
+  },
+  {
+    "check": "Base : temps de réponse réellement mesuré",
+    "pass": true,
+    "detail": "Répond en 1 ms"
+  },
+  {
+    "check": "Cache : PING réellement mesuré",
+    "pass": true,
+    "detail": "Répond en 11 ms"
+  },
+  {
+    "check": "Stockage : requête signée réellement mesurée",
+    "pass": true,
+    "detail": "Répond en 28 ms"
+  },
+  {
+    "check": "Workers : signal de vie reçu (< 60 s)",
+    "pass": true,
+    "detail": "['Dernier signal il y a 3 s · 0 événement(s) en attente · 1 en quarantaine (intervention requise)', 'Dernier signal il y a 2 s · 1 SMS en attente, 6 définitivement non envoyé(s)']"
+  },
+  {
+    "check": "Sauvegarde non configurée : annoncée comme telle, jamais « OK »",
+    "pass": true,
+    "detail": "Aucune sauvegarde automatique configurée sur ce serveur"
+  },
+  {
+    "check": "Libellés humains (aucun code technique affiché)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compteur d'erreurs 5xx réellement alimenté (Redis, par heure)",
+    "pass": true,
+    "detail": "0 -> 1"
+  },
+  {
+    "check": "Signal de vie stocké sans donnée sensible",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Santé : accès conditionné à platform.health.read",
+    "pass": true,
+    "detail": "['platform.health.read', 'platform.schools.read']"
+  },
+  {
+    "check": "Performance : écran santé < 300 ms en moyenne (10 appels)",
+    "pass": true,
+    "detail": "56 ms"
+  }
+]

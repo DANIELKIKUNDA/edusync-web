@@ -339,3 +339,7 @@ export async function teamRevokeRole(token:string,id:string,role_code:string,rea
 export async function teamUserStatus(token:string,id:string,action:'suspend'|'reactivate',reason:string){return teamPost(token,`/users/${id}/${action}`,{reason},'Changement de statut impossible')}
 export async function teamRevokeSessions(token:string,id:string,reason:string,sessionId?:string){return teamPost(token,sessionId?`/users/${id}/sessions/${sessionId}/revoke`:`/users/${id}/sessions/revoke-all`,{reason},'Déconnexion impossible')}
 export async function teamResetPassword(token:string,id:string,new_password:string,reason:string){return teamPost(token,`/users/${id}/password-reset`,{new_password,reason},'Réinitialisation impossible')}
+
+export type HealthComponent={key:string;label:string;state:'OK'|'DEGRADED'|'DOWN'|'NOT_CONFIGURED';detail:string;measured_ms?:number|null;age_seconds?:number|null;value?:number|null};
+export type SystemHealth={checked_at:string;overall:'OK'|'DEGRADED'|'DOWN';components:HealthComponent[];figures:{schools_active?:number;sessions_open?:number}};
+export async function systemHealth(token:string){return json<SystemHealth>(await fetch(`${API}/platform/system/health`,{headers:auth(token),cache:'no-store'}),'Santé du système indisponible')}

@@ -27,7 +27,25 @@ class CorrelationLoggingMiddleware(BaseHTTPMiddleware):
             response=await call_next(request)
             response.headers['X-Correlation-ID']=correlation_id
             _log('http_request',correlation_id=correlation_id,path=request.url.path,method=request.method,status=response.status_code)
+            if response.status_code>=500:
+                _count_server_error(request)
             return response
         except Exception as exc:
             logging.getLogger('edusync').exception(json.dumps({'event':'http_unhandled_error','correlation_id':correlation_id,'path':request.url.path,'method':request.method,'error_type':type(exc).__name__}))
+            _count_server_error(request)
             raise
+
+
+def _count_server_error(request: Request) -> None:
+    """Hourly 5xx counter for the health screen (no path parameters, no user, no payload)."""
+    try:
+        state=request.app.state
+        r=getattr(state,'_errors_redis',None)
+        if r is None:
+            import redis
+            r=redis.Redis.from_url(state.services.settings.redis_url,socket_connect_timeout=.5,socket_timeout=.5)
+            state._errors_redis=r
+        from edusync.shared.infrastructure.heartbeat import record_server_error
+        record_server_error(r)
+    except Exception:  # noqa: BLE001 — observability never breaks a response
+        pass
