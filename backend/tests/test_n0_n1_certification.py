@@ -99,7 +99,7 @@ def test_school_suspension_has_real_effects_everywhere():
     platform = (ROOT / "backend/src/edusync/modules/platform/api/router.py").read_text(encoding="utf-8")
     assert "revoked_reason=coalesce(revoked_reason,'SCHOOL_SUSPENDED')" in platform
     iam = (ROOT / "backend/src/edusync/modules/iam/api/router.py").read_text(encoding="utf-8")
-    assert "m['school_status']!='ACTIVE'" in iam
+    assert "SELECT status FROM schools WHERE id=:sid" in iam
     docs = (ROOT / "backend/src/edusync/modules/documents/api/router.py").read_text(encoding="utf-8")
     assert "m.active AND s.status='ACTIVE'" in docs
     worker = (ROOT / "backend/src/edusync/modules/communications/worker.py").read_text(encoding="utf-8")
