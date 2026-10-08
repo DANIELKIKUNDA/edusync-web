@@ -127,7 +127,8 @@ def open_signed_document(token: str = Query(..., min_length=20, max_length=600),
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
     with services.tenant_db.tenant_transaction(school_id=UUID(claim["school_id"]), user_id=UUID(claim["user_id"])) as conn:
-        member = conn.execute(text("SELECT 1 FROM school_memberships WHERE user_id=:u AND school_id=:s AND active"), {"u": claim["user_id"], "s": claim["school_id"]}).first()
+        member = conn.execute(text("""SELECT 1 FROM school_memberships m JOIN schools s ON s.id=m.school_id
+            WHERE m.user_id=:u AND m.school_id=:s AND m.active AND s.status='ACTIVE'"""), {"u": claim["user_id"], "s": claim["school_id"]}).first()
         doc = conn.execute(text("SELECT object_key,content_type,file_name,format FROM generated_documents WHERE school_id=:s AND id=:id"), {"s": claim["school_id"], "id": claim["document_id"]}).mappings().first()
     if not member or not doc or not str(doc["object_key"]).startswith(f"schools/{claim['school_id']}/"):
         raise HTTPException(403, "Lien invalide")

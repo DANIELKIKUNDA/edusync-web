@@ -93,3 +93,16 @@ def test_every_team_mutation_requires_the_reserved_team_capability_and_an_idempo
             assert "actor.require(TEAM_CAP)" in body and "_key(idempotency_key)" in body, node.name
     assert 'TEAM_CAP = "platform.collaborators.manage"' in source
     assert "_guard_target(c, actor, user_id)" in source and "_active_managers" in source
+
+
+def test_school_suspension_has_real_effects_everywhere():
+    platform = (ROOT / "backend/src/edusync/modules/platform/api/router.py").read_text(encoding="utf-8")
+    assert "revoked_reason=coalesce(revoked_reason,'SCHOOL_SUSPENDED')" in platform
+    iam = (ROOT / "backend/src/edusync/modules/iam/api/router.py").read_text(encoding="utf-8")
+    assert "m['school_status']!='ACTIVE'" in iam
+    docs = (ROOT / "backend/src/edusync/modules/documents/api/router.py").read_text(encoding="utf-8")
+    assert "m.active AND s.status='ACTIVE'" in docs
+    worker = (ROOT / "backend/src/edusync/modules/communications/worker.py").read_text(encoding="utf-8")
+    assert "sc.status='ACTIVE'" in worker
+    prov = (ROOT / "backend/scripts/provision_database.py").read_text(encoding="utf-8")
+    assert 'GRANT SELECT (id, status) ON schools TO {WORKER_ROLE}' in prov and '"0053_school_suspension_effects.sql"' in prov

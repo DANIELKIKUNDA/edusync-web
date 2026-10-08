@@ -176,6 +176,7 @@ def main() -> None:
             ("0050_receipt_printing", "0050_receipt_printing.sql"),
             ("0051_persistent_sessions_worker_role", "0051_persistent_sessions_worker_role.sql"),
             ("0052_platform_governance", "0052_platform_governance.sql"),
+            ("0053_school_suspension_effects", "0053_school_suspension_effects.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):
@@ -281,8 +282,11 @@ def main() -> None:
             conn.exec_driver_sql(f"GRANT SELECT, UPDATE ON outbox_events, communication_deliveries TO {WORKER_ROLE}")
             conn.exec_driver_sql(f"GRANT SELECT ON communication_messages, communication_settings TO {WORKER_ROLE}")
             conn.exec_driver_sql(f"REVOKE INSERT, DELETE ON outbox_events, communication_deliveries FROM {WORKER_ROLE}")
-            sql = (MIGRATIONS / "0051_persistent_sessions_worker_role.sql").read_text(encoding="utf-8")
-            conn.exec_driver_sql(sql[sql.index("DO $$"):], execution_options={"no_parameters": True})  # policies only
+            # Only the status of a school (suspended school => SMS held), never its identity or contacts.
+            conn.exec_driver_sql(f"GRANT SELECT (id, status) ON schools TO {WORKER_ROLE}")
+            for name in ("0051_persistent_sessions_worker_role.sql", "0053_school_suspension_effects.sql"):
+                sql = (MIGRATIONS / name).read_text(encoding="utf-8")
+                conn.exec_driver_sql(sql[sql.index("DO $$"):], execution_options={"no_parameters": True})  # policies only
 
         conn.exec_driver_sql("ALTER TABLE idempotency_registry VALIDATE CONSTRAINT idempotency_scope_school_consistency")
 

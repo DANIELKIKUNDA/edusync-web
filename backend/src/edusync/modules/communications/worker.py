@@ -48,6 +48,7 @@ def _claim(engine,delivery_id=None):
    JOIN communication_messages m ON m.id=d.message_id LEFT JOIN communication_settings s ON s.school_id=d.school_id
    WHERE d.status IN ('PENDING','QUEUED','FAILED') AND d.attempts<:max_attempts AND (d.next_attempt_at IS NULL OR d.next_attempt_at<=now())
    AND (d.locked_until IS NULL OR d.locked_until<now()) {extra}
+   AND EXISTS (SELECT 1 FROM schools sc WHERE sc.id=d.school_id AND sc.status='ACTIVE')
    ORDER BY d.created_at,d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1"""),params).mappings().first()
   if not row:return None
   c.execute(text("UPDATE communication_deliveries SET processing_token=:token,locked_until=now()+(:lease||' seconds')::interval,status='QUEUED',queued_at=COALESCE(queued_at,now()) WHERE id=:id"),{'token':token,'lease':LEASE_SECONDS,'id':row['id']})

@@ -1,0 +1,127 @@
+[
+  {
+    "check": "Création d'école (201)",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Réponse perdue / double clic : même clé -> même école, rejouée",
+    "pass": true,
+    "detail": "true"
+  },
+  {
+    "check": "Code déjà utilisé (autre clé) -> 409",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Même clé, contenu différent -> 409 (pas de réutilisation silencieuse)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "4 créations simultanées du même code : une seule école, les autres 409",
+    "pass": true,
+    "detail": "[201, 409, 409, 409]"
+  },
+  {
+    "check": "Code normalisé en majuscules",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Administrateur initial créé (ADMIN_SYSTEME_ECOLE)",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Admin initial : connexion AUTO dans son école",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Admin initial : API école accessible",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Lien signé : vérifié avant suspension (pas de refus d'accès)",
+    "pass": true,
+    "detail": "503"
+  },
+  {
+    "check": "Suspension (200, auditée)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Suspension : toutes les sessions de l'école fermées",
+    "pass": true,
+    "detail": "SCHOOL_SUSPENDED"
+  },
+  {
+    "check": "Suspension : jeton en cours refusé par l'API",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Suspension : renouvellement de session refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Suspension : connexion refusée (AUTO)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Suspension : connexion explicite refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Suspension : lien de document signé refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Suspension : SMS en attente retenu par le worker (non envoyé, non perdu)",
+    "pass": true,
+    "detail": "{'status': 'PENDING', 'attempts': 0}"
+  },
+  {
+    "check": "Suspension : école exclue des notifications système ciblées",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Suspension répétée (nouvelle clé) : refusée proprement, pas de 500",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Réactivation (200)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Réactivation : connexion de nouveau possible",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Réactivation : lien signé de nouveau vérifié",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Réactivation : le SMS retenu est repris par le worker",
+    "pass": true,
+    "detail": "{'status': 'QUEUED', 'attempts': 1}"
+  },
+  {
+    "check": "Audit : création, admin initial, suspension, réactivation",
+    "pass": true,
+    "detail": "['SCHOOL_CREATED', 'SCHOOL_REACTIVATED', 'SCHOOL_SUSPENDED']"
+  }
+]

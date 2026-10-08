@@ -160,6 +160,10 @@ def suspend_school(
 
             def action():
                 school = ChangeSchoolStatus(schools, audit, outbox).suspend(request_actor, school_id, body.reason)
+                # Real effect: every open session of this school ends now (API calls already refuse a suspended school).
+                from sqlalchemy import text as _text
+                conn.execute(_text("""UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),
+                    revoked_reason=coalesce(revoked_reason,'SCHOOL_SUSPENDED') WHERE school_id=:s AND revoked_at IS NULL"""), {"s": str(school_id)})
                 return 200, _school_json(school)
 
             result = idem.execute(
