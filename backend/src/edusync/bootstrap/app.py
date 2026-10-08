@@ -55,6 +55,22 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.state.services = services or AppServices.build(cfg)
     from edusync.modules.documents.application.object_store import configure_storage
     configure_storage(getattr(app.state.services, "object_storage", None))
+    # Resilience (N0/N1 hardening): an unavailable dependency is a 503 the client can retry, never a 500,
+    # and the operator message names the component without leaking technical details.
+    from sqlalchemy.exc import InterfaceError as _DbInterfaceError, OperationalError as _DbOperationalError
+    from edusync.shared.infrastructure.object_storage import ObjectStorageError
+
+    @app.exception_handler(_DbOperationalError)
+    @app.exception_handler(_DbInterfaceError)
+    async def database_unavailable_handler(request, exc):
+        return JSONResponse(status_code=503, headers={"Retry-After": "5"},
+                            content={"detail": "Service momentanément indisponible (base de données). Réessayez dans un instant."})
+
+    @app.exception_handler(ObjectStorageError)
+    async def storage_unavailable_handler(request, exc):
+        return JSONResponse(status_code=503, headers={"Retry-After": "10"},
+                            content={"detail": "Stockage des documents momentanément indisponible. Réessayez dans un instant."})
+
     @app.exception_handler(CapabilityDenied)
     async def capability_denied_handler(request, exc):
         return JSONResponse(status_code=403, content={"detail": str(exc)})

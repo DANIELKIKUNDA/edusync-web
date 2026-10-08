@@ -1,0 +1,82 @@
+[
+  {
+    "check": "Référence : tout fonctionne",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Redis arrêté : la connexion reste possible (pas de 500)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Redis arrêté : santé « Hors service » en clair",
+    "pass": true,
+    "detail": "{'key': 'redis', 'label': 'Cache et files rapides', 'state': 'DOWN', 'detail': 'Injoignable', 'measured_ms': None}"
+  },
+  {
+    "check": "Redis arrêté : opération limitée en débit traitée normalement (validation 422, pas 500)",
+    "pass": true,
+    "detail": "422"
+  },
+  {
+    "check": "Redis rétabli : santé OK",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Stockage arrêté : document -> 503 avec message clair (pas 500)",
+    "pass": true,
+    "detail": "200 -> 503"
+  },
+  {
+    "check": "Stockage arrêté : santé « Hors service »",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Stockage rétabli : document de nouveau servi, intact",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Worker SMS arrêté : santé dégradée après 60 s sans signal",
+    "pass": true,
+    "detail": "Dernier signal aucun signal · 0 SMS en attente, 7 définitivement non envoyé(s)"
+  },
+  {
+    "check": "Worker relancé : signal de vie revenu",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "PostgreSQL arrêté : 503 avec message (pas 500)",
+    "pass": true,
+    "detail": "503"
+  },
+  {
+    "check": "PostgreSQL arrêté : mutation refusée en 503 (pas de faux succès)",
+    "pass": true,
+    "detail": "503"
+  },
+  {
+    "check": "PostgreSQL arrêté : sonde de vie du serveur toujours 200",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "PostgreSQL rétabli : l'API récupère seule (pool revalidé)",
+    "pass": true,
+    "detail": "2 s"
+  },
+  {
+    "check": "Aucun faux succès : l'école refusée pendant la panne n'existe pas",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Session conservée à travers la panne (pas de reconnexion)",
+    "pass": true,
+    "detail": ""
+  }
+]

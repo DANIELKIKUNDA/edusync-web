@@ -37,6 +37,9 @@ class DatabaseRuntime:
                         self.url,
                         pool_pre_ping=True,
                         pool_recycle=1800,
+                        # A database outage must surface quickly as a 503, not hang the request.
+                        pool_timeout=10,
+                        connect_args={"connect_timeout": 5},
                         future=True,
                     )
         return self._engine
