@@ -13,7 +13,7 @@ from edusync.adapters.postgres_repositories import (
     PostgresSchoolRepository,
     PostgresUserRepository,
 )
-from edusync.bootstrap.dependencies import get_services, require_platform_actor, require_school_actor
+from edusync.bootstrap.dependencies import get_services, platform_account_suspended, require_platform_actor, require_school_actor
 from edusync.bootstrap.services import AppServices
 from edusync.shared.application.context import ActorContext
 from edusync.modules.platform.domain.school import SchoolStatus
@@ -63,7 +63,7 @@ def _login_contexts(conn, user_id) -> list[dict]:
     platform = conn.execute(text("""SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
         WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM' AND r.status='ACTIVE'
           AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"""), {"u": str(user_id)}).first()
-    if platform:
+    if platform and not platform_account_suspended(conn, user_id):
         out.append({"scope": "PLATFORM", "school_code": None, "label": "Atelier Pro — administration de la plateforme"})
     return out
 
@@ -115,7 +115,7 @@ def login(body: LoginInput, request: Request, response: Response, services: AppS
             authz = PostgresAuthorizationRepository(conn)
             assignments = authz.effective_role_assignments(user.id, None)
             roles = authz.roles({a.role_id for a in assignments})
-            if not any(r.level.value == 'PLATFORM' and r.status.value == 'ACTIVE' for r in roles.values()):
+            if not any(r.level.value == 'PLATFORM' and r.status.value == 'ACTIVE' for r in roles.values()) or platform_account_suspended(conn, user.id):
                 raise HTTPException(status_code=403, detail="Connexion impossible")
             raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, user_agent=request.headers.get("user-agent", ""))
             # The access token is bound to its device session ("sid"), so logout/revocation is immediate.
@@ -249,7 +249,7 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
             m=conn.execute(text("SELECT active,version FROM school_memberships WHERE id=:id AND user_id=:uid AND school_id=:sid"),{'id':row['membership_id'],'uid':row['user_id'],'sid':row['school_id']}).mappings().first()
             if not m or not m['active'] or int(row['membership_version'] or 0)!=int(m['version']): raise HTTPException(401,'Session à renouveler')
             claims.update({'scope':'school','school_id':str(row['school_id']),'membership_id':str(row['membership_id']),'membership_version':m['version']})
-        elif not conn.execute(text("SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id WHERE a.user_id=:uid AND a.school_id IS NULL AND a.active=true AND r.level='PLATFORM' AND r.status='ACTIVE' AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"),{'uid':row['user_id']}).first(): raise HTTPException(401,'Session à renouveler')
+        elif not conn.execute(text("SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id WHERE a.user_id=:uid AND a.school_id IS NULL AND a.active=true AND r.level='PLATFORM' AND r.status='ACTIVE' AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"),{'uid':row['user_id']}).first() or platform_account_suspended(conn,row['user_id']): raise HTTPException(401,'Session à renouveler')
         token=create_access_token(subject=str(row['user_id']),secret=services.settings.jwt_secret,issuer=services.settings.jwt_issuer,audience=services.settings.jwt_audience,minutes=services.settings.access_token_minutes,claims=claims)
         if row['current_token']:
             # Rotate the opaque token; the previous one stays valid a few seconds for concurrent tabs only.

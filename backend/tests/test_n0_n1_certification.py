@@ -63,3 +63,33 @@ def test_boot_screen_is_styled_inline_and_dismissed_after_session_check():
     assert "<style>" in html and ".staticBoot{" in html and "/icons/edusync-mark.svg" in html
     app = (FRONT / "src/App.tsx").read_text(encoding="utf-8")
     assert "if(!restoring)dismissBoot()" in app
+
+
+def test_platform_custom_roles_are_governed_in_database_and_registered():
+    sql = (ROOT / "backend/migrations/0052_platform_governance.sql").read_text(encoding="utf-8")
+    assert "PLATFORM_CUSTOM" in sql and "rbac_platform_role_capability_guard" in sql and "platform_reserved_capabilities" in sql
+    assert "platform_account_status" in sql and "FORCE ROW LEVEL SECURITY" in sql
+    prov = (ROOT / "backend/scripts/provision_database.py").read_text(encoding="utf-8")
+    assert '"0052_platform_governance.sql"' in prov and '"platform_account_status"' in prov
+
+
+def test_platform_actor_counts_only_active_platform_roles_and_checks_suspension():
+    s = (ROOT / "backend/src/edusync/bootstrap/dependencies.py").read_text(encoding="utf-8")
+    assert 'role.level.value == "PLATFORM" and role.status.value == "ACTIVE"' in s
+    assert "platform_account_suspended(conn, user_id)" in s
+
+
+def test_every_team_mutation_requires_the_reserved_team_capability_and_an_idempotency_key():
+    import ast
+    path = ROOT / "backend/src/edusync/modules/platform_team/api/router.py"
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        verbs = [d.func.attr for d in node.decorator_list if isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)]
+        body = ast.get_source_segment(source, node) or ""
+        if any(v in {"post", "put", "patch", "delete"} for v in verbs):
+            assert "actor.require(TEAM_CAP)" in body and "_key(idempotency_key)" in body, node.name
+    assert 'TEAM_CAP = "platform.collaborators.manage"' in source
+    assert "_guard_target(c, actor, user_id)" in source and "_active_managers" in source

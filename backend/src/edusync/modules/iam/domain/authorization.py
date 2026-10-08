@@ -29,6 +29,7 @@ class RoleLevel(StrEnum):
 
 class RoleKind(StrEnum):
     PLATFORM_STANDARD = "PLATFORM_STANDARD"
+    PLATFORM_CUSTOM = "PLATFORM_CUSTOM"
     SCHOOL_STANDARD = "SCHOOL_STANDARD"
     SCHOOL_CUSTOM = "SCHOOL_CUSTOM"
 
@@ -107,7 +108,9 @@ class Role:
             raise ValueError("Un rôle plateforme ne dépend pas d'une école")
         if self.kind == RoleKind.SCHOOL_CUSTOM and self.school_id is None:
             raise ValueError("Un rôle personnalisé doit appartenir à une école")
-        if self.level == RoleLevel.SCHOOL and self.kind == RoleKind.PLATFORM_STANDARD:
+        if self.level == RoleLevel.SCHOOL and self.kind in (RoleKind.PLATFORM_STANDARD, RoleKind.PLATFORM_CUSTOM):
+            raise ValueError("Incohérence niveau/type de rôle")
+        if self.level == RoleLevel.PLATFORM and self.kind in (RoleKind.SCHOOL_STANDARD, RoleKind.SCHOOL_CUSTOM):
             raise ValueError("Incohérence niveau/type de rôle")
         if self.version < 1:
             raise ValueError("Version de rôle invalide")

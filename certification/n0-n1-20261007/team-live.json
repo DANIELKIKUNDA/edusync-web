@@ -1,0 +1,292 @@
+[
+  {
+    "check": "Manager : menu calculé par le serveur, 7 entrées dont Équipe",
+    "pass": true,
+    "detail": "['dashboard', 'schools', 'access', 'team', 'notifications', 'audit', 'diagnostics']"
+  },
+  {
+    "check": "Manager : rôle MANAGER_SYSTEME actif",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Catalogue plateforme : uniquement des capacités platform.*",
+    "pass": true,
+    "detail": "12"
+  },
+  {
+    "check": "Capacité de gouvernance d'équipe marquée réservée",
+    "pass": true,
+    "detail": "['platform.collaborators.manage']"
+  },
+  {
+    "check": "Création PLATFORM_CUSTOM en brouillon",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Double clic / réponse perdue : même clé -> même rôle, pas de doublon",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Code de rôle unique (nouvelle clé) -> 409",
+    "pass": true,
+    "detail": "409"
+  },
+  {
+    "check": "Rôle avec capacité réservée refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Rôle plateforme avec capacité ÉCOLE refusé (aucune capacité SCHOOL implicite)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Code de rôle invalide refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Base : capacité école dans un rôle plateforme bloquée par déclencheur",
+    "pass": true,
+    "detail": "IntegrityError"
+  },
+  {
+    "check": "Base : capacité réservée dans un rôle personnalisé bloquée",
+    "pass": true,
+    "detail": "IntegrityError"
+  },
+  {
+    "check": "Rôle standard non modifiable par l'API",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Rôle en brouillon non attribuable",
+    "pass": true,
+    "detail": "422"
+  },
+  {
+    "check": "Activation du rôle (audit)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Création concurrente du même compte : un seul compte",
+    "pass": true,
+    "detail": "[201, 409] users=1"
+  },
+  {
+    "check": "Création de compte auditée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte PLATFORM_CUSTOM : connexion AUTO vers Atelier Pro",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Menu différent : uniquement ce que le rôle ouvre",
+    "pass": true,
+    "detail": "['access', 'dashboard', 'diagnostics', 'schools']"
+  },
+  {
+    "check": "Lecture des écoles autorisée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Création d'école refusée (403)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit refusé (403)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Gestion d'équipe refusée (403)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Auto-promotion impossible (attribution de rôle à soi)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Aucune capacité ÉCOLE implicite : API école refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Cumul de rôles : attribution d'un 2e rôle",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Permissions effectives = union des rôles",
+    "pass": true,
+    "detail": "['platform.audit.read', 'platform.health.read', 'platform.schools.read']"
+  },
+  {
+    "check": "Cumul : audit devient accessible immédiatement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Fiche compte : rôles, permissions effectives, sessions, audit",
+    "pass": true,
+    "detail": "['AUDITEUR_11D44B', 'SUPPORT_11D44B']"
+  },
+  {
+    "check": "Archivage : nombre de comptes concernés annoncé",
+    "pass": true,
+    "detail": "{'id': '8349d127-0d51-4275-a02e-802cb0201816', 'status': 'ARCHIVED', 'users_losing_role': 1}"
+  },
+  {
+    "check": "Rôle archivé : capacité retirée immédiatement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Rôle archivé non modifiable",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Clonage d'un rôle archivé en nouveau brouillon",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Clonage du rôle Manager : la capacité réservée ne suit pas",
+    "pass": true,
+    "detail": "['platform.access.manage', 'platform.audit.export', 'platform.audit.read', 'platform.health.read', 'platform.notifications.system.send', 'platform.school_admin.bootstrap', 'platform.schools.activate', 'platform.schools.create', 'platform.schools.read', 'platform.schools.suspend', 'platform.schools.u"
+  },
+  {
+    "check": "Manager : suspension de soi-même refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager : retrait de son propre rôle refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager : réinitialisation de son propre mot de passe par cette voie refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Suspension : sessions révoquées",
+    "pass": true,
+    "detail": "{'user_id': '853ef26f-457b-4bb5-aec8-56d0b0bea3ef', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
+  },
+  {
+    "check": "Suspension : jeton en cours coupé immédiatement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Suspension : nouvelle connexion refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Réactivation : connexion de nouveau possible, rôles conservés",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Réinitialisation : sessions coupées",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Réinitialisation : ancien mot de passe refusé, nouveau accepté",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Mot de passe jamais écrit dans l'audit",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Second Manager créé par le Manager",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Suspension croisée simultanée : il reste toujours au moins un Manager actif",
+    "pass": true,
+    "detail": "[200, 409] actifs=1"
+  },
+  {
+    "check": "Retrait du rôle Manager d'un autre Manager (il en reste un)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Compte sans rôle : connexion AUTO refusée (aucun espace)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "RLS : le rôle tenant ne voit aucun rôle plateforme",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "check": "RLS : statut des comptes plateforme invisible au tenant",
+    "pass": true,
+    "detail": "ProgrammingError"
+  },
+  {
+    "check": "Audit présent : PLATFORM_ROLE_CREATED",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit présent : PLATFORM_ROLE_ARCHIVED",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit présent : PLATFORM_ROLE_CLONED",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit présent : PLATFORM_ROLE_ASSIGNED",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit présent : PLATFORM_ROLE_REVOKED",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit présent : PLATFORM_USER_SUSPENDED",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit présent : PLATFORM_USER_REACTIVATED",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit présent : PLATFORM_USER_PASSWORD_RESET",
+    "pass": true,
+    "detail": ""
+  }
+]

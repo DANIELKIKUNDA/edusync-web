@@ -175,6 +175,7 @@ def main() -> None:
             ("0049_finance_family_basket", "0049_finance_family_basket.sql"),
             ("0050_receipt_printing", "0050_receipt_printing.sql"),
             ("0051_persistent_sessions_worker_role", "0051_persistent_sessions_worker_role.sql"),
+            ("0052_platform_governance", "0052_platform_governance.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):
@@ -262,11 +263,13 @@ def main() -> None:
             "offline_charge_reservations", "offline_finance_incidents",
             "rbac_roles", "rbac_role_capabilities",
             "rbac_assignments", "rbac_assignment_scopes", "rbac_exception_grants",
+            "platform_account_status",
         ]
         conn.exec_driver_sql(
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON {', '.join(platform_dml)} TO {PLATFORM_ROLE}"
         )
         conn.exec_driver_sql(f"GRANT SELECT ON capability_catalog TO {PLATFORM_ROLE}")
+        conn.exec_driver_sql(f"GRANT SELECT ON platform_reserved_capabilities TO {PLATFORM_ROLE}")
         conn.exec_driver_sql(f"REVOKE UPDATE, DELETE ON audit_events FROM {PLATFORM_ROLE}")
         conn.exec_driver_sql(f"GRANT SELECT ON roles, permissions, role_permissions TO {PLATFORM_ROLE}")
 

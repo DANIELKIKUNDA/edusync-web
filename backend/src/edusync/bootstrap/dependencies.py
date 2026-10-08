@@ -56,6 +56,22 @@ def _assert_device_session_live(conn, claims: dict, user_id: UUID) -> None:
         raise HTTPException(status_code=401, detail="Session révoquée; reconnectez-vous", headers={"WWW-Authenticate": "Bearer"})
 
 
+def platform_permissions(conn, user_id: UUID) -> frozenset[str]:
+    """Effective platform capabilities: only ACTIVE roles of level PLATFORM count (a DRAFT or ARCHIVED role,
+    standard or custom, grants nothing), and only platform-scoped assignments (school_id NULL)."""
+    authz = PostgresAuthorizationRepository(conn)
+    assignments = authz.effective_role_assignments(user_id, None)
+    roles = authz.roles({a.role_id for a in assignments})
+    return frozenset(code for role in roles.values()
+                     if role.level.value == "PLATFORM" and role.status.value == "ACTIVE"
+                     for code in role.capability_codes)
+
+
+def platform_account_suspended(conn, user_id: UUID) -> bool:
+    from sqlalchemy import text as _text
+    return bool(conn.execute(_text("SELECT 1 FROM platform_account_status WHERE user_id=:u AND status='SUSPENDED'"), {"u": str(user_id)}).first())
+
+
 def require_platform_actor(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     services: AppServices = Depends(get_services),
@@ -74,10 +90,9 @@ def require_platform_actor(
         if int(claims.get("user_version", 0)) != user.version:
             raise HTTPException(status_code=401, detail="Jeton Atelier Pro obsolète; reconnectez-vous")
         _assert_device_session_live(conn, claims, user_id)
-        authz = PostgresAuthorizationRepository(conn)
-        assignments = authz.effective_role_assignments(user_id, None)
-        roles = authz.roles({a.role_id for a in assignments})
-        permissions = frozenset(code for role in roles.values() for code in role.capability_codes)
+        if platform_account_suspended(conn, user_id):
+            raise HTTPException(status_code=403, detail="Accès Atelier Pro suspendu")
+        permissions = platform_permissions(conn, user_id)
         if not permissions:
             raise HTTPException(status_code=403, detail="Aucun rôle Atelier Pro actif")
     return ActorContext(
