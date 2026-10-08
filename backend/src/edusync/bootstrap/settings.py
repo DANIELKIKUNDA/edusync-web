@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     worker_database_url: str = ""
     # JSON report written by the backup job ({"finished_at", "ok", "restore_verified"}); empty = not configured.
     backup_status_file: str = ""
+    # Push notifications: "disabled" (default) or "mock" (local certification). Real providers: BLOCKED_EXTERNAL.
+    push_provider: str = "disabled"
     redis_url: str = "redis://localhost:6379/0"
 
     jwt_secret: str = "dev-only-change-me-dev-only-change-me"

@@ -200,6 +200,7 @@ def _change_password(services: AppServices, user_id, body: "PasswordChangeInput"
         encoded = hash_password(body.new_password)
         result = conn.execute(text("UPDATE users SET password_hash=:password_hash, version=version+1 WHERE id=:user_id AND version=:version"), {"password_hash": encoded, "user_id": user_id, "version": user.version})
         n = conn.execute(text("UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason='PASSWORD_CHANGED' WHERE user_id=:uid AND revoked_at IS NULL"), {'uid': user_id}).rowcount
+        conn.execute(text("UPDATE push_subscriptions SET revoked_at=now(),revoked_reason='PASSWORD_CHANGED' WHERE user_id=:uid AND revoked_at IS NULL"), {'uid': user_id})
         if result.rowcount != 1:
             raise HTTPException(status_code=409, detail="Compte modifié; reconnectez-vous")
         _security_audit(conn, user_id=user_id, action="PASSWORD_CHANGED", school_id=school_id, detail={"sessions_revoked": n})
@@ -303,6 +304,7 @@ def logout_all(request: Request, response: Response, services: AppServices = Dep
         if uid is None:
             raise HTTPException(401, 'Session à renouveler')
         n = conn.execute(text("UPDATE user_device_sessions SET revoked_at=now(),revoked_reason='USER_LOGOUT_ALL' WHERE user_id=:u AND revoked_at IS NULL"), {'u': str(uid)}).rowcount
+        conn.execute(text("UPDATE push_subscriptions SET revoked_at=now(),revoked_reason='USER_LOGOUT_ALL' WHERE user_id=:u AND revoked_at IS NULL"), {'u': str(uid)})
         _security_audit(conn, user_id=uid, action='SESSIONS_REVOKED_ALL', detail={'sessions_revoked': n})
     response.delete_cookie(services.settings.persistent_session_cookie, path='/api/v1/auth')
 

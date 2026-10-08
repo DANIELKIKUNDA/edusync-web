@@ -1,0 +1,26 @@
+/* Notification center (nc-*). Severity is shown by text and icon, never by colour alone. */
+.nc-pop{width:min(400px,calc(100vw - 24px));max-height:min(560px,80vh);display:flex;flex-direction:column;padding-bottom:0}
+.nc-pop .nc-list{overflow:auto}
+.nc-link{border:0;background:transparent;color:#1557d6;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:4px 6px;border-radius:6px}
+.nc-link:hover{background:#e9f0ff}
+.nc-all{border:0;border-top:1px solid #edf0f5;background:#f8fafc;color:#1557d6;font:inherit;font-size:13px;font-weight:700;padding:12px;cursor:pointer;min-height:44px}
+.nc-all:hover{background:#eef3fb}
+.nc-list{list-style:none;margin:0;padding:0;display:grid}
+.nc-item{display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid #f0f2f6}
+.nc-item.nc-unread{background:#f6f9ff}
+.nc-sev{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:9px}
+.nc-info .nc-sev{background:#e9f0ff;color:#1d4fb8}.nc-warn .nc-sev{background:#fff1d6;color:#7a4b00}.nc-crit .nc-sev{background:#fde2df;color:#8e1f17}
+.nc-body{display:grid;gap:3px;min-width:0;flex:1}
+.nc-body b{display:flex;align-items:center;gap:6px;font-size:13.5px}
+.nc-body p{margin:0;font-size:13px;color:#3d4a63;line-height:1.45;overflow-wrap:anywhere}
+.nc-body small{font-size:11.5px;color:#7f899b}
+.nc-dot{width:8px;height:8px;border-radius:50%;background:#1557d6;flex:none}
+.nc-acts{display:flex;gap:6px;flex-wrap:wrap}.nc-acts:empty{display:none}
+.nc-acts .es-btn{min-height:32px;padding:4px 10px;font-size:12.5px;text-decoration:none}
+.nc-center{max-height:88vh;display:flex;flex-direction:column}
+.nc-center .nc-list{overflow:auto;border:1px solid #edf0f5;border-radius:12px}
+.nc-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.nc-tabs{margin:0;flex:1;min-width:240px}
+.nc-toolbar select{min-height:38px;border:1px solid #d5dbe6;border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;background:#fff}
+.nc-more{justify-self:center;margin-top:10px}
+@media (max-width:640px){.nc-toolbar select,.nc-toolbar .es-btn{flex:1;min-height:44px}.nc-acts .es-btn{min-height:44px}}

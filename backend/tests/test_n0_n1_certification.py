@@ -106,3 +106,14 @@ def test_school_suspension_has_real_effects_everywhere():
     assert "sc.status='ACTIVE'" in worker
     prov = (ROOT / "backend/scripts/provision_database.py").read_text(encoding="utf-8")
     assert 'GRANT SELECT (id, status) ON schools TO {WORKER_ROLE}' in prov and '"0053_school_suspension_effects.sql"' in prov
+
+
+def test_notifications_are_unique_per_recipient_with_safe_links_and_no_real_push():
+    sql = (ROOT / "backend/migrations/0055_notifications_center.sql").read_text(encoding="utf-8")
+    assert "uq_notifications_campaign_recipient" in sql and "notifications_link_path_ck" in sql and "push_subscriptions" in sql
+    push = (ROOT / "backend/src/edusync/shared/infrastructure/push.py").read_text(encoding="utf-8")
+    assert "class DisabledPushProvider" in push and "class MockPushProvider" in push and '"body"' not in push
+    from edusync.bootstrap.settings import Settings
+    assert Settings(_env_file=None).push_provider == "disabled"
+    router = (ROOT / "backend/src/edusync/modules/notifications_center/api/router.py").read_text(encoding="utf-8")
+    assert "ON CONFLICT DO NOTHING" in router and "hashlib.sha256(body.endpoint" in router and "actor.require(SEND_CAP)" in router

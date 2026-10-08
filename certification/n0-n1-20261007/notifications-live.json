@@ -1,0 +1,222 @@
+[
+  {
+    "check": "Cible : toutes les écoles actives = tous les membres actifs",
+    "pass": true,
+    "detail": "39 attendu 39 (1363 ms)"
+  },
+  {
+    "check": "Cible : école choisie",
+    "pass": true,
+    "detail": "28/28"
+  },
+  {
+    "check": "Cible : un rôle école dans une école",
+    "pass": true,
+    "detail": "12/12"
+  },
+  {
+    "check": "Cible : un membre précis",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Cible : toute l'équipe plateforme",
+    "pass": true,
+    "detail": "3"
+  },
+  {
+    "check": "Cible : un rôle plateforme",
+    "pass": true,
+    "detail": "1"
+  },
+  {
+    "check": "Cible : un compte plateforme",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Lien refusé : https://evil.example/x",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Lien refusé : //evil.example",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Lien refusé : javascript:alert(1)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Lien refusé : /ok\\..\\x",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Base : lien externe impossible même en SQL direct",
+    "pass": true,
+    "detail": "IntegrityError"
+  },
+  {
+    "check": "Rôle inconnu refusé (422)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Membre hors école refusé (aucun destinataire, 422)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Expiration dans le passé refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Même clé : rejouée, une seule campagne, pas de doublon",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "3 envois simultanés même clé : une seule campagne",
+    "pass": true,
+    "detail": "[201, 201, 201] campagnes=1"
+  },
+  {
+    "check": "Boîte école : le membre ciblé reçoit sa notification (avec lien interne)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Boîte école : un autre membre ne la voit pas",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Boîte école : aucune notification plateforme visible",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Boîte plateforme : reçue, gravité conservée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Boîte plateforme : aucune notification d'école",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "BOLA : un autre membre ne peut pas marquer la notification d'autrui",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "BOLA : le Manager ne peut pas marquer une notification d'école via sa boîte",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Lu / non lu : compteur décrémenté",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Filtre non lues",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Filtre gravité",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Tout marquer comme lu",
+    "pass": true,
+    "detail": "{'marked_read': 3}"
+  },
+  {
+    "check": "Historique paginé sans recouvrement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Expiration : une notification expirée disparaît de la boîte",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "École suspendue : refusée comme cible explicite",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "École suspendue : exclue de « toutes les écoles actives »",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Push : abonnement d'un appareil (simulateur)",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Push : réabonnement du même appareil sans doublon",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Push : l'adresse de l'appareil n'est jamais stockée en clair (empreinte seulement)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Push : envoyé à l'appareil abonné (fournisseur simulé)",
+    "pass": true,
+    "detail": "{'provider': 'mock', 'devices': 1, 'accepted': 1}"
+  },
+  {
+    "check": "Push : la charge ne contient ni le corps ni de donnée personnelle",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Push : appareil désabonné -> plus aucun envoi",
+    "pass": true,
+    "detail": "None"
+  },
+  {
+    "check": "Push multi-appareils : déconnexion globale -> tous les abonnements révoqués",
+    "pass": true,
+    "detail": "2 -> 0"
+  },
+  {
+    "check": "Sans platform.notifications.system.send : envoi refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte plateforme : sa propre boîte reste accessible",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte école : API de campagne refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Chaque campagne auditée",
+    "pass": true,
+    "detail": "12"
+  },
+  {
+    "check": "Liste des campagnes avec taux de lecture",
+    "pass": true,
+    "detail": ""
+  }
+]

@@ -1,0 +1,24 @@
+/* Atelier Pro — notification campaigns (cp-*). */
+.cp{display:grid;gap:12px}
+.cp-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.cp-bar p{margin:0}
+.cp-bar .es-btn{display:inline-flex;align-items:center;gap:6px}
+.cp-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cp-list li{display:flex;align-items:center;gap:16px;padding:13px 16px;background:#fff;border:1px solid #e4e9f1;border-radius:14px}
+.cp-main{flex:1;display:grid;min-width:0}.cp-main b{font-size:14px}.cp-main small{font-size:12px;color:#7f899b}
+.cp-read{display:grid;gap:5px;width:150px;flex:none;font-size:12.5px;color:#5b6578}
+.cp-read i{display:block;height:6px;border-radius:9px;background:#eef1f5;overflow:hidden}.cp-read em{display:block;height:100%;background:#22a06b}
+.cp-form{display:grid;gap:14px}
+.cp-targets{margin:0;padding:0;border:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.cp-targets legend,.cp-schools legend{font-size:13px;font-weight:700;margin-bottom:6px}
+.cp-targets label{display:flex;gap:9px;align-items:flex-start;padding:10px;border:1px solid #e1e6ef;border-radius:12px;cursor:pointer}
+.cp-targets label.cp-on{border-color:#1557d6;background:#f3f7ff}
+.cp-targets input{margin-top:3px;accent-color:#1557d6}
+.cp-targets span{display:grid}.cp-targets b{font-size:13px}.cp-targets small{font-size:11.5px;color:#7f899b}
+.cp-schools{margin:0;padding:10px;border:1px solid #e4e9f1;border-radius:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px;max-height:200px;overflow:auto}
+.cp-schools label{display:flex;gap:8px;align-items:center;font-size:13px;padding:6px;border-radius:8px;cursor:pointer}
+.cp-schools label:hover{background:#f5f7fb}.cp-schools small{color:#7f899b}
+.cp-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.cp-field{display:grid;gap:6px}.cp-field>span{font-size:13px;font-weight:700}
+.cp-field input,.cp-field select,.cp-field textarea{width:100%;min-height:42px;padding:9px 12px;border:1px solid #d5dbe6;border-radius:10px;font:inherit;font-size:14px;background:#fff;color:#14213d}
+.cp-field input:focus,.cp-field select:focus,.cp-field textarea:focus{outline:none;border-color:#1557d6;box-shadow:0 0 0 3px rgba(21,87,214,.14)}
+@media (max-width:640px){.cp-grid{grid-template-columns:1fr}.cp-list li{flex-direction:column;align-items:stretch}.cp-read{width:auto}.cp-bar .es-btn{width:100%;justify-content:center;min-height:44px}}

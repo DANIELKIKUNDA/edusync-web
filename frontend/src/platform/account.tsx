@@ -111,33 +111,5 @@ export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {t
   </Modal>;
 }
 
-export function NotificationBell({token, canDismiss}: {token: string; canDismiss: boolean}) {
-  const [items, setItems] = useState<InternalNotification[]>([]);
-  const [open, setOpen] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  async function load() { try { setItems((await listNotifications(token)).items); setFailed(false); } catch { setFailed(true); } }
-  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 120_000); return () => window.clearInterval(t); }, [token]);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    window.addEventListener('mousedown', onDown); window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
-  }, [open]);
-  const unread = items.filter(n => !n.read_at).length;
-  async function markRead(n: InternalNotification) { try { await dismissNotification(token, n.id); await load(); } catch { /* reste non lue */ } }
-  return <div className="es-account" ref={ref}>
-    <button className="es-icon-btn" aria-label={unread ? `Notifications, ${unread} non lue(s)` : 'Notifications'} aria-expanded={open} onClick={() => setOpen(x => !x)}>
-      <NavGlyph g="bell" size={18}/>{unread > 0 && <span className="es-badge">{unread > 9 ? '9+' : unread}</span>}
-    </button>
-    {open && <div className="es-pop" role="dialog" aria-label="Notifications">
-      <div className="es-pop-head"><span>Notifications</span>{unread > 0 && <small>{unread} non lue(s)</small>}</div>
-      {failed ? <div className="es-pop-empty">Notifications momentanément indisponibles.</div> : items.length === 0 ? <div className="es-pop-empty">Aucune notification.</div> :
-        items.slice(0, 30).map(n => <div key={n.id} className={`es-note ${n.read_at ? '' : 'es-unread'}`}>
-          <b>{n.title}</b><p>{n.body}</p><small>{new Date(n.created_at).toLocaleString('fr-FR', {dateStyle: 'medium', timeStyle: 'short'})}</small>
-          {!n.read_at && canDismiss && <button onClick={() => void markRead(n)}>Marquer comme lue</button>}
-        </div>)}
-    </div>}
-  </div>;
-}
+// The bell lives in notification_center.tsx (inbox with filters, pagination, read-all); re-exported for existing imports.
+export {NotificationBell} from './notification_center';

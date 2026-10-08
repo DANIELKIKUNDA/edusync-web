@@ -178,6 +178,7 @@ def main() -> None:
             ("0052_platform_governance", "0052_platform_governance.sql"),
             ("0053_school_suspension_effects", "0053_school_suspension_effects.sql"),
             ("0054_platform_audit_indexes", "0054_platform_audit_indexes.sql"),
+            ("0055_notifications_center", "0055_notifications_center.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):
@@ -200,6 +201,9 @@ def main() -> None:
         )
         conn.exec_driver_sql(
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON notifications, devices, sync_inbox, sync_cursors TO {TENANT_ROLE}"
+        )
+        conn.exec_driver_sql(
+            f"GRANT SELECT, INSERT, UPDATE ON push_subscriptions TO {TENANT_ROLE}"
         )
         conn.exec_driver_sql(
             f"GRANT SELECT, INSERT, UPDATE ON offline_finance_leases, offline_receipt_counters, "
@@ -265,7 +269,7 @@ def main() -> None:
             "offline_charge_reservations", "offline_finance_incidents",
             "rbac_roles", "rbac_role_capabilities",
             "rbac_assignments", "rbac_assignment_scopes", "rbac_exception_grants",
-            "platform_account_status",
+            "platform_account_status", "push_subscriptions",
         ]
         conn.exec_driver_sql(
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON {', '.join(platform_dml)} TO {PLATFORM_ROLE}"
