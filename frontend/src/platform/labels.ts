@@ -23,6 +23,19 @@ const ACTIONS: Record<string, string> = {
   COMMUNICATION_DELIVERY_RETRIED: 'Envoi de SMS relancé',
   USER_LOGIN: 'Connexion',
   PASSWORD_CHANGED: 'Mot de passe modifié',
+  SESSIONS_REVOKED_ALL: 'Déconnexion de tous les appareils',
+  SESSION_REVOKED: 'Appareil déconnecté',
+  PLATFORM_ROLE_CREATED: 'Rôle plateforme créé',
+  PLATFORM_ROLE_UPDATED: 'Rôle plateforme modifié',
+  PLATFORM_ROLE_ACTIVATED: 'Rôle plateforme activé',
+  PLATFORM_ROLE_ARCHIVED: 'Rôle plateforme archivé',
+  PLATFORM_ROLE_CLONED: 'Rôle plateforme cloné',
+  PLATFORM_USER_CREATED: 'Membre de l’équipe ajouté',
+  PLATFORM_USER_SUSPENDED: 'Compte plateforme suspendu',
+  PLATFORM_USER_REACTIVATED: 'Compte plateforme réactivé',
+  PLATFORM_USER_PASSWORD_RESET: 'Mot de passe réinitialisé',
+  PLATFORM_USER_SESSION_REVOKED: 'Appareil d’un membre déconnecté',
+  PLATFORM_USER_SESSIONS_REVOKED: 'Tous les appareils d’un membre déconnectés',
 };
 
 function humanize(code: string) {

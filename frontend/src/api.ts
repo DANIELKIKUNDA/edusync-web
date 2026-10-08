@@ -315,3 +315,27 @@ export async function printBasketReceipts(token:string,basketId:string,format?:'
 export async function getPrintSettings(token:string){return json<PrintSettings>(await fetch(`${API}/finance/checkout/print-settings`,{headers:auth(token)}),'Réglages indisponibles')}
 export async function putPrintSettings(token:string,body:{receipt_policy:PrintSettings['receipt_policy'];receipt_format:PrintSettings['receipt_format']}){return json<PrintSettings>(await fetch(`${API}/finance/checkout/print-settings`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Enregistrement impossible')}
 export async function familyCollect(token:string,body:{family_id:string;lines:BasketLineInput[]},key:string){return json<BasketResult>(await fetch(`${API}/finance/checkout/family-collect`,{method:'POST',headers:{...auth(token),'Idempotency-Key':key},body:JSON.stringify(body)}),'Encaissement du panier refusé')}
+
+// ---- Atelier Pro: platform team governance (N1) ----
+export type PlatformMe={user:{id:string;email:string;full_name:string};roles:{code:string;label:string;kind:string}[];permissions:string[];menu:{key:string;label:string;capability:string}[]};
+export type PlatformCapability={code:string;label:string;group_name:string;risk:string;reserved:boolean;reserved_reason:string|null;held:boolean;delegable:boolean};
+export type PlatformRole={id:string;code:string;label:string;description:string;kind:'PLATFORM_STANDARD'|'PLATFORM_CUSTOM';status:'DRAFT'|'OWNER_APPROVED'|'ACTIVE'|'ARCHIVED';version:number;updated_at:string;archived_at:string|null;capabilities:string[];active_users:number};
+export type PlatformTeamUser={id:string;email:string;full_name:string;account_active:boolean;platform_status:'ACTIVE'|'SUSPENDED';roles:string[];last_activity:string|null;open_sessions:number;created_at:string;is_me:boolean};
+export type PlatformTeamUserDetail=Omit<PlatformTeamUser,'roles'|'last_activity'|'open_sessions'>&{status_reason:string|null;status_changed_at:string|null;roles:{code:string;label:string;kind:string;status:string;active:boolean;created_at:string;reason:string|null}[];effective_permissions:string[];sessions:{id:string;label:string|null;created_at:string;last_seen_at:string}[];audit:{occurred_at:string;action:string;reason:string|null;actor:string|null}[]};
+const T=`${API}/platform/team`;
+async function teamPost<R=any>(token:string,path:string,body:unknown,fallback:string):Promise<R>{return json<R>(await fetch(`${T}${path}`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(body)}),fallback)}
+export async function platformMe(token:string){return json<PlatformMe>(await fetch(`${T}/me`,{headers:auth(token)}),'Profil Atelier Pro indisponible')}
+export async function teamCapabilities(token:string){return json<{items:PlatformCapability[]}>(await fetch(`${T}/capabilities`,{headers:auth(token)}),'Capacités indisponibles')}
+export async function teamRoles(token:string){return json<{items:PlatformRole[]}>(await fetch(`${T}/roles`,{headers:auth(token)}),'Rôles indisponibles')}
+export async function teamUsers(token:string,q=''){return json<{items:PlatformTeamUser[]}>(await fetch(`${T}/users${qp({q:q||undefined})}`,{headers:auth(token)}),'Équipe indisponible')}
+export async function teamUser(token:string,id:string){return json<PlatformTeamUserDetail>(await fetch(`${T}/users/${id}`,{headers:auth(token)}),'Compte indisponible')}
+export async function teamCreateRole(token:string,input:{code:string;label:string;description:string;capabilities:string[]}){return teamPost(token,'/roles',input,'Création du rôle impossible')}
+export async function teamUpdateRole(token:string,id:string,input:{label:string;description:string;capabilities:string[];version:number}){return json<any>(await fetch(`${T}/roles/${id}`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify(input)}),'Modification du rôle impossible')}
+export async function teamRoleStatus(token:string,id:string,action:'activate'|'archive',reason:string){return teamPost(token,`/roles/${id}/${action}`,{reason},'Changement de statut impossible')}
+export async function teamCloneRole(token:string,id:string,input:{code:string;label:string}){return teamPost(token,`/roles/${id}/clone`,input,'Clonage impossible')}
+export async function teamCreateUser(token:string,input:{email:string;full_name:string;password:string;role_codes:string[];reason:string}){return teamPost(token,'/users',input,'Création du compte impossible')}
+export async function teamAssignRole(token:string,id:string,role_code:string,reason:string){return teamPost(token,`/users/${id}/roles`,{role_code,reason},'Attribution impossible')}
+export async function teamRevokeRole(token:string,id:string,role_code:string,reason:string){return teamPost(token,`/users/${id}/roles/${encodeURIComponent(role_code)}/revoke`,{reason},'Retrait impossible')}
+export async function teamUserStatus(token:string,id:string,action:'suspend'|'reactivate',reason:string){return teamPost(token,`/users/${id}/${action}`,{reason},'Changement de statut impossible')}
+export async function teamRevokeSessions(token:string,id:string,reason:string,sessionId?:string){return teamPost(token,sessionId?`/users/${id}/sessions/${sessionId}/revoke`:`/users/${id}/sessions/revoke-all`,{reason},'Déconnexion impossible')}
+export async function teamResetPassword(token:string,id:string,new_password:string,reason:string){return teamPost(token,`/users/${id}/password-reset`,{new_password,reason},'Réinitialisation impossible')}
