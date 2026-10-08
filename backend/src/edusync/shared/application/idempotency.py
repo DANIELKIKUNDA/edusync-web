@@ -55,8 +55,11 @@ class IdempotentExecutor:
         try:
             status, body = action()
         except Exception as exc:
-            self.repository.fail(scope_key=scope_key, idempotency_key=key, error_code=type(exc).__name__)
-            raise
+            try:
+                self.repository.fail(scope_key=scope_key, idempotency_key=key, error_code=type(exc).__name__)
+            except Exception:  # noqa: BLE001 — the transaction is already aborted (e.g. a unique violation under
+                pass  # concurrency): the whole transaction rolls back anyway; keep the original error (-> 409, not 500)
+            raise exc
         stored = self.repository.succeed(
             scope_key=scope_key, idempotency_key=key,
             response_status=status, response_json=body,

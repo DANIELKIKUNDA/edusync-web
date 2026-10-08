@@ -36,11 +36,15 @@ router = APIRouter(tags=["Atelier Pro"])
 
 
 class SchoolCreate(BaseModel):
+    # N1 2026-10: identity + contacts + address, validated. No external logo URL: the logo is uploaded by the
+    # school (validated PNG/JPEG on private object storage), never hot-linked from another site.
     name: str = Field(min_length=2, max_length=160)
-    code: str = Field(min_length=2, max_length=32)
-    logo_url: str | None = None
-    email: str | None = None
-    phone: str | None = None
+    code: str = Field(min_length=2, max_length=32, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]{1,31}$")
+    email: str | None = Field(default=None, max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    phone: str | None = Field(default=None, max_length=24, pattern=r"^\+?[0-9 ().-]{6,24}$")
+    address: str | None = Field(default=None, max_length=300)
+    city: str | None = Field(default=None, max_length=120)
+    province: str | None = Field(default=None, max_length=120)
 
 
 class SuspendInput(BaseModel):
@@ -66,6 +70,7 @@ def _school_json(s):
     return {
         "id": str(s.id), "name": s.name, "code": s.code, "status": s.status.value,
         "logo_url": s.logo_url, "email": s.email, "phone": s.phone,
+        "address": s.address, "city": s.city, "province": s.province,
         "created_at": s.created_at.isoformat(), "updated_at": s.updated_at.isoformat(),
         "version": s.version,
     }

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "edusync-web-backend"
 version = "0.52.0"
-description = "EduSync Point 4D — Effectifs & Dépôts Web preservation-first"
+description = "EduSync Web backend (FastAPI, PostgreSQL RLS, multi-school SaaS)"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.128",
@@ -14,7 +14,7 @@ dependencies = [
   "psycopg[binary]>=3.2",
   "pydantic>=2.10",
   "pydantic-settings>=2.7",
-  "PyJWT>=2.10",
+  "PyJWT>=2.15",
   "argon2-cffi>=23.1",
   "redis>=5.2",
   "structlog>=25.1",

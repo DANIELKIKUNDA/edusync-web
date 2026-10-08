@@ -1,8 +1,9 @@
 FROM python:3.12-slim
 WORKDIR /app
-COPY pyproject.toml ./
+COPY pyproject.toml requirements.lock ./
 COPY src ./src
-RUN pip install --no-cache-dir .
+# Exact versions of the certified environment (supply chain: reproducible clean-clone build).
+RUN pip install --no-cache-dir -c requirements.lock .
 COPY migrations ./migrations
 COPY scripts ./scripts
 ENV PYTHONPATH=/app/src

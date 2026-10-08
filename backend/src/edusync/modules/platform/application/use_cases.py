@@ -30,6 +30,9 @@ class CreateSchoolCommand:
     logo_url: str | None = None
     email: str | None = None
     phone: str | None = None
+    address: str | None = None
+    city: str | None = None
+    province: str | None = None
 
 
 class CreateSchool:
@@ -40,12 +43,15 @@ class CreateSchool:
         actor.require("platform.schools.create")
         if self.schools.get_by_code(cmd.code.strip().upper()):
             raise ValueError("Ce code école existe déjà")
-        school = School(name=cmd.name, code=cmd.code, logo_url=cmd.logo_url, email=cmd.email, phone=cmd.phone)
+        clean = lambda v: (v or "").strip() or None  # noqa: E731
+        school = School(name=cmd.name, code=cmd.code, logo_url=cmd.logo_url, email=clean(cmd.email), phone=clean(cmd.phone),
+                        address=clean(cmd.address), city=clean(cmd.city), province=clean(cmd.province))
         self.schools.add(school)
         self.audit.append(AuditRecord(
             action="SCHOOL_CREATED", entity_type="School", entity_id=school.id,
             actor_user_id=actor.user_id, school_id=school.id, source=actor.source,
-            new_data={"name": school.name, "code": school.code, "status": school.status.value},
+            new_data={"name": school.name, "code": school.code, "status": school.status.value, "email": school.email,
+                      "phone": school.phone, "address": school.address, "city": school.city, "province": school.province},
             correlation_id=actor.correlation_id, idempotency_key=actor.idempotency_key,
         ))
         self.outbox.add(OutboxMessage(

@@ -1,0 +1,12 @@
+/* Atelier Pro — school creation dialog (sc-*). */
+.sc-form{display:grid;gap:14px}
+.sc-form fieldset{margin:0;padding:0;border:0;display:grid;gap:8px}
+.sc-form legend{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#7f899b;margin-bottom:6px}
+.sc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.sc-field{display:grid;gap:6px}.sc-field>span{font-size:13px;font-weight:700;color:#14213d}
+.sc-field input{width:100%;min-height:42px;padding:9px 12px;border:1px solid #d5dbe6;border-radius:10px;font:inherit;font-size:14px;background:#fff;color:#14213d}
+.sc-field input:focus{outline:none;border-color:#1557d6;box-shadow:0 0 0 3px rgba(21,87,214,.14)}
+.sc-field input[aria-invalid="true"]{border-color:#d9776c}
+.sc-field small{font-size:12px;font-weight:600;color:#a3221a}
+.sc-new{display:inline-flex;align-items:center;gap:6px}
+@media (max-width:640px){.sc-field input{font-size:16px;min-height:46px}}

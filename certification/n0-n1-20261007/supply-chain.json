@@ -1,0 +1,724 @@
+{
+ "python": [
+  {
+   "name": "annotated-doc",
+   "version": "0.0.5",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "annotated-types",
+   "version": "0.8.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "anyio",
+   "version": "4.15.1",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "argon2-cffi",
+   "version": "25.1.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "argon2-cffi-bindings",
+   "version": "26.1.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "certifi",
+   "version": "2026.7.22",
+   "license": "Mozilla Public License 2.0 (MPL 2.0)",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "cffi",
+   "version": "2.1.1",
+   "license": "MIT-0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "click",
+   "version": "8.5.0",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "colorama",
+   "version": "0.4.6",
+   "license": "BSD License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "et_xmlfile",
+   "version": "2.0.0",
+   "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "fastapi",
+   "version": "0.141.1",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "greenlet",
+   "version": "3.5.6",
+   "license": "MIT AND PSF-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "h11",
+   "version": "0.16.0",
+   "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "httpcore",
+   "version": "1.0.9",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "httptools",
+   "version": "0.8.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "httpx",
+   "version": "0.28.1",
+   "license": "BSD License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "idna",
+   "version": "3.19",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "iniconfig",
+   "version": "2.3.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "openpyxl",
+   "version": "3.1.5",
+   "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pillow",
+   "version": "12.3.0",
+   "license": "MIT-CMU",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pluggy",
+   "version": "1.6.0",
+   "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "psycopg",
+   "version": "3.3.5",
+   "license": "LGPL-3.0-only",
+   "class": "LGPL_LIAISON_DYNAMIQUE"
+  },
+  {
+   "name": "psycopg-binary",
+   "version": "3.3.5",
+   "license": "LGPL-3.0-only",
+   "class": "LGPL_LIAISON_DYNAMIQUE"
+  },
+  {
+   "name": "pycparser",
+   "version": "3.0",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pydantic",
+   "version": "2.13.5",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pydantic-settings",
+   "version": "2.15.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pydantic_core",
+   "version": "2.46.5",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "PyJWT",
+   "version": "2.15.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pypdf",
+   "version": "6.19.0",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pytest",
+   "version": "9.1.1",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "python-dotenv",
+   "version": "1.2.3",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "PyYAML",
+   "version": "6.0.3",
+   "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "redis",
+   "version": "8.1.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "reportlab",
+   "version": "5.0.1",
+   "license": "BSD License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "SQLAlchemy",
+   "version": "2.0.54",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "starlette",
+   "version": "1.6.0",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "structlog",
+   "version": "26.1.0",
+   "license": "MIT OR Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "typing-inspection",
+   "version": "0.4.4",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "typing_extensions",
+   "version": "4.16.0",
+   "license": "PSF-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "tzdata",
+   "version": "2026.4",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "uvicorn",
+   "version": "0.53.0",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "watchfiles",
+   "version": "1.2.0",
+   "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "websockets",
+   "version": "17.1",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "xlsxwriter",
+   "version": "3.2.9",
+   "license": "BSD License",
+   "class": "PERMISSIVE"
+  }
+ ],
+ "npm": [
+  {
+   "name": "@hookform/resolvers",
+   "version": "5.9.1",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@oxc-project/types",
+   "version": "0.150.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-android-arm-eabi",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-android-arm64",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-darwin-arm64",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-darwin-x64",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-freebsd-x64",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-linux-arm-gnueabihf",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-linux-arm64-gnu",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-linux-arm64-musl",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-linux-ppc64-gnu",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-linux-s390x-gnu",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-linux-x64-gnu",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-linux-x64-musl",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-openharmony-arm64",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-win32-arm64-msvc",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/binding-win32-x64-msvc",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@rolldown/pluginutils",
+   "version": "1.0.1",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@standard-schema/utils",
+   "version": "0.3.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@types/react",
+   "version": "19.3.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-aix-ppc64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-darwin-arm64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-darwin-x64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-freebsd-arm64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-freebsd-x64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-linux-arm",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-linux-arm64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-linux-loong64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-linux-mips64el",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-linux-ppc64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-linux-riscv64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-linux-s390x",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-linux-x64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-netbsd-arm64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-netbsd-x64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-openbsd-arm64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-openbsd-x64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-sunos-x64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-win32-arm64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@typescript/typescript-win32-x64",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@vitejs/plugin-react",
+   "version": "6.1.1",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "csstype",
+   "version": "3.2.3",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "detect-libc",
+   "version": "2.1.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "fdir",
+   "version": "6.5.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "fsevents",
+   "version": "2.3.3",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-android-arm64",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-darwin-arm64",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-darwin-x64",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-freebsd-x64",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-linux-arm-gnueabihf",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-linux-arm64-gnu",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-linux-arm64-musl",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-linux-x64-gnu",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-linux-x64-musl",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-win32-arm64-msvc",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "lightningcss-win32-x64-msvc",
+   "version": "1.33.0",
+   "license": "MPL-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "nanoid",
+   "version": "3.3.19",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "picocolors",
+   "version": "1.1.1",
+   "license": "ISC",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "picomatch",
+   "version": "4.0.7",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "postcss",
+   "version": "8.5.28",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "react",
+   "version": "19.3.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "react-dom",
+   "version": "19.3.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "react-hook-form",
+   "version": "7.88.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "rolldown",
+   "version": "1.2.9",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "scheduler",
+   "version": "0.28.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "sonner",
+   "version": "2.0.8",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "source-map-js",
+   "version": "1.2.2",
+   "license": "BSD-3-Clause",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "tinyglobby",
+   "version": "0.2.17",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "typescript",
+   "version": "7.0.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "vite",
+   "version": "8.3.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "zod",
+   "version": "4.6.5",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  }
+ ],
+ "lockfiles": {
+  "backend/requirements.lock": true,
+  "frontend/package-lock.json": true
+ },
+ "summary": {
+  "python": 44,
+  "npm_runtime": 72,
+  "flagged": [
+   {
+    "name": "psycopg",
+    "version": "3.3.5",
+    "license": "LGPL-3.0-only",
+    "class": "LGPL_LIAISON_DYNAMIQUE"
+   },
+   {
+    "name": "psycopg-binary",
+    "version": "3.3.5",
+    "license": "LGPL-3.0-only",
+    "class": "LGPL_LIAISON_DYNAMIQUE"
+   }
+  ]
+ }
+}

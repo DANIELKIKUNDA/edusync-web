@@ -130,6 +130,19 @@ with owner.connect() as c:
     acts = {r[0] for r in c.execute(text("SELECT action FROM audit_events WHERE entity_id=:s"), {"s": school_id})}
 check("Audit : création, admin initial, suspension, réactivation", {"SCHOOL_CREATED", "SCHOOL_SUSPENDED", "SCHOOL_REACTIVATED"} <= acts, sorted(acts))
 
+# ---------- full identity (contacts, address), validation ----------
+full = {"name": f"École complète {run}", "code": f"N1F-{run}", "email": "secretariat@ecole.test", "phone": "+243 81 000 0000",
+        "address": "12 avenue de la Paix", "city": "Goma", "province": "Nord-Kivu", "logo_url": "https://evil.example/x.png"}
+rf = post(mgr, "platform/schools", full)
+fj = rf.json() if rf.status_code == 201 else {}
+check("Création complète : contacts et adresse enregistrés", rf.status_code == 201 and fj.get("email") == full["email"] and fj.get("city") == "Goma" and fj.get("province") == "Nord-Kivu", rf.status_code)
+check("URL de logo externe ignorée (logo uniquement téléversé par l'école)", fj.get("logo_url") is None)
+for label, patch_ in (("e-mail", {"email": "pas-un-email"}), ("téléphone", {"phone": "abc"}), ("code", {"code": "A B"})):
+    bad = {**full, "code": f"N1X-{uuid4().hex[:5].upper()}", **patch_}
+    check(f"Validation : {label} invalide refusé (422)", post(mgr, "platform/schools", bad).status_code == 422)
+with owner.connect() as c:
+    au = c.execute(text("SELECT new_json FROM audit_events WHERE action='SCHOOL_CREATED' AND entity_id=:s"), {"s": fj.get("id")}).scalar_one_or_none()
+check("Audit de création : identité et contacts tracés", bool(au) and au.get("province") == "Nord-Kivu")
 out = Path(__file__).with_name("school-lifecycle-live.json")
 out.write_text(json.dumps(results, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
 print(f"== {sum(r['pass'] for r in results)}/{len(results)} PASS -> {out.name}")

@@ -64,8 +64,17 @@ def wsl_ip() -> str:
     """Current WSL address (it changes across reboots); cached for the run."""
     global _WSL_IP
     if _WSL_IP is None:
-        r = subprocess.run(["wsl.exe", "-d", WSL_DISTRO, "--", "hostname", "-I"], capture_output=True, text=True, timeout=60)
-        _WSL_IP = (r.stdout.split() or ["127.0.0.1"])[0]
+        cache = RUN / "wsl_ip"
+        try:
+            r = subprocess.run(["wsl.exe", "-d", WSL_DISTRO, "--", "hostname", "-I"], capture_output=True, text=True, timeout=60)
+            _WSL_IP = (r.stdout.split() or ["127.0.0.1"])[0]
+            RUN.mkdir(parents=True, exist_ok=True)
+            cache.write_text(_WSL_IP, encoding="ascii")
+        except subprocess.TimeoutExpired:
+            # WSL sometimes hangs (observed 2026-10-08): reuse the last known address instead of crashing;
+            # "wsl --shutdown" then a new start fixes WSL itself.
+            _WSL_IP = cache.read_text(encoding="ascii").strip() if cache.exists() else "127.0.0.1"
+            say("WSL ne répond pas : dernière adresse connue utilisée (si Redis échoue, exécutez « wsl --shutdown » puis relancez).")
     return _WSL_IP
 
 
@@ -171,7 +180,7 @@ def start(profile: str, open_browser: bool) -> None:
         # (WSL loopback + current WSL address only; password and protected mode unchanged).
         subprocess.run(["wsl.exe", "-d", WSL_DISTRO, "--", "sh", "-c", f"pkill -f 'redis-server.*:{PORTS['redis']}' || true"], capture_output=True)
         RUN.mkdir(parents=True, exist_ok=True)
-        lines = [(f"bind 127.0.0.1 {ip}" if l.startswith("bind ") else l) for l in (LOCAL / "redis-certification.conf").read_text(encoding="utf-8").splitlines()]
+        lines = [(("bind 127.0.0.1" if ip == "127.0.0.1" else f"bind 127.0.0.1 {ip}") if l.startswith("bind ") else l) for l in (LOCAL / "redis-certification.conf").read_text(encoding="utf-8").splitlines()]
         (RUN / "redis.conf").write_text("\n".join(lines) + "\n", encoding="utf-8")
         conf = "/mnt/" + str(RUN / "redis.conf")[0].lower() + str(RUN / "redis.conf")[2:].replace("\\", "/")
         spawn("redis", ["wsl.exe", "-d", WSL_DISTRO, "--", "redis-server", conf])

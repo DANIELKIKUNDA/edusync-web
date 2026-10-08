@@ -123,5 +123,35 @@
     "check": "Audit : création, admin initial, suspension, réactivation",
     "pass": true,
     "detail": "['SCHOOL_CREATED', 'SCHOOL_REACTIVATED', 'SCHOOL_SUSPENDED']"
+  },
+  {
+    "check": "Création complète : contacts et adresse enregistrés",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "URL de logo externe ignorée (logo uniquement téléversé par l'école)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Validation : e-mail invalide refusé (422)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Validation : téléphone invalide refusé (422)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Validation : code invalide refusé (422)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Audit de création : identité et contacts tracés",
+    "pass": true,
+    "detail": ""
   }
 ]
