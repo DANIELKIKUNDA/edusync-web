@@ -1,0 +1,124 @@
+{
+ "sha": "b5d91cc3111b1db453deb3c8f816662244145e74",
+ "steps": [
+  {
+   "step": "Tests backend (pytest)",
+   "command": "python.exe -m pytest -q -p no:cacheprovider --basetemp=../.local/pytest-tmp",
+   "result": "PASS",
+   "summary": "536 passed, 6 warnings in 410.78s (0:06:50)",
+   "duration_s": 447.4
+  },
+  {
+   "step": "Compilation Python (compileall)",
+   "command": "python.exe -m compileall -q src",
+   "result": "PASS",
+   "summary": "OK",
+   "duration_s": 11.3
+  },
+  {
+   "step": "Typecheck frontend (tsc)",
+   "command": "npx.cmd tsc --noEmit -p tsconfig.json",
+   "result": "PASS",
+   "summary": "0 erreur",
+   "duration_s": 66.8
+  },
+  {
+   "step": "Migrations sur base vierge (provisionnement)",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py backend/scripts/provision_database.py",
+   "result": "PASS",
+   "summary": "POINT-4A database provisioning: PASS",
+   "duration_s": 48.1
+  },
+  {
+   "step": "Sonde en conditions réelles : prereq_probe.py",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/prereq_probe.py",
+   "result": "PASS",
+   "summary": "== 42/42 PASS",
+   "duration_s": 91.1
+  },
+  {
+   "step": "Sonde en conditions réelles : team_probe.py",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/team_probe.py",
+   "result": "PASS",
+   "summary": "== 58/58 PASS",
+   "duration_s": 47.0
+  },
+  {
+   "step": "Sonde en conditions réelles : school_lifecycle_probe.py",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/school_lifecycle_probe.py",
+   "result": "PASS",
+   "summary": "== 31/31 PASS",
+   "duration_s": 48.9
+  },
+  {
+   "step": "Sonde en conditions réelles : health_probe.py",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/health_probe.py",
+   "result": "PASS",
+   "summary": "== 12/12 PASS",
+   "duration_s": 22.2
+  },
+  {
+   "step": "Sonde en conditions réelles : audit_probe.py",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/audit_probe.py",
+   "result": "PASS",
+   "summary": "== 25/25 PASS",
+   "duration_s": 21.5
+  },
+  {
+   "step": "Sonde en conditions réelles : notifications_probe.py",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/notifications_probe.py",
+   "result": "PASS",
+   "summary": "== 44/44 PASS",
+   "duration_s": 51.0
+  },
+  {
+   "step": "Sonde en conditions réelles : hardening_http_probe.py",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/hardening_http_probe.py",
+   "result": "PASS",
+   "summary": "== 17/17 PASS",
+   "duration_s": 86.8
+  },
+  {
+   "step": "Sonde en conditions réelles : resilience_probe.py",
+   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/resilience_probe.py",
+   "result": "FAIL",
+   "summary": "== 15/16 PASS",
+   "duration_s": 456.5
+  },
+  {
+   "step": "Sauvegarde + restauration vérifiée",
+   "command": "python.exe tools/local/backup_restore.py --db edusync_claude_fresh",
+   "result": "FAIL",
+   "summary": "(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+   "duration_s": 25918.3
+  },
+  {
+   "step": "Chaîne d'approvisionnement (licences, SBOM)",
+   "command": "python.exe tools/certification/supply_chain.py",
+   "result": "PASS",
+   "summary": "Python : 44 paquets · npm (exécution) : 72 · à examiner : 2",
+   "duration_s": 88.4
+  },
+  {
+   "step": "Vulnérabilités npm (npm audit)",
+   "command": "npm.cmd audit --omit=dev",
+   "result": "PASS",
+   "summary": "found 0 vulnerabilities",
+   "duration_s": 385.1
+  },
+  {
+   "step": "Scan de secrets",
+   "command": "python.exe .local/closure/secret_scan.py",
+   "result": "PASS",
+   "summary": "78 secrets checked across 1229 files: 0 leak(s)",
+   "duration_s": 320.6
+  }
+ ],
+ "versions": {
+  "OS": "Windows 11 (10.0.22631)",
+  "Python": "3.13.14",
+  "Node": "v24.19.0",
+  "PostgreSQL": "postgres (PostgreSQL) 16.11",
+  "Redis (WSL)": "TIMEOUT"
+ }
+}

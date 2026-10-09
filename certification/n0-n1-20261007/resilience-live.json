@@ -42,11 +42,11 @@
   {
     "check": "Worker SMS arrêté : santé dégradée après 60 s sans signal",
     "pass": true,
-    "detail": "Dernier signal aucun signal · 0 SMS en attente, 7 définitivement non envoyé(s)"
+    "detail": "Dernier signal il y a 73 s · 1 SMS en attente, 12 définitivement non envoyé(s)"
   },
   {
     "check": "Worker relancé : signal de vie revenu",
-    "pass": true,
+    "pass": false,
     "detail": ""
   },
   {
@@ -67,7 +67,7 @@
   {
     "check": "PostgreSQL rétabli : l'API récupère seule (pool revalidé)",
     "pass": true,
-    "detail": "2 s"
+    "detail": "4 s"
   },
   {
     "check": "Aucun faux succès : l'école refusée pendant la panne n'existe pas",

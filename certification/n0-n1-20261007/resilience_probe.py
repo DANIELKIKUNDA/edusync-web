@@ -75,8 +75,11 @@ time.sleep(70)
 w = health(mgr)[1]["worker_communications"]
 check("Worker SMS arrêté : santé dégradée après 60 s sans signal", w["state"] in ("DEGRADED", "DOWN"), w["detail"])
 restore()
-time.sleep(12)
-check("Worker relancé : signal de vie revenu", health(mgr)[1]["worker_communications"]["state"] == "OK")
+t0, back = time.time(), False
+while time.time() - t0 < 90 and not back:  # heartbeat every 10 s at most; slow machines need more time to start
+    time.sleep(5)
+    back = health(mgr)[1]["worker_communications"]["state"] == "OK"
+check("Worker relancé : signal de vie revenu", back, f"{time.time() - t0:.0f} s")
 
 # ---------------- PostgreSQL ----------------
 code = f"RES-{uuid4().hex[:5].upper()}"

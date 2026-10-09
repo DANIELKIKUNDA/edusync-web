@@ -12,7 +12,7 @@
   {
     "check": "Filtre par action",
     "pass": true,
-    "detail": "9"
+    "detail": "15"
   },
   {
     "check": "Filtre par école (code)",
@@ -37,7 +37,7 @@
   {
     "check": "Recherche plein texte (action, objet, motif)",
     "pass": true,
-    "detail": "36"
+    "detail": "50"
   },
   {
     "check": "Filtre invalide refusé proprement (422)",
@@ -122,6 +122,6 @@
   {
     "check": "Performance : recherche d'audit < 300 ms en moyenne",
     "pass": true,
-    "detail": "34 ms sur 266 événements"
+    "detail": "80 ms sur 380 événements"
   }
 ]

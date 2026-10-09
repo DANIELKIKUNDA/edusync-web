@@ -9,7 +9,7 @@ documentée), **BLOCKED_EXTERNAL** (dépend d'une infrastructure non disponible 
 
 | # | Menace | Contrôles en place | Preuve | Statut |
 |---|---|---|---|---|
-| 1 | Force brute sur la connexion | Garde par compte et par adresse (Argon2, 7 essais / 15 min, verrou) ; empreintes dans Redis, jamais l'e-mail en clair | `hardening-http-live.json` « verrouillage après tentatives répétées » ; `prereq-live.json` | MAÎTRISÉ |
+| 1 | Force brute sur la connexion | Argon2 ; verrou du compte visé après 7 échecs / 15 min ; seuil par adresse à 50 (corrigé : il était aussi de 7 et bloquait une école entière derrière un NAT) ; empreintes dans Redis, jamais l'e-mail en clair | `hardening-http-live.json` « verrouillage du compte visé », « les autres comptes ne sont pas bloqués » | MAÎTRISÉ |
 | 2 | Énumération de comptes | Réponse identique (401, même corps) pour compte inconnu et mauvais mot de passe ; mot de passe vérifié contre un hachage factice si le compte n'existe pas ; la liste des espaces n'est donnée qu'après authentification réussie | `prereq-live.json` « même réponse (pas d'énumération) », « ne révèle pas les contextes » | MAÎTRISÉ |
 | 3 | Fixation de session | Aucun identifiant de session accepté du client : jeton opaque créé côté serveur à la connexion, haché en base, tourné à chaque renouvellement | `prereq-live.json` rotation | MAÎTRISÉ |
 | 4 | Rejeu de jeton (vol de cookie) | Rotation + fenêtre de grâce 60 s ; ancien jeton rejoué après la grâce → session entière révoquée (`ROTATED_TOKEN_REUSED`) et jeton d'accès coupé | `prereq-live.json` 1.1 réutilisation | MAÎTRISÉ |

@@ -27,7 +27,7 @@
   {
     "check": "AUTO : aucune session créée avant le choix",
     "pass": true,
-    "detail": "2->2"
+    "detail": "5->5"
   },
   {
     "check": "AUTO : choix explicite d'une école -> session de cette école",
@@ -62,7 +62,7 @@
   {
     "check": "1.1 cookie HttpOnly, SameSite=Lax, chemin /api/v1/auth",
     "pass": true,
-    "detail": "dusync_session=3mMUmRZBHjYmZiujAN6vJO-XUvi8zHdaut3ZOrcPbO2ISdZH5k2cnA3_dd5MQXM1; HttpOnly; Max-Age=34560000; Path=/api/v1/auth; SameSite=lax"
+    "detail": "dusync_session=Sysxi1UL-E3wPeDlUJdRTlDGrO9LbRiQ48FegspDPsXFiSAo0dFLTgH44-0QHudc; HttpOnly; Max-Age=34560000; Path=/api/v1/auth; SameSite=lax"
   },
   {
     "check": "1.1 jeton tourné rejoué hors grâce : refusé",
@@ -112,7 +112,7 @@
   {
     "check": "1.1 logout-all audité",
     "pass": true,
-    "detail": "2"
+    "detail": "6"
   },
   {
     "check": "1.4 Manager : liste de ses appareils",
@@ -152,12 +152,12 @@
   {
     "check": "1.2 montant USD 12345.67 : aller-retour exact en chaîne (pas de float)",
     "pass": true,
-    "detail": "201 '12345.67'"
+    "detail": "409 '12345.67'"
   },
   {
     "check": "1.2 montant CDF 1500000.05 : aller-retour exact en chaîne (pas de float)",
     "pass": true,
-    "detail": "201 '1500000.05'"
+    "detail": "409 '1500000.05'"
   },
   {
     "check": "1.2 aucune représentation flottante binaire dans la réponse JSON",

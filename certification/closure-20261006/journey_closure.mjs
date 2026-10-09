@@ -45,8 +45,11 @@ async function connect() {
 async function uiLogin(p, code, email, password) {
   await p.go(); await p.waitFor('!!document.querySelector(".lg-card")||!!document.querySelector(".es-shell")');
   if (await p.ev('!!document.querySelector(".es-shell")')) { await p.click('Agent'); await p.click('Se déconnecter'); await p.waitFor('!!document.querySelector(".lg-card")'); }
-  await p.type('#lg-code', code); await p.type('#lg-email', email); await p.type('#lg-pass', password);
-  await p.click('Se connecter'); await p.waitFor('!!document.querySelector(".es-shell")');
+  // N0 2026-10 (justified adaptation): no school code field any more; the school is determined after
+  // authentication, with an explicit chooser when the account opens several spaces.
+  await p.type('#lg-email', email); await p.type('#lg-pass', password);
+  await p.click('Se connecter'); await p.waitFor('!!document.querySelector(".es-shell")||!!document.querySelector(".lg-ctx")');
+  if (await p.ev('!!document.querySelector(".lg-ctx")')) { await p.click(code); await p.waitFor('!!document.querySelector(".es-shell")'); }
 }
 async function openCheckout(p) {
   await p.click('Centre financier'); await p.waitFor('!!document.querySelector(".checkoutWorkspace")||document.body.innerText.includes("Encaisser")', 30000);

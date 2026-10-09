@@ -57,7 +57,7 @@
   {
     "check": "Création d'école : limitée à 150/h par compte (puis 429)",
     "pass": true,
-    "detail": "premier 429 à l'essai 150"
+    "detail": "premier 429 à l'essai 149"
   },
   {
     "check": "429 : Retry-After et message en français",
@@ -75,8 +75,13 @@
     "detail": "50 refus puis 429"
   },
   {
-    "check": "Connexion : verrouillage après tentatives répétées (garde dédiée)",
+    "check": "Connexion : verrouillage du compte visé après 7 échecs (garde dédiée)",
     "pass": true,
-    "detail": "[401, 401, 401, 401, 401, 401, 429, 429, 429]"
+    "detail": "[401, 401, 401, 401, 401, 401, 401, 429, 429]"
+  },
+  {
+    "check": "Même adresse (NAT d'une école) : les autres comptes ne sont pas bloqués",
+    "pass": true,
+    "detail": "200"
   }
 ]

@@ -2,7 +2,7 @@
   {
     "check": "Cible : toutes les écoles actives = tous les membres actifs",
     "pass": true,
-    "detail": "39 attendu 39 (1363 ms)"
+    "detail": "45 attendu 45 (5096 ms)"
   },
   {
     "check": "Cible : école choisie",
@@ -22,7 +22,7 @@
   {
     "check": "Cible : toute l'équipe plateforme",
     "pass": true,
-    "detail": "3"
+    "detail": "5"
   },
   {
     "check": "Cible : un rôle plateforme",
@@ -137,7 +137,7 @@
   {
     "check": "Tout marquer comme lu",
     "pass": true,
-    "detail": "{'marked_read': 3}"
+    "detail": "{'marked_read': 5}"
   },
   {
     "check": "Historique paginé sans recouvrement",

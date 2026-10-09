@@ -142,12 +142,12 @@
   {
     "check": "Fiche compte : rôles, permissions effectives, sessions, audit",
     "pass": true,
-    "detail": "['AUDITEUR_11D44B', 'SUPPORT_11D44B']"
+    "detail": "['AUDITEUR_AA88D1', 'SUPPORT_AA88D1']"
   },
   {
     "check": "Archivage : nombre de comptes concernés annoncé",
     "pass": true,
-    "detail": "{'id': '8349d127-0d51-4275-a02e-802cb0201816', 'status': 'ARCHIVED', 'users_losing_role': 1}"
+    "detail": "{'id': 'cb1b1055-2efd-41eb-9da7-d2d541a1306b', 'status': 'ARCHIVED', 'users_losing_role': 1}"
   },
   {
     "check": "Rôle archivé : capacité retirée immédiatement",
@@ -187,7 +187,7 @@
   {
     "check": "Suspension : sessions révoquées",
     "pass": true,
-    "detail": "{'user_id': '853ef26f-457b-4bb5-aec8-56d0b0bea3ef', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
+    "detail": "{'user_id': '0f6b956e-419f-46e6-8b7e-83d9c07da877', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
   },
   {
     "check": "Suspension : jeton en cours coupé immédiatement",
@@ -227,7 +227,7 @@
   {
     "check": "Suspension croisée simultanée : il reste toujours au moins un Manager actif",
     "pass": true,
-    "detail": "[200, 409] actifs=1"
+    "detail": "[200, 503] actifs=1"
   },
   {
     "check": "Retrait du rôle Manager d'un autre Manager (il en reste un)",

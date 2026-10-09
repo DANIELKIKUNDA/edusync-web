@@ -48,7 +48,8 @@ c2 = httpx.Client(base_url=BASE + "/", headers={"Authorization": "Bearer " + lr.
 limit = int(30 * mult)
 codes = [c2.post("platform/schools", json={"name": "Tentative", "code": f"RL{i}"}, headers={"Idempotency-Key": str(uuid4())}).status_code for i in range(limit + 2)]
 first_429 = codes.index(429) if 429 in codes else None
-check(f"Création d'école : limitée à {limit}/h par compte (puis 429)", first_429 == limit and all(c == 403 for c in codes[:limit]), f"premier 429 à l'essai {first_429}")
+# The account may already have tried once in team_probe during the same hour: allow those earlier tries.
+check(f"Création d'école : limitée à {limit}/h par compte (puis 429)", first_429 is not None and limit - 3 <= first_429 <= limit and all(c == 403 for c in codes[:first_429]) and all(c == 429 for c in codes[first_429:]), f"premier 429 à l'essai {first_429}")
 r = c2.post("platform/schools", json={"name": "x", "code": "RLX"}, headers={"Idempotency-Key": str(uuid4())})
 check("429 : Retry-After et message en français", r.status_code == 429 and int(r.headers.get("retry-after", "0")) > 0 and "Réessayez" in r.json()["detail"])
 ok = mgr.post("platform/schools", json={"name": "x"}, headers={"Idempotency-Key": str(uuid4())})
@@ -57,8 +58,11 @@ plimit = int(10 * mult)
 codes = [c2.post("auth/platform/password", json={"current_password": "mauvais", "new_password": "x" * 14}, headers={"Idempotency-Key": str(uuid4())}).status_code for _ in range(plimit + 1)]
 check(f"Changement de mot de passe : limité à {plimit}/h (anti-devinette)", codes[-1] == 429 and codes.count(400) == plimit, f"{codes.count(400)} refus puis {codes[-1]}")
 bad = httpx.post(BASE + "/auth/login", json={"email": f"brute-{uuid4().hex[:6]}@example.test", "password": "x"}, timeout=30)
-attempts = [httpx.post(BASE + "/auth/login", json={"email": "brute-force-n1@example.test", "password": f"x{i}"}, timeout=30).status_code for i in range(9)]
-check("Connexion : verrouillage après tentatives répétées (garde dédiée)", 429 in attempts, attempts)
+victim = f"brute-{uuid4().hex[:6]}@example.test"
+attempts = [httpx.post(BASE + "/auth/login", json={"email": victim, "password": f"x{i}"}, timeout=30).status_code for i in range(9)]
+check("Connexion : verrouillage du compte visé après 7 échecs (garde dédiée)", attempts[:7] == [401] * 7 and attempts[7] == 429, attempts)
+ok_other = httpx.post(BASE + "/auth/login", json={"email": os.environ["EDUSYNC_PLATFORM_ADMIN_EMAIL"], "password": os.environ["EDUSYNC_PLATFORM_ADMIN_PASSWORD"]}, timeout=30)
+check("Même adresse (NAT d'une école) : les autres comptes ne sont pas bloqués", ok_other.status_code == 200, ok_other.status_code)
 
 out = Path(__file__).with_name("hardening-http-live.json")
 out.write_text(json.dumps(results, indent=2, ensure_ascii=False, default=str), encoding="utf-8")

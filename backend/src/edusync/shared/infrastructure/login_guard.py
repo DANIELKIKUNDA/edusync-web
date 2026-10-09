@@ -16,6 +16,9 @@ class LoginAttemptGuard:
         except Exception:
             self.redis=None
         self.window=window_seconds; self.max=max_attempts; self.lock=lock_seconds
+        # A whole school often shares one public address (NAT): the per-address threshold is much higher than the
+        # per-account one, so a few typing errors by colleagues never lock the school out (N1 2026-10).
+        self.max_ip=max(50, max_attempts*7)
     @staticmethod
     def _digest(value:str)->str:
         return hashlib.sha256(value.strip().lower().encode()).hexdigest()[:32]
@@ -25,9 +28,9 @@ class LoginAttemptGuard:
         try:
             if self.redis is None: return LoginDecision(True,0)
             ttls=[]
-            for k in self._keys(email,ip):
+            for k,limit in zip(self._keys(email,ip),(self.max,self.max_ip)):
                 n=int(self.redis.get(k) or 0)
-                if n>=self.max: ttls.append(max(self.redis.ttl(k),1))
+                if n>=limit: ttls.append(max(self.redis.ttl(k),1))
             return LoginDecision(not ttls, max(ttls) if ttls else 0)
         except Exception:
             # Availability-safe: authentication still verifies Argon2; edge/proxy rate limiting remains recommended.
@@ -35,10 +38,10 @@ class LoginAttemptGuard:
     def failure(self,email:str,ip:str)->None:
         try:
             if self.redis is None: return
-            for k in self._keys(email,ip):
+            for k,limit in zip(self._keys(email,ip),(self.max,self.max_ip)):
                 pipe=self.redis.pipeline(); pipe.incr(k); pipe.ttl(k); n,ttl=pipe.execute()
                 if ttl < 0: self.redis.expire(k,self.window)
-                if int(n)>=self.max: self.redis.expire(k,self.lock)
+                if int(n)>=limit: self.redis.expire(k,self.lock)
         except Exception: pass
     def success(self,email:str,ip:str)->None:
         try:
