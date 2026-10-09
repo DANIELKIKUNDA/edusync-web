@@ -1,0 +1,177 @@
+[
+  {
+    "check": "Démarrage : écran de démarrage visible tant que la session est vérifiée",
+    "pass": true,
+    "detail": "EduSync from VolcanoTech"
+  },
+  {
+    "check": "Démarrage : écran retiré dès la vérification terminée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion 320px : pas de code établissement, pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion 375px : pas de code établissement, pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion 390px : pas de code établissement, pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion 768px : pas de code établissement, pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion 1024px : pas de code établissement, pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion 1280px : pas de code établissement, pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion 1440px : pas de code établissement, pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Zoom 200 % (640 px) : connexion utilisable sans défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Contraste WCAG AA des textes de la carte de connexion",
+    "pass": true,
+    "detail": "6 textes, min 5.57:1"
+  },
+  {
+    "check": "Connexion : photo de campus servie localement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion : champ e-mail focalisé à l’ouverture",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Clavier : Tab mène au mot de passe",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Afficher / masquer le mot de passe",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager existant : aucun lien d’accès plateforme affiché (le Manager se connecte comme tout le monde)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Erreur de connexion : message clair, sans révéler si le compte existe",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager : connexion automatique vers l’Atelier Pro",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager : menu complet (7 entrées)",
+    "pass": true,
+    "detail": "Tableau de bord · Écoles · Accès écoles · Équipe plateforme · Notifications système · Journal d’audit · État du service"
+  },
+  {
+    "check": "Manager : écran « Équipe plateforme » chargé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager : écran « État du service » chargé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager : écran « Journal d’audit » chargé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager : écran « Notifications système » chargé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Éditeur de rôle : capacité réservée non cochable",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Dialogue : Échap ferme et rend le focus",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Création d’école : erreurs de validation annoncées",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Cloche Atelier Pro : panneau rapide",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Atelier Pro 375px : pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Atelier Pro 640px : pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Atelier Pro 768px : pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Atelier Pro 1440px : pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Rôle personnalisé : menu réduit (pas d’Équipe, ni d’Audit, ni de Notifications)",
+    "pass": true,
+    "detail": "Tableau de bord · Écoles · Accès écoles · État du service"
+  },
+  {
+    "check": "Rôle personnalisé : pas de bouton « Nouvelle école »",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Déconnexion : retour à l’écran de connexion",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Reconnexion puis rechargement : session persistante",
+    "pass": true,
+    "detail": ""
+  }
+]

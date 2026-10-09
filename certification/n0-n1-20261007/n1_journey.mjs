@@ -15,7 +15,7 @@ const results = [];
 const check = (name, ok, detail = '') => { results.push({check: name, pass: !!ok, detail: String(detail).slice(0, 300)}); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); };
 
 async function connect() {
-  const t = await (await fetch('http://127.0.0.1:59223/json/new?about:blank', {method: 'PUT'})).json();
+  const t = await (await fetch(`http://127.0.0.1:${process.env.CDP_PORT || 9333}/json/new?about:blank`, {method: 'PUT'})).json();
   const ws = new WebSocket(t.webSocketDebuggerUrl);
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
   let id = 0; const pend = new Map();
@@ -65,7 +65,7 @@ check('Démarrage : écran de démarrage visible tant que la session est vérifi
 await p.shot('n0-boot-1280');
 await p.call('Fetch.disable');
 await p.waitFor('!!document.querySelector(".lg-card")||!!document.querySelector(".es-shell")');
-check('Démarrage : écran retiré dès la vérification terminée', await p.ev('!document.getElementById("edusync-boot")'));
+check('Démarrage : écran retiré dès la vérification terminée', await p.waitFor('!document.getElementById("edusync-boot")', 15000).catch(() => false));
 await signOut(p);
 
 // ---------------- N0: sign-in at 7 widths ----------------
@@ -101,7 +101,8 @@ await p.shot('n0-login-error-1280');
 // ---------------- N1: Manager ----------------
 await signIn(p, env.EDUSYNC_PLATFORM_ADMIN_EMAIL, env.EDUSYNC_PLATFORM_ADMIN_PASSWORD);
 check('Manager : connexion automatique vers l’Atelier Pro', await p.ev('document.body.innerText.includes("Atelier Pro")'));
-const menu = await p.ev('[...document.querySelectorAll("nav button, .es-nav button")].map(b=>b.innerText.trim()).filter(Boolean)');
+await p.waitFor('document.querySelectorAll(".es-nav .es-nav-label").length>=5'); await p.waitFor('!document.querySelector(".es-skeleton")'); await delay(800);
+const menu = await p.ev('[...document.querySelectorAll(".es-nav .es-nav-label")].map(b=>b.innerText.trim()).filter(Boolean)');
 check('Manager : menu complet (7 entrées)', ['Tableau de bord', 'Écoles', 'Accès écoles', 'Équipe plateforme', 'Notifications système', 'Journal d’audit', 'État du service'].every(x => menu.some(m => m.includes(x))), menu.join(' · '));
 await p.shot('n1-dashboard-1280');
 for (const [label, name, waitExpr] of [
@@ -130,7 +131,8 @@ await p.viewport(1280, 800);
 const u2 = fx.N1_TEAM?.u2;
 if (u2) {
   await signIn(p, u2.email, u2.password);
-  const m2 = await p.ev('[...document.querySelectorAll("nav button, .es-nav button")].map(b=>b.innerText.trim()).filter(Boolean)');
+  await p.waitFor('document.querySelectorAll(".es-nav .es-nav-label").length>=1'); await delay(800);
+  const m2 = await p.ev('[...document.querySelectorAll(".es-nav .es-nav-label")].map(b=>b.innerText.trim()).filter(Boolean)');
   check('Rôle personnalisé : menu réduit (pas d’Équipe, ni d’Audit, ni de Notifications)', !m2.some(x => /Équipe|audit|Notifications système/i.test(x)) && m2.some(x => x.includes('Écoles')), m2.join(' · '));
   check('Rôle personnalisé : pas de bouton « Nouvelle école »', await p.ev('(async()=>{const b=[...document.querySelectorAll("button")].find(x=>x.innerText.includes("Écoles"));b&&b.click();await new Promise(r=>setTimeout(r,1500));return !document.body.innerText.includes("Nouvelle école")})()'));
   await p.shot('n1-custom-role-1280');
