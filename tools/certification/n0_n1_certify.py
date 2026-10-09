@@ -28,7 +28,7 @@ RUN = [str(PY), str(ROOT / ".local" / "closure" / "run.py")]
 NPX = "npx.cmd" if os.name == "nt" else "npx"
 NPM = "npm.cmd" if os.name == "nt" else "npm"
 PROBES = ("prereq_probe.py", "team_probe.py", "school_lifecycle_probe.py", "health_probe.py", "audit_probe.py",
-          "notifications_probe.py", "hardening_http_probe.py")
+          "notifications_probe.py", "realtime_probe.py", "hardening_http_probe.py")
 
 
 def run(cmd: list[str], cwd: Path = ROOT, env: dict | None = None, timeout: int = 1800) -> tuple[int, str, float]:

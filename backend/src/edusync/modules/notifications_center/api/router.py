@@ -16,7 +16,8 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -29,6 +30,7 @@ from edusync.shared.application.context import ActorContext
 from edusync.shared.application.idempotency import IdempotentExecutor
 from edusync.shared.domain.concurrency import IdempotencyConflict, IdempotencyInProgress
 from edusync.shared.infrastructure.push import build_push_provider
+from edusync.shared.infrastructure.realtime import inbox_events, publish_inbox_changed
 
 router = APIRouter(tags=["Notifications"])
 LINK_RE = re.compile(r"^/[A-Za-z0-9/_?=&.-]*$")
@@ -267,6 +269,7 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
         raise HTTPException(422, "Compte cible obligatoire")
     request_actor = replace(actor, correlation_id=uuid4(), idempotency_key=key)
     pushed: list[dict] = []
+    notified: list[tuple[str, str | None]] = []
     try:
         with services.platform_db.platform_transaction() as c:
             idem = IdempotentExecutor(PostgresIdempotencyRepository(c))
@@ -295,6 +298,7 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
                     (SELECT n.user_id, coalesce(n.school_id,'00000000-0000-0000-0000-000000000000'::uuid) FROM notifications n WHERE n.campaign_id=:cid)"""),
                     {"cid": cid}).mappings().all()
                 pushed.extend(dict(s) for s in subs)
+                notified.extend((str(r["user_id"]), str(r["school_id"]) if r["school_id"] else None) for r in recipients)
                 return 201, {"id": str(cid), "recipient_count": len(recipients), "target": t.type, "severity": body.severity}
 
             result = idem.execute(scope_key="platform", idempotency_key=key, operation="PLATFORM_NOTIFICATION_CAMPAIGN",
@@ -303,6 +307,8 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
         raise HTTPException(409, str(exc)) from exc
     response.status_code = result.status_code
     response.headers["Idempotent-Replayed"] = "true" if result.replayed else "false"
+    if notified and not result.replayed:
+        publish_inbox_changed(services.settings.redis_url, notified)  # real-time: bells update immediately
     if pushed and not result.replayed:
         provider = build_push_provider(services.settings)
         sent = sum(provider.send(s, {"title": body.title.strip(), "severity": body.severity, "link": body.link_path}).accepted for s in pushed)
@@ -321,3 +327,22 @@ def list_campaigns(limit: int = 30, offset: int = 0, actor: ActorContext = Depen
             FROM platform_system_notifications p LEFT JOIN users u ON u.id=p.created_by LEFT JOIN schools s ON s.id=p.target_school_id
             ORDER BY p.created_at DESC, p.id DESC LIMIT :lim OFFSET :off"""), {"lim": limit + 1, "off": offset}).mappings().all()
     return {"items": [dict(r) for r in rows[:limit]], "has_more": len(rows) > limit, "offset": offset, "limit": limit}
+
+
+# ------------------------------------------------------------------ real-time streams (SSE)
+
+_SSE_HEADERS = {"Cache-Control": "no-store", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+
+
+@router.get("/platform/inbox/stream")
+async def platform_inbox_stream(request: Request, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Server-Sent Events: "your inbox changed" signals for this platform account (no content)."""
+    return StreamingResponse(inbox_events(services.settings.redis_url, actor.user_id, None, request.is_disconnected),
+                             media_type="text/event-stream", headers=_SSE_HEADERS)
+
+
+@router.get("/notifications/stream")
+async def school_inbox_stream(request: Request, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, "notifications.internal.read")
+    return StreamingResponse(inbox_events(services.settings.redis_url, actor.user_id, actor.school_id, request.is_disconnected),
+                             media_type="text/event-stream", headers=_SSE_HEADERS)

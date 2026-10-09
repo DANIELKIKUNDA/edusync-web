@@ -36,4 +36,6 @@ def create_notification(b:CreateNotification,actor:ActorContext=Depends(require_
         member=c.execute(text('SELECT 1 FROM school_memberships WHERE school_id=:sid AND user_id=:uid AND active=true'),{'sid':str(actor.school_id),'uid':str(b.user_id)}).first()
         if member is None:raise HTTPException(409,"Le destinataire n'est pas un membre actif de cette école")
         row=c.execute(text('INSERT INTO notifications(school_id,user_id,category,title,body) VALUES(:sid,:uid,:cat,:title,:body) RETURNING id,created_at'),{'sid':str(actor.school_id),'uid':str(b.user_id),'cat':b.category,'title':b.title,'body':b.body}).first()
-        return dict(row._mapping)
+    from edusync.shared.infrastructure.realtime import publish_inbox_changed
+    publish_inbox_changed(services.settings.redis_url,[(str(b.user_id),str(actor.school_id))])  # after commit: real-time bell
+    return dict(row._mapping)

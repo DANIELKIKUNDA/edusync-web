@@ -92,7 +92,7 @@ await p.key('Tab', 'Tab', 9);
 check('Clavier : Tab mène au mot de passe', await p.ev('document.activeElement?.id==="lg-pass"'));
 await p.click('Afficher le mot de passe');
 check('Afficher / masquer le mot de passe', await p.ev('document.querySelector("#lg-pass").type==="text"'));
-check('Accès Atelier Pro discret présent', await p.ev('[...document.querySelectorAll(".lg-quiet")].some(b=>b.innerText.includes("Atelier Pro"))'));
+check('Manager existant : aucun lien d’accès plateforme affiché (le Manager se connecte comme tout le monde)', await p.ev('!document.querySelector(".lg-quiet")&&!document.body.innerText.includes("Atelier Pro")'));
 await p.type('#lg-email', 'inconnu@example.test'); await p.type('#lg-pass', 'mauvais'); await p.click('Se connecter');
 await p.waitFor('!!document.querySelector(".lg-error")');
 check('Erreur de connexion : message clair, sans révéler si le compte existe', await p.ev('document.querySelector(".lg-error").innerText.includes("incorrect")'));

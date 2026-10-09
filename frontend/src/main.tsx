@@ -2,6 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
+import '@fontsource-variable/inter';
+import './platform/modern.css';
 import { Toaster } from 'sonner';
 import { installResilientFetch } from './platform/connectivity';
 import { ErrorBoundary } from './platform/ErrorBoundary';

@@ -136,3 +136,23 @@ def test_local_launcher_survives_wsl_and_terminal_closure():
     s = (ROOT / "tools/local/edusync_local.py").read_text(encoding="utf-8")
     assert "HIDDEN_CONSOLE | BREAKAWAY_FROM_JOB" in s and "si.wShowWindow = 0" in s
     assert 'wait(lambda: port_open(PORTS["s3"]), 360' in s
+
+
+def test_realtime_inbox_signals_carry_no_content_and_require_authentication():
+    rt = (ROOT / "backend/src/edusync/shared/infrastructure/realtime.py").read_text(encoding="utf-8")
+    assert '{"type": "inbox_changed"}' in rt and "STREAM_MAX_SECONDS" in rt
+    router = (ROOT / "backend/src/edusync/modules/notifications_center/api/router.py").read_text(encoding="utf-8")
+    assert "Depends(require_platform_actor)" in router.split("def platform_inbox_stream", 1)[1].split("\n", 1)[0]
+    assert "Depends(require_school_actor)" in router.split("def school_inbox_stream", 1)[1].split("\n", 1)[0]
+    assert "publish_inbox_changed(services.settings.redis_url, notified)" in router
+    bell = (FRONT / "src/platform/notification_center.tsx").read_text(encoding="utf-8")
+    assert "Authorization: `Bearer ${token}`" in bell and "useInboxStream(" in bell
+
+
+def test_atelier_pro_link_only_before_a_manager_exists_and_modern_layer_loaded():
+    login = (FRONT / "src/login.tsx").read_text(encoding="utf-8")
+    assert "Boolean(setup?.setup_required)&&!choice&&!showSetup&&<button" in login
+    main = (FRONT / "src/main.tsx").read_text(encoding="utf-8")
+    assert "import '@fontsource-variable/inter';" in main and "import './platform/modern.css';" in main
+    css = (FRONT / "src/platform/modern.css").read_text(encoding="utf-8")
+    assert "align-items:center!important" in css and "text-align:center!important" in css

@@ -1,0 +1,42 @@
+[
+  {
+    "check": "Flux plateforme ouvert (via le proxy de l'interface)",
+    "pass": true,
+    "detail": "[('status', 200, 3096.4354913)]"
+  },
+  {
+    "check": "Flux école ouvert",
+    "pass": true,
+    "detail": "[('status', 200, 3096.4988183)]"
+  },
+  {
+    "check": "Notification plateforme reçue en temps réel (< 2 s)",
+    "pass": true,
+    "detail": "1564 ms"
+  },
+  {
+    "check": "Le signal ne transporte aucun contenu",
+    "pass": true,
+    "detail": "event: inbox\ndata: {\"type\":\"inbox_changed\"}"
+  },
+  {
+    "check": "Isolation : le flux du membre d'école n'a rien reçu",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Notification école reçue en temps réel (< 2 s)",
+    "pass": true,
+    "detail": "61 ms"
+  },
+  {
+    "check": "Flux sans authentification refusé",
+    "pass": true,
+    "detail": "401"
+  },
+  {
+    "check": "Jeton d'école refusé sur le flux plateforme",
+    "pass": true,
+    "detail": "403"
+  }
+]

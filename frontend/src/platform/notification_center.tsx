@@ -76,6 +76,36 @@ export function NotificationCenterDialog({token, scope, canRead, onClose, onChan
   </div>;
 }
 
+/** Real-time "inbox changed" signals (Server-Sent Events read with fetch so the access token travels in the
+ *  Authorization header, never in the URL). Reconnects with backoff; the caller keeps a slow periodic refresh. */
+function useInboxStream(token: string, scope: InboxScope, onChange: () => void) {
+  const cb = useRef(onChange); cb.current = onChange;
+  useEffect(() => {
+    let stopped = false; let ctrl: AbortController | null = null; let delayMs = 2000;
+    const url = scope === 'platform' ? '/api/v1/platform/inbox/stream' : '/api/v1/notifications/stream';
+    async function connect() {
+      while (!stopped) {
+        ctrl = new AbortController();
+        try {
+          const r = await fetch(url, {headers: {Authorization: `Bearer ${token}`, Accept: 'text/event-stream'}, signal: ctrl.signal, cache: 'no-store'});
+          if (!r.ok || !r.body) throw new Error(String(r.status));
+          delayMs = 2000;
+          const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
+          for (;;) {
+            const {value, done} = await reader.read(); if (done) break;
+            buf += dec.decode(value, {stream: true});
+            let i; while ((i = buf.indexOf('\n\n')) >= 0) { const evt = buf.slice(0, i); buf = buf.slice(i + 2); if (/^event: inbox$/m.test(evt)) cb.current(); }
+          }
+        } catch { if (stopped) return; }
+        if (stopped) return;
+        await new Promise(res => setTimeout(res, delayMs)); delayMs = Math.min(delayMs * 2, 60_000);
+      }
+    }
+    void connect();
+    return () => { stopped = true; ctrl?.abort(); };
+  }, [token, scope]);
+}
+
 /** Bell with unread counter and quick panel; "Voir tout" opens the full notification center. */
 export function NotificationBell({token, canDismiss, scope = 'school'}: {token: string; canDismiss: boolean; scope?: InboxScope}) {
   const [items, setItems] = useState<InboxItem[]>([]);
@@ -85,7 +115,8 @@ export function NotificationBell({token, canDismiss, scope = 'school'}: {token: 
   const [failed, setFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   async function load() { try { const r = await inboxList(token, scope, {status: 'all', severity: '', cursor: null, limit: 8}); setItems(r.items); setUnread(r.unread); setFailed(false); } catch { setFailed(true); } }
-  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 60_000); return () => window.clearInterval(t); }, [token, scope]);
+  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 120_000); return () => window.clearInterval(t); }, [token, scope]);
+  useInboxStream(token, scope, () => void load());  // real time; the 2-minute refresh is only a safety net
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
