@@ -2,7 +2,7 @@
   {
     "check": "Cible : toutes les écoles actives = tous les membres actifs",
     "pass": true,
-    "detail": "46 attendu 46 (309 ms)"
+    "detail": "47 attendu 47 (1583 ms)"
   },
   {
     "check": "Cible : école choisie",
@@ -22,7 +22,7 @@
   {
     "check": "Cible : toute l'équipe plateforme",
     "pass": true,
-    "detail": "6"
+    "detail": "7"
   },
   {
     "check": "Cible : un rôle plateforme",

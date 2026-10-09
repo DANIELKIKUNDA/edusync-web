@@ -1,124 +1,124 @@
 {
- "sha": "09abc1e1ca3ecc9bb1cbfb0a2938fd54d3c703ce",
+ "sha": "bbe90e2da8580fddbbfed8d6c0c220be3785e907",
  "steps": [
   {
    "step": "Tests backend (pytest)",
    "command": "python.exe -m pytest -q -p no:cacheprovider --basetemp=../.local/pytest-tmp",
    "result": "PASS",
-   "summary": "538 passed, 6 warnings in 255.02s (0:04:15)",
-   "duration_s": 321.8
+   "summary": "538 passed, 6 warnings in 56.25s",
+   "duration_s": 64.1
   },
   {
    "step": "Compilation Python (compileall)",
    "command": "python.exe -m compileall -q src",
    "result": "PASS",
    "summary": "OK",
-   "duration_s": 5.4
+   "duration_s": 1.2
   },
   {
    "step": "Typecheck frontend (tsc)",
    "command": "npx.cmd tsc --noEmit -p tsconfig.json",
    "result": "PASS",
    "summary": "0 erreur",
-   "duration_s": 110.4
+   "duration_s": 10.2
   },
   {
    "step": "Migrations sur base vierge (provisionnement)",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py backend/scripts/provision_database.py",
    "result": "PASS",
    "summary": "POINT-4A database provisioning: PASS",
-   "duration_s": 95.4
+   "duration_s": 5.4
   },
   {
    "step": "Sonde en conditions réelles : prereq_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/prereq_probe.py",
    "result": "PASS",
    "summary": "== 42/42 PASS",
-   "duration_s": 113.0
+   "duration_s": 43.3
   },
   {
    "step": "Sonde en conditions réelles : team_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/team_probe.py",
    "result": "PASS",
    "summary": "== 58/58 PASS",
-   "duration_s": 44.6
+   "duration_s": 27.1
   },
   {
    "step": "Sonde en conditions réelles : school_lifecycle_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/school_lifecycle_probe.py",
    "result": "PASS",
    "summary": "== 31/31 PASS",
-   "duration_s": 70.1
+   "duration_s": 32.4
   },
   {
    "step": "Sonde en conditions réelles : health_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/health_probe.py",
-   "result": "FAIL",
-   "summary": "== 11/12 PASS",
-   "duration_s": 13.0
+   "result": "PASS",
+   "summary": "== 12/12 PASS",
+   "duration_s": 8.0
   },
   {
    "step": "Sonde en conditions réelles : audit_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/audit_probe.py",
    "result": "PASS",
    "summary": "== 25/25 PASS",
-   "duration_s": 14.2
+   "duration_s": 10.8
   },
   {
    "step": "Sonde en conditions réelles : notifications_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/notifications_probe.py",
    "result": "PASS",
    "summary": "== 44/44 PASS",
-   "duration_s": 26.6
+   "duration_s": 26.1
   },
   {
    "step": "Sonde en conditions réelles : realtime_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/realtime_probe.py",
    "result": "PASS",
    "summary": "== 8/8 PASS",
-   "duration_s": 21.2
+   "duration_s": 20.0
   },
   {
    "step": "Sonde en conditions réelles : hardening_http_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/hardening_http_probe.py",
    "result": "PASS",
    "summary": "== 17/17 PASS",
-   "duration_s": 57.1
+   "duration_s": 50.6
   },
   {
    "step": "Sonde en conditions réelles : resilience_probe.py",
    "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/resilience_probe.py",
    "result": "PASS",
    "summary": "== 16/16 PASS",
-   "duration_s": 557.1
+   "duration_s": 260.5
   },
   {
    "step": "Sauvegarde + restauration vérifiée",
    "command": "python.exe tools/local/backup_restore.py --db edusync_claude_fresh",
    "result": "PASS",
-   "summary": "== 8/8 PASS · 141.1 s · rapport : .local/backups/last.json",
-   "duration_s": 147.6
+   "summary": "== 8/8 PASS · 46.5 s · rapport : .local/backups/last.json",
+   "duration_s": 51.0
   },
   {
    "step": "Chaîne d'approvisionnement (licences, SBOM)",
    "command": "python.exe tools/certification/supply_chain.py",
    "result": "PASS",
-   "summary": "Python : 44 paquets · npm (exécution) : 73 · à examiner : 3",
-   "duration_s": 8.1
+   "summary": "Python : 44 paquets · npm (exécution) : 73 · à examiner : 2",
+   "duration_s": 0.7
   },
   {
    "step": "Vulnérabilités npm (npm audit)",
    "command": "npm.cmd audit --omit=dev",
    "result": "PASS",
    "summary": "found 0 vulnerabilities",
-   "duration_s": 30.2
+   "duration_s": 7.4
   },
   {
    "step": "Scan de secrets",
    "command": "python.exe .local/closure/secret_scan.py",
    "result": "PASS",
    "summary": "78 secrets checked across 1259 files: 0 leak(s)",
-   "duration_s": 22.6
+   "duration_s": 3.2
   }
  ],
  "versions": {
