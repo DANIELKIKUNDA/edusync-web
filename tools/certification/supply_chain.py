@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "certification" / "n0-n1-20261007"
-PERMISSIVE = re.compile(r"\b(MIT|BSD|Apache|ISC|PSF|Python|0BSD|Unlicense|CC0|BlueOak|Zlib|MPL|HPND|Historical Permission)\b", re.I)
+PERMISSIVE = re.compile(r"\b(MIT|BSD|Apache|ISC|PSF|Python|0BSD|Unlicense|CC0|BlueOak|Zlib|MPL|HPND|Historical Permission|OFL)\b", re.I)
 COPYLEFT = re.compile(r"\b(A?GPL|SSPL|EUPL|CC-BY-SA|OSL)\b", re.I)
 
 

@@ -22,6 +22,7 @@ exécution complète : `CERTIFICATION_EVIDENCE_MANIFEST.md`. Niveau 2 non commen
 | Audit (filtres, recherche, export, détail avant/après, corrélation, ajout seul) | PASS | `audit-live.json` 25/25 |
 | Notifications in-app (ciblage, lu/non lu, historique, expiration, liens sûrs, sans doublon) | PASS | `notifications-live.json` 44/44 ; `PLATFORM_NOTIFICATIONS_REPORT.md` |
 | Centre de notifications | PASS | idem ; `n1-bell-1280.png` |
+| **Temps réel** (ajouté à la demande du propriétaire) | PASS : flux SSE sur Redis Pub/Sub, signal sans contenu, cloche mise à jour en 61 ms (école) ; relevé de secours toutes les 2 min | `realtime-live.json` 8/8 |
 | Push | PASS (abstraction + simulateur) ; réel BLOCKED_EXTERNAL | idem |
 | SMS ≠ in-app | PASS | aucune campagne n'envoie de SMS |
 | Sécurité multi-tenant rejouée | PASS | BOLA notifications, sessions, RLS rôles et statuts, compte école refusé sur l'Atelier Pro |

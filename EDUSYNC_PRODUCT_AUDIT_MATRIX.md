@@ -13,7 +13,8 @@ Preuves : `certification/n0-n1-20261007/*.json` (sondes réelles), captures `cer
 | Connexion sans code établissement | `/` | tous | — | `POST /auth/login` scope AUTO | oui (7 largeurs) | oui | FUNCTIONAL_FIX → PASS | `prereq-live.json`, `n0-login-*.png` | `test_sign_in_has_no_school_code…` |
 | Choix de l'espace (multi-écoles) | `/` | comptes multi-contextes | — | `POST /auth/login` | oui | oui | PASS | `prereq-live.json` (aucune session avant le choix) | idem |
 | Photo de fond licenciée | `/` | — | — | — | oui | oui | PASS | `docs/BRAND_ASSETS.md` | `test_login_background_is_a_local_licensed_asset` |
-| Accès Atelier Pro discret | `/` | Manager | — | scope PLATFORM | oui | oui | PASS | `n1-journey-live.json` | `test_sign_in_offers_first_run_setup…` |
+| Accès Atelier Pro (seulement avant le 1er Manager) | `/` | Manager | — | scope PLATFORM | oui | oui | UX_FIX → PASS | `n1-journey-live.json` | `test_atelier_pro_link_only_before_a_manager_exists…` |
+| Design moderne (Inter, cartes centrées) | toutes | tous | — | — | oui | oui | UX_FIX → PASS | `captures/n1-dashboard-*.png` | idem |
 | Afficher / masquer le mot de passe | `/` | tous | — | — | oui | oui | PASS | `n1-journey-live.json` | — |
 | Session persistante (1.1) | cookie appareil | tous | — | `/auth/refresh`, `/auth/logout-all` | — | — | FUNCTIONAL_FIX → PASS | `prereq-live.json` (20 contrôles) | `test_session_is_persistent…` |
 | CSRF cookies | auth | — | — | origine vérifiée | — | — | SECURITY_FIX → PASS | `prereq-live.json` | — |
@@ -44,6 +45,7 @@ Preuves : `certification/n0-n1-20261007/*.json` (sondes réelles), captures `cer
 | Notifications ciblées | Notifications | PLATFORM | `notifications.system.send` | `/platform/notification-campaigns` | oui | oui | FUNCTIONAL_FIX → PASS | `notifications-live.json` |
 | Centre de notifications | cloche (école + Atelier Pro) | tous | `notifications.internal.read` (école) | `/notifications/inbox`, `/platform/inbox` | oui | oui | FUNCTIONAL_FIX → PASS | idem, `n1-bell-1280.png` |
 | Push | — | — | — | `…/push-subscriptions` | — | — | PASS (simulateur) ; réel : BLOCKED_EXTERNAL | idem |
+| Temps réel (cloche) | cloche | tous | lecture boîte | `/notifications/stream`, `/platform/inbox/stream` (SSE) | oui | oui | FUNCTIONAL_FIX → PASS | `realtime-live.json` |
 | Limitation de débit (E) | — | — | — | middleware | — | — | SECURITY_FIX → PASS | `hardening-http-live.json` |
 | Résilience (K) | — | — | — | 503 | — | — | FUNCTIONAL_FIX → PASS | `resilience-live.json` |
 | Sauvegarde / restauration (G) | — | — | — | outil local | — | — | PASS | `backup-restore-live.json` |

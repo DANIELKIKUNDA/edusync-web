@@ -21,7 +21,11 @@ aucun second écran de chargement). Mouvement réduit respecté. Captures : `cap
 ## Connexion
 * **Sans code établissement** : le contexte est déterminé après authentification. Un seul espace → ouverture
   directe ; plusieurs → écran « Choisir un espace » (aucune session n'existe avant le choix). Accès Atelier Pro
-  discret en pied de page.
+  en pied de page **uniquement tant qu'aucun Manager système n'existe** (décision du propriétaire) ; ensuite le
+  Manager se connecte comme tout le monde. La sécurité reste côté serveur : masquer le lien n'en est pas une.
+* Interface modernisée (couche `modern.css`, présentation seulement) : police Inter Variable auto-hébergée,
+  chiffres tabulaires, cartes indicateurs avec pastille d'icône, nombre centré et libellé centré dans tous les
+  modules, ombres douces, dialogues et focus modernisés. Parcours visuel `n1-journey-live.json` 35/35.
 * Photo professionnelle d'un campus, sous licence Unsplash, servie localement (WebP 2000 px, WebP mobile, JPEG
   de repli), voile sombre pour la lisibilité, crédit discret.
 * Afficher/masquer le mot de passe, focus initial, ordre de tabulation, erreurs sans énumération, verrouillage
@@ -50,6 +54,10 @@ Défauts trouvés et corrigés pendant cette passe, preuves dans les commits :
    démarrer à froid → attente portée à 6 min ; démarrage complet ensuite réussi.
 3. WSL bloqué (`hostname -I` > 60 s) : le lanceur réutilise la dernière adresse connue au lieu de planter, et
    n'écrit plus de double `bind` Redis.
+4. Après le redémarrage, Windows (Hyper-V/WSL) a réservé les plages de ports 58929–59628 : l'outil de recette
+   utilisait 59223 (corrigé, port configurable). Les ports d'EduSync (5180, 58100, 55432, 16379, 18333) n'étaient
+   pas dans ces plages, mais une réservation future pourrait toucher 58100 : à surveiller, ou à déplacer hors
+   de la plage dynamique au déploiement.
 Limite : la machine de test n'avait que ≈ 600 Mo de mémoire libre sur 8 Go pendant ces essais ; les durées
 mesurées en dépendent.
 

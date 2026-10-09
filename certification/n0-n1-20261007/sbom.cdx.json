@@ -1,10 +1,10 @@
 {
  "bomFormat": "CycloneDX",
  "specVersion": "1.5",
- "serialNumber": "urn:uuid:189315bd-1bc3-403c-b7a5-c4e010992150",
+ "serialNumber": "urn:uuid:4b5e4a2f-b053-45fb-8e9c-9efe14edd29f",
  "version": 1,
  "metadata": {
-  "timestamp": "2026-10-09T04:35:01.974339+00:00",
+  "timestamp": "2026-10-09T19:13:02.551874+00:00",
   "component": {
    "type": "application",
    "name": "edusync-web",
@@ -493,6 +493,17 @@
    "licenses": [
     {
      "expression": "BSD License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@fontsource-variable/inter",
+   "version": "5.3.0",
+   "purl": "pkg:npm/@fontsource-variable/inter@5.3.0",
+   "licenses": [
+    {
+     "expression": "OFL-1.1"
     }
    ]
   },

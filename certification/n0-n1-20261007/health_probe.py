@@ -30,7 +30,7 @@ check("Composants mesurés : API, base, cache, 2 workers, stockage, erreurs, sau
 check("Base : temps de réponse réellement mesuré", isinstance(comps["database"]["measured_ms"], int), comps["database"]["detail"])
 check("Cache : PING réellement mesuré", isinstance(comps["redis"]["measured_ms"], int), comps["redis"]["detail"])
 check("Stockage : requête signée réellement mesurée", comps["storage"]["state"] in ("OK", "DEGRADED") and isinstance(comps["storage"]["measured_ms"], int), comps["storage"]["detail"])
-check("Workers : signal de vie reçu (< 60 s)", all((comps[k].get("age_seconds") or 999) < 60 for k in ("worker_outbox", "worker_communications")),
+check("Workers : signal de vie reçu (< 60 s)", all(comps[k].get("age_seconds") is not None and comps[k]["age_seconds"] < 60 for k in ("worker_outbox", "worker_communications")),
       [comps[k]["detail"] for k in ("worker_outbox", "worker_communications")])
 check("Sauvegarde non configurée : annoncée comme telle, jamais « OK »", comps["backup"]["state"] in ("NOT_CONFIGURED", "OK", "DEGRADED", "DOWN") and (comps["backup"]["state"] != "OK" or "Réussie" in comps["backup"]["detail"]), comps["backup"]["detail"])
 check("Libellés humains (aucun code technique affiché)", all(" " in c["label"] and "_" not in c["label"] for c in d["components"]))
