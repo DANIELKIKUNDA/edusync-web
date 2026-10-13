@@ -164,12 +164,32 @@ def test_failures_are_committed_before_the_refusal_is_answered():
         assert "raise HTTPException(status_code=400" not in body  # never raised inside the transaction
 
 
+def test_second_factor_throttled_per_account_never_per_address():
+    # One account's mistakes must not lock a whole office out of Atelier Pro (password step keeps its address counter).
+    assert 'namespace="mfa", per_ip=False' in _source("modules/iam/api/router.py")
+    from edusync.shared.infrastructure.login_guard import LoginAttemptGuard
+    g = LoginAttemptGuard.__new__(LoginAttemptGuard)
+    g.namespace, g.per_ip, g.max, g.max_ip = "mfa", False, 5, 50
+    assert [k.split(":")[3] for k, _ in g._counters("a@b.c", "10.0.0.1")] == ["acct"]
+    g.per_ip = True
+    assert [k.split(":")[3] for k, _ in g._counters("a@b.c", "10.0.0.1")] == ["acct", "ip"]
+
+
 def test_team_reset_is_governed_reasoned_idempotent_and_never_self_service():
     s = _source("modules/platform_team/api/router.py")
     fn = s[s.index("def team_reset_mfa("):]
     for marker in ("actor.require(TEAM_CAP)", "_key(idempotency_key)", "_guard_target(c, actor, user_id)",
                    "platform_mfa.reset(", "_revoke_platform_sessions(c, user_id, \"MFA_RESET\")", "PLATFORM_USER_MFA_RESET", "reason=body.reason"):
         assert marker in fn, marker
+
+
+def test_operator_recovery_needs_owner_credentials_confirmation_reason_and_is_audited():
+    s = (ROOT / "backend/scripts/reset_platform_mfa.py").read_text(encoding="utf-8")
+    for marker in ("settings.owner_database_url", "a.confirm.strip().lower() != email", "len(a.reason.strip()) < 15",
+                   "platform_mfa.reset(", "MFA_RESET_BY_OPERATOR", "PLATFORM_USER_MFA_RESET_BY_OPERATOR", "'SYSTEM'"):
+        assert marker in s, marker
+    # never part of the API: the web application holds no owner credentials
+    assert "reset_platform_mfa" not in (SRC / "bootstrap/app.py").read_text(encoding="utf-8")
 
 
 def test_mfa_tables_reachable_by_the_platform_role_only_and_never_erased():

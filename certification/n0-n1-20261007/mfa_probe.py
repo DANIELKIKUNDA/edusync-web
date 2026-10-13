@@ -195,6 +195,12 @@ tok = raw_login(lock["email"], lock["password"]).json()["mfa_token"]
 good, _ = fresh_code(s2, k0)
 locked = mfa("verify", {"mfa_token": tok, "code": good})
 check("Compteur par compte (Redis) : même un bon code est refusé pendant le verrou (429 + Retry-After)", locked.status_code == 429 and int(locked.headers.get("retry-after", "0")) > 0, locked.status_code)
+d_other = raw_login(acc["email"], acc["password"]).json()
+code_o, step_o = fresh_code(secret, int(state[MFA_STATE][acc["email"]]["last_step"]))
+other = mfa("verify", {"mfa_token": d_other["mfa_token"], "code": code_o})
+state[MFA_STATE][acc["email"]]["last_step"] = step_o
+save()
+check("Verrou par compte seulement : un autre compte à la même adresse n'est pas bloqué", other.status_code == 200, other.status_code)
 with owner.connect() as c:
     failed = c.execute(text("SELECT count(*) FROM audit_events WHERE action='MFA_FAILED' AND entity_id=:u AND result='REJECTED'"), {"u": lock["id"]}).scalar_one()
 check("Chaque échec MFA audité (résultat REJECTED)", failed >= 5, failed)
@@ -232,6 +238,29 @@ sl = raw_login(sa["email"], sa["password"])
 check("Compte école : connexion directe, aucun second facteur demandé", sl.status_code == 200 and "access_token" in sl.json() and "mfa_token" not in sl.json(), sl.status_code)
 sc = bearer(sl.json()["access_token"])
 check("Compte école : API MFA plateforme inaccessible", sc.get("auth/platform/mfa").status_code in (401, 403))
+
+# ---------- 9b. operator recovery (last Manager without phone nor recovery codes) ----------
+import subprocess  # noqa: E402
+SCRIPT = str(Path(__file__).resolve().parents[2] / "backend" / "scripts" / "reset_platform_mfa.py")
+
+
+def operator(*args):
+    return subprocess.run([sys.executable, SCRIPT, *args], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+
+
+why = f"Téléphone et codes de secours perdus, identité vérifiée en personne ({run})"
+bad = operator("--email", lock["email"], "--operator", "Opérateur recette", "--reason", why, "--confirm", "autre@example.test")
+check("Procédure opérateur : confirmation erronée → refus, rien n'est modifié", bad.returncode == 2, bad.returncode)
+school_try = operator("--email", sa["email"], "--operator", "Opérateur recette", "--reason", why, "--confirm", sa["email"])
+check("Procédure opérateur : compte école refusé (pas de second facteur)", school_try.returncode == 3, school_try.returncode)
+okop = operator("--email", lock["email"], "--operator", "Opérateur recette", "--reason", why, "--confirm", lock["email"])
+check("Procédure opérateur : réinitialisation du facteur (identifiants propriétaire de la base requis)", okop.returncode == 0, (okop.stderr or okop.stdout)[-200:])
+with owner.connect() as c:
+    au = c.execute(text("SELECT reason, new_json, actor_user_id, source FROM audit_events WHERE action='PLATFORM_USER_MFA_RESET_BY_OPERATOR' AND entity_id=:u ORDER BY occurred_at DESC LIMIT 1"),
+                   {"u": lock["id"]}).mappings().first()
+    active = c.execute(text("SELECT count(*) FROM user_mfa_factors WHERE user_id=:u AND status='ACTIVE'"), {"u": lock["id"]}).scalar_one()
+check("Procédure opérateur auditée : opérateur nommé, motif, source SYSTEM", au and au["reason"] == why and au["new_json"]["operator"] == "Opérateur recette" and au["source"] == "SYSTEM")
+check("Procédure opérateur : aucun accès donné (facteur retiré, ré-enrôlement exigé à la connexion)", active == 0)
 
 # ---------- 10. secrets never leak (audit, logs) ----------
 pw_state = state[MFA_STATE].get(pw["email"], {})

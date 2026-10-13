@@ -210,7 +210,7 @@ _MFA_LOCKED = "Trop de codes incorrects. Pour votre sécurité, réessayez dans 
 
 def _mfa_guard(services: AppServices) -> LoginAttemptGuard:
     s = services.settings
-    return LoginAttemptGuard(s.redis_url, window_seconds=s.mfa_lock_seconds, max_attempts=s.mfa_max_attempts, lock_seconds=s.mfa_lock_seconds, namespace="mfa")
+    return LoginAttemptGuard(s.redis_url, window_seconds=s.mfa_lock_seconds, max_attempts=s.mfa_max_attempts, lock_seconds=s.mfa_lock_seconds, namespace="mfa", per_ip=False)
 
 
 def _platform_access_ok(conn, user_id) -> bool:

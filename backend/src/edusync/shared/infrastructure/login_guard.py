@@ -9,9 +9,11 @@ class LoginDecision:
 
 class LoginAttemptGuard:
     """Distributed login throttling. Never stores raw email/IP in Redis keys."""
-    def __init__(self, redis_url: str, *, window_seconds: int=900, max_attempts: int=7, lock_seconds: int=900, namespace: str="auth"):
+    def __init__(self, redis_url: str, *, window_seconds: int=900, max_attempts: int=7, lock_seconds: int=900, namespace: str="auth", per_ip: bool=True):
         # Separate counters per concern: second-factor failures ("mfa") never share the password counters ("auth").
-        self.namespace=namespace
+        # The second factor is counted per account only (per_ip=False): reaching it already takes a valid password,
+        # which is throttled per address; an address counter would let one account's errors lock out a whole office.
+        self.namespace=namespace; self.per_ip=per_ip
         try:
             from redis import Redis
             self.redis=Redis.from_url(redis_url, decode_responses=True, socket_connect_timeout=0.35, socket_timeout=0.35)
@@ -27,11 +29,14 @@ class LoginAttemptGuard:
     def _keys(self,email:str,ip:str):
         ns=getattr(self,"namespace","auth")
         return (f"edusync:{ns}:fail:acct:{self._digest(email)}", f"edusync:{ns}:fail:ip:{self._digest(ip)}")
+    def _counters(self,email:str,ip:str):
+        pairs=list(zip(self._keys(email,ip),(self.max,self.max_ip)))
+        return pairs if getattr(self,"per_ip",True) else pairs[:1]
     def check(self,email:str,ip:str)->LoginDecision:
         try:
             if self.redis is None: return LoginDecision(True,0)
             ttls=[]
-            for k,limit in zip(self._keys(email,ip),(self.max,self.max_ip)):
+            for k,limit in self._counters(email,ip):
                 n=int(self.redis.get(k) or 0)
                 if n>=limit: ttls.append(max(self.redis.ttl(k),1))
             return LoginDecision(not ttls, max(ttls) if ttls else 0)
@@ -41,7 +46,7 @@ class LoginAttemptGuard:
     def failure(self,email:str,ip:str)->None:
         try:
             if self.redis is None: return
-            for k,limit in zip(self._keys(email,ip),(self.max,self.max_ip)):
+            for k,limit in self._counters(email,ip):
                 pipe=self.redis.pipeline(); pipe.incr(k); pipe.ttl(k); n,ttl=pipe.execute()
                 if ttl < 0: self.redis.expire(k,self.window)
                 if int(n)>=limit: self.redis.expire(k,self.lock)
