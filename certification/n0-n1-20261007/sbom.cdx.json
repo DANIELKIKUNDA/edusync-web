@@ -1,10 +1,10 @@
 {
  "bomFormat": "CycloneDX",
  "specVersion": "1.5",
- "serialNumber": "urn:uuid:cc3f1458-82bc-4e28-90e0-2df5270bc022",
+ "serialNumber": "urn:uuid:731ac75c-c229-40e9-b164-3c305b11912b",
  "version": 1,
  "metadata": {
-  "timestamp": "2026-10-09T19:23:45.811789+00:00",
+  "timestamp": "2026-10-13T19:50:07.827671+00:00",
   "component": {
    "type": "application",
    "name": "edusync-web",
@@ -47,9 +47,9 @@
   },
   {
    "type": "library",
-   "name": "argon2-cffi",
-   "version": "25.1.0",
-   "purl": "pkg:pypi/argon2-cffi@25.1.0",
+   "name": "argon2-cffi-bindings",
+   "version": "26.1.0",
+   "purl": "pkg:pypi/argon2-cffi-bindings@26.1.0",
    "licenses": [
     {
      "expression": "MIT"
@@ -58,9 +58,9 @@
   },
   {
    "type": "library",
-   "name": "argon2-cffi-bindings",
-   "version": "26.1.0",
-   "purl": "pkg:pypi/argon2-cffi-bindings@26.1.0",
+   "name": "argon2-cffi",
+   "version": "25.1.0",
+   "purl": "pkg:pypi/argon2-cffi@25.1.0",
    "licenses": [
     {
      "expression": "MIT"
@@ -108,6 +108,17 @@
    "licenses": [
     {
      "expression": "BSD License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "cryptography",
+   "version": "50.0.2",
+   "purl": "pkg:pypi/cryptography@50.0.2",
+   "licenses": [
+    {
+     "expression": "Apache-2.0 OR BSD-3-Clause"
     }
    ]
   },
@@ -245,9 +256,9 @@
   },
   {
    "type": "library",
-   "name": "psycopg",
+   "name": "psycopg-binary",
    "version": "3.3.5",
-   "purl": "pkg:pypi/psycopg@3.3.5",
+   "purl": "pkg:pypi/psycopg-binary@3.3.5",
    "licenses": [
     {
      "expression": "LGPL-3.0-only"
@@ -256,9 +267,9 @@
   },
   {
    "type": "library",
-   "name": "psycopg-binary",
+   "name": "psycopg",
    "version": "3.3.5",
-   "purl": "pkg:pypi/psycopg-binary@3.3.5",
+   "purl": "pkg:pypi/psycopg@3.3.5",
    "licenses": [
     {
      "expression": "LGPL-3.0-only"
@@ -278,9 +289,9 @@
   },
   {
    "type": "library",
-   "name": "pydantic",
-   "version": "2.13.5",
-   "purl": "pkg:pypi/pydantic@2.13.5",
+   "name": "pydantic-settings",
+   "version": "2.15.0",
+   "purl": "pkg:pypi/pydantic-settings@2.15.0",
    "licenses": [
     {
      "expression": "MIT"
@@ -289,9 +300,9 @@
   },
   {
    "type": "library",
-   "name": "pydantic-settings",
-   "version": "2.15.0",
-   "purl": "pkg:pypi/pydantic-settings@2.15.0",
+   "name": "pydantic",
+   "version": "2.13.5",
+   "purl": "pkg:pypi/pydantic@2.13.5",
    "licenses": [
     {
      "expression": "MIT"
@@ -380,6 +391,17 @@
    "name": "reportlab",
    "version": "5.0.1",
    "purl": "pkg:pypi/reportlab@5.0.1",
+   "licenses": [
+    {
+     "expression": "BSD License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "segno",
+   "version": "1.6.6",
+   "purl": "pkg:pypi/segno@1.6.6",
    "licenses": [
     {
      "expression": "BSD License"

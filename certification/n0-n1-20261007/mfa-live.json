@@ -1,0 +1,302 @@
+[
+  {
+    "check": "Mot de passe seul : aucune session (ni jeton d'accès, ni cookie)",
+    "pass": true,
+    "detail": "['mfa_required', 'mfa_enrollment_required', 'mfa_token', 'expires_in', 'scope', 'methods']"
+  },
+  {
+    "check": "Compte plateforme sans facteur : enrôlement obligatoire demandé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Jeton d'étape refusé comme jeton d'API (pas un jeton d'accès)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Jeton d'étape d'enrôlement refusé par la vérification de connexion",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Enrôlement : QR code SVG local, clé manuelle, URI otpauth avec émetteur",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Enrôlement : réponse non mise en cache",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Enrôlement : première saisie fausse refusée (400), facteur non activé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Avant confirmation : facteur seulement en attente",
+    "pass": true,
+    "detail": "['PENDING']"
+  },
+  {
+    "check": "Secret chiffré au repos (jamais en clair en base)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Confirmation : session ouverte + 10 codes de secours affichés une fois",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Jeton d'étape consommé : réutilisation refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Session obtenue utilisable sur l'Atelier Pro",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Session marquée « second facteur validé » (TOTP)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Codes de secours stockés hachés (Argon2), jamais en clair",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte enrôlé : code demandé (TOTP ou code de secours)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Rejeu du code de l'enrôlement (même pas de 30 s) refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Code hors fenêtre (+2 pas = +60 s) refusé",
+    "pass": true,
+    "detail": "400"
+  },
+  {
+    "check": "Code et code de secours ensemble refusés (422)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Bon code (pas suivant) : session ouverte",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Même code rejoué immédiatement sur une nouvelle étape : refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Code de secours accepté (casse et séparateurs tolérés), 9 restants",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Code de secours déjà utilisé : refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "État MFA du compte : enrôlé, 9 codes restants, désactivation par soi-même impossible",
+    "pass": true,
+    "detail": "{'enrolled': True, 'method': 'TOTP', 'confirmed_at': '2026-10-13T20:45:04.913573+01:00', 'recovery_codes_remaining': 9, 'required': True, 'self_disable_allowed': False}"
+  },
+  {
+    "check": "Régénération sans code TOTP valide : refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Régénération après code TOTP : 10 nouveaux codes",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Ancien code de secours non utilisé : invalidé par la régénération",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Aucune route de désactivation par soi-même (DELETE /auth/platform/mfa)",
+    "pass": true,
+    "detail": "405"
+  },
+  {
+    "check": "Aucune route de désactivation par soi-même (POST /auth/platform/mfa)",
+    "pass": true,
+    "detail": "405"
+  },
+  {
+    "check": "Aucune route de désactivation par soi-même (PUT /auth/platform/mfa)",
+    "pass": true,
+    "detail": "405"
+  },
+  {
+    "check": "Réinitialisation de son propre facteur via l'équipe : refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte sans gouvernance d'équipe : réinitialiser le MFA d'un Manager refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Jeton plateforme valide mais session sans second facteur : refusé (401)",
+    "pass": true,
+    "detail": "401"
+  },
+  {
+    "check": "Renouvellement d'une session sans second facteur : refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Session persistante validée : renouvelée sans nouveau code (appareil approuvé)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Rôle école (tenant) : lecture des secrets MFA impossible",
+    "pass": true,
+    "detail": "InsufficientPrivilege"
+  },
+  {
+    "check": "5 codes faux sur une étape : 4 refus puis étape annulée (reconnexion exigée)",
+    "pass": true,
+    "detail": "[400, 400, 400, 400, 401]"
+  },
+  {
+    "check": "Compteur par compte (Redis) : même un bon code est refusé pendant le verrou (429 + Retry-After)",
+    "pass": true,
+    "detail": "429"
+  },
+  {
+    "check": "Verrou par compte seulement : un autre compte à la même adresse n'est pas bloqué",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Chaque échec MFA audité (résultat REJECTED)",
+    "pass": true,
+    "detail": "5"
+  },
+  {
+    "check": "Réinitialisation sans motif : refusée (422)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Manager : réinitialisation du facteur d'un autre compte, sessions plateforme coupées",
+    "pass": true,
+    "detail": "{'user_id': 'f73c7bef-2be2-4062-ba2f-ae07a02edfed', 'mfa_reset': True, 'sessions_revoked': 5, 'factors_revoked': 1, 'recovery_codes_revoked': 10}"
+  },
+  {
+    "check": "Après réinitialisation : ancien jeton coupé immédiatement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Après réinitialisation : nouvel enrôlement obligatoire à la connexion",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Après réinitialisation : l'ancien secret ne permet plus rien",
+    "pass": true,
+    "detail": "401"
+  },
+  {
+    "check": "Réinitialisation auditée avec auteur et motif",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Fiche équipe : statut MFA visible, sans secret ni code",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Changement de mot de passe : toutes les sessions coupées",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Après changement de mot de passe : le facteur est conservé (code demandé, pas de ré-enrôlement)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte désactivé entre le mot de passe et le code : étape refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte école : connexion directe, aucun second facteur demandé",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Compte école : API MFA plateforme inaccessible",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Procédure opérateur : confirmation erronée → refus, rien n'est modifié",
+    "pass": true,
+    "detail": "2"
+  },
+  {
+    "check": "Procédure opérateur : compte école refusé (pas de second facteur)",
+    "pass": true,
+    "detail": "3"
+  },
+  {
+    "check": "Procédure opérateur : réinitialisation du facteur (identifiants propriétaire de la base requis)",
+    "pass": true,
+    "detail": "Second facteur réinitialisé (1 facteur, 1 session(s) plateforme coupée(s)). Le compte configurera une nouvelle application à sa prochaine connexion. Action auditée.\n"
+  },
+  {
+    "check": "Procédure opérateur auditée : opérateur nommé, motif, source SYSTEM",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Procédure opérateur : aucun accès donné (facteur retiré, ré-enrôlement exigé à la connexion)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Aucun secret TOTP ni code de secours dans l'audit",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "check": "Aucun secret TOTP ni code de secours dans les journaux du serveur",
+    "pass": true,
+    "detail": "[]"
+  },
+  {
+    "check": "Événements audités : enrôlement, vérification, code de secours, régénération, échec, réinitialisation",
+    "pass": true,
+    "detail": "['MFA_ENROLLED', 'MFA_ENROLLMENT_STARTED', 'MFA_FAILED', 'MFA_LOCKED', 'MFA_RECOVERY_CODES_REGENERATED', 'MFA_RECOVERY_CODE_USED', 'MFA_VERIFIED', 'PLATFORM_USER_MFA_RESET', 'PLATFORM_USER_MFA_RESET_BY_OPERATOR']"
+  },
+  {
+    "check": "Manager système : second facteur exigé à chaque nouvelle connexion",
+    "pass": true,
+    "detail": ""
+  }
+]

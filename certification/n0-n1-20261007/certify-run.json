@@ -1,128 +1,151 @@
 {
- "sha": "bbe90e2da8580fddbbfed8d6c0c220be3785e907",
+ "sha": "9c5d5fae1bde0000c11c842c0ed712446b73daa8",
+ "clean_tree_at_start": true,
+ "modified_at_start": [],
  "steps": [
+  {
+   "step": "Arbre Git propre au démarrage",
+   "command": "git status --porcelain",
+   "result": "PASS",
+   "summary": "propre sur 9c5d5fae1bde",
+   "duration_s": 0
+  },
   {
    "step": "Tests backend (pytest)",
    "command": "python.exe -m pytest -q -p no:cacheprovider --basetemp=../.local/pytest-tmp",
    "result": "PASS",
-   "summary": "538 passed, 6 warnings in 56.25s",
-   "duration_s": 64.1
+   "summary": "570 passed, 6 warnings in 21.97s",
+   "duration_s": 25.7
   },
   {
    "step": "Compilation Python (compileall)",
    "command": "python.exe -m compileall -q src",
    "result": "PASS",
    "summary": "OK",
-   "duration_s": 1.2
+   "duration_s": 2.4
   },
   {
    "step": "Typecheck frontend (tsc)",
    "command": "npx.cmd tsc --noEmit -p tsconfig.json",
    "result": "PASS",
    "summary": "0 erreur",
-   "duration_s": 10.2
+   "duration_s": 3.2
+  },
+  {
+   "step": "Build frontend (vite)",
+   "command": "npm.cmd run build",
+   "result": "PASS",
+   "summary": "built in 931ms\u001b[39m",
+   "duration_s": 3.2
   },
   {
    "step": "Migrations sur base vierge (provisionnement)",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py backend/scripts/provision_database.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py backend/scripts/provision_database.py",
    "result": "PASS",
    "summary": "POINT-4A database provisioning: PASS",
-   "duration_s": 5.4
+   "duration_s": 4.0
   },
   {
    "step": "Sonde en conditions réelles : prereq_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/prereq_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/prereq_probe.py",
    "result": "PASS",
    "summary": "== 42/42 PASS",
-   "duration_s": 43.3
+   "duration_s": 40.5
   },
   {
    "step": "Sonde en conditions réelles : team_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/team_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/team_probe.py",
    "result": "PASS",
    "summary": "== 58/58 PASS",
-   "duration_s": 27.1
+   "duration_s": 89.5
   },
   {
    "step": "Sonde en conditions réelles : school_lifecycle_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/school_lifecycle_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/school_lifecycle_probe.py",
    "result": "PASS",
    "summary": "== 31/31 PASS",
-   "duration_s": 32.4
+   "duration_s": 46.4
   },
   {
    "step": "Sonde en conditions réelles : health_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/health_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/health_probe.py",
    "result": "PASS",
    "summary": "== 12/12 PASS",
-   "duration_s": 8.0
+   "duration_s": 13.6
   },
   {
    "step": "Sonde en conditions réelles : audit_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/audit_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/audit_probe.py",
    "result": "PASS",
    "summary": "== 25/25 PASS",
-   "duration_s": 10.8
+   "duration_s": 30.5
   },
   {
    "step": "Sonde en conditions réelles : notifications_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/notifications_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/notifications_probe.py",
    "result": "PASS",
    "summary": "== 44/44 PASS",
-   "duration_s": 26.1
+   "duration_s": 35.1
   },
   {
    "step": "Sonde en conditions réelles : realtime_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/realtime_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/realtime_probe.py",
    "result": "PASS",
    "summary": "== 8/8 PASS",
-   "duration_s": 20.0
+   "duration_s": 32.6
   },
   {
    "step": "Sonde en conditions réelles : hardening_http_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/hardening_http_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/hardening_http_probe.py",
    "result": "PASS",
    "summary": "== 17/17 PASS",
-   "duration_s": 50.6
+   "duration_s": 68.4
+  },
+  {
+   "step": "Sonde en conditions réelles : mfa_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/mfa_probe.py",
+   "result": "PASS",
+   "summary": "== 60/60 PASS",
+   "duration_s": 121.7
   },
   {
    "step": "Sonde en conditions réelles : resilience_probe.py",
-   "command": "python.exe E:\\edusyncweb\\.local\\closure\\run.py certification/n0-n1-20261007/resilience_probe.py",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/resilience_probe.py",
    "result": "PASS",
    "summary": "== 16/16 PASS",
-   "duration_s": 260.5
+   "duration_s": 183.3
   },
   {
    "step": "Sauvegarde + restauration vérifiée",
    "command": "python.exe tools/local/backup_restore.py --db edusync_claude_fresh",
    "result": "PASS",
-   "summary": "== 8/8 PASS · 46.5 s · rapport : .local/backups/last.json",
-   "duration_s": 51.0
+   "summary": "== 8/8 PASS · 6.9 s · rapport : .local/backups/last.json",
+   "duration_s": 11.5
   },
   {
    "step": "Chaîne d'approvisionnement (licences, SBOM)",
    "command": "python.exe tools/certification/supply_chain.py",
    "result": "PASS",
-   "summary": "Python : 44 paquets · npm (exécution) : 73 · à examiner : 2",
-   "duration_s": 0.7
+   "summary": "Python : 46 paquets · npm (exécution) : 73 · à examiner : 2",
+   "duration_s": 1.1
   },
   {
    "step": "Vulnérabilités npm (npm audit)",
    "command": "npm.cmd audit --omit=dev",
    "result": "PASS",
    "summary": "found 0 vulnerabilities",
-   "duration_s": 7.4
+   "duration_s": 4.1
   },
   {
    "step": "Scan de secrets",
    "command": "python.exe .local/closure/secret_scan.py",
    "result": "PASS",
-   "summary": "78 secrets checked across 1259 files: 0 leak(s)",
-   "duration_s": 3.2
+   "summary": "81 secrets checked across 1266 files: 0 leak(s)",
+   "duration_s": 4.5
   }
  ],
  "versions": {
-  "OS": "Windows 11 (10.0.22631)",
+  "OS": "Windows 11 (10.0.26200)",
   "Python": "3.13.14",
   "Node": "v24.19.0",
   "PostgreSQL": "postgres (PostgreSQL) 16.11",

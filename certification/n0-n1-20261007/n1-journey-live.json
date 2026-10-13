@@ -165,6 +165,86 @@
     "detail": ""
   },
   {
+    "check": "MFA 390px : assistant étape 1 sur 3, QR code local affiché",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA 390px : lien direct vers l’application d’authentification (même téléphone)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA 390px : pas de défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA : clé manuelle de secours affichée (groupes de 4)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA : saisie du code au clavier numérique (inputmode, one-time-code)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA : code faux → message clair, non technique",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA : 10 codes de secours affichés une fois",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA : accès bloqué tant que la conservation des codes n’est pas confirmée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA 390px : codes lisibles sans défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA : après activation, Atelier Pro ouvert",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA 390px : écran « Code de vérification » après le mot de passe",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA : code faux → message humain (heure du téléphone)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA : bon code → Atelier Pro",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "MFA 320px : Atelier Pro sans défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Sécurité : onglet validation en deux étapes (état, codes restants, aucune désactivation)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Équipe : statut de validation en deux étapes visible sur la fiche",
+    "pass": true,
+    "detail": ""
+  },
+  {
     "check": "Déconnexion : retour à l’écran de connexion",
     "pass": true,
     "detail": ""
