@@ -18,12 +18,26 @@ async function errorDetail(r:Response, fallback:string){try{const b=await r.clon
 function auth(token:string){return {'Authorization':`Bearer ${token}`,'Content-Type':'application/json'};}
 function mutationHeaders(token:string,extra:Record<string,string>={}){return {...auth(token),'Idempotency-Key':crypto.randomUUID(),...extra}}
 
-export async function loginPlatform(email:string,password:string):Promise<PlatformLoginResult>{
+/** Platform accounts (option B): after the password the server asks for the second factor instead of opening a session. */
+export type MfaStep={mfa_required:boolean;mfa_enrollment_required:boolean;mfa_token:string;expires_in:number;scope:'PLATFORM';methods:('TOTP'|'RECOVERY_CODE')[]};
+export function isMfaStep(r:unknown):r is MfaStep{return !!r&&typeof (r as {mfa_token?:unknown}).mfa_token==='string'}
+export type MfaEnrollment={secret:string;otpauth_uri:string;qr_svg:string;account:string;issuer:string;digits:number;period:number};
+export type PlatformMfaStatus={enrolled:boolean;method:'TOTP'|null;confirmed_at:string|null;recovery_codes_remaining:number;required:boolean;self_disable_allowed:boolean};
+export class MfaError extends Error{constructor(public status:number,message:string){super(message)}}
+async function mfaFailure(r:Response):Promise<never>{let detail='';try{const b=await r.json();if(typeof b?.detail==='string'&&b.detail.length<240)detail=b.detail}catch{/* non JSON */}throw new MfaError(r.status,detail||friendlyHttpMessage(r.status))}
+async function mfaPost<T>(path:string,body:unknown):Promise<T>{const r=await fetch(`${API}/auth/mfa${path}`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)return mfaFailure(r);return r.json() as Promise<T>}
+export function mfaVerify(mfa_token:string,input:{code?:string;recovery_code?:string}){return mfaPost<PlatformLoginResult&{recovery_codes_remaining?:number}>('/verify',{mfa_token,...input})}
+export function mfaEnrollStart(mfa_token:string){return mfaPost<MfaEnrollment>('/enroll/start',{mfa_token})}
+export function mfaEnrollConfirm(mfa_token:string,code:string){return mfaPost<PlatformLoginResult&{recovery_codes:string[]}>('/enroll/confirm',{mfa_token,code})}
+export async function platformMfaStatus(token:string){return json<PlatformMfaStatus>(await fetch(`${API}/auth/platform/mfa`,{headers:auth(token),cache:'no-store'}),'État de la validation en deux étapes indisponible')}
+export async function regenerateRecoveryCodes(token:string,code:string):Promise<{recovery_codes:string[]}>{const r=await fetch(`${API}/auth/platform/mfa/recovery-codes`,{method:'POST',headers:auth(token),body:JSON.stringify({code})});if(!r.ok)return mfaFailure(r);return r.json()}
+
+export async function loginPlatform(email:string,password:string):Promise<PlatformLoginResult|MfaStep>{
   const r=await fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,scope:'PLATFORM'})});
-  if(!r.ok)throw new Error(await errorDetail(r,'Connexion impossible'));return r.json();
+  if(!r.ok)throw new HttpLoginError(r.status);return r.json();
 }
 export type LoginContext={scope:'SCHOOL'|'PLATFORM';school_code:string|null;label:string};
-export type AutoLoginResult=PlatformLoginResult|SchoolLoginResult|{choice_required:true;contexts:LoginContext[]};
+export type AutoLoginResult=PlatformLoginResult|SchoolLoginResult|MfaStep|{choice_required:true;contexts:LoginContext[]};
 /** Sign-in without a school code: the server determines the context after authentication. When the account
  * opens several spaces it returns the list and no session is created until the user picks one. */
 export async function loginAuto(email:string,password:string):Promise<AutoLoginResult>{
@@ -320,8 +334,8 @@ export async function familyCollect(token:string,body:{family_id:string;lines:Ba
 export type PlatformMe={user:{id:string;email:string;full_name:string};roles:{code:string;label:string;kind:string}[];permissions:string[];menu:{key:string;label:string;capability:string}[]};
 export type PlatformCapability={code:string;label:string;group_name:string;risk:string;reserved:boolean;reserved_reason:string|null;held:boolean;delegable:boolean};
 export type PlatformRole={id:string;code:string;label:string;description:string;kind:'PLATFORM_STANDARD'|'PLATFORM_CUSTOM';status:'DRAFT'|'OWNER_APPROVED'|'ACTIVE'|'ARCHIVED';version:number;updated_at:string;archived_at:string|null;capabilities:string[];active_users:number};
-export type PlatformTeamUser={id:string;email:string;full_name:string;account_active:boolean;platform_status:'ACTIVE'|'SUSPENDED';roles:string[];last_activity:string|null;open_sessions:number;created_at:string;is_me:boolean};
-export type PlatformTeamUserDetail=Omit<PlatformTeamUser,'roles'|'last_activity'|'open_sessions'>&{status_reason:string|null;status_changed_at:string|null;roles:{code:string;label:string;kind:string;status:string;active:boolean;created_at:string;reason:string|null}[];effective_permissions:string[];sessions:{id:string;label:string|null;created_at:string;last_seen_at:string}[];audit:{occurred_at:string;action:string;reason:string|null;actor:string|null}[]};
+export type PlatformTeamUser={id:string;email:string;full_name:string;account_active:boolean;platform_status:'ACTIVE'|'SUSPENDED';roles:string[];last_activity:string|null;open_sessions:number;created_at:string;is_me:boolean;mfa_enrolled?:boolean};
+export type PlatformTeamUserDetail=Omit<PlatformTeamUser,'roles'|'last_activity'|'open_sessions'>&{status_reason:string|null;status_changed_at:string|null;roles:{code:string;label:string;kind:string;status:string;active:boolean;created_at:string;reason:string|null}[];effective_permissions:string[];sessions:{id:string;label:string|null;created_at:string;last_seen_at:string}[];audit:{occurred_at:string;action:string;reason:string|null;actor:string|null}[];mfa?:{enrolled:boolean;confirmed_at:string|null;recovery_codes_remaining:number}};
 const T=`${API}/platform/team`;
 async function teamPost<R=any>(token:string,path:string,body:unknown,fallback:string):Promise<R>{return json<R>(await fetch(`${T}${path}`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(body)}),fallback)}
 export async function platformMe(token:string){return json<PlatformMe>(await fetch(`${T}/me`,{headers:auth(token)}),'Profil Atelier Pro indisponible')}
@@ -339,6 +353,7 @@ export async function teamRevokeRole(token:string,id:string,role_code:string,rea
 export async function teamUserStatus(token:string,id:string,action:'suspend'|'reactivate',reason:string){return teamPost(token,`/users/${id}/${action}`,{reason},'Changement de statut impossible')}
 export async function teamRevokeSessions(token:string,id:string,reason:string,sessionId?:string){return teamPost(token,sessionId?`/users/${id}/sessions/${sessionId}/revoke`:`/users/${id}/sessions/revoke-all`,{reason},'Déconnexion impossible')}
 export async function teamResetPassword(token:string,id:string,new_password:string,reason:string){return teamPost(token,`/users/${id}/password-reset`,{new_password,reason},'Réinitialisation impossible')}
+export async function teamResetMfa(token:string,id:string,reason:string){return teamPost(token,`/users/${id}/mfa-reset`,{reason},'Réinitialisation de la validation en deux étapes impossible')}
 
 export type HealthComponent={key:string;label:string;state:'OK'|'DEGRADED'|'DOWN'|'NOT_CONFIGURED';detail:string;measured_ms?:number|null;age_seconds?:number|null;value?:number|null};
 export type SystemHealth={checked_at:string;overall:'OK'|'DEGRADED'|'DOWN';components:HealthComponent[];figures:{schools_active?:number;sessions_open?:number}};

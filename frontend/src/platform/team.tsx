@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 import {
-  teamAssignRole, teamCapabilities, teamCloneRole, teamCreateRole, teamCreateUser, teamResetPassword, teamRevokeRole,
+  teamAssignRole, teamCapabilities, teamCloneRole, teamCreateRole, teamCreateUser, teamResetMfa, teamResetPassword, teamRevokeRole,
   teamRevokeSessions, teamRoleStatus, teamRoles, teamUpdateRole, teamUser, teamUserStatus, teamUsers,
   type PlatformCapability, type PlatformRole, type PlatformTeamUser, type PlatformTeamUserDetail,
 } from '../api';
@@ -91,7 +91,7 @@ export function TeamPage({token}: {token: string}) {
           <button className="tm-row" onClick={() => setOpenUser(u.id)} aria-label={`Ouvrir la fiche de ${u.full_name}`}>
             <span className="tm-avatar" aria-hidden="true">{u.full_name.split(/\s+/).map(x => x[0]).slice(0, 2).join('').toUpperCase()}</span>
             <span className="tm-who"><b>{u.full_name}{u.is_me && <em className="es-tag">Vous</em>}</b><small>{u.email}</small></span>
-            <span className="tm-chips">{u.roles.length ? u.roles.map(c => <em key={c} className="tm-chip">{roleLabel(c)}</em>) : <em className="tm-chip tm-chip-muted">Aucun rôle actif</em>}</span>
+            <span className="tm-chips">{u.roles.length ? u.roles.map(c => <em key={c} className="tm-chip">{roleLabel(c)}</em>) : <em className="tm-chip tm-chip-muted">Aucun rôle actif</em>}{u.mfa_enrolled === false && u.roles.length > 0 && <em className="tm-chip tm-chip-warn" title="Validation en deux étapes pas encore configurée : elle sera demandée à sa prochaine connexion.">Sécurité à configurer</em>}</span>
             <span className={`tm-status ${u.platform_status === 'SUSPENDED' ? 'tm-bad' : 'tm-ok'}`}><i aria-hidden="true"/>{u.platform_status === 'SUSPENDED' ? 'Suspendu' : 'Actif'}</span>
             <span className="tm-meta"><small>Dernière activité</small>{when(u.last_activity)}</span>
             <NavGlyph g="chevronRight" size={18}/>
@@ -213,6 +213,13 @@ function UserSheet({token, id, roles, caps, onClose, onChanged}: {token: string;
             ? <button className="es-btn" onClick={async () => { const w = await reason('Réactiver ce compte'); if (w) await run(() => teamUserStatus(token, id, 'reactivate', w), 'Compte réactivé'); }}>Réactiver</button>
             : <button className="es-btn es-btn-danger" onClick={async () => { const w = await reason('Suspendre ce compte', 'Toutes ses sessions Atelier Pro sont coupées immédiatement. Ses rôles sont conservés.'); if (w) await run(() => teamUserStatus(token, id, 'suspend', w), 'Compte suspendu'); }}>Suspendre</button>}
           <button className="es-btn es-btn-ghost" onClick={async () => { const w = await reason('Réinitialiser le mot de passe', 'Un nouveau mot de passe provisoire est généré ; toutes les sessions sont coupées.'); if (!w) return; const p = strongPassword(); await run(() => teamResetPassword(token, id, p, w), 'Mot de passe réinitialisé'); void navigator.clipboard?.writeText(p).then(() => toast.info('Mot de passe provisoire copié dans le presse-papiers.')); }}>Réinitialiser le mot de passe</button>
+        </div>}
+      </section>
+      <section><h3>Validation en deux étapes</h3>
+        <p className="tm-line"><span className={`tm-status ${u.mfa?.enrolled ? 'tm-ok' : 'tm-bad'}`}><i aria-hidden="true"/>{u.mfa?.enrolled ? 'Activée' : 'À configurer'}</span>
+          <small>{u.mfa?.enrolled ? `Depuis le ${new Date(u.mfa.confirmed_at || '').toLocaleDateString('fr-FR')} · ${u.mfa.recovery_codes_remaining} code(s) de secours restant(s)` : 'Elle sera demandée à sa prochaine connexion : sans elle, aucun accès à l’Atelier Pro.'}</small></p>
+        {!u.is_me && u.mfa?.enrolled && <div className="tm-actions">
+          <button className="es-btn es-btn-danger" onClick={async () => { const w = await reason('Réinitialiser la validation en deux étapes', 'À utiliser si ce membre a perdu son téléphone, après avoir vérifié son identité par un autre canal (appel, rencontre). Ses sessions Atelier Pro sont coupées ; il configurera une nouvelle application à sa prochaine connexion.'); if (w) await run(() => teamResetMfa(token, id, w), 'Validation en deux étapes réinitialisée'); }}>Réinitialiser la validation en deux étapes</button>
         </div>}
       </section>
       <section><h3>Rôles</h3><ul className="tm-plain">{u.roles.filter(r => r.active).map(r => <li key={r.code}><span><b>{r.label}</b><small>{r.kind === 'PLATFORM_STANDARD' ? 'Standard' : 'Personnalisé'}{r.status !== 'ACTIVE' ? ` · rôle ${ROLE_STATUS[r.status]?.toLowerCase()}` : ''}</small></span>

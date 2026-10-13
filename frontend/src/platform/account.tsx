@@ -3,7 +3,7 @@ import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {toast} from 'sonner';
-import {changeMyPassword, changePlatformPassword, dismissNotification, listMySessions, listNotifications, listPlatformSessions, logoutAllDevices, revokeMySession, revokePlatformSession, type DeviceSession, type InternalNotification} from '../api';
+import {changeMyPassword, changePlatformPassword, dismissNotification, listMySessions, listNotifications, listPlatformSessions, logoutAllDevices, MfaError, platformMfaStatus, regenerateRecoveryCodes, revokeMySession, revokePlatformSession, type DeviceSession, type InternalNotification, type PlatformMfaStatus} from '../api';
 import {FormField, formDefaults} from './forms';
 import {friendlyError} from './errors';
 import {NavGlyph} from './nav_icons';
@@ -59,7 +59,7 @@ function relative(iso: string) {
 }
 
 export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {token: string; onClose: () => void; onPasswordChanged: () => void; platform?: boolean}) {
-  const [tab, setTab] = useState<'devices' | 'password'>('devices');
+  const [tab, setTab] = useState<'devices' | 'password' | 'mfa'>('devices');
   const [sessions, setSessions] = useState<DeviceSession[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -86,6 +86,7 @@ export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {t
     <div className="es-tabs" role="tablist">
       <button role="tab" aria-selected={tab === 'devices'} className={tab === 'devices' ? 'es-on' : ''} onClick={() => setTab('devices')}><NavGlyph g="device" size={16}/>Appareils connectés</button>
       <button role="tab" aria-selected={tab === 'password'} className={tab === 'password' ? 'es-on' : ''} onClick={() => setTab('password')}><NavGlyph g="key" size={16}/>Mot de passe</button>
+      {platform && <button role="tab" aria-selected={tab === 'mfa'} className={tab === 'mfa' ? 'es-on' : ''} onClick={() => setTab('mfa')}><NavGlyph g="shield" size={16}/>Validation en 2 étapes</button>}
     </div>
     {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
     {tab === 'devices' && <div className="es-sessions">
@@ -100,6 +101,7 @@ export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {t
         ? <><span className="es-hint es-grow" role="status">Tous vos appareils, y compris celui-ci, seront déconnectés.</span><button className="es-btn es-btn-ghost" onClick={() => setConfirmAll(false)}>Annuler</button><button className="es-btn es-btn-danger" autoFocus disabled={busy === 'all'} onClick={() => void logoutAll()}>{busy === 'all' ? 'Déconnexion…' : 'Confirmer'}</button></>
         : <button className="es-btn es-btn-danger" onClick={() => setConfirmAll(true)}>Déconnecter tous les appareils</button>}</div>}
     </div>}
+    {tab === 'mfa' && platform && <MfaPanel token={token}/>}
     {tab === 'password' && <form className="es-form" onSubmit={save} noValidate>
       <p className="es-hint">Changer votre mot de passe déconnecte immédiatement tous vos appareils.</p>
       <FormField label="Mot de passe actuel *" error={form.formState.errors.current?.message}><input type="password" autoComplete="current-password" {...form.register('current')}/></FormField>
@@ -109,6 +111,38 @@ export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {t
         <button className="es-btn es-btn-primary" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? 'Modification…' : 'Modifier le mot de passe'}</button></div>
     </form>}
   </Modal>;
+}
+
+/** Second factor of a platform account: status and new recovery codes. Never a way to switch it off (option B). */
+function MfaPanel({token}: {token: string}) {
+  const [st, setSt] = useState<PlatformMfaStatus | null>(null);
+  const [code, setCode] = useState(''); const [codes, setCodes] = useState<string[] | null>(null);
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  async function load() { try { setError(''); setSt(await platformMfaStatus(token)); } catch (e) { setError(friendlyError(e)); } }
+  useEffect(() => { void load(); }, [token]);
+  async function regenerate(e: React.FormEvent) {
+    e.preventDefault(); setError('');
+    if (!/^\d{6}$/.test(code)) { setError('Saisissez les 6 chiffres affichés par votre application.'); return; }
+    try { setBusy(true); const r = await regenerateRecoveryCodes(token, code); setCodes(r.recovery_codes); setCode(''); toast.success('Nouveaux codes générés : les précédents ne fonctionnent plus.'); await load(); }
+    catch (err) { setError(err instanceof MfaError ? err.message : friendlyError(err)); setCode(''); } finally { setBusy(false); }
+  }
+  const text = () => ['EduSync Atelier Pro — codes de secours', 'Chaque code ne fonctionne qu’une seule fois.', '', ...(codes || []), ''].join('\n');
+  if (!st) return error ? <div className="es-alert es-alert-bad" role="alert">{error}</div> : <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>;
+  return <div className="es-form">
+    <p className="es-hint"><b>{st.enrolled ? 'Activée' : 'Non configurée'}</b>{st.enrolled && st.confirmed_at ? ` depuis le ${new Date(st.confirmed_at).toLocaleDateString('fr-FR')}` : ''} · obligatoire pour les comptes de l’Atelier Pro. Un code de votre application est demandé à chaque nouvelle connexion ; vos appareils déjà approuvés restent connectés.</p>
+    <p className="es-hint">Codes de secours restants : <b>{st.recovery_codes_remaining}</b>{st.recovery_codes_remaining <= 3 ? ' — pensez à en générer de nouveaux.' : ''}</p>
+    {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
+    {codes ? <>
+      <ul className="es-recovery" aria-label="Nouveaux codes de secours">{codes.map(c => <li key={c}><code>{c}</code></li>)}</ul>
+      <div className="es-alert" role="note">Ces codes ne seront plus affichés. Rangez-les hors d’EduSync (gestionnaire de mots de passe, papier sous clé).</div>
+      <div className="es-modal-foot"><button className="es-btn es-btn-ghost" onClick={() => { void navigator.clipboard?.writeText(text()).then(() => toast.success('Codes copiés')); }}>Copier</button>
+        <button className="es-btn es-btn-primary" onClick={() => setCodes(null)}>J’ai conservé ces codes</button></div>
+    </> : st.enrolled && <form onSubmit={regenerate} noValidate className="es-form">
+      <FormField label="Code de votre application (6 chiffres) *"><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}/></FormField>
+      <div className="es-modal-foot"><button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Génération…' : 'Générer de nouveaux codes de secours'}</button></div>
+    </form>}
+    <p className="es-hint">Téléphone perdu ou changé ? Demandez à un autre Manager système de réinitialiser votre validation en deux étapes depuis « Équipe plateforme » : vous la configurerez à nouveau à la connexion suivante. Elle ne peut pas être désactivée.</p>
+  </div>;
 }
 
 // The bell lives in notification_center.tsx (inbox with filters, pagination, read-all); re-exported for existing imports.

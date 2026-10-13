@@ -41,19 +41,22 @@ def _claims(credentials: HTTPAuthorizationCredentials | None, services: AppServi
         raise HTTPException(status_code=401, detail="Jeton invalide ou expiré", headers={"WWW-Authenticate": "Bearer"}) from exc
 
 
-def _assert_device_session_live(conn, claims: dict, user_id: UUID) -> None:
-    """Access tokens are bound to a device session: logout or device revocation is immediate."""
+def _assert_device_session_live(conn, claims: dict, user_id: UUID, *, require_mfa: bool = False) -> None:
+    """Access tokens are bound to a device session: logout or device revocation is immediate. A platform token also
+    needs a session that passed the second factor (option B), so an old or forged session cannot reach the console."""
     from sqlalchemy import text
     try:
         session_id = UUID(str(claims["sid"]))
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=401, detail="Session du jeton invalide", headers={"WWW-Authenticate": "Bearer"}) from exc
     live = conn.execute(
-        text("SELECT 1 FROM user_device_sessions WHERE id=:id AND user_id=:uid AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())"),
+        text("SELECT mfa_verified_at FROM user_device_sessions WHERE id=:id AND user_id=:uid AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())"),
         {"id": str(session_id), "uid": str(user_id)},
     ).first()
     if live is None:
         raise HTTPException(status_code=401, detail="Session révoquée; reconnectez-vous", headers={"WWW-Authenticate": "Bearer"})
+    if require_mfa and live[0] is None:
+        raise HTTPException(status_code=401, detail="Validation en deux étapes requise; reconnectez-vous", headers={"WWW-Authenticate": "Bearer"})
 
 
 def platform_permissions(conn, user_id: UUID) -> frozenset[str]:
@@ -89,7 +92,8 @@ def require_platform_actor(
             raise HTTPException(status_code=403, detail="Accès Atelier Pro révoqué")
         if int(claims.get("user_version", 0)) != user.version:
             raise HTTPException(status_code=401, detail="Jeton Atelier Pro obsolète; reconnectez-vous")
-        _assert_device_session_live(conn, claims, user_id)
+        from edusync.modules.iam.application.platform_mfa import mfa_needed
+        _assert_device_session_live(conn, claims, user_id, require_mfa=mfa_needed(conn, services.settings, user_id))
         if platform_account_suspended(conn, user_id):
             raise HTTPException(status_code=403, detail="Accès Atelier Pro suspendu")
         permissions = platform_permissions(conn, user_id)

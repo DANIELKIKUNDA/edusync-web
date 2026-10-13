@@ -69,3 +69,5 @@
   .tm-plain>li{flex-direction:column;align-items:stretch}.tm-assign{flex-direction:column}
   .tm-role-foot .es-btn,.tm-actions .es-btn{min-height:44px}
 }
+.tm-chip-warn{background:#fff4e0;color:#8a4b00;border:1px solid #f3d9a4}
+.tm-line .tm-status{white-space:nowrap}

@@ -227,3 +227,6 @@
 @media (max-width:767.98px){.es-shell .es-content button,.es-shell .es-content select,.es-shell .es-content input:not([type=checkbox]):not([type=radio]),.es-shell .es-content [role=tab]{min-height:44px}.es-shell .es-content a.es-btn,.es-shell .es-content label.es-btn{min-height:44px}}
 @media (max-width:767.98px){.es-shell .docSearch{height:44px}.es-shell .es-content table button,.es-shell .es-content .dataTable button{min-height:40px;min-width:44px}}
 @media (max-width:767.98px){.es-shell .es-content .textBtn,.es-shell .es-content button[aria-label^='Exporter en']{min-height:44px!important;min-width:44px!important}.es-shell .docToolbar{flex-direction:column;align-items:stretch}.es-shell .docToolbar select{width:100%}}
+.es-recovery{list-style:none;margin:0;padding:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid #e4e8f0;border-radius:10px;background:#f8fafd}
+.es-recovery code{display:block;text-align:center;padding:8px 4px;border-radius:8px;background:#fff;border:1px solid #e4e8f0;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+@media (max-width:359.98px){.es-recovery{grid-template-columns:1fr}}

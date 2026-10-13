@@ -22,6 +22,8 @@ from edusync.shared.infrastructure.login_guard import LoginAttemptGuard
 from sqlalchemy import text
 from datetime import datetime, timezone
 from edusync.shared.infrastructure.persistent_sessions import new_session_token, hash_token, hash_user_agent, describe_user_agent
+from edusync.modules.iam.application import platform_mfa
+from edusync.shared.infrastructure.mfa import DIGITS as MFA_DIGITS, ISSUER as MFA_ISSUER, STEP_SECONDS as MFA_PERIOD
 
 router = APIRouter(tags=["Authentification"])
 # Unknown accounts still pay one Argon2 verification so response time does not reveal which emails exist.
@@ -37,14 +39,34 @@ def _set_session_cookie(response: Response, services: AppServices, raw: str, exp
     response.set_cookie(services.settings.persistent_session_cookie, raw, max_age=max_age, httponly=True, secure=services.settings.env.lower() in {"prod","production"}, samesite="lax", path="/api/v1/auth")
 
 
-def _new_device_session(conn, settings, *, user, school=None, membership=None, user_agent: str = "") -> tuple[str, str, datetime]:
+def _new_device_session(conn, settings, *, user, school=None, membership=None, user_agent: str = "", mfa_method: str | None = None) -> tuple[str, str, datetime]:
     raw_session, session_hash = new_session_token()
-    row = conn.execute(text("""INSERT INTO user_device_sessions(user_id,school_id,membership_id,token_hash,label,user_agent_hash,user_version,membership_version,expires_at)
-        VALUES(:uid,:sid,:mid,:th,:label,:uah,:uv,:mv,CASE WHEN :days>0 THEN now()+make_interval(days=>:days) END) RETURNING id,expires_at"""), {
+    row = conn.execute(text("""INSERT INTO user_device_sessions(user_id,school_id,membership_id,token_hash,label,user_agent_hash,user_version,membership_version,expires_at,mfa_verified_at,mfa_method)
+        VALUES(:uid,:sid,:mid,:th,:label,:uah,:uv,:mv,CASE WHEN :days>0 THEN now()+make_interval(days=>:days) END,
+               CASE WHEN CAST(:mfa AS text) IS NOT NULL THEN now() END,:mfa) RETURNING id,expires_at"""), {
         "uid": str(user.id), "sid": str(school.id) if school else None, "mid": str(membership.id) if membership else None,
         "th": session_hash, "label": describe_user_agent(user_agent), "uah": hash_user_agent(user_agent), "uv": user.version,
-        "mv": membership.version if membership else None, "days": settings.session_absolute_days}).one()
+        "mv": membership.version if membership else None, "days": settings.session_absolute_days, "mfa": mfa_method}).one()
     return raw_session, str(row[0]), row[1]
+
+
+def _issue_platform_session(conn, services: AppServices, request: Request, response: Response, user, *, mfa_method: str | None) -> dict:
+    """Platform device session + access token. Reached only after the password and, under option B, the second factor."""
+    raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, user_agent=request.headers.get("user-agent", ""), mfa_method=mfa_method)
+    # The access token is bound to its device session ("sid"), so logout/revocation is immediate.
+    token = create_access_token(
+        subject=str(user.id), secret=services.settings.jwt_secret,
+        issuer=services.settings.jwt_issuer, audience=services.settings.jwt_audience,
+        minutes=services.settings.access_token_minutes,
+        claims={"scope": "platform", "user_version": user.version, "sid": str(session_id)},
+    )
+    _set_session_cookie(response, services, raw_session, session_expires)
+    return {
+        "access_token": token, "token_type": "bearer",
+        "expires_in": services.settings.access_token_minutes * 60,
+        "scope": "PLATFORM",
+        "user": {"id": str(user.id), "email": user.email, "full_name": user.full_name},
+    }
 
 
 class LoginInput(BaseModel):
@@ -117,21 +139,15 @@ def login(body: LoginInput, request: Request, response: Response, services: AppS
             roles = authz.roles({a.role_id for a in assignments})
             if not any(r.level.value == 'PLATFORM' and r.status.value == 'ACTIVE' for r in roles.values()) or platform_account_suspended(conn, user.id):
                 raise HTTPException(status_code=403, detail="Connexion impossible")
-            raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, user_agent=request.headers.get("user-agent", ""))
-            # The access token is bound to its device session ("sid"), so logout/revocation is immediate.
-            token = create_access_token(
-                subject=str(user.id), secret=services.settings.jwt_secret,
-                issuer=services.settings.jwt_issuer, audience=services.settings.jwt_audience,
-                minutes=services.settings.access_token_minutes,
-                claims={"scope": "platform", "user_version": user.version, "sid": str(session_id)},
-            )
-            _set_session_cookie(response, services, raw_session, session_expires)
-            return {
-                "access_token": token, "token_type": "bearer",
-                "expires_in": services.settings.access_token_minutes * 60,
-                "scope": "PLATFORM",
-                "user": {"id": str(user.id), "email": user.email, "full_name": user.full_name},
-            }
+            if platform_mfa.mfa_needed(conn, services.settings, user.id):
+                # Option B: no session, no cookie, no access token before the second factor. The client receives an
+                # opaque single-use step token, valid a few minutes, that only the /auth/mfa/* routes accept.
+                purpose = "LOGIN" if platform_mfa.active_factor(conn, user.id) else "ENROLL"
+                step_token = platform_mfa.create_challenge(conn, services.settings, user_id=user.id, user_version=user.version, purpose=purpose)
+                return {"mfa_required": purpose == "LOGIN", "mfa_enrollment_required": purpose == "ENROLL", "mfa_token": step_token,
+                        "expires_in": services.settings.mfa_challenge_seconds, "scope": "PLATFORM",
+                        "methods": ["TOTP", "RECOVERY_CODE"] if purpose == "LOGIN" else ["TOTP"]}
+            return _issue_platform_session(conn, services, request, response, user, mfa_method=None)
 
         code = (body.school_code or "").strip().upper()
         if not code:
@@ -166,6 +182,177 @@ def login(body: LoginInput, request: Request, response: Response, services: AppS
             "school": {"id": str(school.id), "code": school.code, "name": school.name},
             "permissions": sorted(permissions),
         }
+
+
+# ---------------------------------------------------------------- second factor (option B, platform accounts)
+
+class MfaStepInput(BaseModel):
+    mfa_token: str = Field(min_length=20, max_length=128)
+
+
+class MfaVerifyInput(MfaStepInput):
+    code: str | None = Field(default=None, max_length=16)
+    recovery_code: str | None = Field(default=None, max_length=32)
+
+
+class MfaConfirmInput(MfaStepInput):
+    code: str = Field(min_length=6, max_length=16)
+
+
+class MfaReauthInput(BaseModel):
+    code: str = Field(min_length=6, max_length=16)
+
+
+_MFA_EXPIRED = "Vérification expirée : reconnectez-vous."
+_MFA_WRONG = "Code de vérification incorrect. Vérifiez l’heure de votre téléphone, puis saisissez le nouveau code."
+_MFA_LOCKED = "Trop de codes incorrects. Pour votre sécurité, réessayez dans quelques minutes."
+
+
+def _mfa_guard(services: AppServices) -> LoginAttemptGuard:
+    s = services.settings
+    return LoginAttemptGuard(s.redis_url, window_seconds=s.mfa_lock_seconds, max_attempts=s.mfa_max_attempts, lock_seconds=s.mfa_lock_seconds, namespace="mfa")
+
+
+def _platform_access_ok(conn, user_id) -> bool:
+    """The account may still open the console (role not revoked, account not suspended since the password step)."""
+    return bool(conn.execute(text("""SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
+        WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM' AND r.status='ACTIVE'
+          AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"""), {"u": str(user_id)}).first()) \
+        and not platform_account_suspended(conn, user_id)
+
+
+def _raise_mfa_outcome(outcome: tuple[str, int]) -> None:
+    kind, value = outcome
+    if kind == "locked":
+        raise HTTPException(status_code=429, detail=_MFA_LOCKED, headers={"Retry-After": str(max(1, value))})
+    if kind == "wrong" and value > 0:
+        raise HTTPException(status_code=400, detail=_MFA_WRONG)
+    raise HTTPException(status_code=401, detail=_MFA_EXPIRED)
+
+
+@router.post("/mfa/verify")
+def mfa_verify(body: MfaVerifyInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """Second step of a platform sign-in: a TOTP code or a single-use recovery code creates the device session."""
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    if bool((body.code or "").strip()) == bool((body.recovery_code or "").strip()):
+        raise HTTPException(status_code=422, detail="Saisissez soit le code à 6 chiffres, soit un code de secours.")
+    ip = request.client.host if request.client else "unknown"
+    cipher = platform_mfa.cipher_for(services.settings)
+    method = "TOTP" if (body.code or "").strip() else "RECOVERY_CODE"
+    outcome = ("expired", 0)
+    # Failures are written in this transaction, which commits before the refusal is answered.
+    with services.platform_db.platform_transaction() as conn:
+        challenge = platform_mfa.load_challenge(conn, services.settings, body.mfa_token, "LOGIN")
+        if challenge is not None and _platform_access_ok(conn, challenge.user_id):
+            guard = _mfa_guard(services)
+            decision = guard.check(str(challenge.user_id), ip)
+            if not decision.allowed:
+                platform_mfa.security_audit(conn, user_id=challenge.user_id, action="MFA_LOCKED", detail={"method": method}, rejected=True)
+                outcome = ("locked", decision.retry_after)
+            else:
+                user = PostgresUserRepository(conn).get(challenge.user_id)
+                remaining = None
+                if method == "TOTP":
+                    ok = platform_mfa.verify_totp(conn, cipher, user_id=user.id, code=body.code or "")
+                else:
+                    remaining = platform_mfa.use_recovery_code(conn, user_id=user.id, code=body.recovery_code or "")
+                    ok = remaining is not None
+                if ok:
+                    guard.success(str(user.id), ip)
+                    platform_mfa.consume_challenge(conn, challenge)
+                    platform_mfa.security_audit(conn, user_id=user.id, action="MFA_RECOVERY_CODE_USED" if remaining is not None else "MFA_VERIFIED",
+                                                detail={"method": method, **({"recovery_codes_remaining": remaining} if remaining is not None else {})})
+                    result = _issue_platform_session(conn, services, request, response, user, mfa_method=method)
+                    if remaining is not None:
+                        result["recovery_codes_remaining"] = remaining
+                    return result
+                guard.failure(str(user.id), ip)
+                left = max(0, services.settings.mfa_max_attempts - platform_mfa.record_failed_attempt(conn, challenge))
+                platform_mfa.security_audit(conn, user_id=user.id, action="MFA_FAILED", detail={"method": method, "attempts_left": left}, rejected=True)
+                outcome = ("wrong", left)
+    _raise_mfa_outcome(outcome)
+
+
+@router.post("/mfa/enroll/start")
+def mfa_enroll_start(body: MfaStepInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """Mandatory enrolment of a platform account without a factor: new secret, QR code and manual key (shown once)."""
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    cipher = platform_mfa.cipher_for(services.settings)
+    with services.platform_db.platform_transaction() as conn:
+        challenge = platform_mfa.load_challenge(conn, services.settings, body.mfa_token, "ENROLL")
+        if challenge is None or not _platform_access_ok(conn, challenge.user_id):
+            raise HTTPException(status_code=401, detail=_MFA_EXPIRED)
+        user = PostgresUserRepository(conn).get(challenge.user_id)
+        try:
+            data = platform_mfa.start_enrollment(conn, cipher, user_id=user.id, account=user.email)
+        except ValueError:
+            raise HTTPException(status_code=409, detail="La validation en deux étapes est déjà configurée : reconnectez-vous.")
+        platform_mfa.security_audit(conn, user_id=user.id, action="MFA_ENROLLMENT_STARTED")
+    return {**data, "account": user.email, "issuer": MFA_ISSUER, "digits": MFA_DIGITS, "period": MFA_PERIOD}
+
+
+@router.post("/mfa/enroll/confirm")
+def mfa_enroll_confirm(body: MfaConfirmInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """First valid code activates the factor, returns the recovery codes once and opens the session."""
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    ip = request.client.host if request.client else "unknown"
+    cipher = platform_mfa.cipher_for(services.settings)
+    outcome = ("expired", 0)
+    with services.platform_db.platform_transaction() as conn:
+        challenge = platform_mfa.load_challenge(conn, services.settings, body.mfa_token, "ENROLL")
+        if challenge is not None and _platform_access_ok(conn, challenge.user_id):
+            guard = _mfa_guard(services)
+            decision = guard.check(str(challenge.user_id), ip)
+            if not decision.allowed:
+                outcome = ("locked", decision.retry_after)
+            else:
+                user = PostgresUserRepository(conn).get(challenge.user_id)
+                codes = platform_mfa.confirm_enrollment(conn, cipher, user_id=user.id, code=body.code)
+                if codes:
+                    guard.success(str(user.id), ip)
+                    platform_mfa.consume_challenge(conn, challenge)
+                    platform_mfa.security_audit(conn, user_id=user.id, action="MFA_ENROLLED", detail={"method": "TOTP", "recovery_codes": len(codes)})
+                    result = _issue_platform_session(conn, services, request, response, user, mfa_method="TOTP")
+                    result["recovery_codes"] = codes
+                    return result
+                guard.failure(str(user.id), ip)
+                left = max(0, services.settings.mfa_max_attempts - platform_mfa.record_failed_attempt(conn, challenge))
+                platform_mfa.security_audit(conn, user_id=user.id, action="MFA_FAILED", detail={"method": "TOTP", "stage": "ENROLMENT", "attempts_left": left}, rejected=True)
+                outcome = ("wrong", left)
+    _raise_mfa_outcome(outcome)
+
+
+@router.get("/platform/mfa")
+def platform_mfa_status(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Second-factor status of the signed-in platform account. Disabling it oneself is never offered (policy)."""
+    with services.platform_db.platform_transaction() as conn:
+        state = platform_mfa.status(conn, actor.user_id)
+    return {**state, "required": bool(services.settings.mfa_platform_required), "self_disable_allowed": False}
+
+
+@router.post("/platform/mfa/recovery-codes")
+def platform_mfa_regenerate(body: MfaReauthInput, request: Request, response: Response, actor: ActorContext = Depends(require_platform_actor),
+                            services: AppServices = Depends(get_services)):
+    """New recovery codes (the previous ones stop working), after a fresh TOTP code: a stolen session alone cannot do it."""
+    response.headers["Cache-Control"] = "no-store"
+    ip = request.client.host if request.client else "unknown"
+    cipher = platform_mfa.cipher_for(services.settings)
+    guard = _mfa_guard(services)
+    decision = guard.check(str(actor.user_id), ip)
+    if not decision.allowed:
+        raise HTTPException(status_code=429, detail=_MFA_LOCKED, headers={"Retry-After": str(max(1, decision.retry_after))})
+    with services.platform_db.platform_transaction() as conn:
+        if platform_mfa.verify_totp(conn, cipher, user_id=actor.user_id, code=body.code):
+            codes = platform_mfa.regenerate_recovery_codes(conn, user_id=actor.user_id)
+            guard.success(str(actor.user_id), ip)
+            platform_mfa.security_audit(conn, user_id=actor.user_id, action="MFA_RECOVERY_CODES_REGENERATED", detail={"recovery_codes": len(codes or [])})
+            return {"recovery_codes": codes}
+        guard.failure(str(actor.user_id), ip)
+        platform_mfa.security_audit(conn, user_id=actor.user_id, action="MFA_FAILED", detail={"method": "TOTP", "stage": "RECOVERY_CODES"}, rejected=True)
+    raise HTTPException(status_code=400, detail=_MFA_WRONG)
 
 
 @router.get("/me")
@@ -253,6 +440,8 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
             if conn.execute(text("SELECT status FROM schools WHERE id=:sid"),{'sid':row['school_id']}).scalar_one_or_none()!='ACTIVE': raise HTTPException(401,'Session à renouveler')
             claims.update({'scope':'school','school_id':str(row['school_id']),'membership_id':str(row['membership_id']),'membership_version':m['version']})
         elif not conn.execute(text("SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id WHERE a.user_id=:uid AND a.school_id IS NULL AND a.active=true AND r.level='PLATFORM' AND r.status='ACTIVE' AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"),{'uid':row['user_id']}).first() or platform_account_suspended(conn,row['user_id']): raise HTTPException(401,'Session à renouveler')
+        # Option B: a platform session opened without the second factor (before the policy, or by any bypass) is never renewed.
+        elif row['mfa_verified_at'] is None and platform_mfa.mfa_needed(conn,cfg,row['user_id']): raise HTTPException(401,'Session à renouveler')
         token=create_access_token(subject=str(row['user_id']),secret=services.settings.jwt_secret,issuer=services.settings.jwt_issuer,audience=services.settings.jwt_audience,minutes=services.settings.access_token_minutes,claims=claims)
         if row['current_token']:
             # Rotate the opaque token; the previous one stays valid a few seconds for concurrent tabs only.

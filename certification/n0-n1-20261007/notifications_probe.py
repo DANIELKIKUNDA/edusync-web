@@ -15,7 +15,7 @@ import redis
 from sqlalchemy import text
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "claude-20260930"))
-from common import BASE, ensure_user, login, owner, platform, state  # noqa: E402
+from common import BASE, ensure_user, login, owner, platform, platform_login, state  # noqa: E402
 
 results = []
 
@@ -178,7 +178,7 @@ check("Push multi-appareils : déconnexion globale -> tous les abonnements révo
 # ---------- permissions & audit ----------
 u2 = state.get("N1_TEAM", {}).get("u2")
 if u2:
-    lr = httpx.post(BASE + "/auth/login", json={"email": u2["email"], "password": u2["password"]}, timeout=30)
+    lr = platform_login(u2["email"], u2["password"])
     if lr.status_code == 200:
         c2 = httpx.Client(base_url=BASE + "/", headers={"Authorization": "Bearer " + lr.json()["access_token"]}, timeout=30)
         check("Sans platform.notifications.system.send : envoi refusé", send(c2, T("PLATFORM_ALL")).status_code == 403)

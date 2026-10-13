@@ -4,12 +4,24 @@
 // sign-out / sign-in, responsive Atelier Pro. Credentials come from the private fixtures (never printed).
 import fs from 'node:fs/promises';
 import {setTimeout as delay} from 'node:timers/promises';
+import crypto from 'node:crypto';
 
 const dir = new URL('./', import.meta.url);
 const SHOTS = new URL('captures/', dir);
 await fs.mkdir(SHOTS, {recursive: true});
 const env = Object.fromEntries((await fs.readFile(new URL('../../.local/certification.env', dir), 'utf8')).replace(/^﻿/, '').split(/\r?\n/).filter(l => l && !l.startsWith('#') && l.includes('=')).map(l => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
-const fx = JSON.parse(await fs.readFile(new URL('../../.local/claude-fixtures-edusync_claude_fresh.json', dir), 'utf8'));
+const FX_PATH = new URL('../../.local/claude-fixtures-edusync_claude_fresh.json', dir);
+const fx = JSON.parse(await fs.readFile(FX_PATH, 'utf8'));
+// Second factor (option B): real TOTP codes, computed here (RFC 6238) from secrets enrolled through the public API.
+function b32(s) { const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = ''; for (const ch of s.replace(/[=\s]/g, '').toUpperCase()) bits += A.indexOf(ch).toString(2).padStart(5, '0'); const out = []; for (let i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.slice(i, i + 8), 2)); return Buffer.from(out); }
+function totp(secret, step) { const b = Buffer.alloc(8); b.writeBigUInt64BE(BigInt(step)); const h = crypto.createHmac('sha1', b32(secret)).update(b).digest(); const o = h[h.length - 1] & 15; return String((h.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, '0'); }
+async function saveFx() { const cur = JSON.parse(await fs.readFile(FX_PATH, 'utf8')); cur.MFA_TOTP = {...(cur.MFA_TOTP || {}), ...fx.MFA_TOTP}; await fs.writeFile(FX_PATH, JSON.stringify(cur, null, 2)); }
+async function nextCode(email) {
+  const st = (fx.MFA_TOTP ||= {})[email.toLowerCase()]; if (!st) throw Error('second facteur inconnu pour ce compte de test');
+  let step = Math.floor(Date.now() / 30000);
+  if (step <= (st.last_step || 0)) { await delay((st.last_step + 1) * 30000 - Date.now() + 600); step = Math.floor(Date.now() / 30000); }
+  st.last_step = step; await saveFx(); return totp(st.secret, step);
+}
 const APP = process.env.APP_URL || 'http://localhost:5180/';
 const results = [];
 const check = (name, ok, detail = '') => { results.push({check: name, pass: !!ok, detail: String(detail).slice(0, 300)}); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); };
@@ -50,7 +62,20 @@ async function signIn(p, email, password) {
   await p.go(); await p.waitFor('!!document.querySelector(".lg-card")||!!document.querySelector(".es-shell")');
   if (await p.ev('!!document.querySelector(".es-shell")')) { await signOut(p); await p.go(); await p.waitFor('!!document.querySelector(".lg-card")'); }
   await p.type('#lg-email', email); await p.type('#lg-pass', password); await p.click('Se connecter');
-  await p.waitFor('!!document.querySelector(".es-shell")||!!document.querySelector(".lg-ctx")');
+  await p.waitFor('!!document.querySelector(".es-shell")||!!document.querySelector(".lg-ctx")||!!document.querySelector("#mfa-code")||!!document.querySelector(".mfa-card img.mfa-qr")');
+  if (await p.ev('!!document.querySelector("#mfa-code")')) { await p.type('#mfa-code', await nextCode(email)); await p.waitFor('!!document.querySelector(".es-shell")'); }
+  else if (await p.ev('!!document.querySelector(".mfa-card")')) await enrollThroughUi(p, email);
+}
+// Platform account without a factor yet: the mandatory assistant, completed through the screens (manual key).
+async function enrollThroughUi(p, email) {
+  await p.click('Saisir la clé manuellement'); await delay(300);
+  const key = (await p.ev('document.querySelector(".mfa-key-box code").innerText')).replace(/\s/g, '');
+  await p.click('J’ai ajouté le compte'); await p.waitFor('!!document.querySelector("#mfa-first")');
+  const step = Math.floor(Date.now() / 30000);
+  await p.type('#mfa-first', totp(key, step)); await p.waitFor('!!document.querySelector(".mfa-codes")');
+  (fx.MFA_TOTP ||= {})[email.toLowerCase()] = {secret: key, last_step: step, recovery_codes: await p.ev('[...document.querySelectorAll(".mfa-codes code")].map(c=>c.innerText)')}; await saveFx();
+  await p.ev('document.querySelector(".mfa-check input").click()'); await delay(200); await p.click('Accéder à l’Atelier Pro');
+  await p.waitFor('!!document.querySelector(".es-shell")');
 }
 
 const p = await connect();
@@ -137,6 +162,65 @@ if (u2) {
   check('Rôle personnalisé : pas de bouton « Nouvelle école »', await p.ev('(async()=>{const b=[...document.querySelectorAll("button")].find(x=>x.innerText.includes("Écoles"));b&&b.click();await new Promise(r=>setTimeout(r,1500));return !document.body.innerText.includes("Nouvelle école")})()'));
   await p.shot('n1-custom-role-1280');
 }
+
+// ---------------- second factor through the UI (phone first, then desktop) ----------------
+const ui = fx.MFA_PROBE?.ui;
+if (ui && !fx.MFA_TOTP?.[ui.email.toLowerCase()]) {
+  await signOut(p); await p.viewport(390, 844); await p.go(); await p.waitFor('!!document.querySelector(".lg-card")');
+  await p.type('#lg-email', ui.email); await p.type('#lg-pass', ui.password); await p.click('Se connecter');
+  await p.waitFor('!!document.querySelector(".mfa-card img.mfa-qr")'); await delay(600);
+  check('MFA 390px : assistant étape 1 sur 3, QR code local affiché', await p.ev('/étape 1 sur 3/i.test(document.body.innerText)&&document.querySelector(".mfa-qr").complete&&document.querySelector(".mfa-qr").naturalWidth>0'));
+  check('MFA 390px : lien direct vers l’application d’authentification (même téléphone)', await p.ev('document.querySelector(".mfa-open").href.startsWith("otpauth://totp/")'));
+  check('MFA 390px : pas de défilement horizontal', await p.noHScroll()); await p.shot('mfa-enroll-scan-390');
+  await p.click('Saisir la clé manuellement'); await delay(300);
+  const shownKey = await p.ev('document.querySelector(".mfa-key-box code").innerText');
+  const key = shownKey.replace(/\s/g, '');
+  check('MFA : clé manuelle de secours affichée (groupes de 4)', key.length >= 32 && /\s/.test(shownKey));
+  await p.shot('mfa-enroll-key-390');
+  await p.click('J’ai ajouté le compte'); await p.waitFor('!!document.querySelector("#mfa-first")');
+  check('MFA : saisie du code au clavier numérique (inputmode, one-time-code)', await p.ev('(e=>e.inputMode==="numeric"&&e.autocomplete==="one-time-code")(document.querySelector("#mfa-first"))'));
+  await p.type('#mfa-first', '000000'); await p.waitFor('!!document.querySelector(".lg-error")');
+  check('MFA : code faux → message clair, non technique', await p.ev('document.querySelector(".lg-error").innerText.includes("incorrect")'));
+  await p.shot('mfa-enroll-wrong-390');
+  const step0 = Math.floor(Date.now() / 30000);
+  await p.type('#mfa-first', totp(key, step0)); await p.waitFor('!!document.querySelector(".mfa-codes")'); await delay(400);
+  (fx.MFA_TOTP ||= {})[ui.email.toLowerCase()] = {secret: key, last_step: step0, recovery_codes: await p.ev('[...document.querySelectorAll(".mfa-codes code")].map(c=>c.innerText)')}; await saveFx();
+  check('MFA : 10 codes de secours affichés une fois', await p.ev('document.querySelectorAll(".mfa-codes code").length===10'));
+  check('MFA : accès bloqué tant que la conservation des codes n’est pas confirmée', await p.ev('[...document.querySelectorAll("button")].find(b=>b.innerText.includes("Accéder"))?.disabled===true'));
+  check('MFA 390px : codes lisibles sans défilement horizontal', await p.noHScroll()); await p.shot('mfa-enroll-codes-390');
+  await p.ev('document.querySelector(".mfa-check input").click()'); await delay(200); await p.click('Accéder à l’Atelier Pro');
+  await p.waitFor('!!document.querySelector(".es-shell")');
+  check('MFA : après activation, Atelier Pro ouvert', true);
+  await signOut(p); await p.go(); await p.waitFor('!!document.querySelector(".lg-card")');
+  await p.type('#lg-email', ui.email); await p.type('#lg-pass', ui.password); await p.click('Se connecter');
+  await p.waitFor('!!document.querySelector("#mfa-code")'); await delay(300);
+  check('MFA 390px : écran « Code de vérification » après le mot de passe', await p.ev('document.body.innerText.includes("Code de vérification")') && await p.noHScroll());
+  await p.shot('mfa-challenge-390');
+  await p.type('#mfa-code', '111111'); await p.waitFor('!!document.querySelector(".lg-error")'); await p.shot('mfa-challenge-wrong-390');
+  check('MFA : code faux → message humain (heure du téléphone)', await p.ev('document.querySelector(".lg-error").innerText.includes("heure")'));
+  await p.click('Utiliser un code de secours'); await p.waitFor('!!document.querySelector("#mfa-recovery")'); await p.shot('mfa-recovery-390');
+  await p.click('Utiliser l’application'); await p.waitFor('!!document.querySelector("#mfa-code")');
+  await p.type('#mfa-code', await nextCode(ui.email)); await p.waitFor('!!document.querySelector(".es-shell")');
+  check('MFA : bon code → Atelier Pro', true);
+  await p.viewport(320, 640); await delay(400); check('MFA 320px : Atelier Pro sans défilement horizontal', await p.noHScroll());
+  await p.viewport(1280, 800);
+}
+// Security dialog (second-factor tab) and team sheet for the Manager, desktop.
+await signIn(p, env.EDUSYNC_PLATFORM_ADMIN_EMAIL, env.EDUSYNC_PLATFORM_ADMIN_PASSWORD);
+await p.waitFor('!document.querySelector(".es-skeleton")', 20000).catch(() => {});
+await p.ev('[...document.querySelectorAll(".es-account-btn")].find(b=>b.offsetParent!==null)?.click()'); await delay(400);
+await p.ev('[...document.querySelectorAll("[role=menuitem]")].find(b=>b.offsetParent!==null&&b.innerText.includes("Sécurité et appareils"))?.click()');
+await delay(500);
+if (await p.ev('!!document.querySelector(".es-modal")')) {
+  await p.click('Validation en 2 étapes'); await p.waitFor('document.querySelector(".es-modal").innerText.includes("Codes de secours restants")'); await delay(300);
+  check('Sécurité : onglet validation en deux étapes (état, codes restants, aucune désactivation)', await p.ev('!/désactiver la validation/i.test(document.querySelector(".es-modal").innerText)'));
+  await p.shot('mfa-security-tab-1280'); await p.key('Escape', 'Escape', 27);
+} else check('Sécurité : onglet validation en deux étapes (état, codes restants, aucune désactivation)', false, 'dialogue non ouvert');
+await p.click('Équipe plateforme'); await p.waitFor('!!document.querySelector(".tm-list")'); await delay(500);
+await p.ev('[...document.querySelectorAll(".tm-row")].find(b=>!b.innerText.includes("Vous"))?.click()');
+await p.waitFor('document.body.innerText.includes("Validation en deux étapes")', 15000).catch(() => {});
+await delay(400); check('Équipe : statut de validation en deux étapes visible sur la fiche', await p.ev('document.body.innerText.includes("Validation en deux étapes")'));
+await p.shot('mfa-team-sheet-1280'); await p.key('Escape', 'Escape', 27);
 
 // ---------------- sign-out / sign-in keeps working ----------------
 await signOut(p); await p.go(); await p.waitFor('!!document.querySelector(".lg-card")');

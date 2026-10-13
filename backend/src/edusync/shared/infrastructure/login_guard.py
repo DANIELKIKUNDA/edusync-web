@@ -9,7 +9,9 @@ class LoginDecision:
 
 class LoginAttemptGuard:
     """Distributed login throttling. Never stores raw email/IP in Redis keys."""
-    def __init__(self, redis_url: str, *, window_seconds: int=900, max_attempts: int=7, lock_seconds: int=900):
+    def __init__(self, redis_url: str, *, window_seconds: int=900, max_attempts: int=7, lock_seconds: int=900, namespace: str="auth"):
+        # Separate counters per concern: second-factor failures ("mfa") never share the password counters ("auth").
+        self.namespace=namespace
         try:
             from redis import Redis
             self.redis=Redis.from_url(redis_url, decode_responses=True, socket_connect_timeout=0.35, socket_timeout=0.35)
@@ -23,7 +25,8 @@ class LoginAttemptGuard:
     def _digest(value:str)->str:
         return hashlib.sha256(value.strip().lower().encode()).hexdigest()[:32]
     def _keys(self,email:str,ip:str):
-        return (f"edusync:auth:fail:acct:{self._digest(email)}", f"edusync:auth:fail:ip:{self._digest(ip)}")
+        ns=getattr(self,"namespace","auth")
+        return (f"edusync:{ns}:fail:acct:{self._digest(email)}", f"edusync:{ns}:fail:ip:{self._digest(ip)}")
     def check(self,email:str,ip:str)->LoginDecision:
         try:
             if self.redis is None: return LoginDecision(True,0)

@@ -179,6 +179,7 @@ def main() -> None:
             ("0053_school_suspension_effects", "0053_school_suspension_effects.sql"),
             ("0054_platform_audit_indexes", "0054_platform_audit_indexes.sql"),
             ("0055_notifications_center", "0055_notifications_center.sql"),
+            ("0056_platform_mfa_totp", "0056_platform_mfa_totp.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):
@@ -277,6 +278,9 @@ def main() -> None:
         conn.exec_driver_sql(f"GRANT SELECT ON capability_catalog TO {PLATFORM_ROLE}")
         conn.exec_driver_sql(f"GRANT SELECT ON platform_reserved_capabilities TO {PLATFORM_ROLE}")
         conn.exec_driver_sql(f"REVOKE UPDATE, DELETE ON audit_events FROM {PLATFORM_ROLE}")
+        # Second factor (0056): reachable by the platform role only, revoked but never erased; nothing for tenants.
+        conn.exec_driver_sql(f"REVOKE DELETE, TRUNCATE ON user_mfa_factors, user_mfa_recovery_codes, mfa_challenges FROM {PLATFORM_ROLE}")
+        conn.exec_driver_sql(f"REVOKE ALL ON user_mfa_factors, user_mfa_recovery_codes, mfa_challenges FROM {TENANT_ROLE}")
         conn.exec_driver_sql(f"GRANT SELECT ON roles, permissions, role_permissions TO {PLATFORM_ROLE}")
 
         if worker_url is not None:

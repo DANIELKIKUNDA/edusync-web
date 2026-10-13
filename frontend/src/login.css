@@ -109,3 +109,30 @@
 }
 @media (max-width:359.98px){.lg-card{padding:20px 14px 16px}.lg-pane{padding:0 10px 16px}.lg-pitch h2{font-size:20px}}
 @media (prefers-reduced-motion:reduce){.lg-spin{animation:none}.lg-photo,.lg-card,.lg-pitch{animation:none}}
+
+/* Second factor (platform accounts): code entry, enrolment assistant, recovery codes. Phone first. */
+.lg-field input.mfa-code{height:58px;text-align:center;font-size:26px;font-weight:700;letter-spacing:.45em;padding-left:.45em;font-variant-numeric:tabular-nums}
+.lg-field input.mfa-code::placeholder{color:#c8cfdb;letter-spacing:.45em}
+.mfa-card{max-width:440px}
+.mfa-progress{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:2px 0 4px}
+.mfa-progress i{height:4px;border-radius:999px;background:#e3e8f0}
+.mfa-progress i.mfa-on{background:var(--lg-brand)}
+.lg-head h1:focus{outline:none}
+.mfa-steps{margin:0;padding-left:20px;display:grid;gap:8px;font-size:14px;line-height:1.5;color:var(--lg-ink)}
+.mfa-qr{justify-self:center;width:200px;height:200px;border:1px solid var(--lg-line);border-radius:14px;background:#fff;padding:6px;box-sizing:content-box}
+.mfa-qr-wait{display:grid;place-items:center}
+.mfa-open{justify-self:center;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:12px;background:#e9f0ff;color:var(--lg-brand);font-size:14px;font-weight:650;text-decoration:none}
+.mfa-open:focus-visible,.mfa-copy:focus-visible,.mfa-check input:focus-visible{outline:3px solid var(--lg-brand);outline-offset:2px}
+.mfa-key{display:grid;gap:8px}
+.mfa-key-box{display:grid;gap:8px;padding:12px;border:1px dashed var(--lg-line);border-radius:12px;background:#f8fafd}
+.mfa-key-box small{font-size:12.5px;color:var(--lg-muted)}
+.mfa-key-box code{font-size:15px;font-weight:700;letter-spacing:.06em;word-break:break-all;user-select:all}
+.mfa-copy{justify-self:start;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border:1px solid var(--lg-line);border-radius:12px;background:#fff;color:var(--lg-ink);font-size:14px;font-weight:650;cursor:pointer}
+.mfa-copy:hover{border-color:var(--lg-brand);color:var(--lg-brand)}
+.mfa-codes{list-style:none;margin:0;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--lg-line);border-radius:14px;background:#f8fafd}
+.mfa-codes code{display:block;text-align:center;padding:9px 4px;border-radius:9px;background:#fff;border:1px solid #e3e8f0;font-size:15px;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.mfa-actions{display:flex;flex-wrap:wrap;gap:8px}
+.mfa-warn{background:#fff8e6;color:#7a4b00;border-color:#f3dfa8}
+.mfa-check{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;font-weight:650;cursor:pointer}
+.mfa-check input{width:20px;height:20px;accent-color:var(--lg-brand);flex:none}
+@media (max-width:359.98px){.mfa-qr{width:176px;height:176px}.mfa-codes{grid-template-columns:1fr}.lg-field input.mfa-code{font-size:22px;letter-spacing:.3em}}

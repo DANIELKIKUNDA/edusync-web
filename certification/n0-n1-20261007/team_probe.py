@@ -15,7 +15,7 @@ import httpx
 from sqlalchemy import create_engine, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "claude-20260930"))
-from common import BASE, owner, platform, save, state  # noqa: E402
+from common import BASE, owner, platform, platform_login, save, state  # noqa: E402
 
 results = []
 
@@ -34,7 +34,7 @@ def login_auto(email, password):
 
 
 def client_for(email, password):
-    r = login_auto(email, password)
+    r = platform_login(email, password)  # second factor completed (option B); refusals keep their status code
     c = httpx.Client(base_url=BASE + "/", timeout=60)
     if r.status_code == 200 and "access_token" in r.json():
         c.headers["Authorization"] = "Bearer " + r.json()["access_token"]

@@ -8,7 +8,7 @@ from uuid import uuid4
 import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "claude-20260930"))
-from common import BASE, platform, state  # noqa: E402
+from common import BASE, platform, platform_login, state  # noqa: E402
 
 APP = "http://localhost:5180"
 results = []
@@ -35,7 +35,8 @@ check("API authentifiée : réponse non mise en cache partagé", any(x in api_h.
 check("API : CSP, nosniff, DENY, pas d'en-tête Server", "frame-ancestors 'none'" in api_h.get("content-security-policy", "") and api_h.get("x-content-type-options") == "nosniff" and "server" not in {k.lower() for k in api_h.keys()})
 pre = httpx.options(BASE + "/auth/login", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"}, timeout=30)
 check("CORS : origine étrangère non autorisée", pre.headers.get("access-control-allow-origin") not in ("*", "https://evil.example"), pre.headers.get("access-control-allow-origin"))
-lg = httpx.post(BASE + "/auth/login", json={"email": os.environ["EDUSYNC_PLATFORM_ADMIN_EMAIL"], "password": os.environ["EDUSYNC_PLATFORM_ADMIN_PASSWORD"]}, timeout=30)
+# Option B: the device cookie is set by the response that completes the second factor, never before it.
+lg = platform_login(os.environ["EDUSYNC_PLATFORM_ADMIN_EMAIL"], os.environ["EDUSYNC_PLATFORM_ADMIN_PASSWORD"])
 sc = lg.headers.get("set-cookie", "")
 check("Cookie de session : HttpOnly, SameSite=Lax, chemin restreint", "HttpOnly" in sc and "SameSite=lax" in sc and "Path=/api/v1/auth" in sc)
 check("Jeton d'accès jamais dans l'URL ni dans un cookie lisible par script", "access_token" not in sc and "token=" not in str(lg.url))
@@ -43,7 +44,7 @@ check("HSTS : non émis en HTTP local (HTTPS public : BLOCKED_EXTERNAL)", "stric
 
 # ---------------- E. Rate limiting ----------------
 u2 = state["N1_TEAM"]["u2"]
-lr = httpx.post(BASE + "/auth/login", json={"email": u2["email"], "password": u2["password"]}, timeout=30)
+lr = platform_login(u2["email"], u2["password"])
 c2 = httpx.Client(base_url=BASE + "/", headers={"Authorization": "Bearer " + lr.json()["access_token"]}, timeout=30)
 limit = int(30 * mult)
 codes = [c2.post("platform/schools", json={"name": "Tentative", "code": f"RL{i}"}, headers={"Idempotency-Key": str(uuid4())}).status_code for i in range(limit + 2)]

@@ -50,18 +50,104 @@ def must(client, method, path, expected=(200, 201), **kw) -> httpx.Response:
     return r
 
 
+# ---------------------------------------------------------------- second factor of platform test accounts (option B)
+# Probes pass the real second factor: no bypass exists. Codes are computed here with an implementation written
+# independently of the application (RFC 6238), from secrets enrolled through the public API and kept privately.
+MFA_STATE = "MFA_TOTP"
+
+
+def totp(secret: str, step: int) -> str:
+    import base64, hashlib, hmac, struct
+    key = base64.b32decode(secret + "=" * (-len(secret) % 8))
+    digest = hmac.new(key, struct.pack(">Q", step), hashlib.sha1).digest()
+    offset = digest[-1] & 15
+    return str((struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1_000_000).zfill(6)
+
+
+def fresh_code(secret: str, last_step: int) -> tuple[str, int]:
+    """A code for a step never used before (the server refuses replay): waits for the next 30 s step if needed."""
+    import time
+    step = int(time.time() // 30)
+    if step <= last_step:
+        time.sleep(max(0.0, (last_step + 1) * 30 - time.time()) + 0.5)
+        step = int(time.time() // 30)
+    return totp(secret, step), step
+
+
+def complete_login(data: dict, email: str, client: httpx.Client | None = None) -> dict:
+    """Finishes a platform sign-in that asks for the second factor. A test account is enrolled the first time."""
+    if "mfa_token" not in data:
+        return data
+    return complete_login_response(data, email, client).json()
+
+
+def complete_login_response(data: dict, email: str, client: httpx.Client | None = None) -> httpx.Response:
+    """Same, returning the final HTTP response (the one that opens the session and sets the device cookie)."""
+    http = client or httpx.Client(base_url=BASE + "/", timeout=60)
+    store = state.setdefault(MFA_STATE, {})
+    key = email.strip().lower()
+    if data.get("mfa_enrollment_required"):
+        started = http.post("auth/mfa/enroll/start", json={"mfa_token": data["mfa_token"]})
+        if started.status_code != 200:
+            raise RuntimeError(f"enrolment start: HTTP {started.status_code}")
+        secret = started.json()["secret"]
+        code, step = fresh_code(secret, 0)
+        done = http.post("auth/mfa/enroll/confirm", json={"mfa_token": data["mfa_token"], "code": code})
+        if done.status_code != 200:
+            raise RuntimeError(f"enrolment confirm: HTTP {done.status_code}")
+        store[key] = {"secret": secret, "last_step": step, "recovery_codes": done.json()["recovery_codes"]}
+        save()
+        return done
+    entry = store.get(key)
+    if not entry:
+        raise RuntimeError("Second facteur inconnu pour ce compte de test (réinitialisez-le depuis l'Atelier Pro)")
+    for _ in range(2):
+        code, step = fresh_code(entry["secret"], int(entry.get("last_step", 0)))
+        entry["last_step"] = step
+        save()
+        r = http.post("auth/mfa/verify", json={"mfa_token": data["mfa_token"], "code": code})
+        if r.status_code == 200:
+            return r
+        if r.status_code != 400:  # 400 = step already used elsewhere (UI, another probe): take the next one
+            break
+    raise RuntimeError(f"second factor: HTTP {r.status_code}")
+
+
 def login(email: str, password: str, scope: str = "SCHOOL", code: str | None = None) -> httpx.Client:
     c = httpx.Client(base_url=BASE + "/", timeout=60)
     body = {"email": email, "password": password, "scope": scope}
     if code:
         body["school_code"] = code
     r = must(c, "POST", "auth/login", 200, json=body)
-    c.headers["Authorization"] = "Bearer " + r.json()["access_token"]
+    data = complete_login(r.json(), email, c)
+    c.headers["Authorization"] = "Bearer " + data["access_token"]
     return c
 
 
+_platform_token: dict = {}
+
+
 def platform() -> httpx.Client:
-    return login(os.environ["EDUSYNC_PLATFORM_ADMIN_EMAIL"], os.environ["EDUSYNC_PLATFORM_ADMIN_PASSWORD"], "PLATFORM")
+    """Manager système client. The access token is reused for a few minutes inside one probe run, so a run does not
+    wait for a new 30 s TOTP step at every call (the server never accepts the same code twice)."""
+    import time
+    if _platform_token.get("until", 0) > time.time():
+        c = httpx.Client(base_url=BASE + "/", timeout=60)
+        c.headers["Authorization"] = "Bearer " + _platform_token["token"]
+        if c.get("platform/team/me").status_code == 200:  # revoked meanwhile (suspension, logout-all): sign in again
+            return c
+        _platform_token.clear()
+    c = login(os.environ["EDUSYNC_PLATFORM_ADMIN_EMAIL"], os.environ["EDUSYNC_PLATFORM_ADMIN_PASSWORD"], "PLATFORM")
+    _platform_token.update(token=c.headers["Authorization"].split(" ", 1)[1], until=time.time() + 8 * 60)
+    return c
+
+
+def platform_login(email: str, password: str, **extra) -> httpx.Response:
+    """Raw sign-in response of a platform account, second factor completed (same object as before option B)."""
+    r = httpx.post(BASE + "/auth/login", json={"email": email, "password": password, **extra}, timeout=30)
+    if r.status_code == 200 and "mfa_token" in r.json():
+        return complete_login_response(r.json(), email)
+    return r
 
 
 def sql(statement: str, params: dict | None = None):

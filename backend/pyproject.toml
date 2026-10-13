@@ -22,6 +22,9 @@ dependencies = [
   "reportlab>=4.2",
   "openpyxl>=3.1",
   "XlsxWriter>=3.2",
+  # Second factor of platform accounts (option B): AES-256-GCM at rest, local QR code (no external service).
+  "cryptography>=46",
+  "segno>=1.6",
 ]
 
 [project.optional-dependencies]

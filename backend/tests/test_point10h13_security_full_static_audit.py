@@ -6,7 +6,10 @@ SRC=ROOT/'src'/'edusync'
 # setup_status/create_first_manager: first-run setup, public by design but locked (see test_local_closure_20261006).
 # open_signed_document: authenticated by a short-lived HMAC link, re-checks membership and tenant ownership.
 # logout_all: authenticated by the device-session cookie like logout (CSRF origin check, audited).
-PUBLIC_AUTH={'login','refresh_session','logout','logout_all','setup_status','create_first_manager','open_signed_document'}
+# mfa_verify/mfa_enroll_start/mfa_enroll_confirm (option B, 2026-10-13): second step of a platform sign-in, authenticated
+# by the single-use step token issued after the password (hashed server-side, 5 min, attempt-limited, CSRF origin check).
+PUBLIC_AUTH={'login','refresh_session','logout','logout_all','setup_status','create_first_manager','open_signed_document',
+             'mfa_verify','mfa_enroll_start','mfa_enroll_confirm'}
 HTTP={'get','post','put','patch','delete'}
 
 def _routes(path:Path):

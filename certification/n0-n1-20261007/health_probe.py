@@ -48,8 +48,8 @@ check("Signal de vie stocké sans donnée sensible", all(rc.get(HEARTBEAT_PREFIX
 fx = state.get("N1_TEAM", {}).get("u2")
 if fx:
     import httpx
-    from common import BASE
-    lr = httpx.post(BASE + "/auth/login", json={"email": fx["email"], "password": fx["password"]}, timeout=30)
+    from common import BASE, platform_login
+    lr = platform_login(fx["email"], fx["password"])
     if lr.status_code == 200:
         c = httpx.Client(base_url=BASE + "/", headers={"Authorization": "Bearer " + lr.json()["access_token"]}, timeout=30)
         perms = c.get("platform/team/me").json()["permissions"]

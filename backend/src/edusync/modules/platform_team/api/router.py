@@ -24,6 +24,7 @@ from edusync.adapters.postgres_repositories import PostgresAuditRepository
 from edusync.bootstrap.dependencies import get_services, platform_permissions, require_platform_actor
 from edusync.bootstrap.services import AppServices
 from edusync.modules.audit.domain.audit import AuditRecord
+from edusync.modules.iam.application import platform_mfa
 from edusync.shared.application.context import ActorContext
 from edusync.shared.infrastructure.security import hash_password
 
@@ -345,7 +346,8 @@ def team_users(q: str | None = None, actor: ActorContext = Depends(require_platf
               coalesce(ps.status,'ACTIVE') AS platform_status,
               coalesce(array_agg(DISTINCT r.code) FILTER (WHERE a.active AND r.status='ACTIVE'), '{}') AS roles,
               (SELECT max(s.last_seen_at) FROM user_device_sessions s WHERE s.user_id=u.id AND s.school_id IS NULL) AS last_activity,
-              (SELECT count(*) FROM user_device_sessions s WHERE s.user_id=u.id AND s.school_id IS NULL AND s.revoked_at IS NULL) AS open_sessions
+              (SELECT count(*) FROM user_device_sessions s WHERE s.user_id=u.id AND s.school_id IS NULL AND s.revoked_at IS NULL) AS open_sessions,
+              EXISTS (SELECT 1 FROM user_mfa_factors f WHERE f.user_id=u.id AND f.status='ACTIVE') AS mfa_enrolled
             FROM users u JOIN rbac_assignments a ON a.user_id=u.id AND a.school_id IS NULL JOIN rbac_roles r ON r.id=a.role_id AND r.level='PLATFORM'
             LEFT JOIN platform_account_status ps ON ps.user_id=u.id
             WHERE (CAST(:q AS text) IS NULL OR u.full_name ILIKE '%'||:q||'%' OR u.email::text ILIKE '%'||:q||'%')
@@ -408,7 +410,10 @@ def team_user_detail(user_id: UUID, actor: ActorContext = Depends(require_platfo
         audit = [dict(r) for r in c.execute(text("""SELECT a.occurred_at, a.action, a.reason, u.full_name AS actor FROM audit_events a
             LEFT JOIN users u ON u.id=a.actor_user_id WHERE a.entity_id=:u OR (a.actor_user_id=:u AND a.entity_type='UserSecurity')
             ORDER BY a.occurred_at DESC LIMIT 30"""), {"u": str(user_id)}).mappings()]
-    return {**dict(user), "roles": roles, "effective_permissions": perms, "sessions": sessions, "audit": audit, "is_me": user_id == actor.user_id}
+        mfa = platform_mfa.status(c, user_id)
+    # Second-factor status only (enrolled, date, codes left): never the secret nor the codes.
+    return {**dict(user), "roles": roles, "effective_permissions": perms, "sessions": sessions, "audit": audit, "is_me": user_id == actor.user_id,
+            "mfa": {"enrolled": mfa["enrolled"], "confirmed_at": mfa["confirmed_at"], "recovery_codes_remaining": mfa["recovery_codes_remaining"]}}
 
 
 @router.post("/users/{user_id}/roles")
@@ -553,3 +558,26 @@ def team_reset_password(user_id: UUID, body: PasswordResetInput, idempotency_key
             WHERE user_id=:u AND revoked_at IS NULL"""), {"u": str(user_id)}).rowcount
         _audit(c, actor, "PLATFORM_USER_PASSWORD_RESET", "User", user_id, reason=body.reason, new={"sessions_revoked": n}, key=key)
     return {"user_id": str(user_id), "sessions_revoked": n}
+
+
+@router.post("/users/{user_id}/mfa-reset")
+def team_reset_mfa(user_id: UUID, body: ReasonInput, idempotency_key: str | None = Header(default=None),
+                   actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Lost phone: another Manager removes the second factor of an account (never their own, never an account holding
+    capabilities they lack), with a reason. Platform sessions end; the account enrols a new factor at its next sign-in.
+    There is no master code and no reset by e-mail: identity is checked out of band by the Manager, then audited."""
+    actor.require(TEAM_CAP)
+    key = _key(idempotency_key)
+    with services.platform_db.platform_transaction() as c:
+        prior = _replayed(c, actor, key, "PLATFORM_USER_MFA_RESET")
+        if prior:
+            return prior
+        c.execute(text("SELECT 1 FROM users WHERE id=:u FOR UPDATE"), {"u": str(user_id)})
+        _guard_target(c, actor, user_id)
+        if not _user_roles(c, user_id):
+            raise HTTPException(404, "Ce compte n’appartient pas à l’équipe plateforme")
+        removed = platform_mfa.reset(c, user_id=user_id, reason="RESET_BY_MANAGER")
+        sessions = _revoke_platform_sessions(c, user_id, "MFA_RESET")
+        result = {"user_id": str(user_id), "mfa_reset": True, "sessions_revoked": sessions, **removed}
+        _audit(c, actor, "PLATFORM_USER_MFA_RESET", "User", user_id, reason=body.reason, new=result, key=key)
+    return result

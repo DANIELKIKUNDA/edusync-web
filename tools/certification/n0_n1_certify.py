@@ -28,7 +28,7 @@ RUN = [str(PY), str(ROOT / ".local" / "closure" / "run.py")]
 NPX = "npx.cmd" if os.name == "nt" else "npx"
 NPM = "npm.cmd" if os.name == "nt" else "npm"
 PROBES = ("prereq_probe.py", "team_probe.py", "school_lifecycle_probe.py", "health_probe.py", "audit_probe.py",
-          "notifications_probe.py", "realtime_probe.py", "hardening_http_probe.py")
+          "notifications_probe.py", "realtime_probe.py", "hardening_http_probe.py", "mfa_probe.py")
 
 
 def run(cmd: list[str], cwd: Path = ROOT, env: dict | None = None, timeout: int = 1800) -> tuple[int, str, float]:
@@ -47,6 +47,12 @@ def main() -> int:
     a = ap.parse_args()
     probe_env = {"EDUSYNC_DB": "edusync_claude_fresh", "EDUSYNC_API_PORT": "58100", "PYTHONUTF8": "1"}
     steps: list[dict] = []
+    # The tree is inspected BEFORE any step: the probes write their evidence files during the run, so a check made
+    # afterwards would always see a modified tree and prove nothing about the code that was actually tested.
+    start_sha = run(["git", "rev-parse", "HEAD"])[1].strip()
+    start_dirty = sorted(line[3:] for line in run(["git", "status", "--porcelain"])[1].splitlines() if line.strip())
+    steps.append({"step": "Arbre Git propre au démarrage", "command": "git status --porcelain", "result": "FAIL" if start_dirty else "PASS",
+                  "summary": f"{len(start_dirty)} fichier(s) non commité(s)" if start_dirty else f"propre sur {start_sha[:12]}", "duration_s": 0})
 
     def step(name: str, cmd: list[str], ok_rule, cwd: Path = ROOT, env: dict | None = None, timeout: int = 1800, shown: str | None = None):
         code, out, dur = run(cmd, cwd, env, timeout)
@@ -79,8 +85,9 @@ def main() -> int:
     step("Vulnérabilités npm (npm audit)", [NPM, "audit", "--omit=dev"], lambda c, o: (c == 0, (re.findall(r"found \d+ vulnerabilit\w+", o) or [o.strip()[-120:]])[-1]), cwd=ROOT / "frontend")
     step("Scan de secrets", [str(PY), ".local/closure/secret_scan.py"], lambda c, o: (c == 0 and " 0 leak" in o, o.strip().splitlines()[-1] if o.strip() else "?"))
 
-    sha = run(["git", "rev-parse", "HEAD"])[1].strip()
-    dirty = run(["git", "status", "--porcelain"])[1].strip()
+    sha = start_sha
+    if run(["git", "rev-parse", "HEAD"])[1].strip() != sha:
+        steps.append({"step": "Commit inchangé pendant l'exécution", "command": "git rev-parse HEAD", "result": "FAIL", "summary": "HEAD a changé pendant la certification", "duration_s": 0})
     versions = {"OS": f"{platform.system()} {platform.release()} ({platform.version()})", "Python": platform.python_version(),
                 "Node": run(["node", "--version"])[1].strip(), "PostgreSQL": run([r"C:\Program Files\PostgreSQL\16\bin\postgres.exe", "--version"])[1].strip(),
                 "Redis (WSL)": run(["wsl.exe", "-d", "Ubuntu-22.04", "--", "redis-server", "--version"], timeout=90)[1].strip()[:60]}
@@ -88,7 +95,8 @@ def main() -> int:
     passed = sum(s["result"] == "PASS" for s in steps)
     lines = ["# Manifeste de preuves — certification N0 / N1", "",
              f"Généré le {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} par `tools/certification/n0_n1_certify.py`.", "",
-             f"* Commit : `{sha}`" + (" (arbre de travail modifié au moment de l'exécution)" if dirty else " (arbre propre)"),
+             f"* Commit : `{sha}`" + (" (arbre propre au démarrage : le code testé est exactement ce commit)" if not start_dirty
+                                      else f" (ATTENTION : {len(start_dirty)} fichier(s) modifié(s) au démarrage : " + ", ".join(f"`{x}`" for x in start_dirty[:20]) + ")"),
              "* Environnement : instance locale isolée (PostgreSQL 16 RLS FORCE, Redis WSL, SeaweedFS S3, API FastAPI, interface Vite preview)",
              *[f"* {k} : {v}" for k, v in versions.items()], "",
              f"## Résultats : {passed}/{len(steps)} étapes PASS", "",
@@ -99,7 +107,8 @@ def main() -> int:
              *[f"| `{p.relative_to(ROOT).as_posix()}` | `{hashlib.sha256(p.read_bytes()).hexdigest()}` |" for p in evid], "",
              "Les secrets, sauvegardes et bases restent dans `.local/` (non versionné) et ne figurent dans aucun fichier de preuve.", ""]
     (ROOT / "CERTIFICATION_EVIDENCE_MANIFEST.md").write_text("\n".join(lines), encoding="utf-8")
-    (EVID / "certify-run.json").write_text(json.dumps({"sha": sha, "steps": steps, "versions": versions}, indent=1, ensure_ascii=False), encoding="utf-8")
+    (EVID / "certify-run.json").write_text(json.dumps({"sha": sha, "clean_tree_at_start": not start_dirty, "modified_at_start": start_dirty,
+                                                       "steps": steps, "versions": versions}, indent=1, ensure_ascii=False), encoding="utf-8")
     print(f"== {passed}/{len(steps)} étapes PASS -> CERTIFICATION_EVIDENCE_MANIFEST.md")
     return 0 if passed == len(steps) else 1
 

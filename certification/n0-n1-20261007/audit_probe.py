@@ -12,7 +12,7 @@ import httpx
 from sqlalchemy import create_engine, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "claude-20260930"))
-from common import BASE, owner, platform, state  # noqa: E402
+from common import BASE, owner, platform, platform_login, state  # noqa: E402
 
 results = []
 
@@ -83,7 +83,7 @@ for label, stmt in (("UPDATE", "UPDATE audit_events SET reason='falsifié' WHERE
 # Permissions: an account without platform.audit.read / export.
 u2 = state.get("N1_TEAM", {}).get("u2")
 if u2:
-    lr = httpx.post(BASE + "/auth/login", json={"email": u2["email"], "password": u2["password"]}, timeout=30)
+    lr = platform_login(u2["email"], u2["password"])
     if lr.status_code == 200:
         c = httpx.Client(base_url=BASE + "/", headers={"Authorization": "Bearer " + lr.json()["access_token"]}, timeout=30)
         perms = set(c.get("platform/team/me").json()["permissions"])

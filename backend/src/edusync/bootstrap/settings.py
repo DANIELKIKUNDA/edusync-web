@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     # from loopback in dev; staging/production additionally require this one-time setup token.
     setup_token: str = ""
 
+    # Second factor (MFA_PROPOSAL.md, option B, owner decision 2026-10-13): mandatory TOTP to open the platform console.
+    # The key (32 bytes, base64) encrypts TOTP secrets at rest; it must differ from the JWT secret. School accounts are
+    # not concerned. Disabling the policy is refused outside development (assert_runtime_safe).
+    mfa_platform_required: bool = True
+    mfa_encryption_key: str = ""
+    mfa_challenge_seconds: int = 300
+    mfa_max_attempts: int = 5
+    mfa_lock_seconds: int = 900
+
     @field_validator("jwt_secret")
     @classmethod
     def _secret_strength(cls, value: str) -> str:
@@ -109,6 +118,12 @@ class Settings(BaseSettings):
             raise RuntimeError("Limite de corps API production invalide")
         if self.api_max_query_bytes <= 0 or self.api_max_query_bytes > 32768:
             raise RuntimeError("Limite de query-string API production invalide")
+        if not self.mfa_platform_required:
+            raise RuntimeError("Le second facteur des comptes plateforme ne peut pas être désactivé en production")
+        from edusync.shared.infrastructure.mfa import load_mfa_key
+        key = load_mfa_key(self.mfa_encryption_key, jwt_secret=self.jwt_secret, env=self.env)
+        if key == self.jwt_secret.encode("utf-8")[:32]:
+            raise RuntimeError("EDUSYNC_MFA_ENCRYPTION_KEY doit être distincte du secret JWT")
 
     def assert_provisioning_safe(self) -> None:
         self.assert_runtime_safe()

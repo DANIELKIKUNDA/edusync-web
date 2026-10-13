@@ -31,6 +31,16 @@ def main() -> None:
            "## Manager Système (Atelier Pro)", "",
            f"- Connexion : bouton « Accès Atelier Pro (Manager système) » sur la page de connexion",
            f"- E-mail : {env['EDUSYNC_PLATFORM_ADMIN_EMAIL']}", f"- Mot de passe : {env['EDUSYNC_PLATFORM_ADMIN_PASSWORD']}", ""]
+    # Second factor (option B): the probes enrolled this local test account; its key lets the owner add it to a phone.
+    mfa = fx.get("MFA_TOTP", {}).get(env["EDUSYNC_PLATFORM_ADMIN_EMAIL"].strip().lower())
+    if mfa:
+        from urllib.parse import quote
+        uri = (f"otpauth://totp/{quote('EduSync Atelier Pro:' + env['EDUSYNC_PLATFORM_ADMIN_EMAIL'], safe='@:')}"
+               f"?secret={mfa['secret']}&issuer=EduSync%20Atelier%20Pro&algorithm=SHA1&digits=6&period=30")
+        out += ["- Validation en deux étapes : obligatoire. Ajoutez ce compte de recette à votre application d’authentification",
+                f"  (Google/Microsoft Authenticator → « Saisir une clé ») : clé **`{mfa['secret']}`**, type « basé sur l’heure ».",
+                f"  Lien direct (téléphone) : `{uri}`",
+                f"- Codes de secours de recette encore connus : {', '.join(f'`{c}`' for c in mfa.get('recovery_codes', [])[:3])}…", ""]
     with eng.connect() as c:
         for key in ("A", "B", "C"):
             school = fx.get(key)

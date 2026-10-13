@@ -1,7 +1,11 @@
-# Second facteur (MFA / TOTP) — proposition — OWNER_DECISION
+# Second facteur (MFA / TOTP) — proposition — DÉCIDÉE : option B
 
-Rien n'est activé. Cette proposition décrit l'architecture, les options et leurs conséquences ; le choix
-revient au propriétaire.
+> **Décision du propriétaire (13 octobre 2026) : option B adoptée** — second facteur TOTP obligatoire pour les
+> comptes plateforme (Atelier Pro), aucun changement pour les comptes école. Implémentation, tests et preuves :
+> `MFA_PLATFORM_OPTION_B_REPORT.md`. Le texte ci-dessous est la proposition d'origine, conservée telle quelle.
+
+Cette proposition décrit l'architecture, les options et leurs conséquences ; le choix
+revenait au propriétaire.
 
 ## Pourquoi en parler maintenant
 Un compte de l'Atelier Pro peut créer des écoles, suspendre une école, réinitialiser un administrateur et
