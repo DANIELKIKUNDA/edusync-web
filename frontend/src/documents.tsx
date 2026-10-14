@@ -49,12 +49,12 @@ function Catalog({token,permissions,schoolName}:{token:string;permissions:string
 
 function Identity({token}:{token:string}){
  const [logo,setLogo]=useState<string|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const input=useRef<HTMLInputElement>(null);
- const [print,setPrint]=useState<PrintSettings|null>(null);
+ const [print,setPrint]=useState<PrintSettings|null>(null);const [prefixDraft,setPrefixDraft]=useState('REC');useEffect(()=>{if(print?.receipt_prefix)setPrefixDraft(print.receipt_prefix)},[print?.receipt_prefix]);
  async function load(){try{const b=await schoolLogoBlob(token);setLogo(old=>{if(old)URL.revokeObjectURL(old);return b?URL.createObjectURL(b):null})}catch(e){setError(friendlyError(e))}finally{setLoading(false)}}
  useEffect(()=>{void load();getPrintSettings(token).then(setPrint).catch(()=>setPrint(null));return()=>{setLogo(old=>{if(old)URL.revokeObjectURL(old);return null})}},[token]);
  async function upload(f:File){setError('');if(f.size>1048576){setError('Le logo dépasse 1 Mo.');return}if(!['image/png','image/jpeg'].includes(f.type)){setError('Choisissez une image PNG ou JPEG.');return}
   try{setBusy(true);await uploadSchoolLogo(token,f);toast.success('Logo enregistré : il apparaîtra sur les prochains documents.');await load()}catch(e){setError(friendlyError(e))}finally{setBusy(false);if(input.current)input.current.value=''}}
- async function savePrint(next:Partial<PrintSettings>){if(!print)return;try{const r=await putPrintSettings(token,{receipt_policy:next.receipt_policy||print.receipt_policy,receipt_format:next.receipt_format||print.receipt_format});setPrint(r);toast.success('Réglage d’impression enregistré')}catch(e){setError(friendlyError(e))}}
+ async function savePrint(next:Partial<PrintSettings>){if(!print)return;try{const r=await putPrintSettings(token,{receipt_policy:next.receipt_policy||print.receipt_policy,receipt_format:next.receipt_format||print.receipt_format,receipt_prefix:(next.receipt_prefix??print.receipt_prefix??'REC').toUpperCase(),receipt_copies:next.receipt_copies??print.receipt_copies??1});setPrint(r);toast.success('Réglage d’impression enregistré')}catch(e){setError(friendlyError(e))}}
  return <div className="docIdentity">
   <section className="panel docPanel"><div className="panelHead"><div><h3>Logo de l’école</h3><p>Utilisé dans l’en-tête des documents PDF et Excel et sur les reçus.</p></div></div>
    {error&&<div className="error" role="alert">{error}</div>}
@@ -68,7 +68,11 @@ function Identity({token}:{token:string}){
     {([['NONE','Ne rien proposer','Le caissier imprime le reçu depuis le message de confirmation s’il le souhaite.'],['PROPOSE','Proposer l’impression','Un bouton « Imprimer le reçu » est mis en avant après chaque encaissement.'],['AUTO_PREVIEW','Ouvrir l’aperçu automatiquement','L’aperçu du reçu s’ouvre ; l’impression reste confirmée par le caissier.']] as const).map(([v,l,h])=><label key={v} className={print.receipt_policy===v?'choice on':'choice'}><input type="radio" name="policy" checked={print.receipt_policy===v} onChange={()=>void savePrint({receipt_policy:v})}/><span><b>{l}</b><small>{h}</small></span></label>)}
    </fieldset>
    <fieldset className="choiceGroup"><legend>Format du reçu</legend>
-    {([['A5','Feuille A5','Imprimante de bureau classique.'],['80MM','Ticket 80 mm','Imprimante thermique de caisse.']] as const).map(([v,l,h])=><label key={v} className={print.receipt_format===v?'choice on':'choice'}><input type="radio" name="format" checked={print.receipt_format===v} onChange={()=>void savePrint({receipt_format:v})}/><span><b>{l}</b><small>{h}</small></span></label>)}
+    {([['A5','Feuille A5','Imprimante de bureau classique.'],['80MM','Ticket 80 mm','Imprimante thermique de caisse.'],['58MM','Ticket 58 mm','Petite imprimante thermique.']] as const).map(([v,l,h])=><label key={v} className={print.receipt_format===v?'choice on':'choice'}><input type="radio" name="format" checked={print.receipt_format===v} onChange={()=>void savePrint({receipt_format:v})}/><span><b>{l}</b><small>{h}</small></span></label>)}
+   </fieldset>
+   <fieldset className="receiptNumbering"><legend>Numérotation et copies</legend>
+    <label>Préfixe des reçus<input value={prefixDraft} maxLength={12} onChange={e=>setPrefixDraft(e.target.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase())} onBlur={()=>{if(prefixDraft&&prefixDraft!==print.receipt_prefix)void savePrint({receipt_prefix:prefixDraft})}}/><small>Exemple : {prefixDraft||'REC'}-{new Date().getFullYear()}-000123 (numéro séquentiel par année).</small></label>
+    <label>Nombre de copies<select value={print.receipt_copies??1} onChange={e=>void savePrint({receipt_copies:Number(e.target.value)})}>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
    </fieldset>
    <p className="es-hint">Un navigateur ne peut pas imprimer sans confirmation. L’impression directe sur une imprimante de caisse nécessitera un petit programme local, prévu pour une étape ultérieure.</p>
   </section>}

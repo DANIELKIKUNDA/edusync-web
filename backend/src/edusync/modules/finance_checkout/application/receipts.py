@@ -60,6 +60,8 @@ def _story(school: dict[str, Any], r: dict[str, Any], width: float, narrow: bool
     story = [head, Paragraph("REÇU DE PAIEMENT", st["title"]), Paragraph(f"N° {escape(r['receipt_number'])}", st["title"])]
     if r["copy_no"] > 1:
         story.append(Paragraph(f"DUPLICATA n° {r['copy_no'] - 1}", st["copy"]))
+    if r.get("exemplar"):
+        story.append(Paragraph(f"Exemplaire {r['exemplar'][0]}/{r['exemplar'][1]}", st["copy"]))
     story.append(Spacer(1, 2 * mm))
     who = [
         ("Date", r["created_at"].strftime("%d/%m/%Y %H:%M")),
@@ -87,12 +89,17 @@ def _story(school: dict[str, Any], r: dict[str, Any], width: float, narrow: bool
     return story
 
 
-def receipt_pdf(*, school: dict[str, Any], receipts: list[dict[str, Any]], fmt: str = "A5") -> bytes:
-    """One receipt per page. fmt: A5 (portrait sheet) or 80MM (thermal roll)."""
+def receipt_pdf(*, school: dict[str, Any], receipts: list[dict[str, Any]], fmt: str = "A5", copies: int = 1) -> bytes:
+    """One receipt per page. fmt: A5 (portrait sheet), 80MM or 58MM (thermal rolls). Desktop parity (lot L7): each receipt is
+    produced `copies` times (1..5), every copy numbered."""
     buf = BytesIO()
-    narrow = fmt == "80MM"
+    narrow = fmt in ("80MM", "58MM")
+    copies = max(1, min(5, int(copies or 1)))
+    if copies > 1:
+        receipts = [{**r, "exemplar": (n, copies)} for r in receipts for n in range(1, copies + 1)]
     if narrow:
-        page = (80 * mm, 200 * mm + 8 * mm * max(len(r["lines"]) for r in receipts))
+        roll = 80 if fmt == "80MM" else 58
+        page = (roll * mm, 200 * mm + 8 * mm * max(len(r["lines"]) for r in receipts))
         margins = dict(leftMargin=4 * mm, rightMargin=4 * mm, topMargin=4 * mm, bottomMargin=4 * mm)
     else:
         page = A5

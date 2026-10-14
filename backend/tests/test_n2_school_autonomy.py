@@ -232,3 +232,13 @@ def test_cash_desk_rules_copy_the_desktop():
     assert "Au moins un mode de paiement doit être autorisé" in repo
     router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
     assert "_need(actor,'settings.payment_policy.manage')" in router
+
+
+def test_receipt_settings_copy_the_desktop():
+    checkout = (ROOT / "backend/src/edusync/adapters/postgres_finance_checkout.py").read_text(encoding="utf-8")
+    assert 'return f"{prefix}-{year}-{int(n):06d}"' in checkout and "INSERT INTO finance_receipt_sequences" in checkout
+    assert 'receipt=f"REC-{' not in checkout and 'receipt=f"VTE-{' not in checkout  # one sequence for every cash entry
+    receipts = (ROOT / "backend/src/edusync/modules/finance_checkout/application/receipts.py").read_text(encoding="utf-8")
+    assert 'roll = 80 if fmt == "80MM" else 58' in receipts and "Exemplaire" in receipts
+    sql = (ROOT / "backend/migrations/0065_receipt_settings_desktop_parity.sql").read_text(encoding="utf-8")
+    assert "receipt_copies BETWEEN 1 AND 5" in sql and "'58MM'" in sql

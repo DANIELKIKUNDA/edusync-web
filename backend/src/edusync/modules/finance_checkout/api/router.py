@@ -118,17 +118,17 @@ def _with_cashier(services,facts):
    facts['cashier']=pc.execute(_t("SELECT full_name FROM users WHERE id=:id"),{'id':str(facts['actor_user_id'])}).scalar_one_or_none()
  return facts
 @router.post('/receipts/{payment_id}/print')
-def print_receipt(payment_id:UUID,format:str|None=Query(None,pattern='^(A5|80MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def print_receipt(payment_id:UUID,format:str|None=Query(None,pattern='^(A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.receipts.print')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   repo=PostgresFinanceCheckoutRepository(conn);facts=repo.receipt_facts(actor.school_id,payment_id)
   if not facts:raise HTTPException(404,'Reçu introuvable')
   if repo.receipt_copies(actor.school_id,payment_id)>=1:need(actor,'finance.receipts.reprint')
   copy=repo.record_receipt_print(actor.school_id,payment_id,actor.user_id);_audit_print(conn,actor,payment_id,copy)
-  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=[{**_with_cashier(services,facts),'copy_no':copy}],fmt=format or repo.print_settings(actor.school_id)['receipt_format'])
+  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=[{**_with_cashier(services,facts),'copy_no':copy}],fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
  return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':f'inline; filename="recu_{facts["receipt_number"]}.pdf"'})
 @router.post('/family-baskets/{basket_id}/receipts/print')
-def print_basket_receipts(basket_id:UUID,format:str|None=Query(None,pattern='^(A5|80MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def print_basket_receipts(basket_id:UUID,format:str|None=Query(None,pattern='^(A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'documents.receipts.bundle.print');need(actor,'finance.receipts.print')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   repo=PostgresFinanceCheckoutRepository(conn)
@@ -140,22 +140,25 @@ def print_basket_receipts(basket_id:UUID,format:str|None=Query(None,pattern='^(A
    if repo.receipt_copies(actor.school_id,pid)>=1:need(actor,'finance.receipts.reprint')
    copy=repo.record_receipt_print(actor.school_id,pid,actor.user_id);_audit_print(conn,actor,pid,copy)
    receipts.append({**_with_cashier(services,repo.receipt_facts(actor.school_id,pid)),'copy_no':copy})
-  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=receipts,fmt=format or repo.print_settings(actor.school_id)['receipt_format'])
+  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=receipts,fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
  return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':'inline; filename="recus_panier_familial.pdf"'})
 @router.get('/print-settings')
 def get_print_settings(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.receipts.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return PostgresFinanceCheckoutRepository(conn).print_settings(actor.school_id)
 class PrintSettingsBody(BaseModel):
- receipt_policy:str=Field(pattern='^(NONE|PROPOSE|AUTO_PREVIEW)$');receipt_format:str=Field(pattern='^(A5|80MM)$')
+ receipt_policy:str=Field(pattern='^(NONE|PROPOSE|AUTO_PREVIEW)$');receipt_format:str=Field(pattern='^(A5|80MM|58MM)$')
+ receipt_prefix:str=Field(default='REC',pattern='^[A-Za-z0-9]{1,12}$');receipt_copies:int=Field(default=1,ge=1,le=5)
 @router.put('/print-settings')
 def put_print_settings(body:PrintSettingsBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'settings.documents.manage')
  from sqlalchemy import text as _t
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-  row=conn.execute(_t("""INSERT INTO school_print_settings(school_id,receipt_policy,receipt_format,updated_by) VALUES(:sid,:p,:f,:u)
-   ON CONFLICT(school_id) DO UPDATE SET receipt_policy=EXCLUDED.receipt_policy,receipt_format=EXCLUDED.receipt_format,updated_by=EXCLUDED.updated_by,updated_at=now(),version=school_print_settings.version+1
-   RETURNING receipt_policy,receipt_format,version"""),{'sid':str(actor.school_id),'p':body.receipt_policy,'f':body.receipt_format,'u':str(actor.user_id)}).mappings().one()
+  row=conn.execute(_t("""INSERT INTO school_print_settings(school_id,receipt_policy,receipt_format,receipt_prefix,receipt_copies,updated_by) VALUES(:sid,:p,:f,:px,:cp,:u)
+   ON CONFLICT(school_id) DO UPDATE SET receipt_policy=EXCLUDED.receipt_policy,receipt_format=EXCLUDED.receipt_format,receipt_prefix=EXCLUDED.receipt_prefix,
+   receipt_copies=EXCLUDED.receipt_copies,updated_by=EXCLUDED.updated_by,updated_at=now(),version=school_print_settings.version+1
+   RETURNING receipt_policy,receipt_format,receipt_prefix,receipt_copies,version"""),{'sid':str(actor.school_id),'p':body.receipt_policy,'f':body.receipt_format,
+   'px':body.receipt_prefix.upper(),'cp':body.receipt_copies,'u':str(actor.user_id)}).mappings().one()
   conn.execute(_t("""INSERT INTO audit_events(school_id,actor_user_id,membership_id,action,entity_type,entity_id,source,new_json) VALUES(:sid,:uid,:mid,'PRINT_SETTINGS_UPDATED','SchoolPrintSettings',:sid,'WEB',
-   jsonb_build_object('receipt_policy',CAST(:p AS text),'receipt_format',CAST(:f AS text)))"""),{'sid':str(actor.school_id),'uid':str(actor.user_id),'mid':str(actor.membership_id),'p':body.receipt_policy,'f':body.receipt_format})
+   jsonb_build_object('receipt_policy',CAST(:p AS text),'receipt_format',CAST(:f AS text),'receipt_prefix',CAST(:px AS text),'receipt_copies',CAST(:cp AS integer)))"""),{'sid':str(actor.school_id),'uid':str(actor.user_id),'mid':str(actor.membership_id),'p':body.receipt_policy,'f':body.receipt_format,'px':body.receipt_prefix.upper(),'cp':body.receipt_copies})
   return dict(row)

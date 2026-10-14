@@ -45,3 +45,9 @@
   .docIdentity{grid-template-columns:1fr}
 }
 @media (max-width:420px){.docTabs{overflow-x:auto;scrollbar-width:none}.docTabs::-webkit-scrollbar{display:none}.docTabs button{flex:0 0 auto;padding:0 12px;white-space:nowrap}}
+.receiptNumbering{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border:0;padding:0;margin-top:10px}
+.receiptNumbering legend{font-weight:700;font-size:13px;margin-bottom:4px}
+.receiptNumbering label{display:grid;gap:4px;font-size:13px;font-weight:600}
+.receiptNumbering input,.receiptNumbering select{min-height:40px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px}
+.receiptNumbering small{font-weight:400;color:#64748b}
+@media(max-width:720px){.receiptNumbering{grid-template-columns:1fr}}

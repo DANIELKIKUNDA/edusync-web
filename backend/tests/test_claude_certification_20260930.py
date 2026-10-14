@@ -35,6 +35,9 @@ class _Result:
     def scalar_one_or_none(self):
         return self._scalar
 
+    def scalar_one(self):
+        return self._scalar
+
 
 class ScriptedConnection:
     """Answers the SQL issued by collect(); records every write."""
@@ -59,6 +62,10 @@ class ScriptedConnection:
         if "FROM enrollments e JOIN school_classes" in sql:  # parity lot L4: registration bundle lookup (no admission rule here)
             return _Result()
         if "FROM school_payment_policy" in sql:  # parity lot L5: no school rule configured -> Desktop defaults
+            return _Result()
+        if "INTO finance_receipt_sequences" in sql:  # parity lot L7: PREFIX-YEAR-000001 sequence
+            return _Result(scalar=1)
+        if "FROM school_print_settings" in sql:
             return _Result()
         if sql.startswith(("INSERT", "UPDATE")):
             self.writes.append((sql.split("(")[0], params))

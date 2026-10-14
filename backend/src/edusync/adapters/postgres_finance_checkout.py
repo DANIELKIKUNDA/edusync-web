@@ -117,7 +117,7 @@ class PostgresFinanceCheckoutRepository:
   if advance>0 and plan and not plan.get('accepted'):
    self.accept_anticipation(school_id,enrollment_id,UUID(str(plan['plan_id'])),user_id)
    plan['accepted']=True;plan['membership_status']='ACCEPTED'
-  pid=uuid4(); receipt=f"REC-{str(pid).split('-')[0].upper()}"
+  pid=uuid4(); receipt=self.next_receipt_number(school_id)
   self.conn.execute(text('INSERT INTO finance_payments(id,school_id,enrollment_id,cash_session_id,actor_user_id,amount,currency,receipt_number,idempotency_key,payment_mode,payment_reference) VALUES(:id,:sid,:eid,:cs,:uid,:a,:cur,:r,:k,:mode,:ref)'),{'mode':mode,'ref':(reference or '').strip()[:80] or None,'id':str(pid),'sid':str(school_id),'eid':str(enrollment_id),'cs':str(session),'uid':str(user_id),'a':amount,'cur':currency,'r':receipt,'k':idempotency_key})
   left=normal; details=[]
   selected_set=set(charge_ids)
@@ -223,8 +223,17 @@ class PostgresFinanceCheckoutRepository:
  def receipt_copies(self,school_id:UUID,payment_id:UUID)->int:
   return int(self.conn.execute(text('SELECT count(*) FROM finance_receipt_prints WHERE school_id=:sid AND payment_id=:pid'),{'sid':str(school_id),'pid':str(payment_id)}).scalar_one())
  def print_settings(self,school_id:UUID)->dict:
-  r=self.conn.execute(text('SELECT receipt_policy,receipt_format,version FROM school_print_settings WHERE school_id=:sid'),{'sid':str(school_id)}).mappings().first()
-  return dict(r) if r else {'receipt_policy':'NONE','receipt_format':'A5','version':0}
+  r=self.conn.execute(text('SELECT receipt_policy,receipt_format,receipt_prefix,receipt_copies,version FROM school_print_settings WHERE school_id=:sid'),{'sid':str(school_id)}).mappings().first()
+  return dict(r) if r else {'receipt_policy':'NONE','receipt_format':'A5','receipt_prefix':'REC','receipt_copies':1,'version':0}
+ def next_receipt_number(self,school_id:UUID)->str:
+  # Desktop next_receipt_no (parity lot L7): PREFIX-YEAR-000123, one atomic counter per calendar year, consumed inside the
+  # payment transaction (a rollback gives the number back).
+  from datetime import date
+  year=date.today().year
+  n=self.conn.execute(text('''INSERT INTO finance_receipt_sequences(school_id,year,last_number) VALUES(:sid,:y,1)
+   ON CONFLICT(school_id,year) DO UPDATE SET last_number=finance_receipt_sequences.last_number+1 RETURNING last_number'''),{'sid':str(school_id),'y':year}).scalar_one()
+  prefix=(self.print_settings(school_id).get('receipt_prefix') or 'REC').strip().upper()
+  return f"{prefix}-{year}-{int(n):06d}"
 
  def historical_debts(self,school_id:UUID,student_id:UUID):
   rows=self.conn.execute(text("""SELECT e.id enrollment_id,y.id academic_year_id,y.label academic_year,c.label class_label,
@@ -257,7 +266,7 @@ class PostgresFinanceCheckoutRepository:
    stock=self.conn.execute(text("SELECT quantity FROM inventory_stock WHERE school_id=:sid AND product_id=:pid FOR UPDATE"),{'sid':str(school_id),'pid':str(product_id)}).scalar_one_or_none()
    available=Decimal(str(stock or 0))
    if available<quantity:raise ValueError(f'Stock insuffisant : {available} disponible(s)')
-  total=Decimal(str(p['unit_price']))*quantity; pay_id=uuid4(); sale_id=uuid4(); receipt=f"VTE-{str(pay_id).split('-')[0].upper()}"
+  total=Decimal(str(p['unit_price']))*quantity; pay_id=uuid4(); sale_id=uuid4(); receipt=self.next_receipt_number(school_id)  # Desktop: one receipt sequence for every cash entry
   self.conn.execute(text("INSERT INTO finance_payments(id,school_id,enrollment_id,cash_session_id,actor_user_id,amount,currency,receipt_number,idempotency_key) VALUES(:id,:sid,:eid,:cs,:uid,:a,:cur,:r,:k)"),{'id':str(pay_id),'sid':str(school_id),'eid':str(enrollment_id) if enrollment_id else None,'cs':str(session),'uid':str(user_id),'a':total,'cur':p['currency'],'r':receipt,'k':idempotency_key})
   self.conn.execute(text("INSERT INTO finance_product_sales(id,school_id,student_id,enrollment_id,cash_session_id,payment_id,product_id,quantity,unit_price,currency,total,actor_user_id) VALUES(:id,:sid,:student,:eid,:cs,:pay,:product,:q,:price,:cur,:total,:uid)"),{'id':str(sale_id),'sid':str(school_id),'student':str(student_id) if student_id else None,'eid':str(enrollment_id) if enrollment_id else None,'cs':str(session),'pay':str(pay_id),'product':str(product_id),'q':quantity,'price':p['unit_price'],'cur':p['currency'],'total':total,'uid':str(user_id)})
   if p['stock_tracking']:

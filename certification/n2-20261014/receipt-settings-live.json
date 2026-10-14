@@ -1,0 +1,62 @@
+[
+ {
+  "check": "Réglages par défaut : préfixe REC, 1 copie",
+  "pass": true,
+  "detail": "{'receipt_policy': 'NONE', 'receipt_format': 'A5', 'receipt_prefix': 'REC', 'receipt_copies': 1, 'version': 0}"
+ },
+ {
+  "check": "Reçu numéroté PRÉFIXE-ANNÉE-000001 (Desktop)",
+  "pass": true,
+  "detail": "REC-2026-000001"
+ },
+ {
+  "check": "Réglages : préfixe RCU (mis en majuscules), 2 copies, ticket 58 mm",
+  "pass": true,
+  "detail": "{\"receipt_policy\":\"PROPOSE\",\"receipt_format\":\"58MM\",\"receipt_prefix\":\"RCU\",\"receipt_copies\":2,\"version\":1}"
+ },
+ {
+  "check": "Reçu suivant : nouveau préfixe, compteur continu (000002)",
+  "pass": true,
+  "detail": "RCU-2026-000002"
+ },
+ {
+  "check": "Vente d'article : même séquence de reçus (000003)",
+  "pass": true,
+  "detail": "(200, 'RCU-2026-000003', '{\"id\":\"13dfd2ef-1211-4145-a52a-d752544944c9\",\"payment_id\":\"b66f9f46-1491-4d17-b68b-1df70d6383e9\",\"receipt_number\":\"RCU-2')"
+ },
+ {
+  "check": "Impression : 2 exemplaires dans le PDF",
+  "pass": true,
+  "detail": "(200, 2)"
+ },
+ {
+  "check": "Impression : ticket de 58 mm de large",
+  "pass": true,
+  "detail": "58"
+ },
+ {
+  "check": "Préfixe invalide (caractères spéciaux) refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Plus de 5 copies refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Sans droit : le caissier ne modifie pas les réglages d'impression (403)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Autre école : sa propre séquence (000001), indépendante",
+  "pass": true,
+  "detail": "REC-2026-000001"
+ },
+ {
+  "check": "Audit : préfixe et copies tracés",
+  "pass": true,
+  "detail": "{'receipt_copies': 2, 'receipt_format': '58MM', 'receipt_policy': 'PROPOSE', 'receipt_prefix': 'RCU'}"
+ }
+]
