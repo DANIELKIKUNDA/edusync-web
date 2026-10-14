@@ -176,8 +176,9 @@ class PostgresSettingsRepository:
 
     def list_classes(self, school_id: UUID, year_id: UUID|None=None) -> list[dict[str,Any]]:
         rows=self.connection.execute(text("""
-            SELECT c.id,c.academic_year_id,c.section_id,c.option_id,c.reference_code,c.code,c.label,c.enabled,c.version,
-                   s.code AS section_code,s.label AS section_label,y.code AS academic_year_code
+            SELECT c.id,c.academic_year_id,c.section_id,c.option_id,c.reference_code,c.code,c.label,c.enabled,c.status,c.archived_at,c.version,
+                   s.code AS section_code,s.label AS section_label,y.code AS academic_year_code,y.status AS academic_year_status,
+                   (SELECT count(*) FROM enrollments e WHERE e.school_id=c.school_id AND e.class_id=c.id AND e.status='VALIDATED') AS student_count
               FROM school_classes c JOIN school_sections s ON s.id=c.section_id JOIN academic_years y ON y.id=c.academic_year_id
              WHERE c.school_id=:sid AND (CAST(:year AS uuid) IS NULL OR c.academic_year_id=:year)
              ORDER BY s.label,c.label
@@ -188,10 +189,11 @@ class PostgresSettingsRepository:
                      reference_code:str|None=None,option_id:UUID|None=None) -> dict[str,Any]:
         # tenant-consistency checks are explicit; RLS is defence in depth.
         ok=self.connection.execute(text("""
-            SELECT 1 FROM academic_years y JOIN school_sections s ON s.school_id=y.school_id
+            SELECT y.status,y.label FROM academic_years y JOIN school_sections s ON s.school_id=y.school_id
              WHERE y.id=:y AND s.id=:s AND y.school_id=:sid
         """),{"y":academic_year_id,"s":section_id,"sid":school_id}).first()
         if ok is None: raise ValueError("Année/section incompatible avec cette école")
+        if _m(ok)['status'] in ('CLOSED','ARCHIVED'): raise ValueError(f"L'année {_m(ok)['label']} est en lecture seule : aucune classe ne peut y être ouverte")
         if option_id is not None:
             option_ok=self.connection.execute(text("""
                 SELECT 1 FROM school_options WHERE id=:option AND school_id=:sid AND section_id=:section AND enabled
@@ -200,7 +202,7 @@ class PostgresSettingsRepository:
         r=self.connection.execute(text("""
             INSERT INTO school_classes(id,school_id,academic_year_id,section_id,option_id,reference_code,code,label)
             VALUES (:id,:sid,:y,:section,:option,:ref,:code,:label)
-            RETURNING id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,version
+            RETURNING id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,status,archived_at,version
         """),{"id":uuid4(),"sid":school_id,"y":academic_year_id,"section":section_id,"option":option_id,
                  "ref":reference_code,"code":code.strip().upper(),"label":label.strip()}).first()
         return dict(_m(r))
@@ -271,14 +273,45 @@ class PostgresSettingsRepository:
                  "option":option_id,"currency":currency,"amount":amount,"months":json.dumps(billing_months or [])}).first()
         x=dict(_m(r)); x['amount']=str(x['amount']); return x
 
-    def update_class(self, school_id: UUID, class_id: UUID, *, code:str, label:str, enabled:bool, expected_version:int) -> dict[str,Any]:
+    CLASS_COLUMNS = "id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,status,archived_at,version"
+
+    def _class_for_change(self, school_id: UUID, class_id: UUID) -> dict[str,Any]:
+        row=self.connection.execute(text("""SELECT c.id,c.status,c.version,y.status AS year_status,y.label AS year_label
+              FROM school_classes c JOIN academic_years y ON y.id=c.academic_year_id
+             WHERE c.id=:id AND c.school_id=:sid FOR UPDATE OF c"""),{"id":class_id,"sid":school_id}).first()
+        if row is None: raise LookupError("Classe introuvable")
+        cls=dict(_m(row))
+        # Desktop _ensure_configuration_year_editable: a closed or archived year is read-only.
+        if cls['year_status'] in ('CLOSED','ARCHIVED'):
+            raise ValueError(f"L'année {cls['year_label']} est en lecture seule : la classe ne peut plus être modifiée")
+        return cls
+
+    def update_class(self, school_id: UUID, class_id: UUID, *, code:str, label:str, expected_version:int) -> dict[str,Any]:
+        """Rename only (Desktop rename_class). The class state has its own operation and capability."""
         code=code.strip().upper();label=label.strip()
         if not code or not label: raise ValueError("Code et libellé de classe obligatoires")
-        row=self.connection.execute(text("""
-            UPDATE school_classes SET code=:code,label=:label,enabled=:enabled
-             WHERE id=:id AND school_id=:sid AND version=:expected
-             RETURNING id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,version
-        """),{"id":class_id,"sid":school_id,"code":code,"label":label,"enabled":enabled,"expected":expected_version}).first()
+        if self._class_for_change(school_id,class_id)['status']=='ARCHIVED': raise ValueError("Une classe archivée ne se modifie plus")
+        row=self.connection.execute(text(f"""
+            UPDATE school_classes SET code=:code,label=:label
+             WHERE id=:id AND school_id=:sid AND version=:expected RETURNING {self.CLASS_COLUMNS}
+        """),{"id":class_id,"sid":school_id,"code":code,"label":label,"expected":expected_version}).first()
+        if row is None: raise OptimisticConcurrencyError("Classe modifiée par une autre session ou introuvable")
+        return dict(_m(row))
+
+    def set_class_status(self, school_id: UUID, class_id: UUID, *, status:str, expected_version:int) -> dict[str,Any]:
+        """Desktop set_class_status: ACTIVE <-> INACTIVE (pause, students kept), ARCHIVED only when the class is empty."""
+        status=status.strip().upper()
+        if status not in ('ACTIVE','INACTIVE','ARCHIVED'): raise ValueError("Statut de classe invalide")
+        cls=self._class_for_change(school_id,class_id)
+        if cls['status']=='ARCHIVED': raise ValueError("Une classe archivée ne change plus de statut")
+        if status=='ARCHIVED':
+            active=int(self.connection.execute(text(
+                "SELECT count(*) FROM enrollments WHERE school_id=:sid AND class_id=:id AND status='VALIDATED'"),{"sid":school_id,"id":class_id}).scalar_one())
+            if active: raise ValueError("Une classe contenant des inscriptions actives ne peut pas être archivée")
+        row=self.connection.execute(text(f"""
+            UPDATE school_classes SET status=CAST(:status AS varchar),enabled=(CAST(:status AS varchar)='ACTIVE'),archived_at=CASE WHEN CAST(:status AS varchar)='ARCHIVED' THEN now() ELSE NULL END
+             WHERE id=:id AND school_id=:sid AND version=:expected RETURNING {self.CLASS_COLUMNS}
+        """),{"id":class_id,"sid":school_id,"status":status,"expected":expected_version}).first()
         if row is None: raise OptimisticConcurrencyError("Classe modifiée par une autre session ou introuvable")
         return dict(_m(row))
 
@@ -338,8 +371,8 @@ class PostgresSettingsRepository:
         class_created=0
         for row in source_classes:
             m=_m(row)
-            result=self.connection.execute(text("""INSERT INTO school_classes(id,school_id,academic_year_id,section_id,option_id,reference_code,code,label,enabled)
-                VALUES(:id,:sid,:target,:section,:option,:ref,:code,:label,:enabled)
+            result=self.connection.execute(text("""INSERT INTO school_classes(id,school_id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,status)
+                VALUES(:id,:sid,:target,:section,:option,:ref,:code,:label,:enabled,CASE WHEN :enabled THEN 'ACTIVE' ELSE 'INACTIVE' END)
                 ON CONFLICT (school_id,academic_year_id,code) DO NOTHING RETURNING id"""),
                 {"id":uuid4(),"sid":school_id,"target":target_year_id,"section":m['section_id'],"option":m['option_id'],"ref":m['reference_code'],"code":m['code'],"label":m['label'],"enabled":m['enabled']}).first()
             if result is not None: class_created += 1

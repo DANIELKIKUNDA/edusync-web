@@ -1,0 +1,107 @@
+[
+ {
+  "check": "Élève inscrit dans la classe de recette",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Mise en pause acceptée alors que la classe a un élève",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Après la pause : élève toujours compté dans les effectifs (total et classe)",
+  "pass": true,
+  "detail": "(12, 1)"
+ },
+ {
+  "check": "Après la pause : la classe reste listée dans les effectifs",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Après la pause : la fiche de l'élève garde sa classe",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Après la pause : nombre d'élèves affiché par la classe = 1",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Classe en pause : nouvelle inscription refusée",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Classe en pause : changement de classe vers elle refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Archivage refusé tant qu'il reste une inscription active",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "API directe : un renommage avec enabled=true ne rouvre pas la classe (refusé)",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Droit « renommer » seul : réactivation refusée (403)",
+  "pass": true,
+  "detail": "403"
+ },
+ {
+  "check": "Droit « renommer » seul : renommage accepté, statut inchangé",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Droit « statut » seul : renommage refusé (403)",
+  "pass": true,
+  "detail": "403"
+ },
+ {
+  "check": "Droit « statut » seul : réactivation acceptée",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Après réactivation : changement de classe vers elle accepté",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Après réactivation : 2 élèves dans la classe, comptés",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Classe vide : archivage accepté",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Classe archivée : plus de réactivation",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Classe archivée : plus de renommage",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Audit : chaque changement d'état enregistré avec l'ancien et le nouveau statut",
+  "pass": true,
+  "detail": "[('ACTIVE', 'INACTIVE'), ('INACTIVE', 'ACTIVE')]"
+ },
+ {
+  "check": "Audit : renommage enregistré avec l'état précédent",
+  "pass": true,
+  "detail": "1"
+ }
+]

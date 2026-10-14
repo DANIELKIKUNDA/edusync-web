@@ -88,7 +88,7 @@ def test_settings_centre_confirms_year_transitions_and_uploads_a_verified_logo()
     years = app[app.index("function Years("):app.index("function Structure(")]
     assert "await confirmAction(confirmText[action](y))" in years and "Préparer une nouvelle année" in years
     assert "URL du logo" not in app and "<LogoField token={token}" in app and "uploadSchoolLogo(token,f)" in app
-    assert "await confirmAction(off?" in app  # class deactivation is confirmed, never a silent toggle
+    assert "async function changeStatus(c:SchoolClass" in app and "await confirmAction(ask)" in app  # state changes are confirmed
     assert "settingsBack" in app and "edusyncSettingsDetail" in app  # phone: list of sections → section screen
 
 
@@ -130,3 +130,37 @@ def test_section_options_are_managed_without_deletion():
     assert "export async function putOption(" in api and "settings/options/${encodeURIComponent(input.code)}" in api
     assert "can('settings.options.manage')" in app and "expected_version:o.version" in app
     assert "Désactiver l’option" in app and "option_id:optionId||null" in app
+
+
+def test_first_school_admin_created_by_the_platform_must_choose_his_password():
+    uc = (ROOT / "backend/src/edusync/modules/platform/application/use_cases.py").read_text(encoding="utf-8")
+    body = uc[uc.index("class BootstrapSchoolAdmin:"):]
+    new_user = body[body.index("else:"):body.index("membership = self.memberships.get_for_user_school")]
+    assert 'self.users.require_password_change(user.id, set_by="PLATFORM")' in new_user  # only a NEW account
+    assert "require_password_change" not in body[:body.index("else:")]  # an attached existing account keeps its password
+    repo = (ROOT / "backend/src/edusync/adapters/postgres_repositories.py").read_text(encoding="utf-8")
+    assert "UPDATE users SET must_change_password=true,password_set_by=:by" in repo
+
+
+def test_class_states_copy_the_desktop_golden_master():
+    sql = (ROOT / "backend/migrations/0059_class_status_desktop_parity.sql").read_text(encoding="utf-8")
+    assert "CHECK (status IN ('ACTIVE', 'INACTIVE', 'ARCHIVED'))" in sql and "CHECK (enabled = (status = 'ACTIVE'))" in sql
+    repo = (ROOT / "backend/src/edusync/adapters/postgres_settings.py").read_text(encoding="utf-8")
+    start = repo.index("def set_class_status(")
+    st = repo[start:repo.index("\n    def ", start + 10)]
+    assert "Une classe contenant des inscriptions actives ne peut pas être archivée" in st and "status='VALIDATED'" in st
+    assert "Une classe archivée ne change plus de statut" in st
+    assert "if cls['year_status'] in ('CLOSED','ARCHIVED')" in repo  # Desktop _ensure_configuration_year_editable
+    eff = (ROOT / "backend/src/edusync/adapters/postgres_effectifs.py").read_text(encoding="utf-8")
+    assert "sc.status<>'ARCHIVED'" in eff and "AND sc.enabled AND" not in eff  # a paused class never leaves the headcounts
+    sch = (ROOT / "backend/src/edusync/adapters/postgres_schooling.py").read_text(encoding="utf-8")
+    assert "Classe cible inactive ou hors année active" in sch  # not a normal class-change destination
+
+
+def test_class_state_and_rename_use_separate_capabilities():
+    router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
+    upd = router[router.index("def update_class("):router.index("def change_class_status(")]
+    assert "_need(actor,'settings.classes.rename')" in upd and "settings.classes.activate" not in upd
+    assert "pas par un renommage" in upd  # a direct API call with enabled cannot reopen a class
+    chg = router[router.index("def change_class_status("):]
+    assert "_need(actor,'settings.classes.activate')" in chg.split("\n@router.")[0] and "SCHOOL_CLASS_STATUS_CHANGED" in chg

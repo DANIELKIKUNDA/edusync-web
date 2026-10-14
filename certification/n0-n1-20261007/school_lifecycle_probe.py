@@ -64,6 +64,16 @@ check("Code normalisé en majuscules", c1.json()["code"] == code.upper())
 admin = {"email": f"admin-{run.lower()}@example.test", "password": secrets.token_urlsafe(18)}
 b = post(mgr, f"platform/schools/{school_id}/bootstrap-admin", {"email": admin["email"], "full_name": "Admin initial N1", "password": admin["password"]})
 check("Administrateur initial créé (ADMIN_SYSTEME_ECOLE)", b.status_code in (200, 201), b.status_code)
+# Owner decision 2026-10-14 (Desktop parity): the password typed by the platform is a bootstrap credential only.
+first = httpx.post(BASE + "/auth/login", json={"email": admin["email"], "password": admin["password"]}, timeout=30)
+fd = first.json()
+check("Admin initial : 1re connexion = choisir son mot de passe, aucune session", first.status_code == 200 and fd.get("password_change_required") is True
+      and "access_token" not in fd and not first.cookies.get(COOKIE), sorted(fd)[:4])
+provisional = admin["password"]
+admin["password"] = secrets.token_urlsafe(18)
+ch = httpx.post(BASE + "/auth/password/first-change", json={"change_token": fd.get("change_token"), "new_password": admin["password"]}, timeout=30)
+again = httpx.post(BASE + "/auth/login", json={"email": admin["email"], "password": provisional}, timeout=30)
+check("Admin initial : mot de passe choisi ; le provisoire est refusé ensuite", ch.status_code in (200, 204) and again.status_code == 401, (ch.status_code, again.status_code))
 lg = httpx.post(BASE + "/auth/login", json={"email": admin["email"], "password": admin["password"]}, timeout=30)
 check("Admin initial : connexion AUTO dans son école", lg.status_code == 200 and lg.json().get("school", {}).get("code") == code.upper(), lg.status_code)
 token, raw = lg.json()["access_token"], lg.cookies.get(COOKIE)

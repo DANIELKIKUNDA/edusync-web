@@ -58,7 +58,7 @@ class PostgresEffectifsRepository:
         where,params=_scope_sql(scopes,scope)
         stmt=_bind(text(f"""SELECT sc.id,sc.code,sc.label,ss.id section_id,ss.code section_code,ss.label section_label
           FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id
-          WHERE sc.school_id=:sid AND sc.academic_year_id=:yid AND sc.enabled AND {where} ORDER BY ss.code,sc.label"""),params)
+          WHERE sc.school_id=:sid AND sc.academic_year_id=:yid AND sc.status<>'ARCHIVED' AND {where} ORDER BY ss.code,sc.label"""),params)
         return _rows(self.connection.execute(stmt,{"sid":school_id,"yid":year_id,**params}).all())
 
     def _base_flags_cte(self,where:str)->str:

@@ -97,3 +97,5 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
   .settingsLayout .settingsNav{display:grid!important;grid-template-columns:1fr!important;overflow:visible;position:sticky;top:12px}
   .settingsLayout .settingsNav button{min-width:0;white-space:normal}
 }
+.classActions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.classActions .dangerText{color:#b91c1c!important}

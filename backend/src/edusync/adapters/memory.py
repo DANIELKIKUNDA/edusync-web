@@ -30,8 +30,9 @@ class MemoryOutboxRepository:
 
 
 class MemoryUserRepository:
-    def __init__(self): self.items: dict[UUID, User] = {}
+    def __init__(self): self.items: dict[UUID, User] = {}; self.password_change_required: dict[UUID, str] = {}
     def add(self, user: User) -> None: self.items[user.id] = user
+    def require_password_change(self, user_id: UUID, *, set_by: str) -> None: self.password_change_required[user_id] = set_by
     def get(self, user_id: UUID) -> User | None: return self.items.get(user_id)
     def get_by_email(self, email: str) -> User | None:
         email = email.strip().lower()

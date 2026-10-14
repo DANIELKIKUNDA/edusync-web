@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
 from edusync.adapters.postgres_repositories import PostgresAuditRepository, PostgresOutboxRepository, PostgresSchoolRepository
@@ -334,17 +335,40 @@ def create_class(body:ClassCreate,response:Response,idempotency_key:str|None=Hea
 class ClassUpdate(BaseModel):
     code:str=Field(min_length=1,max_length=64)
     label:str=Field(min_length=1,max_length=140)
-    enabled:bool=True
+    # Legacy field: the class state is no longer changed by a rename (Desktop parity, owner decision 2026-10-14).
+    enabled:bool|None=None
+
+class ClassStatusChange(BaseModel):
+    status:Literal['ACTIVE','INACTIVE','ARCHIVED']
+
+def _class_snapshot(conn,school_id:UUID,class_id:UUID)->dict[str,Any]|None:
+    row=conn.execute(text("SELECT code,label,status,enabled,version FROM school_classes WHERE school_id=:s AND id=:id"),{"s":school_id,"id":class_id}).first()
+    return None if row is None else _jsonable(dict(row._mapping))
 
 @router.put('/classes/{class_id}')
 def update_class(class_id:UUID,body:ClassUpdate,response:Response,if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    capability='settings.classes.activate' if not body.enabled else 'settings.classes.rename'
-    _need(actor,capability);expected=_expected(if_match);key=_key(idempotency_key)
+    """Rename a class (settings.classes.rename). Renaming never opens, pauses or archives a class."""
+    _need(actor,'settings.classes.rename');expected=_expected(if_match);key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
-            repo=PostgresSettingsRepository(conn);out=_jsonable(repo.update_class(actor.school_id,class_id,expected_version=expected,**body.model_dump()))
-            _audit_and_outbox(conn,request_actor,action='SCHOOL_CLASS_UPDATED',entity_type='SchoolClass',entity_id=class_id,old=None,new=out);return 200,out
+            old=_class_snapshot(conn,actor.school_id,class_id)
+            if old is not None and body.enabled is not None and body.enabled!=bool(old['enabled']):
+                raise ValueError("Le statut d'une classe se change par l'action Activer / Mettre en pause / Archiver, pas par un renommage")
+            repo=PostgresSettingsRepository(conn);out=_jsonable(repo.update_class(actor.school_id,class_id,code=body.code,label=body.label,expected_version=expected))
+            _audit_and_outbox(conn,request_actor,action='SCHOOL_CLASS_UPDATED',entity_type='SchoolClass',entity_id=class_id,old=old,new=out);return 200,out
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_UPDATE_CLASS',payload={**body.model_dump(mode='json'),'class_id':str(class_id),'expected':expected},action=action);return result.body
+    except Exception as exc:_error(exc)
+
+@router.post('/classes/{class_id}/status')
+def change_class_status(class_id:UUID,body:ClassStatusChange,response:Response,if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop set_class_status: one capability (settings.classes.activate) for activate / pause / reactivate / archive."""
+    _need(actor,'settings.classes.activate');expected=_expected(if_match);key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            old=_class_snapshot(conn,actor.school_id,class_id)
+            repo=PostgresSettingsRepository(conn);out=_jsonable(repo.set_class_status(actor.school_id,class_id,status=body.status,expected_version=expected))
+            _audit_and_outbox(conn,request_actor,action='SCHOOL_CLASS_STATUS_CHANGED',entity_type='SchoolClass',entity_id=class_id,old=old,new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_CLASS_STATUS',payload={**body.model_dump(mode='json'),'class_id':str(class_id),'expected':expected},action=action);return result.body
     except Exception as exc:_error(exc)
 
 class FeeTypeCreate(BaseModel):

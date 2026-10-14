@@ -15,7 +15,7 @@ import httpx
 from sqlalchemy import text
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "claude-20260930"))
-from common import BASE, owner, platform, save, state  # noqa: E402
+from common import BASE, owner, platform, save, settle_first_password, state  # noqa: E402
 
 results = []
 COOKIE = "edusync_session"
@@ -55,6 +55,9 @@ for t in ("A", "B"):
     assert b.status_code in (200, 201), b.text[:200]
     twins[t] = {"code": code, "school_id": s.json()["id"], "admin": {"email": email, "password": pw, "membership_id": b.json()["membership_id"]}}
 fx[run] = twins
+save()
+for t in ("A", "B"):
+    assert settle_first_password(twins[t]["admin"]), "un administrateur créé par la plateforme doit d'abord choisir son mot de passe"
 save()
 A, B = twins["A"], twins["B"]
 ca, _ = school_client(A["admin"]["email"], A["admin"]["password"], A["code"])

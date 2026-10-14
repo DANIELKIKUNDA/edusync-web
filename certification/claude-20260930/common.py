@@ -174,6 +174,22 @@ def ensure_school(name: str, roles: tuple[str, ...]) -> dict:
     return fx
 
 
+def settle_first_password(account: dict) -> bool:
+    """A password typed by someone else (platform bootstrap, school creation/reset) only opens the "choose your password"
+    step (owner decisions 2026-10-14). Replace it once with a new private password stored in the fixtures; never printed.
+    Returns True when a replacement was needed."""
+    r = httpx.post(BASE + "/auth/login", json={"email": account["email"], "password": account["password"]}, timeout=30)
+    d = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+    if r.status_code != 200 or not d.get("password_change_required"):
+        return False
+    new = secrets.token_urlsafe(24)
+    c = httpx.post(BASE + "/auth/password/first-change", json={"change_token": d["change_token"], "new_password": new}, timeout=30)
+    assert c.status_code in (200, 204), (c.status_code, c.text[:160])
+    account["password"] = new
+    save()
+    return True
+
+
 def ensure_user(school: dict, key: str, roles: tuple[str, ...]) -> dict:
     mgr = platform()
     users = school.setdefault("users", {})
@@ -186,6 +202,7 @@ def ensure_user(school: dict, key: str, roles: tuple[str, ...]) -> dict:
                  json={"email": u["email"], "full_name": f"Agent {key}", "password": u["password"]})
         u.update(r.json())
         save()
+        settle_first_password(u)
     for role in roles:
         if role not in u.setdefault("roles", []):
             must(mgr, "POST", f"platform/memberships/{u['membership_id']}/roles", (200, 201),

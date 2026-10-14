@@ -107,6 +107,11 @@ class PostgresUserRepository:
                  "password_hash": user.password_hash, "active": user.active,
                  "platform": user.is_platform_admin, "created_at": user.created_at, "version": user.version})
 
+    def require_password_change(self, user_id: UUID, *, set_by: str) -> None:
+        # The password was chosen by someone else (platform bootstrap): it only opens the "choose your password" step.
+        self.connection.execute(text("UPDATE users SET must_change_password=true,password_set_by=:by WHERE id=:id"),
+                                {"id": user_id, "by": set_by})
+
     def get(self, user_id: UUID) -> User | None:
         row = self.connection.execute(text("""
             SELECT id,email,full_name,password_hash,active,is_platform_admin,created_at,version

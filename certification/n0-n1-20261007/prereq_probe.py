@@ -68,9 +68,10 @@ for school in (A, B):
         rr = mgr.post(f"platform/schools/{school['school_id']}/bootstrap-admin", json={"email": multi["email"], "full_name": "Agent multi-écoles", "password": multi["password"]}, headers={"Idempotency-Key": str(uuid4())})
         if rr.status_code in (200, 201):
             multi["schools"].append(school["code"])
-from common import save  # noqa: E402
+from common import save, settle_first_password  # noqa: E402
 state["N1_MULTI"] = multi
 save()
+settle_first_password(multi)  # a fresh account created by the platform first chooses its own password
 with owner.connect() as c:
     before = c.execute(text("SELECT count(*) FROM user_device_sessions s JOIN users u ON u.id=s.user_id WHERE u.email=:e"), {"e": multi["email"]}).scalar_one()
 r = raw_login({"email": multi["email"], "password": multi["password"]})

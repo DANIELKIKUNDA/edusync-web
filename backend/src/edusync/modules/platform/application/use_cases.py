@@ -130,6 +130,7 @@ class BootstrapSchoolAdmin:
         if not school:
             raise LookupError("École introuvable")
         existing = self.users.get_by_email(cmd.email)
+        created = False
         if existing:
             if not existing.active:
                 raise ValueError("Ce compte utilisateur est désactivé")
@@ -137,6 +138,10 @@ class BootstrapSchoolAdmin:
         else:
             user = User(email=cmd.email, full_name=cmd.full_name, password_hash=hash_password(cmd.password))
             self.users.add(user)
+            # Owner decision 2026-10-14 (Desktop parity: the first administrator sets his own secret): the password typed
+            # by the platform is a bootstrap credential only; it opens the password-choice step, never a session.
+            self.users.require_password_change(user.id, set_by="PLATFORM")
+            created = True
         membership = self.memberships.get_for_user_school(user.id, school.id)
         if membership is None:
             membership = Membership(user_id=user.id, school_id=school.id)
@@ -147,7 +152,8 @@ class BootstrapSchoolAdmin:
         self.audit.append(AuditRecord(
             action="SCHOOL_ADMIN_BOOTSTRAPPED", entity_type="Membership", entity_id=membership.id,
             actor_user_id=actor.user_id, school_id=school.id, source=actor.source,
-            new_data={"user_id": str(user.id), "email": user.email, "role": "ADMIN_SYSTEME_ECOLE"},
+            new_data={"user_id": str(user.id), "email": user.email, "role": "ADMIN_SYSTEME_ECOLE",
+                      "account": "CREATED_PASSWORD_TO_CHOOSE" if created else "EXISTING_ACCOUNT_ATTACHED"},
             correlation_id=actor.correlation_id, idempotency_key=actor.idempotency_key,
         ))
         self.outbox.add(OutboxMessage(
