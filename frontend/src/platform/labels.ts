@@ -32,6 +32,7 @@ const ACTIONS: Record<string, string> = {
   MFA_FAILED: 'Code de vérification refusé',
   MFA_LOCKED: 'Validation en deux étapes verrouillée (trop d’essais)',
   PLATFORM_USER_MFA_RESET: 'Validation en deux étapes réinitialisée par un Manager',
+  MFA_STEP_UP: 'Action sensible confirmée par code',
   PLATFORM_USER_MFA_RESET_BY_OPERATOR: 'Validation en deux étapes réinitialisée par l’opérateur (procédure de secours)',
   SCHOOL_SUSPENDED: 'École suspendue',
   SCHOOL_REACTIVATED: 'École réactivée',

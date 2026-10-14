@@ -142,14 +142,14 @@ def test_no_route_lets_a_platform_account_disable_its_own_factor():
     paths = [d.args[0].value for n in tree.body if isinstance(n, ast.FunctionDef) for d in n.decorator_list
              if isinstance(d, ast.Call) and d.args and isinstance(d.args[0], ast.Constant)]
     mfa_paths = sorted(p for p in paths if "mfa" in p)
-    assert mfa_paths == ["/mfa/enroll/confirm", "/mfa/enroll/start", "/mfa/verify", "/platform/mfa", "/platform/mfa/recovery-codes"]
+    assert mfa_paths == ["/mfa/enroll/confirm", "/mfa/enroll/start", "/mfa/verify", "/platform/mfa", "/platform/mfa/recovery-codes", "/platform/mfa/step-up"]
     assert '"self_disable_allowed": False' in _source("modules/iam/api/router.py")
 
 
 def test_platform_actor_requires_a_session_that_passed_the_second_factor():
     deps = _source("bootstrap/dependencies.py")
     assert "require_mfa=mfa_needed(conn, services.settings, user_id)" in deps
-    assert "SELECT mfa_verified_at FROM user_device_sessions" in deps
+    assert "SELECT mfa_verified_at, mfa_required FROM user_device_sessions" in deps
     refresh = _source("modules/iam/api/router.py")
     assert "row['mfa_verified_at'] is None and platform_mfa.mfa_needed(conn,cfg,row['user_id'])" in refresh
 
@@ -217,3 +217,58 @@ def test_frontend_challenge_and_enrolment_screens_exist():
     assert "regenerateRecoveryCodes" in account and "platformMfaStatus" in account
     team = (ROOT / "frontend/src/platform/team.tsx").read_text(encoding="utf-8")
     assert "teamResetMfa" in team
+
+
+# ---------------------------------------------------------------- owner decisions of 2026-10-13 (report §6)
+
+def test_decision1_sensitive_actions_require_a_recent_code_confirmation():
+    deps = _source("bootstrap/dependencies.py")
+    assert '"code": "MFA_STEP_UP_REQUIRED"' in deps and "recent_step_up(conn, actor.session_id, services.settings.mfa_stepup_seconds)" in deps
+    assert "if capability and capability not in actor.permissions:" in deps  # unauthorised calls keep their plain 403
+    assert Settings(_env_file=None).mfa_stepup_seconds == 300
+    platform = _source("modules/platform/api/router.py")
+    for marker in ('require_recent_mfa(services, actor, "platform.schools.suspend")', 'require_recent_mfa(services, actor, "platform.school_admin.bootstrap")',
+                   "if body.target_scope=='ALL_ACTIVE_SCHOOLS': require_recent_mfa(services,actor)", "actor.require('platform.collaborators.manage'); require_recent_mfa(services, actor)"):
+        assert marker in platform, marker
+    assert 'if t.type == "ALL_ACTIVE_SCHOOLS":\n        require_recent_mfa(services, actor)' in _source("modules/notifications_center/api/router.py")
+    team = _source("modules/platform_team/api/router.py")
+    for fn in ("team_create_user", "team_assign_role", "team_revoke_role", "team_suspend_user", "team_reset_password", "team_reset_mfa"):
+        body = team[team.index(f"def {fn}("):]
+        body = body[:body.index("\n@router.") if "\n@router." in body else len(body)]
+        assert "require_recent_mfa(services, actor)" in body, fn
+    # a fresh sign-in through the code counts as a confirmation; the step-up route records the next ones
+    iam = _source("modules/iam/api/router.py")
+    assert "mfa_stepup_at,mfa_required)" in iam and "platform_mfa.mark_step_up(conn, actor.session_id)" in iam
+    conn = (ROOT / "frontend/src/platform/connectivity.ts").read_text(encoding="utf-8")
+    assert "MFA_STEP_UP_REQUIRED" in conn and "setStepUpHandler" in conn and "stepUpPending" in conn
+
+
+def test_decision2_an_equipped_account_gives_its_code_in_school_spaces_too():
+    iam = _source("modules/iam/api/router.py")
+    school = iam[iam.index("code = (body.school_code"):]
+    assert school.index("platform_mfa.mfa_required_everywhere") < school.index("_issue_school_session(")
+    assert 'scope="SCHOOL", school_id=school.id, membership_id=membership.id' in school
+    assert "def _open_space(" in iam and "mfa_required=True" in iam and "_challenge_space_ok(conn, challenge)" in iam
+    assert "if row['mfa_required'] and row['mfa_verified_at'] is None" in iam  # refresh
+    deps = _source("bootstrap/dependencies.py")
+    assert "(require_mfa or live[1]) and live[0] is None" in deps  # every school request
+    svc = _source("modules/iam/application/platform_mfa.py")
+    assert "def mfa_required_everywhere(" in svc and "has_platform_role(conn, user_id)" in svc
+    sql = (ROOT / "backend/migrations/0057_mfa_step_up_school_context.sql").read_text(encoding="utf-8")
+    assert "mfa_challenge_scope_ck" in sql and "UPDATE user_device_sessions s SET mfa_required = true" in sql
+
+
+def test_decision3_reset_alerts_the_account_and_can_reset_the_password():
+    team = _source("modules/platform_team/api/router.py")
+    fn = team[team.index("def team_reset_mfa("):]
+    for marker in ("body: MfaResetInput", "platform_mfa.notify_security(", "if body.new_password:", "version=version+1", "publish_inbox_changed("):
+        assert marker in fn, marker
+    assert "new_password: str | None = Field(default=None, min_length=12" in team
+
+
+def test_decision4_managers_count_exposed_and_warned():
+    team = _source("modules/platform_team/api/router.py")
+    assert '"active_managers": managers, "recommended_managers": 2' in team
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    assert "Un seul Manager système actif." in app and "me.active_managers<(me.recommended_managers||2)" in app
+

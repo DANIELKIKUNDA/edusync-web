@@ -24,7 +24,8 @@ import {FormField,formDefaults} from './platform/forms';
 import {NavGlyph} from './platform/nav_icons';
 import {auditActionLabel,resultLabel,schoolStatusLabel,severityLabel,yearStatusLabel} from './platform/labels';
 import {AppShell,StatusChip,type ShellAccount,type ShellNavItem} from './platform/shell';
-import {NotificationBell,ProfileDialog,SecurityDialog} from './platform/account';
+import {NotificationBell,ProfileDialog,SecurityDialog,StepUpDialog} from './platform/account';
+import {setStepUpHandler} from './platform/connectivity';
 const TeamPage=lazy(()=>import('./platform/team').then(m=>({default:m.TeamPage})));
 const HealthPanel=lazy(()=>import('./platform/health').then(m=>({default:m.HealthPanel})));
 const AuditPanel=lazy(()=>import('./platform/audit').then(m=>({default:m.AuditPanel})));
@@ -54,6 +55,9 @@ function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogo
   const [schoolDetailId,setSchoolDetailId]=useState<string|null>(null);
   const [creatingSchool,setCreatingSchool]=useState(false);
   const [collaboratorAction,setCollaboratorAction]=useState<any|null>(null);
+  // Step-up (decision 2026-10-13): sensitive actions ask for a fresh code through this dialog, then resume by themselves.
+  const [stepUp,setStepUp]=useState<((ok:boolean)=>void)|null>(null);
+  useEffect(()=>{setStepUpHandler(()=>new Promise<boolean>(resolve=>setStepUp(()=>resolve)));return()=>setStepUpHandler(null)},[]);
   const schoolSchema=z.object({name:z.string().trim().min(2,'Le nom de l’école est obligatoire.'),code:z.string().trim().min(2,'Le code établissement est obligatoire.').max(24,'Le code est trop long.')});type SchoolCreateForm=z.infer<typeof schoolSchema>;const schoolForm=useForm<SchoolCreateForm>({resolver:zodResolver(schoolSchema),defaultValues:{name:'',code:''},...formDefaults});
   async function refresh(current:PlatformMe|null=me){if(!current)return;setError('');const allowed=new Set(current.menu.map(m=>m.key));
     const jobs:[string,()=>Promise<void>][]=[['dashboard',async()=>setDashboard(await platformDashboard(token))],['schools',async()=>setSchools(await platformSchoolsPage(token,q,status,0))],['access',async()=>setAccess(await platformAccess(token,accessQ,0))],];
@@ -66,6 +70,8 @@ function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogo
   const nav:any[]=NAV_DEF.filter(([k])=>can(k)).map(([k,icon,label])=>[icon,label,tab===k,()=>goTab(k),k]);
   return <Shell title="Atelier Pro" subtitle="Pilotage et administration de la plateforme EduSync" onLogout={onLogout} nav={nav} user={user} token={token} roleLabel={me?.roles.map(r=>r.label).join(' · ')}>
     {error&&<div className="error">{error}</div>}
+    {me&&typeof me.active_managers==='number'&&me.active_managers<(me.recommended_managers||2)&&<div className="es-alert es-alert-warn" role="status"><NavGlyph g="alert" size={16}/><span><b>Un seul Manager système actif.</b> Ajoutez un second Manager depuis « Équipe plateforme » : en cas de téléphone perdu, il pourra rétablir votre accès sans intervention technique.</span></div>}
+    {stepUp&&<StepUpDialog token={token} onDone={ok=>{stepUp(ok);setStepUp(null)}}/>}
     {!me&&!error&&<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}
     {creatingSchool&&<Suspense fallback={null}><SchoolCreateDialog token={token} onClose={()=>setCreatingSchool(false)} onCreated={async x=>{setCreatingSchool(false);await searchSchools();if(has('platform.school_admin.bootstrap'))setSchoolAction({kind:'admin',school:x})}}/></Suspense>}
     {tab==='team'&&can('team')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><TeamPage token={token}/></Suspense>}

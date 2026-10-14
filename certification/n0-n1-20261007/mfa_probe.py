@@ -63,7 +63,8 @@ if role is None:
 
 def new_account(tag):
     email, password = f"mfa-{tag}-{run}@example.test", secrets.token_urlsafe(18)
-    r = post(mgr, "platform/team/users", {"email": email, "full_name": f"Recette MFA {tag}", "password": password,
+    # Creating a platform account is a sensitive action: a recent sign-in (or step-up) of the Manager is required.
+    r = post(platform(), "platform/team/users", {"email": email, "full_name": f"Recette MFA {tag}", "password": password,
                                           "role_codes": [role["code"]], "reason": "Recette MFA : compte jetable"})
     assert r.status_code == 201, r.text[:200]
     return {"email": email, "password": password, "id": r.json()["id"]}
@@ -206,6 +207,7 @@ with owner.connect() as c:
 check("Chaque échec MFA audité (résultat REJECTED)", failed >= 5, failed)
 
 # ---------- 8. reset by another Manager (lost phone) ----------
+mgr = platform()  # sensitive actions below: a Manager session confirmed within the last minutes
 check("Réinitialisation sans motif : refusée (422)", post(mgr, f"platform/team/users/{acc['id']}/mfa-reset", {"reason": ""}).status_code == 422)
 reason = f"Téléphone perdu — identité vérifiée par appel ({run})"
 rs = post(mgr, f"platform/team/users/{acc['id']}/mfa-reset", {"reason": reason})
@@ -262,9 +264,101 @@ with owner.connect() as c:
 check("Procédure opérateur auditée : opérateur nommé, motif, source SYSTEM", au and au["reason"] == why and au["new_json"]["operator"] == "Opérateur recette" and au["source"] == "SYSTEM")
 check("Procédure opérateur : aucun accès donné (facteur retiré, ré-enrôlement exigé à la connexion)", active == 0)
 
+# ---------- 9c. owner decisions of 2026-10-13 ----------
+mgr = platform()
+mgr_token = mgr.headers["Authorization"].split(" ", 1)[1]
+mgr_sid = jwt.decode(mgr_token, options={"verify_signature": False})["sid"]
+target = new_account("d")  # created inside the fresh sign-in window (a sign-in through the code counts as a confirmation)
+check("Décision 1 : connexion récente par code = confirmation valable (action sensible acceptée)", True)
+with owner.begin() as c:
+    c.execute(text("UPDATE user_device_sessions SET mfa_stepup_at=now()-interval '10 minutes' WHERE id=:s"), {"s": mgr_sid})
+blocked = post(mgr, f"platform/team/users/{target['id']}/suspend", {"reason": "Recette décision 1 : sans confirmation"})
+check("Décision 1 : action sensible sans confirmation récente → 403 « confirmez avec votre code »", blocked.status_code == 403 and (blocked.json().get("detail") or {}).get("code") == "MFA_STEP_UP_REQUIRED", blocked.text[:120])
+with owner.connect() as c:
+    status = c.execute(text("SELECT coalesce((SELECT status FROM platform_account_status WHERE user_id=:u),'ACTIVE')"), {"u": target["id"]}).scalar_one()
+check("Décision 1 : rien n'a été exécuté sans confirmation", status == "ACTIVE", status)
+check("Décision 1 : action non sensible (consultation) sans confirmation : autorisée", mgr.get("platform/team/users").status_code == 200)
+check("Décision 1 : code faux pour la confirmation → refusé", mgr.post("auth/platform/mfa/step-up", json={"code": "000000"}).status_code == 400)
+mst = state[MFA_STATE][mgr_email.lower()]
+mcode, mstep = fresh_code(mst["secret"], int(mst.get("last_step", 0)))
+su = mgr.post("auth/platform/mfa/step-up", json={"code": mcode})
+mst["last_step"] = mstep
+save()
+check("Décision 1 : bon code → confirmation valable quelques minutes", su.status_code == 200 and su.json().get("valid_seconds") == 300, su.status_code)
+done = post(mgr, f"platform/team/users/{target['id']}/suspend", {"reason": "Recette décision 1 : après confirmation"})
+check("Décision 1 : même action après confirmation → exécutée", done.status_code == 200 and done.json().get("platform_status") == "SUSPENDED", done.status_code)
+nocap = new_account("e")
+c_nocap = login(nocap["email"], nocap["password"], "PLATFORM")  # enrols through the public API
+with owner.begin() as c:
+    c.execute(text("UPDATE user_device_sessions SET mfa_stepup_at=NULL WHERE user_id=:u"), {"u": nocap["id"]})
+plain = post(c_nocap, f"platform/team/users/{target['id']}/reactivate", {"reason": "Recette : sans droit d'équipe"})
+check("Décision 1 : compte sans le droit d'équipe → refus classique 403, jamais une demande de code",
+      plain.status_code == 403 and not isinstance(plain.json().get("detail"), dict), plain.text[:120])
+with owner.connect() as c:
+    su_audit = c.execute(text("SELECT count(*) FROM audit_events WHERE action='MFA_STEP_UP' AND entity_id=:u AND occurred_at>now()-interval '5 minutes'"), {"u": mgr_id}).scalar_one()
+check("Décision 1 : confirmation auditée (MFA_STEP_UP)", su_audit >= 1, su_audit)
+me = mgr.get("platform/team/me").json()
+check("Décision 4 : nombre de Managers actifs exposé (recommandé : 2)", isinstance(me.get("active_managers"), int) and me["active_managers"] >= 1 and me.get("recommended_managers") == 2, me.get("active_managers"))
+
+# Decision 2: an account with a platform role opens a school space only with its code.
+sch = new_account("s")
+schoolB = ensure_school("B", ("ADMIN_SYSTEME_ECOLE",))
+bs = post(mgr, f"platform/schools/{schoolB['school_id']}/bootstrap-admin", {"email": sch["email"], "full_name": "Recette MFA espace école", "password": sch["password"]})
+check("Décision 2 : compte plateforme rattaché à une école (création d'administrateur confirmée par code)", bs.status_code in (200, 201), bs.status_code)
+r = raw_login(sch["email"], sch["password"], scope="SCHOOL", school_code=schoolB["code"])
+d = r.json()
+check("Décision 2 : espace école d'un compte plateforme → aucune session avant le second facteur", r.status_code == 200 and "access_token" not in d and not r.cookies.get(COOKIE) and d.get("scope") == "SCHOOL" and d.get("mfa_enrollment_required") is True, list(d))
+s3 = mfa("enroll/start", {"mfa_token": d["mfa_token"]}).json()["secret"]
+c3, k3 = fresh_code(s3, 0)
+opened = mfa("enroll/confirm", {"mfa_token": d["mfa_token"], "code": c3})
+od = opened.json()
+state[MFA_STATE][sch["email"]] = {"secret": s3, "last_step": k3, "recovery_codes": od.get("recovery_codes", [])}
+save()
+check("Décision 2 : après activation, l'espace école s'ouvre (et non la console)", opened.status_code == 200 and od.get("scope") == "SCHOOL" and od.get("school", {}).get("code") == schoolB["code"].upper() and od.get("permissions"), opened.status_code)
+d = raw_login(sch["email"], sch["password"], scope="SCHOOL", school_code=schoolB["code"]).json()
+c4, k4 = fresh_code(s3, k3)
+again = mfa("verify", {"mfa_token": d["mfa_token"], "code": c4})
+state[MFA_STATE][sch["email"]]["last_step"] = k4
+save()
+check("Décision 2 : connexion suivante à l'espace école → code demandé puis session école", d.get("mfa_required") is True and again.status_code == 200 and again.json().get("scope") == "SCHOOL", again.status_code)
+check("Décision 2 : jeton école obtenu utilisable", bearer(again.json()["access_token"]).get("auth/me").status_code == 200)
+sch_sid = jwt.decode(again.json()["access_token"], options={"verify_signature": False})["sid"]
+with owner.begin() as c:
+    row = c.execute(text("SELECT mfa_required, mfa_method, school_id, membership_id, user_version FROM user_device_sessions WHERE id=:s"), {"s": sch_sid}).mappings().one()
+    raw2 = secrets.token_urlsafe(48)
+    fsid = c.execute(text("""INSERT INTO user_device_sessions(user_id,school_id,membership_id,token_hash,label,user_agent_hash,user_version,membership_version,mfa_required)
+        SELECT user_id,school_id,membership_id,:h,'Session école sans MFA (recette)',:h,user_version,membership_version,true FROM user_device_sessions WHERE id=:s RETURNING id"""),
+        {"h": hashlib.sha256(raw2.encode()).hexdigest(), "s": sch_sid}).scalar_one()
+    mv = c.execute(text("SELECT membership_version FROM user_device_sessions WHERE id=:s"), {"s": sch_sid}).scalar_one()
+check("Décision 2 : session école marquée « second facteur obligatoire » et validée par TOTP", row["mfa_required"] is True and row["mfa_method"] == "TOTP")
+forged_school = jwt.encode({"sub": sch["id"], "iss": os.environ.get("EDUSYNC_JWT_ISSUER", "edusync"), "aud": os.environ.get("EDUSYNC_JWT_AUDIENCE", "edusync-web"),
+                            "iat": int(time.time()), "nbf": int(time.time()), "exp": int(time.time()) + 600, "jti": str(uuid4()), "typ": "access", "scope": "school",
+                            "school_id": str(row["school_id"]), "membership_id": str(row["membership_id"]), "user_version": row["user_version"],
+                            "membership_version": mv, "sid": str(fsid)}, os.environ["EDUSYNC_JWT_SECRET"], algorithm="HS256")
+check("Décision 2 : jeton école valide sur une session sans second facteur → refusé", bearer(forged_school).get("auth/me").status_code == 401)
+check("Décision 2 : renouvellement de cette session → refusé", httpx.post(BASE + "/auth/refresh", cookies={COOKIE: raw2}, timeout=30).status_code == 401)
+
+# Decision 3: reset by another Manager alerts the account; optional password reset.
+newpw = secrets.token_urlsafe(18)
+rs3 = post(mgr, f"platform/team/users/{sch['id']}/mfa-reset", {"reason": f"Téléphone volé, identité vérifiée ({run})", "new_password": newpw})
+check("Décision 3 : réinitialisation avec mot de passe provisoire", rs3.status_code == 200 and rs3.json().get("password_reset") is True and rs3.json().get("factors_revoked") == 1, rs3.text[:150])
+check("Décision 3 : ancien mot de passe refusé, toutes les sessions coupées (école comprise)",
+      raw_login(sch["email"], sch["password"]).status_code == 401 and bearer(again.json()["access_token"]).get("auth/me").status_code == 401)
+check("Décision 3 : nouveau mot de passe → ré-enrôlement exigé", raw_login(sch["email"], newpw, scope="SCHOOL", school_code=schoolB["code"]).json().get("mfa_enrollment_required") is True)
+with owner.connect() as c:
+    alert = c.execute(text("""SELECT title, body FROM notifications WHERE user_id=:u AND school_id IS NULL AND category='SECURITY'
+        ORDER BY created_at DESC LIMIT 1"""), {"u": sch["id"]}).mappings().first()
+check("Décision 3 : le compte est prévenu dans EduSync (auteur, motif, consigne), sans secret", alert and "réinitialisé" in alert["body"] and run in alert["body"] and newpw not in alert["body"],
+      alert["title"] if alert else None)
+with owner.connect() as c:
+    leaked_pw = c.execute(text("SELECT count(*) FROM audit_events WHERE new_json::text LIKE :p"), {"p": f"%{newpw}%"}).scalar_one()
+check("Décision 3 : mot de passe provisoire jamais écrit dans l'audit", leaked_pw == 0)
+
 # ---------- 10. secrets never leak (audit, logs) ----------
 pw_state = state[MFA_STATE].get(pw["email"], {})
 needles = [secret, s2, *codes, *new_codes, pw_state.get("secret", "x" * 32), *pw_state.get("recovery_codes", [])]
+sch_state = state[MFA_STATE].get(sch["email"], {})
+needles += [sch_state.get("secret", "y" * 32), *sch_state.get("recovery_codes", []), newpw]
 with owner.connect() as c:
     leaked = c.execute(text("SELECT count(*) FROM audit_events WHERE occurred_at>now()-interval '1 hour' AND (" + " OR ".join(
         f"coalesce(new_json::text,'') LIKE :n{i} OR coalesce(old_json::text,'') LIKE :n{i} OR coalesce(reason,'') LIKE :n{i}" for i in range(len(needles))) + ")"),

@@ -198,6 +198,7 @@ function CreateUserDialog({token, roles, onClose, onSaved}: {token: string; role
 
 function UserSheet({token, id, roles, caps, onClose, onChanged}: {token: string; id: string; roles: PlatformRole[]; caps: PlatformCapability[]; onClose: () => void; onChanged: () => void}) {
   const [u, setU] = useState<PlatformTeamUserDetail | null>(null); const [error, setError] = useState(''); const [assign, setAssign] = useState('');
+  const [mfaReset, setMfaReset] = useState(false);
   async function load() { try { setError(''); setU(await teamUser(token, id)); } catch (e) { setError(friendlyError(e)); } }
   useEffect(() => { void load(); }, [id]);
   async function run(fn: () => Promise<unknown>, ok: string) { try { await fn(); toast.success(ok); await load(); onChanged(); } catch (e) { setError(friendlyError(e)); } }
@@ -219,7 +220,7 @@ function UserSheet({token, id, roles, caps, onClose, onChanged}: {token: string;
         <p className="tm-line"><span className={`tm-status ${u.mfa?.enrolled ? 'tm-ok' : 'tm-bad'}`}><i aria-hidden="true"/>{u.mfa?.enrolled ? 'Activée' : 'À configurer'}</span>
           <small>{u.mfa?.enrolled ? `Depuis le ${new Date(u.mfa.confirmed_at || '').toLocaleDateString('fr-FR')} · ${u.mfa.recovery_codes_remaining} code(s) de secours restant(s)` : 'Elle sera demandée à sa prochaine connexion : sans elle, aucun accès à l’Atelier Pro.'}</small></p>
         {!u.is_me && u.mfa?.enrolled && <div className="tm-actions">
-          <button className="es-btn es-btn-danger" onClick={async () => { const w = await reason('Réinitialiser la validation en deux étapes', 'À utiliser si ce membre a perdu son téléphone, après avoir vérifié son identité par un autre canal (appel, rencontre). Ses sessions Atelier Pro sont coupées ; il configurera une nouvelle application à sa prochaine connexion.'); if (w) await run(() => teamResetMfa(token, id, w), 'Validation en deux étapes réinitialisée'); }}>Réinitialiser la validation en deux étapes</button>
+          <button className="es-btn es-btn-danger" onClick={() => setMfaReset(true)}>Réinitialiser la validation en deux étapes</button>
         </div>}
       </section>
       <section><h3>Rôles</h3><ul className="tm-plain">{u.roles.filter(r => r.active).map(r => <li key={r.code}><span><b>{r.label}</b><small>{r.kind === 'PLATFORM_STANDARD' ? 'Standard' : 'Personnalisé'}{r.status !== 'ACTIVE' ? ` · rôle ${ROLE_STATUS[r.status]?.toLowerCase()}` : ''}</small></span>
@@ -234,7 +235,35 @@ function UserSheet({token, id, roles, caps, onClose, onChanged}: {token: string;
         {!u.sessions.length && <li className="tm-chip-muted">Aucune session Atelier Pro ouverte.</li>}</ul>
         {!u.is_me && u.sessions.length > 1 && <button className="es-btn es-btn-danger" onClick={async () => { const w = await reason('Déconnecter tous ses appareils'); if (w) await run(() => teamRevokeSessions(token, id, w), 'Tous les appareils déconnectés'); }}>Déconnecter tous ses appareils</button>}
       </section>
+      {mfaReset && <MfaResetDialog name={u.full_name} onClose={() => setMfaReset(false)} onConfirm={async (why, withPassword) => {
+        const p = withPassword ? strongPassword() : undefined;
+        try { await teamResetMfa(token, id, why, p); }
+        catch (e) { setError(friendlyError(e)); setMfaReset(false); return; }
+        toast.success(p ? 'Validation en deux étapes et mot de passe réinitialisés' : 'Validation en deux étapes réinitialisée');
+        // The temporary password is copied only once the server has applied it.
+        if (p) void navigator.clipboard?.writeText(p).then(() => toast.info('Mot de passe provisoire copié : transmettez-le par un canal sûr.'));
+        setMfaReset(false); await load(); onChanged();
+      }}/>}
       <section><h3>Historique</h3><ol className="tm-history">{u.audit.map((a, i) => <li key={i}><b>{auditActionLabel(a.action)}</b><small>{new Date(a.occurred_at).toLocaleString('fr-FR', {dateStyle: 'medium', timeStyle: 'short'})}{a.actor ? ` · ${a.actor}` : ''}{a.reason ? ` · ${a.reason}` : ''}</small></li>)}{!u.audit.length && <li className="tm-chip-muted">Aucun événement.</li>}</ol></section>
     </div>}
+  </Modal>;
+}
+
+/** Lost phone: reason (identity checked out of band), optional password reset, explicit consequences. */
+function MfaResetDialog({name, onClose, onConfirm}: {name: string; onClose: () => void; onConfirm: (reason: string, withPassword: boolean) => Promise<void>}) {
+  const [why, setWhy] = useState(''); const [withPassword, setWithPassword] = useState(false); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setError('');
+    if (why.trim().length < 5) { setError('Le motif est obligatoire (5 caractères minimum).'); return; }
+    try { setBusy(true); await onConfirm(why.trim(), withPassword); } finally { setBusy(false); }
+  }
+  return <Modal title="Réinitialiser la validation en deux étapes" subtitle={name} onClose={onClose}>
+    <form className="es-form tm-form" onSubmit={submit} noValidate>
+      <div className="es-alert es-alert-warn" role="note"><NavGlyph g="alert" size={16}/><span>Vérifiez d’abord l’identité de la personne par un autre canal (appel, rencontre). Ses sessions Atelier Pro seront coupées, elle sera prévenue dans EduSync, et elle configurera une nouvelle application à sa prochaine connexion.</span></div>
+      <label className="tm-field"><span>Motif *</span><textarea rows={3} value={why} onChange={e => setWhy(e.target.value)} placeholder="Ex. : téléphone perdu, identité vérifiée par appel le…"/></label>
+      <label className="mfa-reset-pw"><input type="checkbox" checked={withPassword} onChange={e => setWithPassword(e.target.checked)}/><span><b>Réinitialiser aussi le mot de passe</b><small>Recommandé si le téléphone a été volé ou si le mot de passe a pu être vu. Un mot de passe provisoire est généré et copié ; toutes ses sessions sont coupées.</small></span></label>
+      {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
+      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><button className="es-btn es-btn-danger" disabled={busy}>{busy ? 'Réinitialisation…' : 'Réinitialiser'}</button></div>
+    </form>
   </Modal>;
 }

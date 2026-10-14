@@ -77,6 +77,8 @@ class Settings(BaseSettings):
     mfa_challenge_seconds: int = 300
     mfa_max_attempts: int = 5
     mfa_lock_seconds: int = 900
+    # Step-up (owner decision 2026-10-13): sensitive platform actions need a code confirmed within this delay.
+    mfa_stepup_seconds: int = 300
 
     @field_validator("jwt_secret")
     @classmethod

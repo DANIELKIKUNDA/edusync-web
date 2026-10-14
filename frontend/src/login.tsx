@@ -103,8 +103,8 @@ function MfaChallenge({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>void
  // The code is sent as soon as the sixth digit is typed or pasted (once per value).
  const change=(v:string)=>{setCode(v);if(v.length===6&&sent.current!==v&&!dead){sent.current=v;void submit(v)}};
  return <form className="lg-card" onSubmit={e=>{e.preventDefault();void submit()}} noValidate aria-labelledby="mfa-title">
-  <div className="lg-head"><span className="lg-step">Atelier Pro · Validation en deux étapes</span><h1 id="mfa-title">{mode==='totp'?'Code de vérification':'Code de secours'}</h1>
-   <p>{mode==='totp'?'Ouvrez votre application d’authentification et saisissez le code à 6 chiffres affiché pour EduSync Atelier Pro.':'Saisissez l’un des codes de secours que vous avez conservés lors de l’activation. Chaque code ne sert qu’une fois.'}</p></div>
+  <div className="lg-head"><span className="lg-step">{step.scope==='SCHOOL'?'Sécurité du compte':'Atelier Pro'} · Validation en deux étapes</span><h1 id="mfa-title">{mode==='totp'?'Code de vérification':'Code de secours'}</h1>
+   <p>{mode==='totp'?`Ouvrez votre application d’authentification et saisissez le code à 6 chiffres affiché pour EduSync Atelier Pro.${step.scope==='SCHOOL'?' Votre compte est protégé par un second facteur : il est demandé dans chaque espace.':''}`:'Saisissez l’un des codes de secours que vous avez conservés lors de l’activation. Chaque code ne sert qu’une fois.'}</p></div>
   {mode==='totp'
    ?<div className="lg-field"><label htmlFor="mfa-code">Code à 6 chiffres</label><CodeInput id="mfa-code" value={code} onChange={change} disabled={busy||dead} describedBy="mfa-hint"/>
      <small id="mfa-hint" className="lg-hint">Le code change toutes les 30 secondes. Si un code est refusé, vérifiez que l’heure de votre téléphone est réglée automatiquement.</small></div>

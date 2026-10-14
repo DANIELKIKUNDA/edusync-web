@@ -15,7 +15,7 @@ from edusync.adapters.postgres_repositories import (
     PostgresSchoolRepository,
     PostgresUserRepository,
 )
-from edusync.bootstrap.dependencies import get_services, require_platform_actor
+from edusync.bootstrap.dependencies import get_services, require_platform_actor, require_recent_mfa
 from edusync.bootstrap.services import AppServices
 from edusync.modules.platform.application.use_cases import (
     BootstrapSchoolAdmin,
@@ -154,6 +154,7 @@ def suspend_school(
     services: AppServices = Depends(get_services),
 ):
     key = _key(idempotency_key)
+    require_recent_mfa(services, actor, "platform.schools.suspend")  # step-up: code confirmed in the last minutes
     request_actor = replace(actor, correlation_id=uuid4(), idempotency_key=key)
     payload = {"school_id": str(school_id), **body.model_dump(mode="json")}
     try:
@@ -225,6 +226,7 @@ def bootstrap_admin(
     services: AppServices = Depends(get_services),
 ):
     key = _key(idempotency_key)
+    require_recent_mfa(services, actor, "platform.school_admin.bootstrap")  # step-up: code confirmed in the last minutes
     request_actor = replace(actor, correlation_id=uuid4(), idempotency_key=key)
     # Never include raw password in the idempotency hash. The logical command identity uses
     # school/email/name; password is consumed only if a new user is actually created.
@@ -358,6 +360,7 @@ def send_platform_system_notification(body:SystemNotificationInput,response:Resp
     actor.require('platform.notifications.system.send'); key=_key(idempotency_key)
     if body.target_scope=='SCHOOL' and body.target_school_id is None: raise HTTPException(422,'École cible obligatoire')
     if body.target_scope=='ALL_ACTIVE_SCHOOLS' and body.target_school_id is not None: raise HTTPException(422,'Une diffusion globale ne doit pas contenir une école cible')
+    if body.target_scope=='ALL_ACTIVE_SCHOOLS': require_recent_mfa(services,actor)  # step-up: message to every school
     request_actor=replace(actor,correlation_id=uuid4(),idempotency_key=key)
     payload=body.model_dump(mode='json')
     try:
@@ -502,7 +505,7 @@ class PlatformCollaboratorMutation(BaseModel):
 @router.post('/collaborators/{user_id}/grant')
 def platform_grant_collaborator(user_id:UUID, body:PlatformCollaboratorMutation, actor:ActorContext=Depends(require_platform_actor), services:AppServices=Depends(get_services)):
     from edusync.modules.audit.domain.audit import AuditRecord
-    actor.require('platform.collaborators.manage')
+    actor.require('platform.collaborators.manage'); require_recent_mfa(services, actor)
     from sqlalchemy import text
     with services.platform_db.platform_transaction() as c:
         user=c.execute(text("SELECT id,active FROM users WHERE id=:uid FOR UPDATE"),{'uid':user_id}).mappings().first()

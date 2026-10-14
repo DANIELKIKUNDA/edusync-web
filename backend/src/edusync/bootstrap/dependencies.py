@@ -50,12 +50,14 @@ def _assert_device_session_live(conn, claims: dict, user_id: UUID, *, require_mf
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=401, detail="Session du jeton invalide", headers={"WWW-Authenticate": "Bearer"}) from exc
     live = conn.execute(
-        text("SELECT mfa_verified_at FROM user_device_sessions WHERE id=:id AND user_id=:uid AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())"),
+        text("SELECT mfa_verified_at, mfa_required FROM user_device_sessions WHERE id=:id AND user_id=:uid AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())"),
         {"id": str(session_id), "uid": str(user_id)},
     ).first()
     if live is None:
         raise HTTPException(status_code=401, detail="Session révoquée; reconnectez-vous", headers={"WWW-Authenticate": "Bearer"})
-    if require_mfa and live[0] is None:
+    # A session that owes the second factor (platform console, or any space of an account equipped with one) is
+    # refused until it has passed it.
+    if (require_mfa or live[1]) and live[0] is None:
         raise HTTPException(status_code=401, detail="Validation en deux étapes requise; reconnectez-vous", headers={"WWW-Authenticate": "Bearer"})
 
 
@@ -107,7 +109,25 @@ def require_platform_actor(
         is_platform_admin=False,
         correlation_id=uuid4(),
         source="WEB",
+        session_id=UUID(str(claims["sid"])),
     )
+
+
+STEP_UP_DETAIL = {"code": "MFA_STEP_UP_REQUIRED", "message": "Confirmez avec votre code de vérification pour effectuer cette action."}
+
+
+def require_recent_mfa(services: AppServices, actor: ActorContext, capability: str | None = None) -> None:
+    """Step-up (owner decision 2026-10-13): a sensitive platform action needs a code confirmed on this device within
+    EDUSYNC_MFA_STEPUP_SECONDS. Checked only when the actor otherwise holds the capability, so an unauthorised call
+    keeps its plain 403. The client asks for the code, calls POST /auth/platform/mfa/step-up, then retries."""
+    if capability and capability not in actor.permissions:
+        return
+    from edusync.modules.iam.application import platform_mfa
+    with services.platform_db.platform_transaction() as conn:
+        if not platform_mfa.mfa_needed(conn, services.settings, actor.user_id):
+            return
+        if actor.session_id is None or not platform_mfa.recent_step_up(conn, actor.session_id, services.settings.mfa_stepup_seconds):
+            raise HTTPException(status_code=403, detail=STEP_UP_DETAIL)
 
 
 def require_school_actor(

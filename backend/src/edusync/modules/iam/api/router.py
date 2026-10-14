@@ -39,20 +39,23 @@ def _set_session_cookie(response: Response, services: AppServices, raw: str, exp
     response.set_cookie(services.settings.persistent_session_cookie, raw, max_age=max_age, httponly=True, secure=services.settings.env.lower() in {"prod","production"}, samesite="lax", path="/api/v1/auth")
 
 
-def _new_device_session(conn, settings, *, user, school=None, membership=None, user_agent: str = "", mfa_method: str | None = None) -> tuple[str, str, datetime]:
+def _new_device_session(conn, settings, *, user, school=None, membership=None, user_agent: str = "", mfa_method: str | None = None,
+                        mfa_required: bool = False) -> tuple[str, str, datetime]:
     raw_session, session_hash = new_session_token()
-    row = conn.execute(text("""INSERT INTO user_device_sessions(user_id,school_id,membership_id,token_hash,label,user_agent_hash,user_version,membership_version,expires_at,mfa_verified_at,mfa_method)
+    # A sign-in that has just passed the second factor also counts as a fresh confirmation (step-up) for a few minutes.
+    row = conn.execute(text("""INSERT INTO user_device_sessions(user_id,school_id,membership_id,token_hash,label,user_agent_hash,user_version,membership_version,expires_at,mfa_verified_at,mfa_method,mfa_stepup_at,mfa_required)
         VALUES(:uid,:sid,:mid,:th,:label,:uah,:uv,:mv,CASE WHEN :days>0 THEN now()+make_interval(days=>:days) END,
-               CASE WHEN CAST(:mfa AS text) IS NOT NULL THEN now() END,:mfa) RETURNING id,expires_at"""), {
+               CASE WHEN CAST(:mfa AS text) IS NOT NULL THEN now() END,:mfa,CASE WHEN CAST(:mfa AS text) IS NOT NULL THEN now() END,:req) RETURNING id,expires_at"""), {
         "uid": str(user.id), "sid": str(school.id) if school else None, "mid": str(membership.id) if membership else None,
         "th": session_hash, "label": describe_user_agent(user_agent), "uah": hash_user_agent(user_agent), "uv": user.version,
-        "mv": membership.version if membership else None, "days": settings.session_absolute_days, "mfa": mfa_method}).one()
+        "mv": membership.version if membership else None, "days": settings.session_absolute_days, "mfa": mfa_method, "req": bool(mfa_required)}).one()
     return raw_session, str(row[0]), row[1]
 
 
 def _issue_platform_session(conn, services: AppServices, request: Request, response: Response, user, *, mfa_method: str | None) -> dict:
     """Platform device session + access token. Reached only after the password and, under option B, the second factor."""
-    raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, user_agent=request.headers.get("user-agent", ""), mfa_method=mfa_method)
+    raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, user_agent=request.headers.get("user-agent", ""), mfa_method=mfa_method,
+                                                                   mfa_required=platform_mfa.mfa_needed(conn, services.settings, user.id))
     # The access token is bound to its device session ("sid"), so logout/revocation is immediate.
     token = create_access_token(
         subject=str(user.id), secret=services.settings.jwt_secret,
@@ -66,6 +69,35 @@ def _issue_platform_session(conn, services: AppServices, request: Request, respo
         "expires_in": services.settings.access_token_minutes * 60,
         "scope": "PLATFORM",
         "user": {"id": str(user.id), "email": user.email, "full_name": user.full_name},
+    }
+
+
+def _issue_school_session(conn, services: AppServices, request: Request, response: Response, user, school, membership, *,
+                          mfa_method: str | None, mfa_required: bool = False) -> dict:
+    permissions = PostgresMembershipRepository(conn).permissions(membership.id)
+    raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, school=school, membership=membership, user_agent=request.headers.get("user-agent", ""),
+                                                                   mfa_method=mfa_method, mfa_required=mfa_required)
+    token = create_access_token(
+        subject=str(user.id), secret=services.settings.jwt_secret,
+        issuer=services.settings.jwt_issuer, audience=services.settings.jwt_audience,
+        minutes=services.settings.access_token_minutes,
+        claims={
+            "scope": "school",
+            "school_id": str(school.id),
+            "membership_id": str(membership.id),
+            "user_version": user.version,
+            "membership_version": membership.version,
+            "sid": str(session_id),
+        },
+    )
+    _set_session_cookie(response, services, raw_session, session_expires)
+    return {
+        "access_token": token, "token_type": "bearer",
+        "expires_in": services.settings.access_token_minutes * 60,
+        "scope": "SCHOOL",
+        "user": {"id": str(user.id), "email": user.email, "full_name": user.full_name},
+        "school": {"id": str(school.id), "code": school.code, "name": school.name},
+        "permissions": sorted(permissions),
     }
 
 
@@ -158,30 +190,16 @@ def login(body: LoginInput, request: Request, response: Response, services: AppS
         membership = memberships.get_for_user_school(user.id, school.id)
         if membership is None or not membership.active:
             raise HTTPException(status_code=403, detail="Connexion impossible")
-        permissions = memberships.permissions(membership.id)
-        raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, school=school, membership=membership, user_agent=request.headers.get("user-agent", ""))
-        token = create_access_token(
-            subject=str(user.id), secret=services.settings.jwt_secret,
-            issuer=services.settings.jwt_issuer, audience=services.settings.jwt_audience,
-            minutes=services.settings.access_token_minutes,
-            claims={
-                "scope": "school",
-                "school_id": str(school.id),
-                "membership_id": str(membership.id),
-                "user_version": user.version,
-                "membership_version": membership.version,
-                "sid": str(session_id),
-            },
-        )
-        _set_session_cookie(response, services, raw_session, session_expires)
-        return {
-            "access_token": token, "token_type": "bearer",
-            "expires_in": services.settings.access_token_minutes * 60,
-            "scope": "SCHOOL",
-            "user": {"id": str(user.id), "email": user.email, "full_name": user.full_name},
-            "school": {"id": str(school.id), "code": school.code, "name": school.name},
-            "permissions": sorted(permissions),
-        }
+        if platform_mfa.mfa_required_everywhere(conn, services.settings, user.id):
+            # Owner decision 2026-10-13: an account equipped with a second factor (or holding a platform role) gives it
+            # in the school space too. Ordinary school accounts never reach this branch.
+            purpose = "LOGIN" if platform_mfa.active_factor(conn, user.id) else "ENROLL"
+            step_token = platform_mfa.create_challenge(conn, services.settings, user_id=user.id, user_version=user.version, purpose=purpose,
+                                                       scope="SCHOOL", school_id=school.id, membership_id=membership.id)
+            return {"mfa_required": purpose == "LOGIN", "mfa_enrollment_required": purpose == "ENROLL", "mfa_token": step_token,
+                    "expires_in": services.settings.mfa_challenge_seconds, "scope": "SCHOOL",
+                    "methods": ["TOTP", "RECOVERY_CODE"] if purpose == "LOGIN" else ["TOTP"]}
+        return _issue_school_session(conn, services, request, response, user, school, membership, mfa_method=None)
 
 
 # ---------------------------------------------------------------- second factor (option B, platform accounts)
@@ -221,6 +239,23 @@ def _platform_access_ok(conn, user_id) -> bool:
         and not platform_account_suspended(conn, user_id)
 
 
+def _challenge_space_ok(conn, challenge) -> bool:
+    """The space the step will open is still open to this account (role, suspension, school, membership)."""
+    if challenge.scope == "PLATFORM":
+        return _platform_access_ok(conn, challenge.user_id)
+    school = PostgresSchoolRepository(conn).get(challenge.school_id)
+    membership = PostgresMembershipRepository(conn).get(challenge.membership_id)
+    return bool(school and school.status == SchoolStatus.ACTIVE and membership and membership.active and membership.user_id == challenge.user_id)
+
+
+def _open_space(conn, services: AppServices, request: Request, response: Response, user, challenge, *, mfa_method: str) -> dict:
+    if challenge.scope == "SCHOOL":
+        school = PostgresSchoolRepository(conn).get(challenge.school_id)
+        membership = PostgresMembershipRepository(conn).get(challenge.membership_id)
+        return _issue_school_session(conn, services, request, response, user, school, membership, mfa_method=mfa_method, mfa_required=True)
+    return _issue_platform_session(conn, services, request, response, user, mfa_method=mfa_method)
+
+
 def _raise_mfa_outcome(outcome: tuple[str, int]) -> None:
     kind, value = outcome
     if kind == "locked":
@@ -244,7 +279,7 @@ def mfa_verify(body: MfaVerifyInput, request: Request, response: Response, servi
     # Failures are written in this transaction, which commits before the refusal is answered.
     with services.platform_db.platform_transaction() as conn:
         challenge = platform_mfa.load_challenge(conn, services.settings, body.mfa_token, "LOGIN")
-        if challenge is not None and _platform_access_ok(conn, challenge.user_id):
+        if challenge is not None and _challenge_space_ok(conn, challenge):
             guard = _mfa_guard(services)
             decision = guard.check(str(challenge.user_id), ip)
             if not decision.allowed:
@@ -263,7 +298,7 @@ def mfa_verify(body: MfaVerifyInput, request: Request, response: Response, servi
                     platform_mfa.consume_challenge(conn, challenge)
                     platform_mfa.security_audit(conn, user_id=user.id, action="MFA_RECOVERY_CODE_USED" if remaining is not None else "MFA_VERIFIED",
                                                 detail={"method": method, **({"recovery_codes_remaining": remaining} if remaining is not None else {})})
-                    result = _issue_platform_session(conn, services, request, response, user, mfa_method=method)
+                    result = _open_space(conn, services, request, response, user, challenge, mfa_method=method)
                     if remaining is not None:
                         result["recovery_codes_remaining"] = remaining
                     return result
@@ -282,7 +317,7 @@ def mfa_enroll_start(body: MfaStepInput, request: Request, response: Response, s
     cipher = platform_mfa.cipher_for(services.settings)
     with services.platform_db.platform_transaction() as conn:
         challenge = platform_mfa.load_challenge(conn, services.settings, body.mfa_token, "ENROLL")
-        if challenge is None or not _platform_access_ok(conn, challenge.user_id):
+        if challenge is None or not _challenge_space_ok(conn, challenge):
             raise HTTPException(status_code=401, detail=_MFA_EXPIRED)
         user = PostgresUserRepository(conn).get(challenge.user_id)
         try:
@@ -303,7 +338,7 @@ def mfa_enroll_confirm(body: MfaConfirmInput, request: Request, response: Respon
     outcome = ("expired", 0)
     with services.platform_db.platform_transaction() as conn:
         challenge = platform_mfa.load_challenge(conn, services.settings, body.mfa_token, "ENROLL")
-        if challenge is not None and _platform_access_ok(conn, challenge.user_id):
+        if challenge is not None and _challenge_space_ok(conn, challenge):
             guard = _mfa_guard(services)
             decision = guard.check(str(challenge.user_id), ip)
             if not decision.allowed:
@@ -315,7 +350,7 @@ def mfa_enroll_confirm(body: MfaConfirmInput, request: Request, response: Respon
                     guard.success(str(user.id), ip)
                     platform_mfa.consume_challenge(conn, challenge)
                     platform_mfa.security_audit(conn, user_id=user.id, action="MFA_ENROLLED", detail={"method": "TOTP", "recovery_codes": len(codes)})
-                    result = _issue_platform_session(conn, services, request, response, user, mfa_method="TOTP")
+                    result = _open_space(conn, services, request, response, user, challenge, mfa_method="TOTP")
                     result["recovery_codes"] = codes
                     return result
                 guard.failure(str(user.id), ip)
@@ -352,6 +387,28 @@ def platform_mfa_regenerate(body: MfaReauthInput, request: Request, response: Re
             return {"recovery_codes": codes}
         guard.failure(str(actor.user_id), ip)
         platform_mfa.security_audit(conn, user_id=actor.user_id, action="MFA_FAILED", detail={"method": "TOTP", "stage": "RECOVERY_CODES"}, rejected=True)
+    raise HTTPException(status_code=400, detail=_MFA_WRONG)
+
+
+@router.post("/platform/mfa/step-up")
+def platform_mfa_step_up(body: MfaReauthInput, request: Request, response: Response, actor: ActorContext = Depends(require_platform_actor),
+                         services: AppServices = Depends(get_services)):
+    """Confirms a fresh TOTP code on this device: sensitive actions are allowed for EDUSYNC_MFA_STEPUP_SECONDS."""
+    response.headers["Cache-Control"] = "no-store"
+    ip = request.client.host if request.client else "unknown"
+    cipher = platform_mfa.cipher_for(services.settings)
+    guard = _mfa_guard(services)
+    decision = guard.check(str(actor.user_id), ip)
+    if not decision.allowed:
+        raise HTTPException(status_code=429, detail=_MFA_LOCKED, headers={"Retry-After": str(max(1, decision.retry_after))})
+    with services.platform_db.platform_transaction() as conn:
+        if platform_mfa.verify_totp(conn, cipher, user_id=actor.user_id, code=body.code):
+            platform_mfa.mark_step_up(conn, actor.session_id)
+            guard.success(str(actor.user_id), ip)
+            platform_mfa.security_audit(conn, user_id=actor.user_id, action="MFA_STEP_UP", detail={"method": "TOTP"})
+            return {"confirmed": True, "valid_seconds": services.settings.mfa_stepup_seconds}
+        guard.failure(str(actor.user_id), ip)
+        platform_mfa.security_audit(conn, user_id=actor.user_id, action="MFA_FAILED", detail={"method": "TOTP", "stage": "STEP_UP"}, rejected=True)
     raise HTTPException(status_code=400, detail=_MFA_WRONG)
 
 
@@ -438,6 +495,7 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
             if not m or not m['active'] or int(row['membership_version'] or 0)!=int(m['version']): raise HTTPException(401,'Session à renouveler')
             # A suspended school gets no new token (the API would refuse it anyway): back to the sign-in screen.
             if conn.execute(text("SELECT status FROM schools WHERE id=:sid"),{'sid':row['school_id']}).scalar_one_or_none()!='ACTIVE': raise HTTPException(401,'Session à renouveler')
+            if row['mfa_required'] and row['mfa_verified_at'] is None: raise HTTPException(401,'Session à renouveler')
             claims.update({'scope':'school','school_id':str(row['school_id']),'membership_id':str(row['membership_id']),'membership_version':m['version']})
         elif not conn.execute(text("SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id WHERE a.user_id=:uid AND a.school_id IS NULL AND a.active=true AND r.level='PLATFORM' AND r.status='ACTIVE' AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"),{'uid':row['user_id']}).first() or platform_account_suspended(conn,row['user_id']): raise HTTPException(401,'Session à renouveler')
         # Option B: a platform session opened without the second factor (before the policy, or by any bypass) is never renewed.

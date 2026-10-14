@@ -222,6 +222,42 @@ await p.waitFor('document.body.innerText.includes("Validation en deux étapes")'
 await delay(400); check('Équipe : statut de validation en deux étapes visible sur la fiche', await p.ev('document.body.innerText.includes("Validation en deux étapes")'));
 await p.shot('mfa-team-sheet-1280'); await p.key('Escape', 'Escape', 27);
 
+// ---------------- owner decisions 2026-10-13: managers warning, step-up dialog, reset dialog ----------------
+await p.click('Tableau de bord'); await delay(800);
+check('Décision 4 : avertissement « un seul Manager système actif » affiché', await p.ev('document.body.innerText.includes("Un seul Manager système actif")'));
+await p.shot('mfa-managers-warning-1280');
+// The sign-in just counted as a confirmation: expire it on purpose (test database only) to see the step-up dialog.
+const {spawnSync} = await import('node:child_process');
+const expire = spawnSync(new URL('../../.venv/Scripts/python.exe', dir).pathname.replace(/^\/([A-Z]:)/, '$1'), [new URL('../../.local/closure/run.py', dir).pathname.replace(/^\/([A-Z]:)/, '$1'), '-c',
+  "import os;from sqlalchemy import create_engine,text;e=create_engine(os.environ['EDUSYNC_OWNER_DATABASE_URL']);c=e.connect();c.execute(text(\"UPDATE user_device_sessions SET mfa_stepup_at=NULL WHERE revoked_at IS NULL AND user_id=(SELECT id FROM users WHERE lower(email::text)=lower(:m))\"),{'m':os.environ['EDUSYNC_PLATFORM_ADMIN_EMAIL']});c.commit()"],
+  {env: {...process.env, EDUSYNC_DB: 'edusync_claude_fresh'}, encoding: 'utf8'});
+check('Préparation : confirmation récente du Manager expirée (base de recette)', expire.status === 0, (expire.stderr || '').slice(-160));
+const target = fx.MFA_PROBE?.ui;
+if (target) {
+  await p.click('Équipe plateforme'); await p.waitFor('!!document.querySelector(".tm-list")'); await delay(500);
+  await p.viewport(390, 844); await delay(600);
+  await p.ev(`[...document.querySelectorAll(".tm-row")].find(b=>b.innerText.includes(${JSON.stringify(target.email)}))?.click()`);
+  await p.waitFor('document.body.innerText.includes("Validation en deux étapes")', 15000);
+  await p.click('Suspendre'); await p.waitFor('!!document.querySelector(".eduDialog textarea")');
+  await p.type('.eduDialog textarea', 'Recette décision 1 : confirmation par code demandée'); await p.ev('document.querySelector(".eduDialog button[type=submit]").click()');
+  await p.waitFor('!!document.querySelector(".es-stepup-code")', 20000);
+  check('Décision 1 (390px) : fenêtre « Confirmez avec votre code » avant l’action sensible', await p.ev('document.body.innerText.includes("Confirmez avec votre code")'));
+  check('Décision 1 (390px) : saisie numérique, sans défilement horizontal', await p.ev('(e=>e.inputMode==="numeric"&&e.autocomplete==="one-time-code")(document.querySelector(".es-stepup-code"))') && await p.noHScroll());
+  await p.shot('mfa-stepup-390');
+  await p.type('.es-stepup-code', await nextCode(env.EDUSYNC_PLATFORM_ADMIN_EMAIL));
+  await p.waitFor('!document.querySelector(".es-stepup-code")&&document.body.innerText.includes("Suspendu")', 20000).catch(() => {});
+  check('Décision 1 : après le code, l’action reprend seule et s’exécute (compte suspendu)', await p.ev('document.body.innerText.includes("Suspendu")'));
+  await p.shot('mfa-stepup-done-390');
+  await p.click('Réactiver'); await p.waitFor('!!document.querySelector(".eduDialog textarea")');
+  await p.type('.eduDialog textarea', 'Recette : réactivation après la démonstration'); await p.ev('document.querySelector(".eduDialog button[type=submit]").click()');
+  await p.waitFor('!document.querySelector(".eduDialog")&&document.body.innerText.includes("Actif")', 20000).catch(() => {});
+  check('Réactivation (action non sensible) : sans nouvelle demande de code', await p.ev('!document.querySelector(".es-stepup-code")'));
+  await p.click('Réinitialiser la validation en deux étapes'); await p.waitFor('!!document.querySelector(".mfa-reset-pw")');
+  check('Décision 3 (390px) : boîte de réinitialisation (motif, option mot de passe, avertissement)', await p.ev('document.body.innerText.includes("Réinitialiser aussi le mot de passe")&&document.body.innerText.includes("Vérifiez d’abord l’identité")') && await p.noHScroll());
+  await p.shot('mfa-reset-dialog-390'); await p.click('Annuler'); await p.key('Escape', 'Escape', 27);
+  await p.viewport(1280, 800);
+}
+
 // ---------------- sign-out / sign-in keeps working ----------------
 await signOut(p); await p.go(); await p.waitFor('!!document.querySelector(".lg-card")');
 check('Déconnexion : retour à l’écran de connexion', true);

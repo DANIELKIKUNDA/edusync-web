@@ -138,7 +138,9 @@ def platform() -> httpx.Client:
             return c
         _platform_token.clear()
     c = login(os.environ["EDUSYNC_PLATFORM_ADMIN_EMAIL"], os.environ["EDUSYNC_PLATFORM_ADMIN_PASSWORD"], "PLATFORM")
-    _platform_token.update(token=c.headers["Authorization"].split(" ", 1)[1], until=time.time() + 8 * 60)
+    # A sign-in that passed the code counts as a fresh step-up for 5 minutes: reuse the token for 4 at most, so the
+    # sensitive actions of a probe (suspension, team governance, global notification) always run inside that window.
+    _platform_token.update(token=c.headers["Authorization"].split(" ", 1)[1], until=time.time() + 4 * 60)
     return c
 
 

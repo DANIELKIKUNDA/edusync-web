@@ -23,7 +23,7 @@ from sqlalchemy import text
 
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
 from edusync.adapters.postgres_repositories import PostgresAuditRepository
-from edusync.bootstrap.dependencies import get_services, require_platform_actor, require_school_actor
+from edusync.bootstrap.dependencies import get_services, require_platform_actor, require_recent_mfa, require_school_actor
 from edusync.bootstrap.services import AppServices
 from edusync.modules.audit.domain.audit import AuditRecord
 from edusync.shared.application.context import ActorContext
@@ -267,6 +267,8 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
         raise HTTPException(422, "Rôle cible obligatoire")
     if t.type == "PLATFORM_USER" and not t.user_id:
         raise HTTPException(422, "Compte cible obligatoire")
+    if t.type == "ALL_ACTIVE_SCHOOLS":
+        require_recent_mfa(services, actor)  # step-up: message to every school
     request_actor = replace(actor, correlation_id=uuid4(), idempotency_key=key)
     pushed: list[dict] = []
     notified: list[tuple[str, str | None]] = []

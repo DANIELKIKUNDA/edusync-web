@@ -21,7 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from edusync.adapters.postgres_repositories import PostgresAuditRepository
-from edusync.bootstrap.dependencies import get_services, platform_permissions, require_platform_actor
+from edusync.bootstrap.dependencies import get_services, platform_permissions, require_platform_actor, require_recent_mfa
 from edusync.bootstrap.services import AppServices
 from edusync.modules.audit.domain.audit import AuditRecord
 from edusync.modules.iam.application import platform_mfa
@@ -85,6 +85,12 @@ class RoleAssignInput(BaseModel):
 class PasswordResetInput(BaseModel):
     new_password: str = Field(min_length=12, max_length=512)
     reason: str = Field(min_length=5, max_length=500)
+
+
+class MfaResetInput(BaseModel):
+    reason: str = Field(min_length=5, max_length=500)
+    # Owner decision 2026-10-13 (option): a lost phone may mean a compromised password too; reset both at once.
+    new_password: str | None = Field(default=None, min_length=12, max_length=512)
 
 
 def _key(value: str | None) -> str:
@@ -178,9 +184,13 @@ def team_me(actor: ActorContext = Depends(require_platform_actor), services: App
             WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM' AND r.status='ACTIVE'
               AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) ORDER BY r.label"""),
             {"u": str(actor.user_id)}).mappings().all()
+        # Owner decision 2026-10-13: keep at least two active Managers so a lost access can always be recovered
+        # from the console (the operator script stays exceptional). The team governors see the count.
+        managers = _active_managers(c) if TEAM_CAP in actor.permissions else None
     perms = sorted(actor.permissions)
     return {"user": dict(user), "roles": [dict(r) for r in roles], "permissions": perms,
-            "menu": [{"key": k, "label": label, "capability": cap} for k, label, cap in MENU if cap in actor.permissions]}
+            "menu": [{"key": k, "label": label, "capability": cap} for k, label, cap in MENU if cap in actor.permissions],
+            "active_managers": managers, "recommended_managers": 2}
 
 
 # ---------------------------------------------------------------- capabilities & roles
@@ -359,6 +369,7 @@ def team_users(q: str | None = None, actor: ActorContext = Depends(require_platf
 def team_create_user(body: UserCreate, idempotency_key: str | None = Header(default=None), actor: ActorContext = Depends(require_platform_actor),
                      services: AppServices = Depends(get_services)):
     actor.require(TEAM_CAP)
+    require_recent_mfa(services, actor)  # step-up: code confirmed in the last minutes
     key = _key(idempotency_key)
     email = body.email.strip().lower()
     try:
@@ -420,6 +431,7 @@ def team_user_detail(user_id: UUID, actor: ActorContext = Depends(require_platfo
 def team_assign_role(user_id: UUID, body: RoleAssignInput, idempotency_key: str | None = Header(default=None),
                      actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     actor.require(TEAM_CAP)
+    require_recent_mfa(services, actor)  # step-up: code confirmed in the last minutes
     key = _key(idempotency_key)
     with services.platform_db.platform_transaction() as c:
         c.execute(text("SELECT 1 FROM users WHERE id=:u FOR UPDATE"), {"u": str(user_id)})
@@ -451,6 +463,7 @@ def team_assign_role(user_id: UUID, body: RoleAssignInput, idempotency_key: str 
 def team_revoke_role(user_id: UUID, role_code: str, body: ReasonInput, idempotency_key: str | None = Header(default=None),
                      actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     actor.require(TEAM_CAP)
+    require_recent_mfa(services, actor)  # step-up: code confirmed in the last minutes
     key = _key(idempotency_key)
     code = role_code.strip().upper()
     with services.platform_db.platform_transaction() as c:
@@ -505,6 +518,7 @@ def _set_status(user_id: UUID, target: str, body: ReasonInput, key: str, actor: 
 def team_suspend_user(user_id: UUID, body: ReasonInput, idempotency_key: str | None = Header(default=None),
                       actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     actor.require(TEAM_CAP)
+    require_recent_mfa(services, actor)  # step-up: code confirmed in the last minutes
     return _set_status(user_id, "SUSPENDED", body, _key(idempotency_key), actor, services)
 
 
@@ -547,6 +561,7 @@ def team_reset_password(user_id: UUID, body: PasswordResetInput, idempotency_key
                         actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     """Sets a temporary password chosen by the Manager and signs the account out everywhere (audited, never logged)."""
     actor.require(TEAM_CAP)
+    require_recent_mfa(services, actor)  # step-up: code confirmed in the last minutes
     key = _key(idempotency_key)
     with services.platform_db.platform_transaction() as c:
         c.execute(text("SELECT 1 FROM users WHERE id=:u FOR UPDATE"), {"u": str(user_id)})
@@ -561,12 +576,13 @@ def team_reset_password(user_id: UUID, body: PasswordResetInput, idempotency_key
 
 
 @router.post("/users/{user_id}/mfa-reset")
-def team_reset_mfa(user_id: UUID, body: ReasonInput, idempotency_key: str | None = Header(default=None),
+def team_reset_mfa(user_id: UUID, body: MfaResetInput, idempotency_key: str | None = Header(default=None),
                    actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     """Lost phone: another Manager removes the second factor of an account (never their own, never an account holding
     capabilities they lack), with a reason. Platform sessions end; the account enrols a new factor at its next sign-in.
     There is no master code and no reset by e-mail: identity is checked out of band by the Manager, then audited."""
     actor.require(TEAM_CAP)
+    require_recent_mfa(services, actor)  # step-up: code confirmed in the last minutes
     key = _key(idempotency_key)
     with services.platform_db.platform_transaction() as c:
         prior = _replayed(c, actor, key, "PLATFORM_USER_MFA_RESET")
@@ -578,6 +594,21 @@ def team_reset_mfa(user_id: UUID, body: ReasonInput, idempotency_key: str | None
             raise HTTPException(404, "Ce compte n’appartient pas à l’équipe plateforme")
         removed = platform_mfa.reset(c, user_id=user_id, reason="RESET_BY_MANAGER")
         sessions = _revoke_platform_sessions(c, user_id, "MFA_RESET")
-        result = {"user_id": str(user_id), "mfa_reset": True, "sessions_revoked": sessions, **removed}
+        password_reset = False
+        if body.new_password:
+            # Password changed too: the account version moves on, so every session of every space ends.
+            c.execute(text("UPDATE users SET password_hash=:p, version=version+1 WHERE id=:u"), {"p": hash_password(body.new_password), "u": str(user_id)})
+            sessions += c.execute(text("""UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason='PASSWORD_RESET'
+                WHERE user_id=:u AND revoked_at IS NULL"""), {"u": str(user_id)}).rowcount
+            password_reset = True
+        manager = c.execute(text("SELECT full_name FROM users WHERE id=:u"), {"u": str(actor.user_id)}).scalar_one()
+        # The account is told at once: if the reset was not legitimate, its owner can react (decision 2026-10-13).
+        platform_mfa.notify_security(c, user_id=user_id, title="Validation en deux étapes réinitialisée",
+            body=(f"{manager} a réinitialisé votre validation en deux étapes" + (" et votre mot de passe" if password_reset else "")
+                  + f". Motif : {body.reason.strip()}. Vous configurerez une nouvelle application à votre prochaine connexion. "
+                  "Si vous n’êtes pas à l’origine de cette demande, prévenez immédiatement un autre Manager système."))
+        result = {"user_id": str(user_id), "mfa_reset": True, "password_reset": password_reset, "sessions_revoked": sessions, **removed}
         _audit(c, actor, "PLATFORM_USER_MFA_RESET", "User", user_id, reason=body.reason, new=result, key=key)
+    from edusync.shared.infrastructure.realtime import publish_inbox_changed
+    publish_inbox_changed(services.settings.redis_url, [(str(user_id), None)])  # the bell of the account updates at once
     return result

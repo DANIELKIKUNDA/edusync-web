@@ -19,7 +19,7 @@ function auth(token:string){return {'Authorization':`Bearer ${token}`,'Content-T
 function mutationHeaders(token:string,extra:Record<string,string>={}){return {...auth(token),'Idempotency-Key':crypto.randomUUID(),...extra}}
 
 /** Platform accounts (option B): after the password the server asks for the second factor instead of opening a session. */
-export type MfaStep={mfa_required:boolean;mfa_enrollment_required:boolean;mfa_token:string;expires_in:number;scope:'PLATFORM';methods:('TOTP'|'RECOVERY_CODE')[]};
+export type MfaStep={mfa_required:boolean;mfa_enrollment_required:boolean;mfa_token:string;expires_in:number;scope:'PLATFORM'|'SCHOOL';methods:('TOTP'|'RECOVERY_CODE')[]};
 export function isMfaStep(r:unknown):r is MfaStep{return !!r&&typeof (r as {mfa_token?:unknown}).mfa_token==='string'}
 export type MfaEnrollment={secret:string;otpauth_uri:string;qr_svg:string;account:string;issuer:string;digits:number;period:number};
 export type PlatformMfaStatus={enrolled:boolean;method:'TOTP'|null;confirmed_at:string|null;recovery_codes_remaining:number;required:boolean;self_disable_allowed:boolean};
@@ -30,6 +30,7 @@ export function mfaVerify(mfa_token:string,input:{code?:string;recovery_code?:st
 export function mfaEnrollStart(mfa_token:string){return mfaPost<MfaEnrollment>('/enroll/start',{mfa_token})}
 export function mfaEnrollConfirm(mfa_token:string,code:string){return mfaPost<PlatformLoginResult&{recovery_codes:string[]}>('/enroll/confirm',{mfa_token,code})}
 export async function platformMfaStatus(token:string){return json<PlatformMfaStatus>(await fetch(`${API}/auth/platform/mfa`,{headers:auth(token),cache:'no-store'}),'État de la validation en deux étapes indisponible')}
+export async function platformStepUp(token:string,code:string):Promise<{confirmed:boolean;valid_seconds:number}>{const r=await fetch(`${API}/auth/platform/mfa/step-up`,{method:'POST',headers:auth(token),body:JSON.stringify({code})});if(!r.ok)return mfaFailure(r);return r.json()}
 export async function regenerateRecoveryCodes(token:string,code:string):Promise<{recovery_codes:string[]}>{const r=await fetch(`${API}/auth/platform/mfa/recovery-codes`,{method:'POST',headers:auth(token),body:JSON.stringify({code})});if(!r.ok)return mfaFailure(r);return r.json()}
 
 export async function loginPlatform(email:string,password:string):Promise<PlatformLoginResult|MfaStep>{
@@ -331,7 +332,7 @@ export async function putPrintSettings(token:string,body:{receipt_policy:PrintSe
 export async function familyCollect(token:string,body:{family_id:string;lines:BasketLineInput[]},key:string){return json<BasketResult>(await fetch(`${API}/finance/checkout/family-collect`,{method:'POST',headers:{...auth(token),'Idempotency-Key':key},body:JSON.stringify(body)}),'Encaissement du panier refusé')}
 
 // ---- Atelier Pro: platform team governance (N1) ----
-export type PlatformMe={user:{id:string;email:string;full_name:string};roles:{code:string;label:string;kind:string}[];permissions:string[];menu:{key:string;label:string;capability:string}[]};
+export type PlatformMe={user:{id:string;email:string;full_name:string};roles:{code:string;label:string;kind:string}[];permissions:string[];menu:{key:string;label:string;capability:string}[];active_managers?:number|null;recommended_managers?:number};
 export type PlatformCapability={code:string;label:string;group_name:string;risk:string;reserved:boolean;reserved_reason:string|null;held:boolean;delegable:boolean};
 export type PlatformRole={id:string;code:string;label:string;description:string;kind:'PLATFORM_STANDARD'|'PLATFORM_CUSTOM';status:'DRAFT'|'OWNER_APPROVED'|'ACTIVE'|'ARCHIVED';version:number;updated_at:string;archived_at:string|null;capabilities:string[];active_users:number};
 export type PlatformTeamUser={id:string;email:string;full_name:string;account_active:boolean;platform_status:'ACTIVE'|'SUSPENDED';roles:string[];last_activity:string|null;open_sessions:number;created_at:string;is_me:boolean;mfa_enrolled?:boolean};
@@ -353,7 +354,7 @@ export async function teamRevokeRole(token:string,id:string,role_code:string,rea
 export async function teamUserStatus(token:string,id:string,action:'suspend'|'reactivate',reason:string){return teamPost(token,`/users/${id}/${action}`,{reason},'Changement de statut impossible')}
 export async function teamRevokeSessions(token:string,id:string,reason:string,sessionId?:string){return teamPost(token,sessionId?`/users/${id}/sessions/${sessionId}/revoke`:`/users/${id}/sessions/revoke-all`,{reason},'Déconnexion impossible')}
 export async function teamResetPassword(token:string,id:string,new_password:string,reason:string){return teamPost(token,`/users/${id}/password-reset`,{new_password,reason},'Réinitialisation impossible')}
-export async function teamResetMfa(token:string,id:string,reason:string){return teamPost(token,`/users/${id}/mfa-reset`,{reason},'Réinitialisation de la validation en deux étapes impossible')}
+export async function teamResetMfa(token:string,id:string,reason:string,new_password?:string){return teamPost(token,`/users/${id}/mfa-reset`,{reason,...(new_password?{new_password}:{})},'Réinitialisation de la validation en deux étapes impossible')}
 
 export type HealthComponent={key:string;label:string;state:'OK'|'DEGRADED'|'DOWN'|'NOT_CONFIGURED';detail:string;measured_ms?:number|null;age_seconds?:number|null;value?:number|null};
 export type SystemHealth={checked_at:string;overall:'OK'|'DEGRADED'|'DOWN';components:HealthComponent[];figures:{schools_active?:number;sessions_open?:number}};

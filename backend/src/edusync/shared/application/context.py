@@ -20,6 +20,8 @@ class ActorContext:
     correlation_id: UUID | None = None
     idempotency_key: str | None = None
     capability_scopes: tuple[tuple[str, str, str | None], ...] = ()
+    # Device session of the access token (platform actors): used by the step-up check of sensitive actions.
+    session_id: UUID | None = None
 
     def scopes_for(self, permission: str) -> tuple[tuple[str, str | None], ...]:
         """Effective scopes for one capability. SCHOOL covers every school resource.

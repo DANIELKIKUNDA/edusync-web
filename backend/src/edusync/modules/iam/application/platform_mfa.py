@@ -24,6 +24,9 @@ class Challenge:
     user_id: UUID
     purpose: str
     attempts: int
+    scope: str = "PLATFORM"
+    school_id: UUID | None = None
+    membership_id: UUID | None = None
 
 
 def cipher_for(settings) -> MfaCipher:
@@ -49,25 +52,42 @@ def mfa_needed(conn, settings, user_id) -> bool:
     return bool(settings.mfa_platform_required) or active_factor(conn, user_id) is not None
 
 
+def has_platform_role(conn, user_id) -> bool:
+    return conn.execute(text("""SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
+        WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM' AND r.status='ACTIVE'
+          AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"""), {"u": str(user_id)}).first() is not None
+
+
+def mfa_required_everywhere(conn, settings, user_id) -> bool:
+    """Owner decision 2026-10-13: an account that has a second factor, or a platform role (policy on), gives the code
+    in every space it opens, school spaces included. Ordinary school accounts are not concerned (option B)."""
+    if active_factor(conn, user_id) is not None:
+        return True
+    return bool(settings.mfa_platform_required) and has_platform_role(conn, user_id)
+
+
 # ---------------------------------------------------------------- intermediate challenge
 
-def create_challenge(conn, settings, *, user_id, user_version: int, purpose: str) -> str:
+def create_challenge(conn, settings, *, user_id, user_version: int, purpose: str, scope: str = "PLATFORM",
+                     school_id=None, membership_id=None) -> str:
     raw, digest = new_challenge_token()
-    # One live challenge per account and purpose: a new password step supersedes the previous one.
+    # One live challenge per account: a new password step supersedes the previous one.
     conn.execute(text("UPDATE mfa_challenges SET consumed_at=now() WHERE user_id=:u AND consumed_at IS NULL"), {"u": str(user_id)})
-    conn.execute(text("""INSERT INTO mfa_challenges(user_id,purpose,token_hash,user_version,expires_at)
-        VALUES(:u,:p,:h,:v,now()+make_interval(secs=>:s))"""),
-        {"u": str(user_id), "p": purpose, "h": digest, "v": int(user_version), "s": int(settings.mfa_challenge_seconds)})
+    conn.execute(text("""INSERT INTO mfa_challenges(user_id,purpose,token_hash,user_version,expires_at,scope,school_id,membership_id)
+        VALUES(:u,:p,:h,:v,now()+make_interval(secs=>:s),:scope,:sid,:mid)"""),
+        {"u": str(user_id), "p": purpose, "h": digest, "v": int(user_version), "s": int(settings.mfa_challenge_seconds),
+         "scope": scope, "sid": str(school_id) if school_id else None, "mid": str(membership_id) if membership_id else None})
     return raw
 
 
 def load_challenge(conn, settings, raw: str, purpose: str) -> Challenge | None:
     """A usable challenge: right purpose, not consumed, not expired, attempts left, account unchanged and active."""
-    row = conn.execute(text("""SELECT c.id, c.user_id, c.purpose, c.attempts FROM mfa_challenges c JOIN users u ON u.id=c.user_id
+    row = conn.execute(text("""SELECT c.id, c.user_id, c.purpose, c.attempts, c.scope, c.school_id, c.membership_id
+        FROM mfa_challenges c JOIN users u ON u.id=c.user_id
         WHERE c.token_hash=:h AND c.purpose=:p AND c.consumed_at IS NULL AND c.expires_at>now() AND c.attempts<:max
           AND u.active AND u.version=c.user_version FOR UPDATE OF c"""),
         {"h": hash_challenge_token(raw), "p": purpose, "max": int(settings.mfa_max_attempts)}).mappings().first()
-    return Challenge(str(row["id"]), row["user_id"], row["purpose"], int(row["attempts"])) if row else None
+    return Challenge(str(row["id"]), row["user_id"], row["purpose"], int(row["attempts"]), row["scope"], row["school_id"], row["membership_id"]) if row else None
 
 
 def record_failed_attempt(conn, challenge: Challenge) -> int:
@@ -169,3 +189,20 @@ def reset(conn, *, user_id, reason: str) -> dict:
                          {"u": str(user_id)}).rowcount
     conn.execute(text("UPDATE mfa_challenges SET consumed_at=now() WHERE user_id=:u AND consumed_at IS NULL"), {"u": str(user_id)})
     return {"factors_revoked": factors, "recovery_codes_revoked": codes}
+
+
+# ---------------------------------------------------------------- step-up (recent confirmation of a code)
+
+def mark_step_up(conn, session_id) -> None:
+    conn.execute(text("UPDATE user_device_sessions SET mfa_stepup_at=now() WHERE id=:id"), {"id": str(session_id)})
+
+
+def recent_step_up(conn, session_id, seconds: int) -> bool:
+    return conn.execute(text("""SELECT 1 FROM user_device_sessions WHERE id=:id AND revoked_at IS NULL
+        AND mfa_stepup_at IS NOT NULL AND mfa_stepup_at > now()-make_interval(secs=>:s)"""), {"id": str(session_id), "s": int(seconds)}).first() is not None
+
+
+def notify_security(conn, *, user_id, title: str, body: str) -> None:
+    """Security alert in the account's platform inbox (never contains a code or a secret)."""
+    conn.execute(text("""INSERT INTO notifications(school_id,user_id,category,severity,title,body,link_path)
+        VALUES(NULL,:u,'SECURITY','WARNING',:t,:b,NULL)"""), {"u": str(user_id), "t": title[:180], "b": body})

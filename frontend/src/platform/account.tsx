@@ -1,9 +1,10 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {toast} from 'sonner';
-import {changeMyPassword, changePlatformPassword, dismissNotification, listMySessions, listNotifications, listPlatformSessions, logoutAllDevices, MfaError, platformMfaStatus, regenerateRecoveryCodes, revokeMySession, revokePlatformSession, type DeviceSession, type InternalNotification, type PlatformMfaStatus} from '../api';
+import {changeMyPassword, changePlatformPassword, dismissNotification, listMySessions, listNotifications, listPlatformSessions, logoutAllDevices, MfaError, platformMfaStatus, platformStepUp, regenerateRecoveryCodes, revokeMySession, revokePlatformSession, type DeviceSession, type InternalNotification, type PlatformMfaStatus} from '../api';
 import {FormField, formDefaults} from './forms';
 import {friendlyError} from './errors';
 import {NavGlyph} from './nav_icons';
@@ -143,6 +144,31 @@ function MfaPanel({token}: {token: string}) {
     </form>}
     <p className="es-hint">Téléphone perdu ou changé ? Demandez à un autre Manager système de réinitialiser votre validation en deux étapes depuis « Équipe plateforme » : vous la configurerez à nouveau à la connexion suivante. Elle ne peut pas être désactivée.</p>
   </div>;
+}
+
+/** Step-up: a sensitive action asks for a fresh code; the action is then sent again automatically. */
+export function StepUpDialog({token, onDone}: {token: string; onDone: (ok: boolean) => void}) {
+  const [code, setCode] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const sent = useRef('');
+  async function confirm(value = code) {
+    if (busy) return; setError('');
+    if (!/^\d{6}$/.test(value)) { setError('Saisissez les 6 chiffres affichés par votre application.'); return; }
+    try { setBusy(true); await platformStepUp(token, value); onDone(true); }
+    catch (e) { setError(e instanceof MfaError ? e.message : friendlyError(e)); setCode(''); sent.current = ''; }
+    finally { setBusy(false); }
+  }
+  // Rendered at the end of <body>: it must cover any dialog already open (a member sheet, a school sheet…).
+  return createPortal(<div className="es-stepup-layer"><Modal title="Confirmez avec votre code" subtitle="Action sensible : saisissez le code à 6 chiffres de votre application d’authentification." onClose={() => onDone(false)}>
+    <form className="es-form" onSubmit={e => { e.preventDefault(); void confirm(); }} noValidate>
+      <FormField label="Code de vérification *" error={error || undefined}>
+        <input className="es-stepup-code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={code} disabled={busy}
+          onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 6); setCode(v); if (v.length === 6 && sent.current !== v) { sent.current = v; void confirm(v); } }}/>
+      </FormField>
+      <p className="es-hint">Une fois confirmé, ce code reste valable quelques minutes sur cet appareil pour les autres actions sensibles.</p>
+      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={() => onDone(false)}>Annuler</button>
+        <button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Vérification…' : 'Confirmer'}</button></div>
+    </form>
+  </Modal></div>, document.body);
 }
 
 // The bell lives in notification_center.tsx (inbox with filters, pagination, read-all); re-exported for existing imports.
