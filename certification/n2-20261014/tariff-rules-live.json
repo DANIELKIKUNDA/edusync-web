@@ -1,0 +1,182 @@
+[
+ {
+  "check": "Règle SCHOOL enregistrée",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Règle SECTION enregistrée",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Règle OPTION_GROUP enregistrée",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Règle ACADEMIC_CLASS enregistrée",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Règle CLASS enregistrée",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Résolution H1COM classe : 50000.00 (CLASS)",
+  "pass": true,
+  "detail": "('50000.00', 'CLASS')"
+ },
+ {
+  "check": "Résolution H1MEC classe académique (groupe technique sans règle) : 40000.00 (ACADEMIC_CLASS)",
+  "pass": true,
+  "detail": "('40000.00', 'ACADEMIC_CLASS')"
+ },
+ {
+  "check": "Résolution H2COM groupe Humanités générales : 30000.00 (OPTION_GROUP)",
+  "pass": true,
+  "detail": "('30000.00', 'OPTION_GROUP')"
+ },
+ {
+  "check": "Résolution S7A section : 20000.00 (SECTION)",
+  "pass": true,
+  "detail": "('20000.00', 'SECTION')"
+ },
+ {
+  "check": "Résolution P1A école : 10000.00 (SCHOOL)",
+  "pass": true,
+  "detail": "('10000.00', 'SCHOOL')"
+ },
+ {
+  "check": "Nouvelle règle datée de février (même classe)",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Avant février : l'ancien montant s'applique",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Dès février : le nouveau montant s'applique",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Même cible et même date : la règle est mise à jour (pas de doublon)",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Date d'effet hors de l'année refusée",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Barème officiel en attente : la règle la plus précise reste en attente (pas de repli sur le groupe)",
+  "pass": true,
+  "detail": "(201, 'PENDING_OFFICIAL')"
+ },
+ {
+  "check": "Tarif actif sans montant refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Montant négatif refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Montant zéro accepté (règle plus précise qui exonère la classe)",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Groupe tarifaire inconnu refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Sans « barèmes de groupe » : règle de groupe refusée (403)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Avec « tarifs » : règle de classe acceptée",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Sans « groupes tarifaires d'options » : changement de groupe refusé (403)",
+  "pass": true,
+  "detail": "403"
+ },
+ {
+  "check": "Mise à jour d'une option sans envoyer le groupe : le groupe est conservé",
+  "pass": true,
+  "detail": "(200, 'TECHNICAL')"
+ },
+ {
+  "check": "Droit « tarifs » : modification de la règle de section acceptée",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Mois de facturation par défaut (Desktop) : septembre à juin",
+  "pass": true,
+  "detail": "{'billing_months': ['09', '10', '11', '12', '01', '02', '03', '04', '05', '06'], 'month_due_at_enrollment': None, 'version': None}"
+ },
+ {
+  "check": "Mois exigé à l'inscription hors des mois facturés : refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Mois enregistrés dans l'ordre de l'année scolaire",
+  "pass": true,
+  "detail": "{\"version\":1,\"billing_months\":[\"09\",\"10\",\"11\",\"06\"],\"month_due_at_enrollment\":\"09\"}"
+ },
+ {
+  "check": "Modification concurrente des mois (version périmée) refusée",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Copie vers l'année suivante : les montants actifs passent « en attente du barème officiel »",
+  "pass": true,
+  "detail": "{'PENDING_OFFICIAL'}"
+ },
+ {
+  "check": "Copie : dates d'effet décalées sur la nouvelle année (février 2027 → février 2028)",
+  "pass": true,
+  "detail": "['2028-02-01', '2027-09-01', '2027-09-01', '2027-09-01', '2027-09-01', '2027-09-01', '2027-09-01', '2027-09-01']"
+ },
+ {
+  "check": "Copie : une règle de classe vise la classe de la nouvelle année",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Autre école : résolution sur une classe de l'école L1 refusée (404)",
+  "pass": true,
+  "detail": "404"
+ },
+ {
+  "check": "Autre école : aucune règle de l'école L1 listée",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Audit : une mise à jour de règle garde l'ancienne valeur",
+  "pass": true,
+  "detail": "2"
+ },
+ {
+  "check": "Année clôturée : plus aucune règle tarifaire modifiable",
+  "pass": true,
+  "detail": ""
+ }
+]

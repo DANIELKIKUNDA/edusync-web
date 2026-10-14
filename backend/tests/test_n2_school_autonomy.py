@@ -97,7 +97,8 @@ def test_amounts_are_formatted_from_strings_never_through_floats():
     body = fmt[fmt.index("export function formatMoney("):fmt.index("export function formatDate(")]
     assert "Number(" not in body and "parseFloat" not in body
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    assert "formatMoney(t.amount,t.currency)" in app and "formatMoney(x.unit_price,x.currency)" in app
+    tariffs = (ROOT / "frontend/src/settings_tariffs.tsx").read_text(encoding="utf-8")
+    assert "formatMoney(t.amount, t.currency)" in tariffs and "formatMoney(x.unit_price,x.currency)" in app
 
 
 def test_sidebar_collapse_is_an_icon_button_with_rail_overlay_and_pin():
@@ -164,3 +165,17 @@ def test_class_state_and_rename_use_separate_capabilities():
     assert "pas par un renommage" in upd  # a direct API call with enabled cannot reopen a class
     chg = router[router.index("def change_class_status("):]
     assert "_need(actor,'settings.classes.activate')" in chg.split("\n@router.")[0] and "SCHOOL_CLASS_STATUS_CHANGED" in chg
+
+
+def test_tariff_rules_copy_the_desktop_resolution():
+    repo = (ROOT / "backend/src/edusync/adapters/postgres_settings.py").read_text(encoding="utf-8")
+    assert 'TARIFF_PRIORITY = {"CLASS": 600, "ACADEMIC_CLASS": 500, "OPTION_GROUP": 350, "SECTION": 200, "SCHOOL": 100}' in repo
+    assert 'TARIFF_GROUPS = {"GENERAL": "Humanités générales", "TECHNICAL": "Humanités techniques", "OTHER": "Autre groupe"}' in repo
+    assert "Un tarif actif doit avoir un montant" in repo and "La date d'effet doit appartenir à l'année scolaire" in repo
+    assert "'PENDING_OFFICIAL' if m['status']=='ACTIVE' else m['status']" in repo  # copied year: amounts to confirm
+    sql = (ROOT / "backend/migrations/0060_tariff_rules_desktop_parity.sql").read_text(encoding="utf-8")
+    assert "DROP INDEX IF EXISTS uq_tariffs_active_exact_scope" in sql and "uq_tariffs_rule" in sql
+    router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
+    put = router[router.index("def put_tariff_rule("):router.index("def resolve_tariff(")]
+    assert "_need(actor,'settings.tariffs.manage')" in put and "_need(actor,'settings.tariff_groups.manage')" in put
+    assert "_need(actor,'settings.billing_months.manage')" in router and "_need(actor,'settings.option_tariff_group.manage')" in router

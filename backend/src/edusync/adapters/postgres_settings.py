@@ -226,52 +226,168 @@ class PostgresSettingsRepository:
                  "periodicity":periodicity,"currency":currency,"regulatory":regulatory}).first()
         return dict(_m(r))
 
+    # ---------- tariff rules (Desktop parity, lot L1) ----------
+    TARIFF_GROUPS = {"GENERAL": "Humanités générales", "TECHNICAL": "Humanités techniques", "OTHER": "Autre groupe"}
+    # Desktop resolve_tariff_for_class priorities.
+    TARIFF_PRIORITY = {"CLASS": 600, "ACADEMIC_CLASS": 500, "OPTION_GROUP": 350, "SECTION": 200, "SCHOOL": 100}
+    TARIFF_COLUMNS = ("id,academic_year_id,fee_type_id,class_id,section_id,option_id,scope_type,scope_ref,effective_from,status,"
+                      "source_reference,currency,amount,billing_months,enabled,version")
+
+    @staticmethod
+    def _tariff_out(row) -> dict[str,Any]:
+        x = dict(_m(row)); x['amount'] = None if x.get('amount') is None else str(x['amount']); return x
+
     def list_tariffs(self, school_id: UUID, year_id: UUID|None=None) -> list[dict[str,Any]]:
         rows=self.connection.execute(text("""
-            SELECT t.id,t.academic_year_id,t.fee_type_id,t.class_id,t.section_id,t.option_id,t.currency,t.amount,
-                   t.billing_months,t.enabled,t.version,f.code AS fee_code,f.label AS fee_label,
-                   c.label AS class_label,s.label AS section_label
+            SELECT t.id,t.academic_year_id,t.fee_type_id,t.class_id,t.section_id,t.option_id,t.scope_type,t.scope_ref,
+                   t.effective_from,t.status,t.source_reference,t.currency,t.amount,t.billing_months,t.enabled,t.version,
+                   f.code AS fee_code,f.label AS fee_label,f.periodicity AS fee_periodicity,
+                   c.label AS class_label,s.label AS section_label,
+                   CASE t.scope_type WHEN 'SCHOOL' THEN 'Toute l''école'
+                        WHEN 'SECTION' THEN s.label
+                        WHEN 'ACADEMIC_CLASS' THEN t.scope_ref
+                        WHEN 'OPTION_GROUP' THEN CASE t.scope_ref WHEN 'GENERAL' THEN 'Humanités générales'
+                             WHEN 'TECHNICAL' THEN 'Humanités techniques' ELSE 'Autre groupe' END
+                        ELSE c.label END AS scope_label
               FROM tariffs t JOIN fee_types f ON f.id=t.fee_type_id
               LEFT JOIN school_classes c ON c.id=t.class_id LEFT JOIN school_sections s ON s.id=t.section_id
              WHERE t.school_id=:sid AND (CAST(:year AS uuid) IS NULL OR t.academic_year_id=:year)
-             ORDER BY f.label,coalesce(c.label,s.label)
+             ORDER BY f.label,CASE t.scope_type WHEN 'CLASS' THEN 1 WHEN 'ACADEMIC_CLASS' THEN 2 WHEN 'OPTION_GROUP' THEN 3
+                      WHEN 'SECTION' THEN 4 ELSE 5 END,t.effective_from DESC
         """),{"sid":school_id,"year":year_id}).all()
-        out=[]
-        for r in rows:
-            x=dict(_m(r)); x['amount']=str(x['amount']); out.append(x)
-        return out
+        return [self._tariff_out(r) for r in rows]
+
+    def _editable_year(self, school_id: UUID, year_id: UUID) -> dict[str,Any]:
+        row=self.connection.execute(text("SELECT id,code,label,status,start_date,end_date FROM academic_years WHERE id=:id AND school_id=:sid"),
+                                    {"id":year_id,"sid":school_id}).first()
+        if row is None: raise ValueError("Année scolaire incompatible avec cette école")
+        y=dict(_m(row))
+        if y['status'] in ('CLOSED','ARCHIVED'): raise ValueError(f"L'année {y['label']} est en lecture seule ({y['status']})")
+        return y
+
+    def upsert_tariff_rule(self, school_id: UUID, *, academic_year_id:UUID, fee_type_id:UUID, scope_type:str, scope_ref:str|None,
+                           amount:Decimal|None, currency:str, status:str='ACTIVE', effective_from:date|None=None,
+                           source_reference:str|None=None) -> tuple[dict[str,Any], dict[str,Any]|None]:
+        """Desktop upsert_tariff_rule / save_tariff_group_rule: one rule per (fee, target, effective date); same key = update.
+        Returns (rule, previous rule or None)."""
+        scope_type=scope_type.strip().upper(); currency=currency.strip().upper(); status=status.strip().upper()
+        if scope_type not in self.TARIFF_PRIORITY: raise ValueError("Portée tarifaire invalide")
+        if currency not in ('CDF','USD'): raise ValueError("Devise invalide")
+        if status not in ('ACTIVE','PENDING_OFFICIAL','INACTIVE'): raise ValueError("Statut tarifaire invalide")
+        if status=='ACTIVE' and amount is None: raise ValueError("Un tarif actif doit avoir un montant")
+        if amount is not None and amount < 0: raise ValueError("Le montant ne peut pas être négatif")
+        year=self._editable_year(school_id,academic_year_id)
+        if self.connection.execute(text("SELECT 1 FROM fee_types WHERE id=:id AND school_id=:sid"),{"id":fee_type_id,"sid":school_id}).first() is None:
+            raise ValueError("Type de frais introuvable")
+        ref=(scope_ref or "").strip()
+        class_id=section_id=None
+        if scope_type=='SCHOOL':
+            ref='*'
+        elif not ref:
+            raise ValueError("La portée sélectionnée doit préciser sa cible")
+        elif scope_type=='SECTION':
+            if self.connection.execute(text("SELECT 1 FROM school_sections WHERE id=CAST(:id AS uuid) AND school_id=:sid"),{"id":ref,"sid":school_id}).first() is None:
+                raise ValueError("Section incompatible avec cette école")
+            section_id=UUID(ref)
+        elif scope_type=='CLASS':
+            row=self.connection.execute(text("""SELECT section_id FROM school_classes WHERE id=CAST(:id AS uuid) AND school_id=:sid
+                AND academic_year_id=:year AND status<>'ARCHIVED'"""),{"id":ref,"sid":school_id,"year":academic_year_id}).first()
+            if row is None: raise ValueError("Classe incompatible avec cette école ou cette année")
+            class_id=UUID(ref); section_id=_m(row)['section_id']
+        elif scope_type=='ACADEMIC_CLASS':
+            ref=ref.upper()
+            if self.connection.execute(text("""SELECT 1 FROM school_classes WHERE school_id=:sid AND academic_year_id=:year
+                AND upper(reference_code)=:ref"""),{"sid":school_id,"year":academic_year_id,"ref":ref}).first() is None:
+                raise ValueError("Aucune classe ouverte de ce niveau cette année")
+        elif scope_type=='OPTION_GROUP':
+            ref=ref.upper()
+            if ref not in self.TARIFF_GROUPS: raise ValueError("Groupe tarifaire invalide")
+        eff=effective_from or year['start_date']
+        if not (year['start_date'] <= eff <= year['end_date']): raise ValueError("La date d'effet doit appartenir à l'année scolaire")
+        old=self.connection.execute(text(f"""SELECT {self.TARIFF_COLUMNS} FROM tariffs WHERE school_id=:sid AND academic_year_id=:year
+            AND fee_type_id=:fee AND scope_type=:scope AND scope_ref=:ref AND effective_from=:eff AND enabled FOR UPDATE"""),
+            {"sid":school_id,"year":academic_year_id,"fee":fee_type_id,"scope":scope_type,"ref":ref,"eff":eff}).first()
+        params={"sid":school_id,"year":academic_year_id,"fee":fee_type_id,"scope":scope_type,"ref":ref,"eff":eff,"amount":amount,
+                "currency":currency,"status":status,"source":(source_reference or "").strip() or None,"class":class_id,"section":section_id}
+        if old is not None:
+            row=self.connection.execute(text(f"""UPDATE tariffs SET amount=:amount,currency=:currency,status=:status,source_reference=:source
+                WHERE id=:id RETURNING {self.TARIFF_COLUMNS}"""),{**params,"id":_m(old)['id']}).first()
+            return self._tariff_out(row), self._tariff_out(old)
+        row=self.connection.execute(text(f"""INSERT INTO tariffs(id,school_id,academic_year_id,fee_type_id,class_id,section_id,scope_type,scope_ref,
+                effective_from,status,source_reference,currency,amount)
+            VALUES (:id,:sid,:year,:fee,:class,:section,:scope,:ref,:eff,:status,:source,:currency,:amount) RETURNING {self.TARIFF_COLUMNS}"""),
+            {**params,"id":uuid4()}).first()
+        return self._tariff_out(row), None
 
     def create_tariff(self, school_id: UUID, *, academic_year_id:UUID,fee_type_id:UUID,currency:str,amount:Decimal,
                       class_id:UUID|None=None,section_id:UUID|None=None,option_id:UUID|None=None,
                       billing_months:list[str]|None=None) -> dict[str,Any]:
-        if amount <= 0: raise ValueError("Le tarif doit être strictement positif; une gratuité est une décision financière, pas un tarif zéro")
-        currency=currency.upper()
-        if currency not in {'CDF','USD'}: raise ValueError("Devise invalide")
+        """Former Web route kept for compatibility: a class or section tariff from the start of the year."""
+        if option_id is not None and class_id is None:
+            raise ValueError("Un tarif ne vise pas une option : utilisez le groupe d'Humanités de l'option (Desktop)")
         if class_id is None and section_id is None: raise ValueError("Le tarif doit viser au moins une classe ou une section")
-        year_ok=self.connection.execute(text("SELECT 1 FROM academic_years WHERE id=:id AND school_id=:sid"),{"id":academic_year_id,"sid":school_id}).first()
-        fee_ok=self.connection.execute(text("SELECT 1 FROM fee_types WHERE id=:id AND school_id=:sid AND enabled"),{"id":fee_type_id,"sid":school_id}).first()
-        if year_ok is None or fee_ok is None: raise ValueError("Année ou type de frais incompatible avec cette école")
-        if section_id is not None:
-            section_ok=self.connection.execute(text("SELECT 1 FROM school_sections WHERE id=:id AND school_id=:sid AND enabled"),{"id":section_id,"sid":school_id}).first()
-            if section_ok is None: raise ValueError("Section incompatible avec cette école")
-        if class_id is not None:
-            class_ok=self.connection.execute(text("""SELECT section_id,option_id FROM school_classes
-                WHERE id=:id AND school_id=:sid AND academic_year_id=:year AND enabled"""),{"id":class_id,"sid":school_id,"year":academic_year_id}).first()
-            if class_ok is None: raise ValueError("Classe incompatible avec cette école ou cette année")
-            cm=_m(class_ok)
-            if section_id is not None and cm['section_id'] != section_id: raise ValueError("La classe ne correspond pas à la section du tarif")
-            if option_id is not None and cm['option_id'] not in {None,option_id}: raise ValueError("La classe ne correspond pas à l'option du tarif")
-        if option_id is not None:
-            option_ok=self.connection.execute(text("SELECT section_id FROM school_options WHERE id=:id AND school_id=:sid AND enabled"),{"id":option_id,"sid":school_id}).first()
-            if option_ok is None: raise ValueError("Option incompatible avec cette école")
-            if section_id is not None and _m(option_ok)['section_id'] != section_id: raise ValueError("L'option ne correspond pas à la section du tarif")
-        r=self.connection.execute(text("""
-            INSERT INTO tariffs(id,school_id,academic_year_id,fee_type_id,class_id,section_id,option_id,currency,amount,billing_months)
-            VALUES (:id,:sid,:year,:fee,:class,:section,:option,:currency,:amount,CAST(:months AS jsonb))
-            RETURNING id,academic_year_id,fee_type_id,class_id,section_id,option_id,currency,amount,billing_months,enabled,version
-        """),{"id":uuid4(),"sid":school_id,"year":academic_year_id,"fee":fee_type_id,"class":class_id,"section":section_id,
-                 "option":option_id,"currency":currency,"amount":amount,"months":json.dumps(billing_months or [])}).first()
-        x=dict(_m(r)); x['amount']=str(x['amount']); return x
+        rule,_old=self.upsert_tariff_rule(school_id,academic_year_id=academic_year_id,fee_type_id=fee_type_id,
+                                          scope_type='CLASS' if class_id else 'SECTION',scope_ref=str(class_id or section_id),
+                                          amount=amount,currency=currency)
+        return rule
+
+    def resolve_tariff(self, school_id: UUID, *, class_id:UUID, fee_type_id:UUID, as_of:date|None=None) -> dict[str,Any]|None:
+        """Desktop resolve_tariff_for_class: most precise rule effective at `as_of` (default: end of the class year).
+        A rule that is not ACTIVE or has no amount is still returned when it is the most precise one: the caller decides
+        (the Desktop skips materialisation of a pending official rule instead of falling back to a less precise one)."""
+        cls=self.connection.execute(text("""SELECT c.id,c.academic_year_id,c.section_id,c.reference_code,o.tariff_group_code,y.end_date
+              FROM school_classes c JOIN academic_years y ON y.id=c.academic_year_id LEFT JOIN school_options o ON o.id=c.option_id
+             WHERE c.id=:id AND c.school_id=:sid"""),{"id":class_id,"sid":school_id}).first()
+        if cls is None: raise LookupError("Classe introuvable")
+        c=dict(_m(cls)); when=as_of or c['end_date']
+        targets=[("CLASS",str(c['id'])),("ACADEMIC_CLASS",(c['reference_code'] or '').upper() or None),
+                 ("OPTION_GROUP",c['tariff_group_code']),("SECTION",str(c['section_id'])),("SCHOOL","*")]
+        best=None
+        for scope,ref in targets:
+            if ref is None: continue
+            row=self.connection.execute(text(f"""SELECT {self.TARIFF_COLUMNS} FROM tariffs WHERE school_id=:sid AND academic_year_id=:year
+                AND fee_type_id=:fee AND scope_type=:scope AND scope_ref=:ref AND enabled AND effective_from<=:when
+                ORDER BY effective_from DESC LIMIT 1"""),
+                {"sid":school_id,"year":c['academic_year_id'],"fee":fee_type_id,"scope":scope,"ref":ref,"when":when}).first()
+            if row is not None:
+                item=self._tariff_out(row); item['priority']=self.TARIFF_PRIORITY[scope]
+                if best is None or item['priority']>best['priority']: best=item
+        return best
+
+    # ---------- monthly billing policy (Desktop monthly_billing_policy) ----------
+    MONTHS = ("09","10","11","12","01","02","03","04","05","06","07","08")
+    DEFAULT_BILLING_MONTHS = ["09","10","11","12","01","02","03","04","05","06"]
+
+    def get_billing_policy(self, school_id: UUID) -> dict[str,Any]:
+        row=self.connection.execute(text("SELECT billing_months,month_due_at_enrollment,version FROM school_billing_policy WHERE school_id=:sid"),
+                                    {"sid":school_id}).first()
+        if row is None: return {"billing_months":list(self.DEFAULT_BILLING_MONTHS),"month_due_at_enrollment":None,"version":None}
+        return dict(_m(row))
+
+    def put_billing_policy(self, school_id: UUID, *, billing_months:list[str], month_due_at_enrollment:str|None,
+                           expected_version:int|None) -> tuple[dict[str,Any],dict[str,Any]]:
+        months=[]
+        for m in billing_months:
+            mm=str(m).zfill(2)
+            if mm not in self.MONTHS: raise ValueError("Mois de facturation invalide")
+            if mm not in months: months.append(mm)
+        if not months: raise ValueError("Sélectionnez au moins un mois facturé")
+        months=[m for m in self.MONTHS if m in months]  # school-year order
+        due=str(month_due_at_enrollment).zfill(2) if month_due_at_enrollment else None
+        if due and due not in months: raise ValueError("Le mois exigé à l'inscription doit faire partie des mois facturés")
+        old=self.get_billing_policy(school_id)
+        if old['version'] is None:
+            row=self.connection.execute(text("""INSERT INTO school_billing_policy(school_id,billing_months,month_due_at_enrollment)
+                VALUES (:sid,CAST(:m AS jsonb),:due) RETURNING billing_months,month_due_at_enrollment,version"""),
+                {"sid":school_id,"m":json.dumps(months),"due":due}).first()
+        else:
+            if expected_version is None or int(old['version'])!=expected_version:
+                raise OptimisticConcurrencyError("Mois de facturation modifiés par une autre session; rechargez")
+            row=self.connection.execute(text("""UPDATE school_billing_policy SET billing_months=CAST(:m AS jsonb),month_due_at_enrollment=:due
+                WHERE school_id=:sid AND version=:v RETURNING billing_months,month_due_at_enrollment,version"""),
+                {"sid":school_id,"m":json.dumps(months),"due":due,"v":expected_version}).first()
+            if row is None: raise OptimisticConcurrencyError("Mois de facturation modifiés par une autre session")
+        return dict(_m(row)), old
 
     CLASS_COLUMNS = "id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,status,archived_at,version"
 
@@ -380,20 +496,35 @@ class PostgresSettingsRepository:
             "SELECT id,code FROM school_classes WHERE school_id=:sid AND academic_year_id=:target"),{"sid":school_id,"target":target_year_id}).all()}
         source_class_codes={_m(r)['id']:_m(r)['code'] for r in self.connection.execute(text(
             "SELECT id,code FROM school_classes WHERE school_id=:sid AND academic_year_id=:source"),{"sid":school_id,"source":source_year_id}).all()}
-        tariffs=self.connection.execute(text("""SELECT fee_type_id,class_id,section_id,option_id,currency,amount,billing_months,enabled
-            FROM tariffs WHERE school_id=:sid AND academic_year_id=:source ORDER BY id"""),{"sid":school_id,"source":source_year_id}).all()
+        # Desktop prepare_year_from_previous: rules are copied with their target and shifted date; an ACTIVE amount becomes
+        # PENDING_OFFICIAL in the new year (the school confirms the new scale), other statuses are kept.
+        years={_m(r)['id']:_m(r) for r in self.connection.execute(text("SELECT id,start_date,end_date FROM academic_years WHERE school_id=:sid AND id IN (:s,:t)"),
+                                                                  {"sid":school_id,"s":source_year_id,"t":target_year_id}).all()}
+        target_year=years[target_year_id]
+        def shift(value):
+            if value is None: return target_year['start_date']
+            start=target_year['start_date']; yr=start.year if value.month>=start.month else start.year+1
+            try: moved=value.replace(year=yr)
+            except ValueError: moved=value.replace(year=yr,day=28)
+            return min(max(moved,target_year['start_date']),target_year['end_date'])
+        tariffs=self.connection.execute(text("""SELECT fee_type_id,class_id,section_id,scope_type,scope_ref,effective_from,status,source_reference,
+                   currency,amount FROM tariffs WHERE school_id=:sid AND academic_year_id=:source AND enabled ORDER BY id"""),
+                   {"sid":school_id,"source":source_year_id}).all()
         tariff_created=0
         for row in tariffs:
-            m=_m(row);target_class=None
-            if m['class_id'] is not None:
+            m=_m(row);target_class=None;ref=m['scope_ref']
+            if m['scope_type']=='CLASS':
                 code=source_class_codes.get(m['class_id']);target_class=target_by_code.get(code)
                 if target_class is None: continue
-            result=self.connection.execute(text("""INSERT INTO tariffs(id,school_id,academic_year_id,fee_type_id,class_id,section_id,option_id,currency,amount,billing_months,enabled)
-                VALUES(:id,:sid,:target,:fee,:class,:section,:option,:currency,:amount,CAST(:months AS jsonb),:enabled)
+                ref=str(target_class)
+            result=self.connection.execute(text("""INSERT INTO tariffs(id,school_id,academic_year_id,fee_type_id,class_id,section_id,scope_type,scope_ref,
+                    effective_from,status,source_reference,currency,amount)
+                VALUES(:id,:sid,:target,:fee,:class,:section,:scope,:ref,:eff,:status,:source,:currency,:amount)
                 ON CONFLICT DO NOTHING RETURNING id"""),
-                {"id":uuid4(),"sid":school_id,"target":target_year_id,"fee":m['fee_type_id'],"class":target_class,
-                 "section":m['section_id'],"option":m['option_id'],"currency":m['currency'],"amount":m['amount'],
-                 "months":json.dumps(m['billing_months']),"enabled":m['enabled']}).first()
+                {"id":uuid4(),"sid":school_id,"target":target_year_id,"fee":m['fee_type_id'],"class":target_class,"section":m['section_id'],
+                 "scope":m['scope_type'],"ref":ref,"eff":shift(m['effective_from']),
+                 "status":'PENDING_OFFICIAL' if m['status']=='ACTIVE' else m['status'],"source":m['source_reference'],
+                 "currency":m['currency'],"amount":m['amount']}).first()
             if result is not None: tariff_created += 1
         return {"classes_created":class_created,"tariffs_created":tariff_created}
 

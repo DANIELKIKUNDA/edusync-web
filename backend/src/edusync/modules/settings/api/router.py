@@ -277,7 +277,7 @@ class OptionPut(BaseModel):
     section_id:UUID
     code:str=Field(min_length=1,max_length=48)
     label:str=Field(min_length=1,max_length=120)
-    tariff_group_code:str|None=Field(default=None,max_length=48)
+    tariff_group_code:Literal['GENERAL','TECHNICAL','OTHER']|None=None
     enabled:bool=True
     expected_version:int|None=Field(default=None,ge=1)
 
@@ -293,8 +293,16 @@ def put_option(code:str,body:OptionPut,response:Response,idempotency_key:str|Non
     if code.strip().upper()!=body.code.strip().upper(): raise HTTPException(status_code=400,detail='Le code URL et le code du corps diffèrent')
     try:
         def action(conn,request_actor):
-            repo=PostgresSettingsRepository(conn);out=repo.upsert_option(actor.school_id,**body.model_dump())
-            payload=_jsonable(out);_audit_and_outbox(conn,request_actor,action='SCHOOL_OPTION_UPSERTED',entity_type='SchoolOption',entity_id=UUID(str(out['id'])),old=None,new=payload);return 200,payload
+            repo=PostgresSettingsRepository(conn);data=body.model_dump()
+            old=conn.execute(text("SELECT section_id,code,label,tariff_group_code,enabled,version FROM school_options WHERE school_id=:s AND code=:c"),
+                             {"s":actor.school_id,"c":body.code.strip().upper()}).first()
+            old=None if old is None else _jsonable(dict(old._mapping))
+            # Desktop set_option_tariff_group: the Humanities tariff group is its own action and capability; an update that
+            # does not send it keeps the current group.
+            if 'tariff_group_code' not in body.model_fields_set: data['tariff_group_code']=(old or {}).get('tariff_group_code')
+            elif data['tariff_group_code']!=(old or {}).get('tariff_group_code'): _need(actor,'settings.option_tariff_group.manage')
+            out=repo.upsert_option(actor.school_id,**data)
+            payload=_jsonable(out);_audit_and_outbox(conn,request_actor,action='SCHOOL_OPTION_UPSERTED',entity_type='SchoolOption',entity_id=UUID(str(out['id'])),old=old,new=payload);return 200,payload
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_UPSERT_OPTION',payload=body.model_dump(mode='json'),action=action);return result.body
     except Exception as exc:_error(exc)
 
@@ -451,6 +459,63 @@ def update_tariff(tariff_id:UUID,body:TariffUpdate,response:Response,if_match:st
             out=_jsonable(PostgresSettingsRepository(conn).update_tariff(actor.school_id,tariff_id,expected_version=expected,**body.model_dump()))
             _audit_and_outbox(conn,request_actor,action='TARIFF_UPDATED',entity_type='Tariff',entity_id=tariff_id,old=None,new=out);return 200,out
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_UPDATE_TARIFF',payload={**body.model_dump(mode='json'),'tariff_id':str(tariff_id),'expected':expected},action=action);return result.body
+    except Exception as exc:_error(exc)
+
+class TariffRulePut(BaseModel):
+    academic_year_id:UUID
+    fee_type_id:UUID
+    scope_type:Literal['SCHOOL','SECTION','ACADEMIC_CLASS','OPTION_GROUP','CLASS']
+    scope_ref:str|None=Field(default=None,max_length=64)
+    amount:Decimal|None=Field(default=None,ge=0,max_digits=18,decimal_places=2)
+    currency:Literal['CDF','USD']='CDF'
+    status:Literal['ACTIVE','PENDING_OFFICIAL','INACTIVE']='ACTIVE'
+    effective_from:date|None=None
+    source_reference:str|None=Field(default=None,max_length=240)
+
+@router.put('/tariff-rules')
+def put_tariff_rule(body:TariffRulePut,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop upsert_tariff_rule / save_tariff_group_rule: one rule per fee, target and effective date (same key = update)."""
+    _need(actor,'settings.tariffs.manage')
+    if body.scope_type=='OPTION_GROUP': _need(actor,'settings.tariff_groups.manage')
+    key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out,old=PostgresSettingsRepository(conn).upsert_tariff_rule(actor.school_id,**body.model_dump())
+            out=_jsonable(out)
+            _audit_and_outbox(conn,request_actor,action='TARIFF_RULE_UPSERTED',entity_type='Tariff',entity_id=UUID(out['id']),old=_jsonable(old) if old else None,new=out)
+            return (200 if old else 201),out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_TARIFF_RULE',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
+    except Exception as exc:_error(exc)
+
+@router.get('/tariffs/resolve')
+def resolve_tariff(class_id:UUID,fee_type_id:UUID,as_of:date|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """The rule that applies to a class at a date (Desktop resolve_tariff_for_class), or null."""
+    _need(actor,'settings.tariffs.read')
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            return _jsonable(PostgresSettingsRepository(conn).resolve_tariff(actor.school_id,class_id=class_id,fee_type_id=fee_type_id,as_of=as_of))
+    except Exception as exc:_error(exc)
+
+class BillingPolicyPut(BaseModel):
+    billing_months:list[str]=Field(min_length=1,max_length=12)
+    month_due_at_enrollment:str|None=Field(default=None,max_length=2)
+    expected_version:int|None=Field(default=None,ge=1)
+
+@router.get('/billing-policy')
+def billing_policy(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.tariffs.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresSettingsRepository(conn).get_billing_policy(actor.school_id))
+
+@router.put('/billing-policy')
+def put_billing_policy(body:BillingPolicyPut,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop save_monthly_billing_policy: billed months and the month possibly required at enrollment."""
+    _need(actor,'settings.billing_months.manage');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out,old=PostgresSettingsRepository(conn).put_billing_policy(actor.school_id,**body.model_dump())
+            out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='BILLING_MONTHS_UPDATED',entity_type='SchoolBillingPolicy',entity_id=actor.school_id,old=_jsonable(old),new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_BILLING_POLICY',payload=body.model_dump(mode='json'),action=action);return result.body
     except Exception as exc:_error(exc)
 
 class PolicyPut(BaseModel):

@@ -155,8 +155,9 @@ if "id" not in fee:
     fr = must(ac, "POST", "settings/fee-types", (200, 201), json={"code": code, "label": "Frais décimal recette", "periodicity": "OPTIONAL", "default_currency": "USD"})
     fee["id"] = fr.json()["id"]
     save()
-for currency, amount in (("USD", "12345.67"), ("CDF", "1500000.05")):
-    tr = call(ac, "POST", "settings/tariffs", json={"academic_year_id": A["year_id"], "fee_type_id": fee["id"], "class_id": A["class_id"], "currency": currency, "amount": amount})
+# One tariff rule per target and date (Desktop parity, lot L1): the USD amount targets the class, the CDF one the section.
+for currency, amount, target in (("USD", "12345.67", {"class_id": A["class_id"]}), ("CDF", "1500000.05", {"section_id": A["section_id"]})):
+    tr = call(ac, "POST", "settings/tariffs", json={"academic_year_id": A["year_id"], "fee_type_id": fee["id"], **target, "currency": currency, "amount": amount})
     got = tr.json().get("amount") if tr.status_code in (200, 201) else None
     if tr.status_code == 409:
         got = next((t["amount"] for t in ac.get("settings/tariffs").json() if t["fee_type_id"] == fee["id"] and t["currency"] == currency), None)

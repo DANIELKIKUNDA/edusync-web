@@ -37,8 +37,12 @@ def test_settings_api_exposes_explicit_year_lifecycle_and_options():
 
 
 def test_tariff_repository_checks_tenant_consistency_before_insert():
-    for text in ('Année ou type de frais incompatible avec cette école','Classe incompatible avec cette école ou cette année','Option incompatible avec cette école'):
-        assert text in REPO
+    # Parity lot L1 2026-10 (justified adaptation): tariff rules follow the Desktop golden master (school / section /
+    # academic class / Humanities group / class targets, no option target). Same intent: every target is checked to
+    # belong to the school and year before any write.
+    for text in ('Année scolaire incompatible avec cette école','Type de frais introuvable','Section incompatible avec cette école',
+                 'Classe incompatible avec cette école ou cette année','Aucune classe ouverte de ce niveau cette année','Groupe tarifaire invalide'):
+        assert text in REPO, text
 
 
 def test_settings_router_is_mounted():

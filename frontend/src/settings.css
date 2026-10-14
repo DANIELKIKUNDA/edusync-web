@@ -99,3 +99,15 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 }
 .classActions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .classActions .dangerText{color:#b91c1c!important}
+.tariffGroup{margin-top:12px}.tariffGroup h4{margin:0 0 6px;font-size:13px;color:#475569}
+.moneyList li.pending{background:#fffbeb;border-color:#fde68a}
+.tariffAmount{display:grid;justify-items:end;gap:2px;text-align:right}.tariffAmount small{color:#92400e;font-size:11.5px}
+.ruleForm{margin-top:12px}
+.billingMonths{border:1px solid #e5e9f1;border-radius:12px;padding:12px;margin:14px 0 0;display:grid;gap:10px}
+.billingMonths legend{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;padding:0 6px}
+.monthGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.monthGrid .checkField{display:flex;align-items:center;gap:6px;min-height:36px;font-size:13.5px}
+.optionItem{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.optionItem select{min-height:32px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;padding:0 6px;max-width:190px}
+@media(max-width:720px){.monthGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.monthGrid .checkField{min-height:44px}.optionItem{width:100%}.optionItem select{min-height:40px;flex:1;max-width:none}}
+.monthGrid .checkField{grid-column:auto!important;width:auto!important}
