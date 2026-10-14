@@ -20,6 +20,9 @@ class FakeRepo:
     def link_staff_child(self,*a,**kw): pass
     def add_benefit(self,obj): self.benefits.append(obj); return {'id':obj.id}
     def count_family_enrolled_children(self,*a): return len(self.students)
+    # Parity lot L3 (benefit policies by school year): no policy configured in these scenarios.
+    def benefit_policy(self,*a): return None
+    def count_benefits(self,*a,**k): return 0
 
 def service(repo, scopes=(("SCHOOL",None),)):
     return SchoolingService(repo,school_id=repo.school,actor_user_id=uuid4(),permitted_scopes=scopes)

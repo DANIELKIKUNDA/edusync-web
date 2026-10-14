@@ -28,6 +28,7 @@ const PATHS: Record<string, React.ReactNode> = {
   chevronLeft: <><path d="m15 18-6-6 6-6"/></>,
   panelLeft: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></>,
   pin: <><path d="M12 17v5"/><path d="M9 4h6"/><path d="M10 4v6l-3 4h10l-3-4V4"/></>,
+  star: <><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></>,
   chevronRight: <><path d="m9 18 6-6-6-6"/></>,
   chevronDown: <><path d="m6 9 6 6 6-6"/></>,
   logout: <><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l-5-5 5-5M5 12h12"/></>,

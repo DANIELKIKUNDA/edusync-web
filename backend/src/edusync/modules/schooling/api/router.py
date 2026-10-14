@@ -185,6 +185,27 @@ def family_profile(family_id:UUID,actor:ActorContext=Depends(require_school_acto
         if not item:raise HTTPException(status_code=404,detail='Foyer introuvable')
         return _jsonable(item)
 
+@router.get('/enrollment-benefits')
+def enrollment_benefits(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop preview_family_enrollment: which benefit policies are enabled this year (rate, threshold, limits) and, when
+    the staff-child policy is on, the active staff members a child can be linked to. The beneficiary stays a manual choice."""
+    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):
+        raise HTTPException(status_code=403,detail="Permission refusée")
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        repo=PostgresSchoolingRepository(conn);year=repo.active_year(actor.school_id)
+        if not year: return {"large_family":None,"staff_child":None,"staff":[]}
+        def view(p):
+            if not p: return None
+            free,most=int(p.get('free_beneficiaries') or 0),int(p.get('max_beneficiaries') or 0)
+            # Desktop: large family limit = free or max beneficiaries; staff child limit = max or free beneficiaries.
+            limit=(free or most) if p['benefit_type']=='LARGE_FAMILY' else (most or free)
+            return {"min_children":int(p.get('min_children') or 0),"beneficiary_limit":limit,
+                    "discount_percent":"100" if free>0 else str(p.get('discount_percent') or 0),"fee_code":p.get('applies_to_fee_code') or 'SCOLARITE'}
+        large=repo.benefit_policy(actor.school_id,year['id'],'LARGE_FAMILY');staff=repo.benefit_policy(actor.school_id,year['id'],'STAFF_CHILD')
+        members=[] if not staff else [dict(r._mapping) for r in conn.execute(text("""SELECT id,trim(concat_ws(' ',last_name,middle_name,first_name)) AS full_name,employee_no
+            FROM staff_members WHERE school_id=:s AND status='ACTIVE' ORDER BY last_name,first_name"""),{"s":actor.school_id}).all()]
+        return _jsonable({"large_family":view(large),"staff_child":view(staff),"staff":members})
+
 @router.post('/enrollments/family',status_code=201)
 def enroll_family(body:FamilyEnrollmentBody,response:Response,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     cap='enrollments.reenroll' if any(c.student_id for c in body.children) else 'enrollments.create';_need(actor,cap);key=_key(idempotency_key)

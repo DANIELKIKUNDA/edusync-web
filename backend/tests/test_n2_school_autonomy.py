@@ -193,3 +193,18 @@ def test_fee_schedules_and_due_charges_copy_the_desktop():
     assert "La politique de transfert financier doit être décidée explicitement avant ce cas." in sch
     router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
     assert "_need(actor,'settings.tariffs.apply')" in router
+
+
+def test_benefit_policies_copy_the_desktop():
+    uc = (ROOT / "backend/src/edusync/modules/schooling/application/use_cases.py").read_text(encoding="utf-8")
+    for message in ("Un même élève ne peut pas cumuler deux réductions financières sans politique explicite",
+                    "La politique Famille nombreuse n'est pas activée", "La politique Enfants du personnel n'est pas activée",
+                    "Cette famille ne peut avoir que", "Cet agent ne peut avoir que"):
+        assert message in uc, message
+    assert 'return Decimal("100")' in uc and ">= 5" not in uc  # free = 100 %; no hard-coded threshold any more
+    fees = (ROOT / "backend/src/edusync/adapters/postgres_fee_schedules.py").read_text(encoding="utf-8")
+    assert 'fee_code.startswith(f"{applies}_")' in fees and "ORDER BY kind LIMIT 1" in fees
+    router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
+    assert "_need(actor,'settings.benefits.manage')" in router
+    wizard = (ROOT / "frontend/src/schooling.tsx").read_text(encoding="utf-8")
+    assert "large_family_beneficiary" in wizard and "staff_beneficiary" in wizard and "enrollmentBenefits(token)" in wizard

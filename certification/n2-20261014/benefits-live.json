@@ -1,0 +1,107 @@
+[
+ {
+  "check": "Politique non activée : bénéficiaire Famille nombreuse refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Aperçu à l'inscription : aucune politique active",
+  "pass": true,
+  "detail": "{'large_family': None, 'staff_child': None, 'staff': []}"
+ },
+ {
+  "check": "Politique Famille nombreuse enregistrée (seuil 3, 1 gratuit, frais scolaires)",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Aperçu : famille nombreuse dès 3 enfants, 1 bénéficiaire, 100 %",
+  "pass": true,
+  "detail": "{'min_children': 3, 'beneficiary_limit': 1, 'discount_percent': '100', 'fee_code': 'SCOLARITE'}"
+ },
+ {
+  "check": "Seuil non atteint (2 enfants < 3) : refusé, rien n'est enregistré",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Deux bénéficiaires alors qu'1 seul est permis : refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Bénéficiaire : rate figé sur l'élève (100 %, frais scolaires)",
+  "pass": true,
+  "detail": "[('LARGE_FAMILY', Decimal('100.00'), 'SCOLARITE')]"
+ },
+ {
+  "check": "Bénéficiaire : 10 mensualités brutes 20 000, réduction 100 %, net 0",
+  "pass": true,
+  "detail": "[('SCOLARITE', Decimal('20000.00'), Decimal('100.00'), Decimal('20000.00'), Decimal('0.00')), ('SCOLARITE', Decimal('20000.00'), Decimal('100.00'), Decimal('20000.00'), Decimal('0.00'))]"
+ },
+ {
+  "check": "Bénéficiaire : l'inscription (autre frais) reste due en entier",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Frère non bénéficiaire : aucun rabais",
+  "pass": true,
+  "detail": "11"
+ },
+ {
+  "check": "Même foyer, 2e bénéficiaire la même année : refusé (plafond)",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Aperçu : enfants du personnel 50 %, agent proposé",
+  "pass": true,
+  "detail": "{'min_children': 0, 'beneficiary_limit': 1, 'discount_percent': '50.00', 'fee_code': 'SCOLARITE'}"
+ },
+ {
+  "check": "Cumul famille nombreuse + personnel sur le même élève : refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Enfant du personnel : mensualités à 50 % (net 10 000)",
+  "pass": true,
+  "detail": "[(Decimal('50.00'), Decimal('10000.00')), (Decimal('50.00'), Decimal('10000.00'))]"
+ },
+ {
+  "check": "Plafond par agent (1) : un 2e enfant bénéficiaire refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Bénéficiaire du personnel sans agent : refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Changement de politique : le taux de l'élève déjà choisi reste figé (50 %)",
+  "pass": true,
+  "detail": "[(Decimal('50.00'),)]"
+ },
+ {
+  "check": "Pourcentage hors 0–100 refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Sans droit « avantages » : réglage refusé (403)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Autre école : aucune politique de L3 visible",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Audit : chaque réglage de politique est tracé",
+  "pass": true,
+  "detail": "3"
+ }
+]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -61,6 +63,34 @@ class SchoolingService:
             raise ValueError("Un responsable est obligatoire selon la politique d'inscription de l'école")
         if policy.get("guardian_phone_required") and primary_guardian and not str(primary_guardian.get("phone") or "").strip():
             raise ValueError("Le téléphone du responsable est obligatoire selon la politique de l'école")
+
+        # Desktop benefit rules (app/db/schooling.py, enroll family): no cumulation, policy enabled, beneficiary limits.
+        large_selected = sum(1 for c in children if c.get("large_family_beneficiary"))
+        staff_selected: dict[str, int] = {}
+        for c in children:
+            if c.get("large_family_beneficiary") and c.get("staff_beneficiary"):
+                raise ValueError("Un même élève ne peut pas cumuler deux réductions financières sans politique explicite")
+            if c.get("staff_beneficiary"):
+                if not c.get("staff_member_id"):
+                    raise ValueError("Choisissez l’agent dont l’enfant est bénéficiaire")
+                staff_selected[str(c["staff_member_id"])] = staff_selected.get(str(c["staff_member_id"]), 0) + 1
+        large_policy = self.repo.benefit_policy(self.school_id, UUID(str(year["id"])), "LARGE_FAMILY")
+        staff_policy = self.repo.benefit_policy(self.school_id, UUID(str(year["id"])), "STAFF_CHILD") if staff_selected else None
+        if large_selected:
+            if large_policy is None:
+                raise ValueError("La politique Famille nombreuse n'est pas activée")
+            limit = int(large_policy.get("free_beneficiaries") or large_policy.get("max_beneficiaries") or 0)
+            existing_large = self.repo.count_benefits(self.school_id, UUID(str(year["id"])), "LARGE_FAMILY", family_id=family_id) if family_id else 0
+            if limit > 0 and existing_large + large_selected > limit:
+                raise ValueError(f"Cette famille ne peut avoir que {limit} bénéficiaire(s) Famille nombreuse pour cette année")
+        if staff_selected:
+            if staff_policy is None:
+                raise ValueError("La politique Enfants du personnel n'est pas activée")
+            limit = int(staff_policy.get("max_beneficiaries") or staff_policy.get("free_beneficiaries") or 0)
+            if limit > 0:
+                for staff, n in staff_selected.items():
+                    if self.repo.count_benefits(self.school_id, UUID(str(year["id"])), "STAFF_CHILD", staff_id=UUID(staff)) + n > limit:
+                        raise ValueError(f"Cet agent ne peut avoir que {limit} enfant(s) bénéficiaire(s) pour cette année")
 
         # Validate the whole batch before writing. This preserves Desktop all-or-nothing semantics.
         normalized: list[dict[str, Any]] = []
@@ -179,20 +209,26 @@ class SchoolingService:
                     self.repo.add_benefit(StudentBenefit(
                         school_id=self.school_id, student_id=student_id, academic_year_id=UUID(str(year["id"])),
                         kind=BenefitKind.STAFF_CHILD, source_reference=str(staff_id), selected_explicitly=True,
+                        configured_percent=_discount_from_policy(staff_policy),
+                        applies_to_fee_code=(staff_policy or {}).get("applies_to_fee_code") or "SCOLARITE",
                     ))
 
-        # Family-size eligibility is computed from validated enrollments; beneficiary remains explicit.
-        requested_large_family = sum(1 for item in normalized if bool(item.get("large_family_beneficiary")))
-        if requested_large_family > 1:
-            raise ValueError("Un seul bénéficiaire famille nombreuse peut être sélectionné pour le foyer et l’année")
-        eligible = self.repo.count_family_enrolled_children(self.school_id, family_id, UUID(str(year["id"]))) >= 5
+        # Desktop: family-size eligibility is computed from validated enrollments against the year's policy; the
+        # beneficiary remains explicit (manual) and keeps the policy rate.
+        # Desktop _update_large_family_eligibility: eligible when the year's policy is enabled and the threshold is reached.
+        eligible = False
+        if large_policy is not None:
+            minimum = int(large_policy.get("min_children") or 0)
+            eligible = self.repo.count_family_enrolled_children(self.school_id, family_id, UUID(str(year["id"]))) >= minimum
+            if large_selected and not eligible:
+                raise ValueError(f"Bénéficiaire famille nombreuse impossible : le foyer n’atteint pas le seuil de {minimum} enfant(s) inscrits")
         for item, sid in zip(normalized, student_ids):
             if item.get("large_family_beneficiary"):
-                if not eligible:
-                    raise ValueError("Bénéficiaire famille nombreuse impossible: le foyer n’atteint pas le seuil")
                 self.repo.add_benefit(StudentBenefit(
                     school_id=self.school_id, student_id=sid, academic_year_id=UUID(str(year["id"])),
                     kind=BenefitKind.LARGE_FAMILY, source_reference=str(family_id), selected_explicitly=True,
+                    configured_percent=_discount_from_policy(large_policy),
+                    applies_to_fee_code=(large_policy or {}).get("applies_to_fee_code") or "SCOLARITE",
                 ))
 
         return {
@@ -200,3 +236,12 @@ class SchoolingService:
             "enrollment_ids": [str(x) for x in enrollment_ids], "count": len(student_ids),
             "large_family_eligible": eligible,
         }
+
+
+def _discount_from_policy(policy: dict | None) -> Decimal:
+    """Desktop _discount_from_policy: free beneficiaries means 100 %, otherwise the configured percent."""
+    if not policy:
+        return Decimal("0")
+    if int(policy.get("free_beneficiaries") or 0) > 0:
+        return Decimal("100")
+    return Decimal(str(policy.get("discount_percent") or 0))

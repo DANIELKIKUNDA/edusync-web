@@ -518,6 +518,34 @@ def fee_schedules(year_id:UUID,actor:ActorContext=Depends(require_school_actor),
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return _jsonable(PostgresFeeScheduleRepository(conn).list_schedules(actor.school_id,year_id))
 
+class BenefitPolicyPut(BaseModel):
+    academic_year_id:UUID
+    enabled:bool=False
+    min_children:int=Field(default=0,ge=0,le=50)
+    max_beneficiaries:int=Field(default=0,ge=0,le=50)
+    discount_percent:Decimal=Field(default=Decimal('0'),ge=0,le=100,max_digits=5,decimal_places=2)
+    free_beneficiaries:int=Field(default=0,ge=0,le=50)
+    applies_to_fee_code:str|None=Field(default='SCOLARITE',max_length=48)
+    notes:str|None=Field(default=None,max_length=600)
+    expected_version:int|None=Field(default=None,ge=1)
+
+@router.get('/benefit-policies')
+def benefit_policies(year_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.benefits.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresSettingsRepository(conn).list_benefit_policies(actor.school_id,year_id))
+
+@router.put('/benefit-policies/{benefit_type}')
+def put_benefit_policy(benefit_type:Literal['LARGE_FAMILY','STAFF_CHILD','SOCIAL_CASE','BURSARY','CUSTOM'],body:BenefitPolicyPut,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop save_benefit_policy: one policy per school year and benefit type; the beneficiary stays a manual choice."""
+    _need(actor,'settings.benefits.manage');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out,old=PostgresSettingsRepository(conn).save_benefit_policy(actor.school_id,benefit_type=benefit_type,**body.model_dump())
+            out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='BENEFIT_POLICY_SAVED',entity_type='BenefitPolicy',entity_id=UUID(str(out['id'])),old=_jsonable(old) if old else None,new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_BENEFIT_POLICY',payload={**body.model_dump(mode='json'),'benefit_type':benefit_type},action=action);return result.body
+    except Exception as exc:_error(exc)
+
 class BillingPolicyPut(BaseModel):
     billing_months:list[str]=Field(min_length=1,max_length=12)
     month_due_at_enrollment:str|None=Field(default=None,max_length=2)

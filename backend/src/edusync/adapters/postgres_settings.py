@@ -389,6 +389,44 @@ class PostgresSettingsRepository:
             if row is None: raise OptimisticConcurrencyError("Mois de facturation modifiés par une autre session")
         return dict(_m(row)), old
 
+    # ---------- benefit policies (Desktop save_benefit_policy, parity lot L3) ----------
+    BENEFIT_TYPES = ('LARGE_FAMILY','STAFF_CHILD','SOCIAL_CASE','BURSARY','CUSTOM')
+
+    def list_benefit_policies(self, school_id: UUID, year_id: UUID) -> list[dict[str,Any]]:
+        rows=self.connection.execute(text("""SELECT id,academic_year_id,benefit_type,enabled,min_children,max_beneficiaries,discount_percent,
+                   free_beneficiaries,applies_to_fee_code,selection_mode,notes,version
+              FROM school_benefit_policies WHERE school_id=:sid AND academic_year_id=:y ORDER BY benefit_type"""),{"sid":school_id,"y":year_id}).all()
+        return [{**dict(_m(r)),"discount_percent":str(_m(r)['discount_percent'])} for r in rows]
+
+    def save_benefit_policy(self, school_id: UUID, *, academic_year_id:UUID, benefit_type:str, enabled:bool, min_children:int=0,
+                            max_beneficiaries:int=0, discount_percent:Decimal=Decimal('0'), free_beneficiaries:int=0,
+                            applies_to_fee_code:str|None='SCOLARITE', notes:str|None=None, expected_version:int|None=None
+                            ) -> tuple[dict[str,Any],dict[str,Any]|None]:
+        benefit_type=benefit_type.strip().upper()
+        if benefit_type not in self.BENEFIT_TYPES: raise ValueError("Type d'avantage invalide")
+        if not (Decimal('0') <= Decimal(str(discount_percent)) <= Decimal('100')): raise ValueError("Le pourcentage doit être compris entre 0 et 100")
+        self._editable_year(school_id,academic_year_id)
+        old=self.connection.execute(text("""SELECT * FROM school_benefit_policies WHERE school_id=:sid AND academic_year_id=:y AND benefit_type=:t FOR UPDATE"""),
+                                    {"sid":school_id,"y":academic_year_id,"t":benefit_type}).first()
+        values={"sid":school_id,"y":academic_year_id,"t":benefit_type,"en":bool(enabled),"minc":max(0,int(min_children)),"maxb":max(0,int(max_beneficiaries)),
+                "pct":Decimal(str(discount_percent)),"free":max(0,int(free_beneficiaries)),"fee":(applies_to_fee_code or '').strip().upper() or None,
+                "notes":(notes or '').strip() or None}
+        cols="id,academic_year_id,benefit_type,enabled,min_children,max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,selection_mode,notes,version"
+        if old is None:
+            row=self.connection.execute(text(f"""INSERT INTO school_benefit_policies(school_id,academic_year_id,benefit_type,enabled,min_children,
+                max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,notes)
+                VALUES (:sid,:y,:t,:en,:minc,:maxb,:pct,:free,:fee,:notes) RETURNING {cols}"""),values).first()
+            previous=None
+        else:
+            previous=dict(_m(old))
+            if expected_version is not None and int(previous['version'])!=expected_version:
+                raise OptimisticConcurrencyError("Politique d'avantage modifiée par une autre session; rechargez")
+            row=self.connection.execute(text(f"""UPDATE school_benefit_policies SET enabled=:en,min_children=:minc,max_beneficiaries=:maxb,
+                discount_percent=:pct,free_beneficiaries=:free,applies_to_fee_code=:fee,notes=:notes WHERE id=:id RETURNING {cols}"""),
+                {**values,"id":previous['id']}).first()
+        out=dict(_m(row)); out['discount_percent']=str(out['discount_percent'])
+        return out,previous
+
     CLASS_COLUMNS = "id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,status,archived_at,version"
 
     def _class_for_change(self, school_id: UUID, class_id: UUID) -> dict[str,Any]:

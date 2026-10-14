@@ -174,10 +174,11 @@ class PostgresSchoolingRepository:
         return _row(r)
 
     def add_benefit(self, benefit:StudentBenefit)->dict[str,Any]:
-        r=self.connection.execute(text("""INSERT INTO student_benefits(id,school_id,student_id,academic_year_id,kind,source_reference,selected_explicitly,active,notes,version)
-          VALUES (:id,:sid,:student,:year,:kind,:source,true,:active,:notes,:version)
-          ON CONFLICT(school_id,student_id,academic_year_id,kind) DO UPDATE SET source_reference=EXCLUDED.source_reference,active=EXCLUDED.active,notes=EXCLUDED.notes
-          RETURNING *"""),{"id":benefit.id,"sid":benefit.school_id,"student":benefit.student_id,"year":benefit.academic_year_id,"kind":benefit.kind.value,"source":benefit.source_reference,"active":benefit.active,"notes":benefit.notes,"version":benefit.version}).first()
+        r=self.connection.execute(text("""INSERT INTO student_benefits(id,school_id,student_id,academic_year_id,kind,source_reference,selected_explicitly,active,notes,version,configured_percent,applies_to_fee_code)
+          VALUES (:id,:sid,:student,:year,:kind,:source,true,:active,:notes,:version,:pct,:fee)
+          ON CONFLICT(school_id,student_id,academic_year_id,kind) DO UPDATE SET source_reference=EXCLUDED.source_reference,active=EXCLUDED.active,notes=EXCLUDED.notes,
+            configured_percent=EXCLUDED.configured_percent,applies_to_fee_code=EXCLUDED.applies_to_fee_code
+          RETURNING *"""),{"pct":benefit.configured_percent,"fee":benefit.applies_to_fee_code,"id":benefit.id,"sid":benefit.school_id,"student":benefit.student_id,"year":benefit.academic_year_id,"kind":benefit.kind.value,"source":benefit.source_reference,"active":benefit.active,"notes":benefit.notes,"version":benefit.version}).first()
         return _row(r)
 
     def _visible_ids(self, school_id:UUID, scopes:tuple[tuple[str,str|None],...])->set[UUID]|None:
@@ -290,6 +291,21 @@ class PostgresSchoolingRepository:
     def get_student_unscoped(self, school_id:UUID, student_id:UUID)->dict[str,Any]|None:
         r=self.connection.execute(text("SELECT * FROM students WHERE school_id=:sid AND id=:id"),{"sid":school_id,"id":student_id}).first()
         return _row(r) if r else None
+
+    def benefit_policy(self, school_id:UUID, academic_year_id:UUID, benefit_type:str)->dict[str,Any]|None:
+        """Desktop _policy_for: the ENABLED policy of the year for this benefit type, else None."""
+        r=self.connection.execute(text("""SELECT * FROM school_benefit_policies WHERE school_id=:sid AND academic_year_id=:y
+          AND benefit_type=:t AND enabled"""),{"sid":school_id,"y":academic_year_id,"t":benefit_type}).first()
+        return _row(r) if r else None
+
+    def count_benefits(self, school_id:UUID, academic_year_id:UUID, kind:str, *, family_id:UUID|None=None, staff_id:UUID|None=None)->int:
+        if family_id is not None:
+            sql="""SELECT count(*) FROM student_benefits b JOIN students s ON s.id=b.student_id AND s.school_id=b.school_id
+              WHERE b.school_id=:sid AND b.academic_year_id=:y AND b.kind=:k AND b.active AND s.family_id=:ref"""; ref=family_id
+        else:
+            sql="""SELECT count(*) FROM student_benefits WHERE school_id=:sid AND academic_year_id=:y AND kind=:k AND active
+              AND source_reference=:ref"""; ref=str(staff_id)
+        return int(self.connection.execute(text(sql),{"sid":school_id,"y":academic_year_id,"k":kind,"ref":ref}).scalar_one() or 0)
 
     def count_family_enrolled_children(self, school_id:UUID, family_id:UUID, academic_year_id:UUID)->int:
         return int(self.connection.execute(text("""SELECT count(DISTINCT s.id) FROM students s JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id

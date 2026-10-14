@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from enum import StrEnum
@@ -248,6 +250,9 @@ class StudentBenefit:
     active: bool = True
     notes: str | None = None
     version: int = 1
+    # Desktop student_benefits.configured_percent / applies_to_fee_code: frozen from the policy at selection time.
+    configured_percent: Decimal = Decimal("0")
+    applies_to_fee_code: str | None = None
 
     def __post_init__(self) -> None:
         if not self.selected_explicitly:

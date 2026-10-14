@@ -6,8 +6,11 @@ CSS=(ROOT/'frontend/src/styles.css').read_text()
 
 def test_settings_placeholders_removed_from_navigation():
     tabs=APP.split('] as const;',1)[0].split('const parameterTabs=[',1)[1]
-    for key in ["'payment'","'benefits'","'documents'","'advanced'"]:
+    for key in ["'payment'","'documents'","'advanced'"]:
         assert key not in tabs
+    # Parity lot L3 2026-10 (justified adaptation): 'benefits' is a real editor of the Desktop benefit policies
+    # (/settings/benefit-policies), consumed at enrollment and in the due charges.
+    assert "'benefits'" in tabs and "<BenefitsSettings token={token}" in APP
     # N2 2026-10 (justified adaptation): 'enrollment' is back as a real editor of the policy the schooling module
     # enforces (/settings/policies/ENROLLMENT), not a placeholder.
     assert "'enrollment'" in tabs and "putPolicy(token,'ENROLLMENT'" in APP
