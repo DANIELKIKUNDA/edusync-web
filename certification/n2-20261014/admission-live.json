@@ -1,0 +1,82 @@
+[
+ {
+  "check": "Sans condition ni validation : lot historique Inscription + mensualité de juin (Desktop)",
+  "pass": true,
+  "detail": "[{'fee_code': 'INSCRIPTION', 'month': None}, {'fee_code': 'SCOLARITE', 'month': '06'}]"
+ },
+ {
+  "check": "Rubrique validée sans condition : plus aucun lot exigé",
+  "pass": true,
+  "detail": "[]"
+ },
+ {
+  "check": "Condition invalide (portée sans cible) refusée",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Lot d'inscription P1 (ordre Desktop : ordre puis libellé) : mensualité de septembre (mois exigé) + inscription, rien d'autre",
+  "pass": true,
+  "detail": "([{'fee_code': 'SCOLARITE', 'month': '09'}, {'fee_code': 'INSCRIPTION', 'month': None}], {'CDF': '35000.00'})"
+ },
+ {
+  "check": "Caisse : un autre frais avant le lot d'inscription est refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Caisse : lot non couvert par le montant (autres frais sélectionnés) refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Caisse : un seul encaissement qui solde le lot et un autre frais est accepté",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Caisse : payer une partie du lot seul est accepté",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Caisse : tant que septembre (lot) reste dû, les manuels sont refusés",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Condition retirée : le lot ne contient plus que l'inscription",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Caisse : lot soldé, les manuels sont acceptés",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Classe P2 : la condition propre à P2 entre dans son lot (et pas dans celui de P1)",
+  "pass": true,
+  "detail": "[{'fee_code': 'INSCRIPTION', 'month': None}, {'fee_code': 'MANUELS', 'month': None}]"
+ },
+ {
+  "check": "Sans droit : validation de la rubrique refusée (403)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Sans droit : retrait d'une condition refusé (403)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Autre école : aucune condition de L4 visible",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Audit : conditions, retrait et validation tracés",
+  "pass": true,
+  "detail": "{'ADMISSION_CONDITION_DEACTIVATED': 1, 'ADMISSION_CONDITION_SAVED': 5, 'ADMISSION_CONDITIONS_REVIEWED': 1}"
+ }
+]

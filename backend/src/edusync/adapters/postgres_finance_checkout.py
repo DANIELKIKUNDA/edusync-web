@@ -59,6 +59,21 @@ class PostgresFinanceCheckoutRepository:
  def _lock_idempotency_key(self,school_id:UUID,idempotency_key:str):
   # Serialises concurrent requests carrying the same key: the second one waits, then sees the committed payment.
   self.conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k,0))"),{'k':f'finance-payment:{school_id}:{idempotency_key}'})
+ def _registration_bundle_first(self,school_id,enrollment_id,charges,charge_ids,amount):
+  # Desktop finance_checkout (parity lot L4): while the registration bundle is due, no unrelated fee may leapfrog it; one
+  # checkout may settle the whole bundle plus other fees in one shot.
+  from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
+  due=PostgresFeeScheduleRepository(self.conn).registration_bundle_due(school_id,enrollment_id)
+  outstanding=[i for i in due['items'] if Decimal(i['balance'])>0]
+  if not due['ready'] or not outstanding:return
+  bundle_ids={i['charge_id'] for i in due['items']}
+  selected=[c for c in charges if c.id in set(charge_ids)]
+  if not any(str(c.id) not in bundle_ids for c in selected):return
+  left=Decimal(str(amount));covered={}
+  for c in sorted(selected,key=lambda x:(x.chain or '',x.order,str(x.id))):
+   alloc=min(left,c.remaining);covered[str(c.id)]=alloc;left-=alloc
+  if any(covered.get(i['charge_id'],Decimal('0'))<Decimal(i['balance']) for i in outstanding):
+   raise ValueError("Les obligations exigées à l'inscription doivent être soldées avant les autres frais")
  def collect(self,school_id:UUID,user_id:UUID,membership_id:UUID,enrollment_id:UUID,charge_ids:list[UUID],amount:Decimal,currency:str,idempotency_key:str,use_anticipation:bool=False):
   self._lock_idempotency_key(school_id,idempotency_key)
   existing=self.conn.execute(text('SELECT id,receipt_number,amount,currency,enrollment_id FROM finance_payments WHERE school_id=:sid AND idempotency_key=:k'),{'sid':str(school_id),'k':idempotency_key}).mappings().first()
@@ -75,6 +90,7 @@ class PostgresFinanceCheckoutRepository:
   selected_ids=set(charge_ids)
   # Only the selected charges must match: a student may owe CDF and USD fees, paid separately.
   if currency not in {'CDF','USD'} or any(c.currency!=currency for c in charges if c.id in selected_ids):raise ValueError('Devise incohérente')
+  self._registration_bundle_first(school_id,enrollment_id,charges,charge_ids,amount)
   plan=self.anticipation(school_id,enrollment_id,currency) if use_anticipation else None
   plan_available=bool(plan and plan.get('available'))
   normal,advance=split_payment(amount,expected,plan_available)

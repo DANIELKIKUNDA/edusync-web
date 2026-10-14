@@ -23,6 +23,12 @@ def children(family_id:UUID,actor:ActorContext=Depends(require_school_actor),ser
 def balance(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.checkout.balance.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return {'items':PostgresFinanceCheckoutRepository(conn).charges(actor.school_id,enrollment_id)}
+@router.get('/registration-bundle/{enrollment_id}')
+def registration_bundle(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ # Desktop registration_bundle_due (parity lot L4): obligations required at enrollment, to settle before other fees.
+ need(actor,'finance.checkout.balance.read')
+ from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return PostgresFeeScheduleRepository(conn).registration_bundle_due(actor.school_id,enrollment_id)
 @router.get('/anticipation/{enrollment_id}')
 def anticipation(enrollment_id:UUID,currency:str=Query(...,pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.anticipation_plans.read')

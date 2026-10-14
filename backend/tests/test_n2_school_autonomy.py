@@ -208,3 +208,14 @@ def test_benefit_policies_copy_the_desktop():
     assert "_need(actor,'settings.benefits.manage')" in router
     wizard = (ROOT / "frontend/src/schooling.tsx").read_text(encoding="utf-8")
     assert "large_family_beneficiary" in wizard and "staff_beneficiary" in wizard and "enrollmentBenefits(token)" in wizard
+
+
+def test_admission_conditions_copy_the_desktop():
+    fees = (ROOT / "backend/src/edusync/adapters/postgres_fee_schedules.py").read_text(encoding="utf-8")
+    assert 'LEGACY_BUNDLE = (("INSCRIPTION", None), ("SCOLARITE", "06"))' in fees
+    assert "a.required AND a.payment_timing='AT_ENROLLMENT'" in fees and 'code == "SCOLARITE" and month' in fees
+    checkout = (ROOT / "backend/src/edusync/adapters/postgres_finance_checkout.py").read_text(encoding="utf-8")
+    assert "Les obligations exigées à l'inscription doivent être soldées avant les autres frais" in checkout
+    router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
+    for cap in ("settings.enrollment_policy.manage", "settings.enrollment_policy.activate", "settings.enrollment_policy.review"):
+        assert f"_need(actor,'{cap}')" in router, cap

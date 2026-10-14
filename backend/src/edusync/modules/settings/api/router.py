@@ -546,6 +546,64 @@ def put_benefit_policy(benefit_type:Literal['LARGE_FAMILY','STAFF_CHILD','SOCIAL
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_BENEFIT_POLICY',payload={**body.model_dump(mode='json'),'benefit_type':benefit_type},action=action);return result.body
     except Exception as exc:_error(exc)
 
+class AdmissionConditionPut(BaseModel):
+    academic_year_id:UUID
+    condition_id:UUID|None=None
+    label:str=Field(min_length=2,max_length=160)
+    fee_type_id:UUID|None=None
+    required:bool=True
+    payment_timing:Literal['AT_ENROLLMENT','AFTER_ENROLLMENT','OPTIONAL']='AT_ENROLLMENT'
+    can_pay_later:bool=False
+    bundle_code:str|None=Field(default=None,max_length=48)
+    scope_type:Literal['SCHOOL','SECTION','ACADEMIC_CLASS','CLASS']='SCHOOL'
+    scope_ref:str|None=Field(default=None,max_length=64)
+    sort_order:int=Field(default=100,ge=0,le=10000)
+    expected_version:int|None=Field(default=None,ge=1)
+
+class ActiveFlag(BaseModel):
+    active:bool
+
+@router.get('/admission-conditions')
+def admission_conditions(year_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.enrollment_policy.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        repo=PostgresSettingsRepository(conn)
+        return _jsonable({"items":repo.list_admission_conditions(actor.school_id,year_id),"review":repo.admission_review(actor.school_id)})
+
+@router.put('/admission-conditions')
+def put_admission_condition(body:AdmissionConditionPut,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop upsert_enrollment_policy_item: an admission obligation of the school year."""
+    _need(actor,'settings.enrollment_policy.manage');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out,old=PostgresSettingsRepository(conn).upsert_admission_condition(actor.school_id,**body.model_dump())
+            out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='ADMISSION_CONDITION_SAVED',entity_type='AdmissionCondition',entity_id=UUID(str(out['id'])),old=_jsonable(old) if old else None,new=out)
+            return (200 if old else 201),out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_ADMISSION_CONDITION',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
+    except Exception as exc:_error(exc)
+
+@router.post('/admission-conditions/{condition_id}/active')
+def set_admission_condition_active(condition_id:UUID,body:ActiveFlag,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop set_enrollment_policy_item_active (settings.enrollment_policy.activate)."""
+    _need(actor,'settings.enrollment_policy.activate');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out,old=PostgresSettingsRepository(conn).set_admission_condition_active(actor.school_id,condition_id,active=body.active)
+            out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='ADMISSION_CONDITION_ACTIVATED' if body.active else 'ADMISSION_CONDITION_DEACTIVATED',entity_type='AdmissionCondition',entity_id=condition_id,old=_jsonable(old),new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_ADMISSION_CONDITION_ACTIVE',payload={**body.model_dump(mode='json'),'condition_id':str(condition_id)},action=action);return result.body
+    except Exception as exc:_error(exc)
+
+@router.post('/admission-conditions/review')
+def review_admission_conditions(response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop mark_enrollment_policy_reviewed: the school validated the rubric, even if it requires no fee at enrollment."""
+    _need(actor,'settings.enrollment_policy.review');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out=_jsonable(PostgresSettingsRepository(conn).mark_admission_reviewed(actor.school_id,actor.user_id))
+            _audit_and_outbox(conn,request_actor,action='ADMISSION_CONDITIONS_REVIEWED',entity_type='School',entity_id=actor.school_id,old=None,new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_ADMISSION_REVIEW',payload={},action=action);return result.body
+    except Exception as exc:_error(exc)
+
 class BillingPolicyPut(BaseModel):
     billing_months:list[str]=Field(min_length=1,max_length=12)
     month_due_at_enrollment:str|None=Field(default=None,max_length=2)

@@ -176,6 +176,62 @@ class PostgresFeeScheduleRepository:
                 created += 1
         return created, updated
 
+    # ---------- registration bundle (Desktop terrain.py::registration_bundle_codes, parity lot L4) ----------
+    LEGACY_BUNDLE = (("INSCRIPTION", None), ("SCOLARITE", "06"))
+
+    def registration_bundle(self, school_id: UUID, enrollment_id: UUID) -> list[tuple[str, str | None]]:
+        """(fee code, month code or None) of the required AT_ENROLLMENT conditions that target this enrollment, in order.
+        SCOLARITE stands for the month required at enrollment (billing policy). Without any matching condition, a school
+        that never validated the rubric keeps the Desktop historical bundle INSCRIPTION + June school fees."""
+        e = self.connection.execute(text("""SELECT e.academic_year_id,e.class_id,c.section_id,upper(coalesce(c.reference_code,'')) AS level,y.status
+              FROM enrollments e JOIN school_classes c ON c.id=e.class_id JOIN academic_years y ON y.id=e.academic_year_id
+             WHERE e.school_id=:sid AND e.id=:id AND e.status='VALIDATED'"""), {"sid": school_id, "id": enrollment_id}).first()
+        if e is None or e._mapping["status"] != "ACTIVE":
+            return []
+        m = e._mapping
+        rows = self.connection.execute(text("""SELECT a.scope_type,a.scope_ref,f.code AS fee_code FROM school_admission_conditions a
+              LEFT JOIN fee_types f ON f.id=a.fee_type_id
+             WHERE a.school_id=:sid AND a.academic_year_id=:y AND a.active AND a.required AND a.payment_timing='AT_ENROLLMENT'
+             ORDER BY a.sort_order,a.label"""), {"sid": school_id, "y": m["academic_year_id"]}).all()
+        month = self.settings.get_billing_policy(school_id).get("month_due_at_enrollment")
+        out: list[tuple[str, str | None]] = []
+        for r in rows:
+            scope, ref, code = r._mapping["scope_type"], r._mapping["scope_ref"], r._mapping["fee_code"]
+            hit = (scope == "SCHOOL" or (scope == "SECTION" and ref == str(m["section_id"])) or (scope == "ACADEMIC_CLASS" and ref == m["level"])
+                   or (scope == "CLASS" and ref == str(m["class_id"])))
+            if not hit or not code:
+                continue
+            item = (code, month) if code == "SCOLARITE" and month else (code, None)
+            if item not in out:
+                out.append(item)
+        if out:
+            return out
+        if self.settings.admission_review(school_id)["reviewed_at"] is not None:
+            return []
+        return list(self.LEGACY_BUNDLE)
+
+    def registration_bundle_due(self, school_id: UUID, enrollment_id: UUID) -> dict[str, Any]:
+        """Desktop registration_bundle_due: outstanding balance of the bundle per currency; ready = every bundle item exists."""
+        bundle = self.registration_bundle(school_id, enrollment_id)
+        if not bundle:
+            return {"bundle": [], "items": [], "totals": {}, "ready": False}
+        rows = self.connection.execute(text("""SELECT fc.id,f.code AS fee_code,s.period_code,fc.label,fc.currency,fc.net_amount,fc.paid_amount
+              FROM finance_charges fc JOIN fee_types f ON f.id=fc.fee_type_id LEFT JOIN fee_schedules s ON s.id=fc.schedule_id
+             WHERE fc.school_id=:sid AND fc.enrollment_id=:e AND fc.status='ACTIVE'"""), {"sid": school_id, "e": enrollment_id}).all()
+        items = []
+        for code, month in bundle:
+            for r in rows:
+                rm = r._mapping
+                if rm["fee_code"] == code and (month is None or rm["period_code"] == month):
+                    items.append({"charge_id": str(rm["id"]), "fee_code": code, "label": rm["label"], "currency": rm["currency"],
+                                  "balance": str(max(Decimal("0"), _money(rm["net_amount"]) - _money(rm["paid_amount"])))})
+        present = {(i["fee_code"]) for i in items}
+        totals: dict[str, Decimal] = {}
+        for i in items:
+            totals[i["currency"]] = totals.get(i["currency"], Decimal("0")) + Decimal(i["balance"])
+        return {"bundle": [{"fee_code": c, "month": mo} for c, mo in bundle], "items": items,
+                "totals": {k: str(v) for k, v in totals.items()}, "ready": bool(bundle) and {c for c, _ in bundle} <= present}
+
     def list_schedules(self, school_id: UUID, academic_year_id: UUID) -> list[dict[str, Any]]:
         rows = self.connection.execute(text("""SELECT s.id,s.class_id,c.label AS class_label,s.fee_type_id,f.label AS fee_label,s.period_code,
                    s.period_label,s.period_order,s.due_date,s.amount,s.currency,s.tariff_id,

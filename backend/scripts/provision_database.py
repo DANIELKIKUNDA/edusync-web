@@ -186,6 +186,7 @@ def main() -> None:
             ("0060_tariff_rules_desktop_parity", "0060_tariff_rules_desktop_parity.sql"),
             ("0061_fee_schedules_charge_generation", "0061_fee_schedules_charge_generation.sql"),
             ("0062_benefit_policies_desktop_parity", "0062_benefit_policies_desktop_parity.sql"),
+            ("0063_admission_conditions_desktop_parity", "0063_admission_conditions_desktop_parity.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):

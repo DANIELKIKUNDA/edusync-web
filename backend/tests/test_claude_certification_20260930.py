@@ -56,6 +56,8 @@ class ScriptedConnection:
             return _Result(self.charges)
         if "outside_cash" in sql and "finance_charge_regularizations" in sql:
             return _Result([{"id": c, "decisions": d, "outside_cash": o} for c, (d, o) in self.adjustments.items()])
+        if "FROM enrollments e JOIN school_classes" in sql:  # parity lot L4: registration bundle lookup (no admission rule here)
+            return _Result()
         if sql.startswith(("INSERT", "UPDATE")):
             self.writes.append((sql.split("(")[0], params))
             return _Result()

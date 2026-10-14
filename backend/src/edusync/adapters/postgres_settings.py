@@ -427,6 +427,73 @@ class PostgresSettingsRepository:
         out=dict(_m(row)); out['discount_percent']=str(out['discount_percent'])
         return out,previous
 
+    # ---------- admission conditions (Desktop enrollment_policy_items, parity lot L4) ----------
+    ADMISSION_COLUMNS = ("id,academic_year_id,fee_type_id,label,scope_type,scope_ref,required,payment_timing,bundle_code,can_pay_later,"
+                         "active,sort_order,version")
+
+    def list_admission_conditions(self, school_id: UUID, year_id: UUID) -> list[dict[str,Any]]:
+        rows=self.connection.execute(text(f"""SELECT a.{self.ADMISSION_COLUMNS.replace(',',',a.')},f.code AS fee_code,f.label AS fee_label
+              FROM school_admission_conditions a LEFT JOIN fee_types f ON f.id=a.fee_type_id
+             WHERE a.school_id=:sid AND a.academic_year_id=:y ORDER BY a.active DESC,a.sort_order,a.label"""),{"sid":school_id,"y":year_id}).all()
+        return [dict(_m(r)) for r in rows]
+
+    def upsert_admission_condition(self, school_id: UUID, *, academic_year_id:UUID, label:str, fee_type_id:UUID|None, required:bool,
+                                   payment_timing:str, can_pay_later:bool, bundle_code:str|None=None, scope_type:str='SCHOOL',
+                                   scope_ref:str|None=None, sort_order:int=100, condition_id:UUID|None=None,
+                                   expected_version:int|None=None) -> tuple[dict[str,Any],dict[str,Any]|None]:
+        """Desktop upsert_enrollment_policy_item."""
+        self._editable_year(school_id,academic_year_id)
+        label=label.strip()
+        if len(label)<2: raise ValueError("Le libellé de la condition est obligatoire")
+        if payment_timing not in ('AT_ENROLLMENT','AFTER_ENROLLMENT','OPTIONAL'): raise ValueError("Moment de paiement invalide")
+        ref='*' if scope_type=='SCHOOL' else (scope_ref or '').strip()
+        if scope_type not in ('SCHOOL','SECTION','ACADEMIC_CLASS','CLASS') or not ref: raise ValueError("Portée d'inscription invalide")
+        if scope_type=='SECTION' and self.connection.execute(text("SELECT 1 FROM school_sections WHERE id=CAST(:r AS uuid) AND school_id=:sid"),{"r":ref,"sid":school_id}).first() is None:
+            raise ValueError("Section incompatible avec cette école")
+        if scope_type=='CLASS' and self.connection.execute(text("SELECT 1 FROM school_classes WHERE id=CAST(:r AS uuid) AND school_id=:sid AND academic_year_id=:y"),
+                                                           {"r":ref,"sid":school_id,"y":academic_year_id}).first() is None:
+            raise ValueError("Classe incompatible avec cette école ou cette année")
+        if scope_type=='ACADEMIC_CLASS': ref=ref.upper()
+        if fee_type_id is not None and self.connection.execute(text("SELECT 1 FROM fee_types WHERE id=:f AND school_id=:sid"),{"f":fee_type_id,"sid":school_id}).first() is None:
+            raise ValueError("Type de frais introuvable")
+        values={"sid":school_id,"y":academic_year_id,"f":fee_type_id,"l":label,"st":scope_type,"sr":ref,"req":bool(required),"pt":payment_timing,
+                "b":(bundle_code or '').strip() or None,"later":bool(can_pay_later),"so":int(sort_order)}
+        if condition_id is not None:
+            old=self.connection.execute(text(f"SELECT {self.ADMISSION_COLUMNS} FROM school_admission_conditions WHERE id=:id AND school_id=:sid AND academic_year_id=:y FOR UPDATE"),
+                                        {"id":condition_id,"sid":school_id,"y":academic_year_id}).first()
+            if old is None: raise LookupError("Condition introuvable")
+            if expected_version is not None and int(_m(old)['version'])!=expected_version:
+                raise OptimisticConcurrencyError("Condition modifiée par une autre session; rechargez")
+            row=self.connection.execute(text(f"""UPDATE school_admission_conditions SET fee_type_id=:f,label=:l,scope_type=:st,scope_ref=:sr,required=:req,
+                payment_timing=:pt,bundle_code=:b,can_pay_later=:later,active=true,sort_order=:so WHERE id=:id RETURNING {self.ADMISSION_COLUMNS}"""),
+                {**values,"id":condition_id}).first()
+            return dict(_m(row)),dict(_m(old))
+        row=self.connection.execute(text(f"""INSERT INTO school_admission_conditions(school_id,academic_year_id,fee_type_id,label,scope_type,scope_ref,
+            required,payment_timing,bundle_code,can_pay_later,sort_order) VALUES (:sid,:y,:f,:l,:st,:sr,:req,:pt,:b,:later,:so)
+            RETURNING {self.ADMISSION_COLUMNS}"""),values).first()
+        return dict(_m(row)),None
+
+    def set_admission_condition_active(self, school_id: UUID, condition_id: UUID, *, active:bool) -> tuple[dict[str,Any],dict[str,Any]]:
+        old=self.connection.execute(text(f"SELECT {self.ADMISSION_COLUMNS} FROM school_admission_conditions WHERE id=:id AND school_id=:sid FOR UPDATE"),
+                                    {"id":condition_id,"sid":school_id}).first()
+        if old is None: raise LookupError("Condition introuvable")
+        self._editable_year(school_id,_m(old)['academic_year_id'])
+        row=self.connection.execute(text(f"UPDATE school_admission_conditions SET active=:a WHERE id=:id RETURNING {self.ADMISSION_COLUMNS}"),
+                                    {"a":bool(active),"id":condition_id}).first()
+        return dict(_m(row)),dict(_m(old))
+
+    def admission_review(self, school_id: UUID) -> dict[str,Any]:
+        row=self.connection.execute(text("SELECT admission_reviewed_at,admission_reviewed_by FROM settings_bootstrap_state WHERE school_id=:sid"),{"sid":school_id}).first()
+        return {"reviewed_at":None,"reviewed_by":None} if row is None else {"reviewed_at":_m(row)['admission_reviewed_at'],"reviewed_by":_m(row)['admission_reviewed_by']}
+
+    def mark_admission_reviewed(self, school_id: UUID, user_id: UUID) -> dict[str,Any]:
+        r=self.connection.execute(text("""UPDATE settings_bootstrap_state SET admission_reviewed_at=now(),admission_reviewed_by=:u WHERE school_id=:sid
+            RETURNING admission_reviewed_at,admission_reviewed_by"""),{"sid":school_id,"u":user_id}).first()
+        if r is None:
+            r=self.connection.execute(text("""INSERT INTO settings_bootstrap_state(school_id,admission_reviewed_at,admission_reviewed_by) VALUES (:sid,now(),:u)
+                RETURNING admission_reviewed_at,admission_reviewed_by"""),{"sid":school_id,"u":user_id}).first()
+        return {"reviewed_at":_m(r)['admission_reviewed_at'],"reviewed_by":_m(r)['admission_reviewed_by']}
+
     CLASS_COLUMNS = "id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,status,archived_at,version"
 
     def _class_for_change(self, school_id: UUID, class_id: UUID) -> dict[str,Any]:
