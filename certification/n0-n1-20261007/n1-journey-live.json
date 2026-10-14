@@ -245,6 +245,41 @@
     "detail": ""
   },
   {
+    "check": "Décision 4 : avertissement « un seul Manager système actif » affiché",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Préparation : confirmation récente du Manager expirée (base de recette)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 1 (390px) : fenêtre « Confirmez avec votre code » avant l’action sensible",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 1 (390px) : saisie numérique, sans défilement horizontal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 1 : après le code, l’action reprend seule et s’exécute (compte suspendu)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Réactivation (action non sensible) : sans nouvelle demande de code",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 3 (390px) : boîte de réinitialisation (motif, option mot de passe, avertissement)",
+    "pass": true,
+    "detail": ""
+  },
+  {
     "check": "Déconnexion : retour à l’écran de connexion",
     "pass": true,
     "detail": ""

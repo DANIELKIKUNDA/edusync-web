@@ -109,26 +109,29 @@ autre Manager, limitation 5 essais → 15 min).
 facteur), `test_every_non_public_api_route_has_server_side_actor_dependency` (les trois routes `/auth/mfa/*` sont
 publiques par construction, authentifiées par le jeton d'étape), et une chaîne exacte de `login.tsx` conservée.
 
-## 6. OWNER_DECISION encore ouvertes
+## 6. Décisions du propriétaire (validées le 13 octobre 2026, implémentées le 14)
 
-1. **Redemande du code pour les actions sensibles** (« step-up » de la proposition : suspendre une école,
-   réinitialiser un administrateur, ajouter un Manager) — non implémenté, à décider.
-2. **Comptes plateforme ouvrant un espace école** : l'option B protège la console Atelier Pro ; un compte qui
-   possède aussi un rattachement école se connecte à cet espace école sans second facteur. À confirmer.
-3. **Réinitialisation par un seul Manager** : faut-il exiger deux Managers, un délai, ou coupler avec une
-   réinitialisation du mot de passe ?
-4. **Nombre de Managers** : recommandation d'exploitation — au moins deux Managers actifs, pour que la voie normale
-   de récupération existe toujours et que la procédure opérateur reste exceptionnelle.
-5. **Option C** (MFA facultatif pour les administrateurs d'école) : non activée, conformément au mandat.
+| # | Question | Décision | Mise en œuvre |
+|---|---|---|---|
+| 1 | Redemander le code avant les actions sensibles ? | **Oui** | Confirmation récente (« step-up ») exigée, valable **5 min par appareil** (une connexion par code compte comme confirmation) pour : suspendre une école, créer un administrateur d'école, notifier toutes les écoles, donner un accès collaborateur, et toute la gouvernance d'équipe (ajout de membre, attribution/retrait de rôle, suspension, réinitialisation de mot de passe ou de MFA). Un compte sans le droit garde son refus 403 classique. Interface : l'action demande le code puis reprend seule (même clé d'idempotence) ; audit `MFA_STEP_UP` |
+| 2 | Un compte plateforme qui ouvre un espace école doit-il passer le second facteur ? | **Oui** | Tout compte équipé d'un facteur, ou titulaire d'un rôle plateforme, le donne pour ouvrir un espace école (enrôlement forcé s'il n'en a pas). Sessions école marquées et refusées sans second facteur (chaque requête et `/refresh`) ; sessions antérieures invalidées par la migration `0057`. Comptes école ordinaires non concernés |
+| 3 | La réinitialisation par un seul Manager suffit-elle ? | **Oui, durcie** | Confirmation par code du Manager (décision 1), **alerte** au compte concerné dans EduSync (auteur, motif, consigne), **option** de réinitialisation du mot de passe en même temps (provisoire généré, copié seulement après succès, toutes sessions coupées) |
+| 4 | Combien de Managers ? | **Au moins deux** | Avertissement dans l'Atelier Pro tant qu'un seul Manager est actif (compte exposé aux gouverneurs d'équipe) ; le dernier Manager ne peut déjà être ni suspendu ni retiré. **Action d'organisation : ajouter un second Manager** |
+
+Restent hors périmètre (non demandés) : option C (MFA facultatif pour les administrateurs d'école).
+
+Défauts vus en recette pendant cette passe et corrigés : la fenêtre de code s'affichait **derrière** la fiche d'un
+membre (rendue désormais au premier plan) ; le statut Actif/Suspendu de la fiche était masqué sur téléphone.
 
 ## 7. Commits et certification
 
 | Élément | Valeur |
 |---|---|
 | SHA N0/N1 certifié avant MFA | `bbe90e2` (étiquette `n0-n1-local-certified-2026-10-10`) |
-| Commits MFA | `7463b9c` (implémentation), `9c5d5fa` (procédure opérateur, verrou par compte) |
-| **SHA final certifié après MFA** | **`9c5d5fae1bde0000c11c842c0ed712446b73daa8`** |
-| Étiquette proposée | `n0-n1-mfa-local-certified-2026-10-13` → `9c5d5fa` |
+| Commits MFA | `7463b9c` (implémentation), `9c5d5fa` (procédure opérateur, verrou par compte), `bc2344c` (décisions 1 à 4) |
+| SHA certifié après MFA (option B) | `9c5d5fa` — étiquette `n0-n1-mfa-local-certified-2026-10-13` |
+| **SHA final certifié (option B + décisions)** | **`bc2344c96d01593a6a9ce360a26d87dc24c04fb1`** |
+| Étiquette finale | `n0-n1-mfa-decisions-local-certified-2026-10-14` → `bc2344c` |
 | Preuves | `CERTIFICATION_EVIDENCE_MANIFEST.md`, `certification/n0-n1-20261007/` (dont `mfa-live.json`, captures `mfa-*.png`) |
 
 L'étiquette `n0-n1-local-certified-2026-10-10` ne couvre **pas** le code MFA : seul `9c5d5fa`, retesté, reçoit la
@@ -158,4 +161,20 @@ test jetable de l'instance locale ; son second facteur a été révoqué après 
 auditée) : ces valeurs ne permettent plus rien.
 
 Aucune certification globale, staging ou production n'est prononcée : instance locale uniquement.
+
+## 9. Certification après les décisions (`bc2344c`, 14 octobre 2026)
+
+| Étape | Résultat |
+|---|---|
+| Arbre Git propre au démarrage | PASS (`bc2344c`) — **20/20 dès la première exécution** |
+| pytest · compileall · tsc · build | 574 passed · PASS · 0 erreur · PASS |
+| Migrations sur base vierge | PASS (dont `0057_mfa_step_up_school_context`) |
+| Sondes : prérequis 42/42 · équipe 58/58 · cycle de vie 31/31 · santé 12/12 · audit 25/25 · notifications 44/44 · temps réel 8/8 · HTTP 17/17 · **MFA 83/83** · résilience 16/16 | PASS |
+| Sauvegarde + restauration · chaîne d'approvisionnement · npm audit · secrets | 8/8 · 46 paquets · 0 vulnérabilité · 0 fuite |
+| Parcours UI (même commit) | **58/58** |
+
+Incident d'environnement pendant la recette (sans lien avec le code) : un signal d'interruption console Windows
+(`0xC000013A`) a arrêté PostgreSQL et le navigateur de test lors du basculement d'une commande longue en arrière-plan ;
+l'API a répondu 503 comme prévu, la base a récupéré seule au redémarrage. Les exécutions longues ont ensuite été
+lancées en arrière-plan.
 

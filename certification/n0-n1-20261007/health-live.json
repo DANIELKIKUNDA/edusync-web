@@ -17,17 +17,17 @@
   {
     "check": "Cache : PING réellement mesuré",
     "pass": true,
-    "detail": "Répond en 15 ms"
+    "detail": "Répond en 34 ms"
   },
   {
     "check": "Stockage : requête signée réellement mesurée",
     "pass": true,
-    "detail": "Répond en 7 ms"
+    "detail": "Répond en 10 ms"
   },
   {
     "check": "Workers : signal de vie reçu (< 60 s)",
     "pass": true,
-    "detail": "['Dernier signal il y a 1 s · 0 événement(s) en attente · 1 en quarantaine (intervention requise)', 'Dernier signal il y a 2 s · 1 SMS en attente, 17 définitivement non envoyé(s)']"
+    "detail": "['Dernier signal il y a 1 s · 0 événement(s) en attente · 1 en quarantaine (intervention requise)', 'Dernier signal il y a 6 s · 1 SMS en attente, 18 définitivement non envoyé(s)']"
   },
   {
     "check": "Sauvegarde non configurée : annoncée comme telle, jamais « OK »",
@@ -42,7 +42,7 @@
   {
     "check": "Compteur d'erreurs 5xx réellement alimenté (Redis, par heure)",
     "pass": true,
-    "detail": "7 -> 8"
+    "detail": "3 -> 4"
   },
   {
     "check": "Signal de vie stocké sans donnée sensible",
@@ -57,6 +57,6 @@
   {
     "check": "Performance : écran santé < 300 ms en moyenne (10 appels)",
     "pass": true,
-    "detail": "46 ms"
+    "detail": "49 ms"
   }
 ]

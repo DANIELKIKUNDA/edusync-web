@@ -112,7 +112,7 @@
   {
     "check": "État MFA du compte : enrôlé, 9 codes restants, désactivation par soi-même impossible",
     "pass": true,
-    "detail": "{'enrolled': True, 'method': 'TOTP', 'confirmed_at': '2026-10-13T20:45:04.913573+01:00', 'recovery_codes_remaining': 9, 'required': True, 'self_disable_allowed': False}"
+    "detail": "{'enrolled': True, 'method': 'TOTP', 'confirmed_at': '2026-10-14T08:56:35.739058+01:00', 'recovery_codes_remaining': 9, 'required': True, 'self_disable_allowed': False}"
   },
   {
     "check": "Régénération sans code TOTP valide : refusée",
@@ -202,7 +202,7 @@
   {
     "check": "Manager : réinitialisation du facteur d'un autre compte, sessions plateforme coupées",
     "pass": true,
-    "detail": "{'user_id': 'f73c7bef-2be2-4062-ba2f-ae07a02edfed', 'mfa_reset': True, 'sessions_revoked': 5, 'factors_revoked': 1, 'recovery_codes_revoked': 10}"
+    "detail": "{'user_id': '7250c06a-7e70-4655-93a7-67a93d5b58b4', 'mfa_reset': True, 'password_reset': False, 'sessions_revoked': 5, 'factors_revoked': 1, 'recovery_codes_revoked': 10}"
   },
   {
     "check": "Après réinitialisation : ancien jeton coupé immédiatement",
@@ -276,6 +276,121 @@
   },
   {
     "check": "Procédure opérateur : aucun accès donné (facteur retiré, ré-enrôlement exigé à la connexion)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 1 : connexion récente par code = confirmation valable (action sensible acceptée)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 1 : action sensible sans confirmation récente → 403 « confirmez avec votre code »",
+    "pass": true,
+    "detail": "{\"detail\":{\"code\":\"MFA_STEP_UP_REQUIRED\",\"message\":\"Confirmez avec votre code de vérification pour effectuer cette actio"
+  },
+  {
+    "check": "Décision 1 : rien n'a été exécuté sans confirmation",
+    "pass": true,
+    "detail": "ACTIVE"
+  },
+  {
+    "check": "Décision 1 : action non sensible (consultation) sans confirmation : autorisée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 1 : code faux pour la confirmation → refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 1 : bon code → confirmation valable quelques minutes",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Décision 1 : même action après confirmation → exécutée",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Décision 1 : compte sans le droit d'équipe → refus classique 403, jamais une demande de code",
+    "pass": true,
+    "detail": "{\"detail\":\"Permission requise: platform.collaborators.manage\"}"
+  },
+  {
+    "check": "Décision 1 : confirmation auditée (MFA_STEP_UP)",
+    "pass": true,
+    "detail": "1"
+  },
+  {
+    "check": "Décision 4 : nombre de Managers actifs exposé (recommandé : 2)",
+    "pass": true,
+    "detail": "1"
+  },
+  {
+    "check": "Décision 2 : compte plateforme rattaché à une école (création d'administrateur confirmée par code)",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Décision 2 : espace école d'un compte plateforme → aucune session avant le second facteur",
+    "pass": true,
+    "detail": "['mfa_required', 'mfa_enrollment_required', 'mfa_token', 'expires_in', 'scope', 'methods']"
+  },
+  {
+    "check": "Décision 2 : après activation, l'espace école s'ouvre (et non la console)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Décision 2 : connexion suivante à l'espace école → code demandé puis session école",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Décision 2 : jeton école obtenu utilisable",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 2 : session école marquée « second facteur obligatoire » et validée par TOTP",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 2 : jeton école valide sur une session sans second facteur → refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 2 : renouvellement de cette session → refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 3 : réinitialisation avec mot de passe provisoire",
+    "pass": true,
+    "detail": "{\"user_id\":\"f32cc1e8-cca5-447b-8e89-42df8a0454eb\",\"mfa_reset\":true,\"password_reset\":true,\"sessions_revoked\":3,\"factors_revoked\":1,\"recovery_codes_revo"
+  },
+  {
+    "check": "Décision 3 : ancien mot de passe refusé, toutes les sessions coupées (école comprise)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 3 : nouveau mot de passe → ré-enrôlement exigé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Décision 3 : le compte est prévenu dans EduSync (auteur, motif, consigne), sans secret",
+    "pass": true,
+    "detail": "Validation en deux étapes réinitialisée"
+  },
+  {
+    "check": "Décision 3 : mot de passe provisoire jamais écrit dans l'audit",
     "pass": true,
     "detail": ""
   },

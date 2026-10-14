@@ -42,12 +42,12 @@
   {
     "check": "Worker SMS arrêté : santé dégradée après 60 s sans signal",
     "pass": true,
-    "detail": "Dernier signal il y a 79 s · 1 SMS en attente, 17 définitivement non envoyé(s)"
+    "detail": "Dernier signal il y a 73 s · 1 SMS en attente, 18 définitivement non envoyé(s)"
   },
   {
     "check": "Worker relancé : signal de vie revenu",
     "pass": true,
-    "detail": "5 s"
+    "detail": "17 s"
   },
   {
     "check": "PostgreSQL arrêté : 503 avec message (pas 500)",
