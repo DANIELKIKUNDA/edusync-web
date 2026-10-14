@@ -179,3 +179,17 @@ def test_tariff_rules_copy_the_desktop_resolution():
     put = router[router.index("def put_tariff_rule("):router.index("def resolve_tariff(")]
     assert "_need(actor,'settings.tariffs.manage')" in put and "_need(actor,'settings.tariff_groups.manage')" in put
     assert "_need(actor,'settings.billing_months.manage')" in router and "_need(actor,'settings.option_tariff_group.manage')" in router
+
+
+def test_fee_schedules_and_due_charges_copy_the_desktop():
+    repo = (ROOT / "backend/src/edusync/adapters/postgres_fee_schedules.py").read_text(encoding="utf-8")
+    assert 'TERMS = (("T1", "1re tranche", 9), ("T2", "2e tranche", 1), ("T3", "3e tranche", 4))' in repo
+    assert 'if rule["status"] != "ACTIVE" or rule["amount"] is None:' in repo and 'out["pending_skipped"] += 1' in repo
+    assert "cette échéance contient déjà un paiement" in repo and "Impossible de réduire ce barème sous le montant déjà payé" in repo
+    assert 'if fee["periodicity"] == "OPTIONAL":' in repo  # Web-only optional fees are never generated automatically
+    sql = (ROOT / "backend/migrations/0061_fee_schedules_charge_generation.sql").read_text(encoding="utf-8")
+    assert "uq_finance_charges_schedule" in sql and "GRANT UPDATE (label, currency, net_amount" in sql and "paid_amount" not in sql.split("GRANT UPDATE")[1]
+    sch = (ROOT / "backend/src/edusync/adapters/postgres_schooling.py").read_text(encoding="utf-8")
+    assert "La politique de transfert financier doit être décidée explicitement avant ce cas." in sch
+    router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
+    assert "_need(actor,'settings.tariffs.apply')" in router

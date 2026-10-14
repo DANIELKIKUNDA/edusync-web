@@ -1,0 +1,92 @@
+[
+ {
+  "check": "Inscription avant application : aucun frais (pas encore d'échéance)",
+  "pass": true,
+  "detail": "0"
+ },
+ {
+  "check": "Application : 10 mensualités + 3 tranches + 1 frais unique pour P1 ; P2 sans inscription (en attente)",
+  "pass": true,
+  "detail": "{'single': 1, 'monthly': 20, 'tranches': 6, 'materialized': 27, 'charges_created': 14, 'charges_updated': 0, 'pending_skipped': 1}"
+ },
+ {
+  "check": "Application : frais dus créés pour l'élève déjà inscrit (14)",
+  "pass": true,
+  "detail": "14"
+ },
+ {
+  "check": "Mensualités dans l'ordre de l'année, septembre → juin",
+  "pass": true,
+  "detail": "['Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin']"
+ },
+ {
+  "check": "Règle datée de février : septembre–janvier à 20 000, février–juin à 25 000",
+  "pass": true,
+  "detail": "['20000.00', '20000.00', '20000.00', '20000.00', '20000.00', '25000.00', '25000.00', '25000.00', '25000.00', '25000.00']"
+ },
+ {
+  "check": "Tranches : septembre, janvier, avril",
+  "pass": true,
+  "detail": "[(1, '1re tranche', '2026-09-01'), (2, '2e tranche', '2027-01-01'), (3, '3e tranche', '2027-04-01')]"
+ },
+ {
+  "check": "Frais facultatif : aucune échéance générée",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Classe P2 : la règle d'inscription en attente n'est pas remplacée par la règle de l'école",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Inscription après application : les 14 frais dus sont créés automatiquement",
+  "pass": true,
+  "detail": "14"
+ },
+ {
+  "check": "Frais dus : groupes séquentiels par frais (mensuel et tranches), brut = net sans avantage",
+  "pass": true,
+  "detail": "{None, 'MONTHLY:SCOLARITE', 'TERM:ETAT'}"
+ },
+ {
+  "check": "Réapplication : rien n'est dupliqué (0 créé, mises à jour seulement)",
+  "pass": true,
+  "detail": "{'single': 1, 'monthly': 20, 'tranches': 6, 'materialized': 27, 'charges_created': 0, 'charges_updated': 28, 'pending_skipped': 1}"
+ },
+ {
+  "check": "Échéance déjà payée : modification du montant refusée (créer une règle datée)",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Échec : transaction annulée, le frais payé garde son montant",
+  "pass": true,
+  "detail": "20000.00"
+ },
+ {
+  "check": "Changement de classe bloqué quand des frais dus existent (Desktop)",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Autre école : application sur l'année de L2 refusée",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Sans droit « appliquer les barèmes » : refus (403)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Année clôturée : application refusée",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Audit : chaque application réussie est tracée",
+  "pass": true,
+  "detail": "2"
+ }
+]

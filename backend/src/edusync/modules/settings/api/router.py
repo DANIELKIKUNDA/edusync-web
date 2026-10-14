@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
 from edusync.adapters.postgres_repositories import PostgresAuditRepository, PostgresOutboxRepository, PostgresSchoolRepository
+from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
 from edusync.bootstrap.dependencies import get_services, require_school_actor
 from edusync.bootstrap.services import AppServices
@@ -495,6 +496,27 @@ def resolve_tariff(class_id:UUID,fee_type_id:UUID,as_of:date|None=None,actor:Act
         with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
             return _jsonable(PostgresSettingsRepository(conn).resolve_tariff(actor.school_id,class_id=class_id,fee_type_id=fee_type_id,as_of=as_of))
     except Exception as exc:_error(exc)
+
+class ApplyTariffs(BaseModel):
+    academic_year_id:UUID
+
+@router.post('/tariffs/apply')
+def apply_tariffs(body:ApplyTariffs,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop « Appliquer les barèmes aux classes ouvertes » (apply_tariff_rules_to_classes): schedule lines per class and
+    due charges for every validated enrollment; never rewrites a line that already received money."""
+    _need(actor,'settings.tariffs.apply');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out=PostgresFeeScheduleRepository(conn).apply_tariffs(actor.school_id,body.academic_year_id)
+            _audit_and_outbox(conn,request_actor,action='TARIFFS_APPLIED',entity_type='AcademicYear',entity_id=body.academic_year_id,old=None,new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_APPLY_TARIFFS',payload=body.model_dump(mode='json'),action=action);return result.body
+    except Exception as exc:_error(exc)
+
+@router.get('/fee-schedules')
+def fee_schedules(year_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.tariffs.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresFeeScheduleRepository(conn).list_schedules(actor.school_id,year_id))
 
 class BillingPolicyPut(BaseModel):
     billing_months:list[str]=Field(min_length=1,max_length=12)

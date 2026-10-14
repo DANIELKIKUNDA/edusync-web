@@ -313,6 +313,11 @@ class PostgresSchoolingRepository:
         if not enrollment:raise ValueError("Aucune inscription active pour ce changement de classe")
         e=_row(enrollment)
         if UUID(str(e['class_id']))==target_class_id:return e
+        # Desktop parity (app/db/operations.py, change of class): fail closed once due charges exist — the financial
+        # transfer policy has to be decided explicitly before this case (OWNER_DECISION_REQUIRED).
+        charged=self.connection.execute(text("SELECT count(*) FROM finance_charges WHERE school_id=:sid AND enrollment_id=:eid AND status='ACTIVE'"),
+                                        {"sid":school_id,"eid":e['id']}).scalar_one()
+        if charged:raise ValueError("Changement de classe bloqué : des frais dus existent déjà pour cette inscription. La politique de transfert financier doit être décidée explicitement avant ce cas.")
         reason=reason.strip()
         if not reason:raise ValueError("Motif obligatoire")
         self.connection.execute(text("UPDATE class_assignments SET effective_until=:d,reason=:reason WHERE school_id=:sid AND enrollment_id=:eid AND effective_until IS NULL"),{"d":effective_date,"reason":"CLASS_CHANGE: "+reason,"sid":school_id,"eid":e['id']})

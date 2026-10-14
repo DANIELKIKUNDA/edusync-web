@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
 from edusync.adapters.postgres_repositories import PostgresAuditRepository, PostgresOutboxRepository, PostgresSchoolRepository
+from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
 from edusync.adapters.postgres_schooling import PostgresSchoolingRepository
 from edusync.bootstrap.dependencies import get_services, require_school_actor
 from edusync.bootstrap.services import AppServices
@@ -191,6 +192,9 @@ def enroll_family(body:FamilyEnrollmentBody,response:Response,idempotency_key:st
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn);svc=SchoolingService(repo,school_id=actor.school_id,actor_user_id=actor.user_id,permitted_scopes=_scopes(actor,cap))
             payload=svc.enroll_family_batch(family_id=body.family_id,household_query=body.household_query,household_confidence=body.household_confidence,primary_guardian=body.primary_guardian.model_dump(mode='python') if body.primary_guardian else None,additional_guardians=[x.model_dump(mode='python') for x in body.additional_guardians],children=[x.model_dump(mode='python') for x in body.children],admission_notes=body.admission_notes)
+            # Desktop generate_charges_for_enrollment: a validated enrollment receives the due charges of its class schedule.
+            fees=PostgresFeeScheduleRepository(conn)
+            payload['charges_created']=sum(fees.generate_charges_for_enrollment(actor.school_id,UUID(str(e)))[0] for e in payload.get('enrollment_ids',[]))
             fid=UUID(payload['family_id']);_audit_outbox(conn,request_actor,action='FAMILY_ENROLLMENT_COMPLETED',entity_type='Family',entity_id=fid,new=payload);return 201,payload
         result=_mutate(services=services,actor=actor,key=key,operation='SCHOOLING_FAMILY_ENROLLMENT',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
     except Exception as exc:_error(exc)

@@ -111,3 +111,6 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .optionItem select{min-height:32px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;padding:0 6px;max-width:190px}
 @media(max-width:720px){.monthGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.monthGrid .checkField{min-height:44px}.optionItem{width:100%}.optionItem select{min-height:40px;flex:1;max-width:none}}
 .monthGrid .checkField{grid-column:auto!important;width:auto!important}
+.schedules{margin-top:16px;display:grid;gap:8px}.schedules h4{margin:0;font-size:13px;color:#475569}
+.scheduleClass{border:1px solid #e5e9f1;border-radius:10px;background:#fff}.scheduleClass summary{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;cursor:pointer;min-height:44px;align-items:center}
+.scheduleClass summary small{color:#64748b}.scheduleClass .moneyList{padding:0 8px 8px}

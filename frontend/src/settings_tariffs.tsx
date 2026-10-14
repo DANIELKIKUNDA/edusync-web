@@ -5,9 +5,10 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 import {
-  AcademicYear, BillingPolicy, FeeType, ReferenceCatalog, SchoolClass, SchoolSection, Tariff, TariffScope, TariffStatus,
-  getBillingPolicy, putBillingPolicy, putTariffRule,
+  AcademicYear, BillingPolicy, FeeSchedule, FeeType, ReferenceCatalog, SchoolClass, SchoolSection, Tariff, TariffScope, TariffStatus,
+  applyTariffs, getBillingPolicy, listFeeSchedules, putBillingPolicy, putTariffRule,
 } from './api';
+import {confirmAction} from './platform/dialogs';
 import {friendlyError} from './platform/errors';
 import {FormField} from './platform/forms';
 import {formatDate, formatMoney} from './platform/format';
@@ -51,6 +52,7 @@ export function TariffsSettings({token, tariffs, years, fees, classes, sections,
                   onCancel={() => setAdding(false)} onSaved={async () => { setAdding(false); await onDone(); }}/>
       : <button type="button" className="softBtn addLine" onClick={() => setAdding(true)}>+ Nouvelle règle tarifaire <small>{year?.label}</small></button>)}
     {can('settings.tariffs.read') && <BillingMonths token={token} canEdit={can('settings.billing_months.manage')} onError={setError}/>}
+    {year && <Schedules token={token} year={year} canApply={can('settings.tariffs.apply') && !locked} onError={setError} onDone={onDone}/>}
     <p className="policyHint">Exemple : si l’école augmente le montant à partir de février, créez une nouvelle règle datée de février. Les mensualités antérieures gardent leur montant.</p>
   </section>;
 }
@@ -114,4 +116,29 @@ function BillingMonths({token, canEdit, onError}: {token: string; canEdit: boole
     <FormField label="Mois éventuellement exigé dès l’inscription"><select value={due} onChange={e => setDue(e.target.value)}><option value="">Aucun</option>{MONTHS.filter(([c]) => months.includes(c)).map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></FormField>
     {canEdit && <div className="formActions"><button type="button" className="softBtn" onClick={() => void save()}>Enregistrer les mois</button></div>}
   </fieldset>;
+}
+
+// Desktop « Appliquer les barèmes aux classes ouvertes »: schedule lines per class, then the due charges of every
+// validated enrollment. A line that already received money is never rewritten (a dated rule is required instead).
+function Schedules({token, year, canApply, onError, onDone}: {token: string; year: AcademicYear; canApply: boolean; onError: (m: string) => void; onDone: () => Promise<void>}) {
+  const [rows, setRows] = useState<FeeSchedule[]>([]); const [busy, setBusy] = useState(false);
+  async function load() { try { setRows(await listFeeSchedules(token, year.id)); } catch (e) { onError(friendlyError(e)); } }
+  useEffect(() => { void load(); }, [token, year.id]);
+  const byClass = useMemo(() => { const m = new Map<string, FeeSchedule[]>(); for (const r of rows) m.set(r.class_label, [...(m.get(r.class_label) ?? []), r]); return [...m.entries()]; }, [rows]);
+  async function apply() {
+    if (!await confirmAction({title: `Appliquer les barèmes de ${year.label} ?`, message: 'Les échéances de chaque classe sont calculées à partir des règles tarifaires, puis les frais dus des élèves inscrits sont créés ou mis à jour. Une échéance déjà payée n’est jamais modifiée.', confirmLabel: 'Appliquer les barèmes'})) return;
+    try {
+      setBusy(true); const r = await applyTariffs(token, year.id);
+      toast.success(`${r.materialized} échéance(s) appliquée(s) · ${r.charges_created} frais créés · ${r.charges_updated} mis à jour${r.pending_skipped ? ` · ${r.pending_skipped} en attente du barème officiel` : ''}`);
+      await load(); await onDone();
+    } catch (e) { onError(friendlyError(e)); } finally { setBusy(false); }
+  }
+  return <div className="schedules">
+    <h4>Échéances par classe</h4>
+    {rows.length === 0 && <p className="policyHint">Aucune échéance : appliquez les barèmes pour créer les échéances des classes et les frais dus des élèves.</p>}
+    {byClass.map(([label, list]) => <details key={label} className="scheduleClass"><summary><b>{label}</b><small>{list.length} échéance(s)</small></summary>
+      <ul className="moneyList">{list.map(r => <li key={r.id}><div><b>{r.fee_label}{r.period_label ? ` — ${r.period_label}` : ''}</b><small>{r.due_date ? `Échéance ${formatDate(r.due_date)}` : 'Sans échéance'} · {r.charge_count} élève(s)</small></div><strong className="amount">{formatMoney(r.amount, r.currency)}</strong></li>)}</ul>
+    </details>)}
+    {canApply && <div className="formActions"><button type="button" className="primaryBtn" disabled={busy} onClick={() => void apply()}>{busy ? 'Application…' : 'Appliquer les barèmes aux classes ouvertes'}</button></div>}
+  </div>;
 }
