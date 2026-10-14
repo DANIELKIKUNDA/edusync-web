@@ -98,3 +98,12 @@ def test_amounts_are_formatted_from_strings_never_through_floats():
     assert "Number(" not in body and "parseFloat" not in body
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
     assert "formatMoney(t.amount,t.currency)" in app and "formatMoney(x.unit_price,x.currency)" in app
+
+
+def test_sidebar_collapse_is_an_icon_button_with_rail_overlay_and_pin():
+    shell = (ROOT / "frontend/src/platform/shell.tsx").read_text(encoding="utf-8")
+    assert '<span className="es-nav-label">Réduire le menu</span>' not in shell  # no full-width "Réduire le menu" line
+    assert "aria-label={collapseLabel}" in shell and "'Épingler le menu'" in shell
+    assert "(hover:hover) and (pointer:fine)" in shell and "schedulePeek(true, 280)" in shell  # mouse only, after a delay
+    assert ":focus-visible" in shell and "e.key === 'Escape' && peek" in shell  # keyboard opens it, Esc closes it
+    assert "if (mq.matches) setDrawer(false)" in shell  # the phone drawer closes when the layout becomes desktop

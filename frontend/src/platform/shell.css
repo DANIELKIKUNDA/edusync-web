@@ -234,3 +234,22 @@
 .es-alert-warn svg{flex:none;margin-top:2px}
 .es-stepup-code{text-align:center;font-size:22px;font-weight:700;letter-spacing:.4em;font-variant-numeric:tabular-nums}
 .es-stepup-layer .es-modal-backdrop{z-index:190}
+
+/* N2 §19 — collapse control is a small icon button in the sidebar header (tooltip + aria-label), no full-width line.
+   Rail: hovering (mouse, after a short delay) or keyboard focus shows the full menu over the content; the pin keeps it open. */
+.es-shell .es-brand .es-collapse{margin:0 0 0 auto;flex:none;width:32px;height:32px;min-height:32px;padding:0;border:0;border-radius:8px;display:grid;place-items:center;color:var(--es-muted);background:transparent}
+.es-shell .es-brand .es-collapse:hover{background:var(--es-bg);color:var(--es-ink)}
+.es-shell.es-collapsed .es-brand{flex-direction:column;height:auto;gap:6px}
+.es-shell.es-collapsed .es-brand .es-collapse{margin:0}
+.es-shell .es-side.es-peek{width:var(--es-side);justify-self:start;box-shadow:14px 0 36px rgba(15,23,42,.16);z-index:60}
+.es-shell .es-side.es-peek .es-brand{flex-direction:row;justify-content:flex-start;height:40px;padding:0 4px}
+.es-shell .es-side.es-peek .es-brand .es-collapse{margin-left:auto}
+.es-shell .es-side.es-peek .es-brand-text{display:grid!important}
+.es-shell .es-side.es-peek .es-nav-label{display:block!important}
+.es-shell .es-side.es-peek .es-nav button{justify-content:flex-start;padding:8px 10px}
+@media (min-width:768px) and (max-width:1100px){
+  .es-shell .es-brand{flex-direction:column;height:auto;gap:6px}
+  .es-shell .es-brand .es-collapse{display:none}
+}
+@media (prefers-reduced-motion:no-preference){.es-shell .es-side.es-peek{animation:es-peek-in .14s ease-out}}
+@keyframes es-peek-in{from{opacity:.6;transform:translateX(-8px)}to{opacity:1;transform:none}}

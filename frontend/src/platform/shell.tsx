@@ -80,33 +80,53 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
   const drawerRef = useRef<HTMLElement>(null);
   useDismiss(drawer, () => setDrawer(false), drawerRef);
   useEffect(() => { document.title = `${title} · EduSync`; }, [title]);
-  function toggle() { setCollapsed(v => { writeCollapsed(!v); return !v; }); setTip(null); }
+  function toggle() { setCollapsed(v => { writeCollapsed(!v); return !v; }); setTip(null); setPeek(false); }
   const railOnly = () => collapsed || window.matchMedia('(min-width:768px) and (max-width:1100px)').matches;
+  // Rail: the full menu shows temporarily over the content (mouse after a short delay, or keyboard focus); "Épingler" keeps it open.
+  const [peek, setPeek] = useState(false);
+  const peekTimer = useRef<number | undefined>(undefined);
+  const finePointer = () => window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+  const schedulePeek = (open: boolean, delay: number) => { window.clearTimeout(peekTimer.current); peekTimer.current = window.setTimeout(() => { const next = open && railOnly(); setPeek(next); if (next) setTip(null); }, delay); };
+  const sideHandlers = {
+    onMouseEnter: () => { if (finePointer() && railOnly()) schedulePeek(true, 280); },
+    onMouseLeave: () => schedulePeek(false, 180),
+    onFocus: (e: React.FocusEvent) => { if (railOnly() && e.target.matches(':focus-visible')) { window.clearTimeout(peekTimer.current); setPeek(true); setTip(null); } },
+    onBlur: (e: React.FocusEvent<HTMLElement>) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) schedulePeek(false, 0); },
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Escape' && peek) { setPeek(false); (document.activeElement as HTMLElement | null)?.blur(); } },
+  };
+  useEffect(() => () => window.clearTimeout(peekTimer.current), []);
+  // The phone drawer never survives a switch to the desktop layout (rotation, window resize).
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width:768px)');
+    const onChange = () => { if (mq.matches) setDrawer(false); else setPeek(false); };
+    mq.addEventListener('change', onChange); return () => mq.removeEventListener('change', onChange);
+  }, []);
   const showTip = (label: string) => (e: React.MouseEvent | React.FocusEvent) => {
-    if (!railOnly()) return;
+    if (!railOnly() || peek) return;
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setTip({label, top: r.top + r.height / 2});
   };
   const primary = nav.filter(n => n.primary).slice(0, 4);
   const go = (n: ShellNavItem) => { n.onSelect(); setDrawer(false); };
+  const collapseLabel = collapsed ? (peek ? 'Épingler le menu' : 'Déployer le menu') : 'Réduire le menu';
   return <div className={`es-shell ${collapsed ? 'es-collapsed' : ''}`}>
     <a className="es-skip" href="#es-content">Aller au contenu</a>
-    <aside className="es-side" aria-label="Navigation principale">
+    <aside className={`es-side ${peek ? 'es-peek' : ''}`} aria-label="Navigation principale" {...sideHandlers}>
       <div className="es-brand">
         <img src="/icons/edusync-mark.svg" alt="" width={32} height={32}/>
         <span className="es-brand-text"><b>EduSync</b><small title={orgLabel}>{orgLabel}</small></span>
+        <button type="button" className="es-collapse" onClick={toggle} aria-label={collapseLabel} aria-expanded={!collapsed || peek} title={collapseLabel}
+          onMouseEnter={showTip(collapseLabel)} onMouseLeave={() => setTip(null)}>
+          <NavGlyph g={collapsed && peek ? 'pin' : 'panelLeft'} size={17}/>
+        </button>
       </div>
       <nav className="es-nav">
         {nav.map(n => <button key={n.key} className={n.active ? 'es-active' : ''} aria-current={n.active ? 'page' : undefined}
-          aria-label={n.label} onClick={n.onSelect}
+          aria-label={n.label} onClick={() => { n.onSelect(); setPeek(false); }}
           onMouseEnter={showTip(n.label)} onMouseLeave={() => setTip(null)} onFocus={showTip(n.label)} onBlur={() => setTip(null)}>
           <NavGlyph g={n.icon} size={19}/><span className="es-nav-label">{n.label}</span>
         </button>)}
       </nav>
-      <button className="es-collapse" onClick={toggle} aria-label={collapsed ? 'Déployer le menu' : 'Réduire le menu'} aria-expanded={!collapsed}
-        onMouseEnter={showTip(collapsed ? 'Déployer le menu' : 'Réduire le menu')} onMouseLeave={() => setTip(null)}>
-        <NavGlyph g={collapsed ? 'chevronRight' : 'chevronLeft'} size={17}/><span className="es-nav-label">Réduire le menu</span>
-      </button>
     </aside>
     {tip && <div className="es-tip" role="tooltip" style={{top: tip.top}}>{tip.label}</div>}
     <div className="es-main">

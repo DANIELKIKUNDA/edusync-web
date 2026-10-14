@@ -1,0 +1,25 @@
+// N2 §19: small collapse icon, rail, temporary overlay on hover (delay) / keyboard focus, pin; drawer closes on desktop resize.
+import {connect, delay} from './cdp.mjs';
+const p = await connect();
+await p.viewport(1280, 800); await p.go(); await delay(1800);
+const state = () => p.ev(`(()=>{const s=document.querySelector(".es-side"),b=document.querySelector(".es-collapse"),r=s.getBoundingClientRect(),br=b.getBoundingClientRect();
+  return JSON.stringify({collapsed:document.querySelector(".es-shell").classList.contains("es-collapsed"),peek:s.classList.contains("es-peek"),sideW:Math.round(r.width),btn:[Math.round(br.width),Math.round(br.height)],label:b.getAttribute("aria-label"),mainLeft:Math.round(document.querySelector(".es-main").getBoundingClientRect().left)})})()`);
+const mouse = async (x, y) => p.call('Input.dispatchMouseEvent', {type: 'mouseMoved', x, y});
+await p.ev('localStorage.setItem("edusync.shell.collapsed","0")'); await p.go(); await delay(1500);
+console.log('déployé', await state()); await p.shot('rail-expanded-1280');
+await p.ev('document.querySelector(".es-collapse").click()'); await delay(400); await mouse(700, 400); await delay(400);
+console.log('rail', await state()); await p.shot('rail-collapsed-1280');
+await mouse(30, 300); await delay(120); console.log('survol 120 ms (pas encore)', await state());
+await delay(400); console.log('survol 520 ms', await state()); await p.shot('rail-peek-1280');
+await mouse(700, 400); await delay(400); console.log('sortie', await state());
+await p.ev('document.querySelector(".es-nav button").focus()'); await p.call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9}); await p.call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9}); await delay(300);
+console.log('focus clavier', await state());
+await p.call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27}); await delay(300); console.log('Échap', await state());
+await mouse(30, 300); await delay(600); await p.ev('document.querySelector(".es-collapse").click()'); await delay(400); await mouse(700, 400); await delay(400);
+console.log('épinglé', await state());
+await p.viewport(1024, 768); await delay(500); await mouse(30, 300); await delay(600); console.log('tablette survol', await state()); await p.shot('rail-peek-1024');
+await mouse(600, 400); await delay(400);
+await p.viewport(390, 844); await delay(600); await p.ev('document.querySelector(".es-burger").click()'); await delay(500);
+console.log('tiroir ouvert 390', await p.ev('!!document.querySelector(".es-drawer")'));
+await p.viewport(1280, 800); await delay(700); console.log('tiroir après passage bureau', await p.ev('!!document.querySelector(".es-drawer")'));
+process.exit(0);
