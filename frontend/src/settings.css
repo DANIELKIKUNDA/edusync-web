@@ -74,3 +74,11 @@
 .switchRow input[type=checkbox]:focus-visible{outline:2px solid #0f4fbf;outline-offset:2px}
 fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 @media(prefers-reduced-motion:reduce){.switchRow input[type=checkbox],.switchRow input[type=checkbox]::after{transition:none}}
+.nextStep{display:grid;gap:4px;border-radius:12px;padding:14px;margin-bottom:12px;background:#ecf2ff;border:1px solid #c7d7fe}
+.nextStep span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#0f4fbf}
+.nextStep b{font-size:16px}.nextStep p{margin:0 0 6px;color:#3d4a63;font-size:13px}
+.nextStep .primaryBtn{justify-self:start;min-height:42px;padding:0 18px}
+.nextStep.done{background:#f0fdf4;border-color:#bbf7d0}.nextStep.done span{color:#15803d}
+.readinessItem .linkBtn{justify-self:start;margin-top:6px;border:0;background:transparent;color:#0f4fbf;font-weight:700;padding:6px 0;min-height:32px;cursor:pointer}
+@media(max-width:720px){.nextStep .primaryBtn{justify-self:stretch;min-height:48px}}
+.readinessItem em.status{align-self:start;justify-self:start;height:auto;min-height:0}

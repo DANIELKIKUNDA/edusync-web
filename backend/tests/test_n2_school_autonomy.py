@@ -116,3 +116,9 @@ def test_enrollment_rules_screen_matches_what_the_schooling_module_enforces():
         assert f"'{field}'" in app and f'"{field}"' in uc, field  # only fields the server accepts as extra requirements
     assert "guardian_required_at_enrollment:guardian" in app and "guardian_phone_required:phone" in app
     assert "can('settings.enrollment_policy.manage')" in app and "expected_version:policy?.version??null" in app
+
+
+def test_readiness_is_a_guided_path_to_the_sections_that_settle_each_item():
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    assert "const READINESS_TARGET:Record<string,TabKey>={IDENTITY:'identity',ACADEMIC_YEAR:'years',STRUCTURE:'structure',FEE_TYPES:'fees',TARIFFS:'tariffs'}" in app
+    assert "Prochaine étape" in app and "onOpen(READINESS_TARGET[next.code])" in app

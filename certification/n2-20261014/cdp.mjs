@@ -13,7 +13,10 @@ export const env = Object.fromEntries((await fs.readFile(new URL('../../.local/c
 export {delay};
 
 export async function connect() {
-  const t = await (await fetch(`http://127.0.0.1:${process.env.CDP_PORT || 59223}/json/new?about:blank`, {method: 'PUT'})).json();
+  const base = `http://127.0.0.1:${process.env.CDP_PORT || 59223}`;
+  // Scripts run one after another: close the tabs left by previous runs (a stale tab can hold a "leave page?" prompt).
+  for (const old of await (await fetch(`${base}/json/list`)).json()) if (old.type === 'page') await fetch(`${base}/json/close/${old.id}`).catch(() => {});
+  const t = await (await fetch(`${base}/json/new?about:blank`, {method: 'PUT'})).json();
   const ws = new WebSocket(t.webSocketDebuggerUrl);
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
   let id = 0; const pend = new Map(); const consoleErrors = [];
