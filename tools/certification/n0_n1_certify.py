@@ -23,6 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 EVID = ROOT / "certification" / "n0-n1-20261007"
+EVID_N2 = ROOT / "certification" / "n2-20261014"
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
 RUN = [str(PY), str(ROOT / ".local" / "closure" / "run.py")]
 NPX = "npx.cmd" if os.name == "nt" else "npx"
@@ -80,6 +81,11 @@ def main() -> int:
          lambda c, o: (c == 0 and "PASS" in o, o.strip().splitlines()[-1][:120] if o.strip() else f"code {c}"), env={"EDUSYNC_DB": "edusync_closure_blank"})
     for probe in PROBES + (() if a.skip_resilience else ("resilience_probe.py",)):
         step(f"Sonde en conditions réelles : {probe}", RUN + [f"certification/n0-n1-20261007/{probe}"], tail_match(r"== \d+/\d+ PASS"), env=probe_env, timeout=2400)
+    # N2 (administration de l'école) : sonde réelle des écoles jumelles A/B, puis parcours UI téléphone + balayage des
+    # largeurs dans Edge piloté (CDP sur le port 59223, interface locale sur 5180).
+    step("Sonde en conditions réelles : n2_probe.py (N2)", RUN + ["certification/n2-20261014/n2_probe.py"], tail_match(r"== \d+/\d+ PASS"), env=probe_env, timeout=2400)
+    step("Parcours UI N2 (téléphone + 7 largeurs)", ["node", "n2_journey.mjs"],
+         lambda c, o: (c == 0 and "PARCOURS N2 : PASS" in o, (re.findall(r"PARCOURS N2 : [^\n]+", o) or [o.strip()[-160:]])[-1]), cwd=EVID_N2, timeout=900)
     step("Sauvegarde + restauration vérifiée", [str(PY), "tools/local/backup_restore.py", "--db", "edusync_claude_fresh"], tail_match(r"== \d+/\d+ PASS[^\n]*"))
     step("Chaîne d'approvisionnement (licences, SBOM)", [str(PY), "tools/certification/supply_chain.py"], lambda c, o: (c == 0, o.strip().splitlines()[0] if o.strip() else "?"))
     step("Vulnérabilités npm (npm audit)", [NPM, "audit", "--omit=dev"], lambda c, o: (c == 0, (re.findall(r"found \d+ vulnerabilit\w+", o) or [o.strip()[-120:]])[-1]), cwd=ROOT / "frontend")
@@ -91,9 +97,9 @@ def main() -> int:
     versions = {"OS": f"{platform.system()} {platform.release()} ({platform.version()})", "Python": platform.python_version(),
                 "Node": run(["node", "--version"])[1].strip(), "PostgreSQL": run([r"C:\Program Files\PostgreSQL\16\bin\postgres.exe", "--version"])[1].strip(),
                 "Redis (WSL)": run(["wsl.exe", "-d", "Ubuntu-22.04", "--", "redis-server", "--version"], timeout=90)[1].strip()[:60]}
-    evid = sorted(p for p in EVID.iterdir() if p.is_file() and p.suffix in (".json", ".py", ".mjs"))
+    evid = sorted(p for d in (EVID, EVID_N2) for p in d.iterdir() if p.is_file() and p.suffix in (".json", ".py", ".mjs"))
     passed = sum(s["result"] == "PASS" for s in steps)
-    lines = ["# Manifeste de preuves — certification N0 / N1", "",
+    lines = ["# Manifeste de preuves — certification N0 / N1 / N2", "",
              f"Généré le {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} par `tools/certification/n0_n1_certify.py`.", "",
              f"* Commit : `{sha}`" + (" (arbre propre au démarrage : le code testé est exactement ce commit)" if not start_dirty
                                       else f" (ATTENTION : {len(start_dirty)} fichier(s) modifié(s) au démarrage : " + ", ".join(f"`{x}`" for x in start_dirty[:20]) + ")"),

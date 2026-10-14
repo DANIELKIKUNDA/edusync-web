@@ -91,3 +91,9 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .optionDraft input{flex:1 1 160px;min-height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px}
 .optionDraft button{min-height:36px}
 @media(max-width:720px){.optionChips button{min-height:36px}.optionDraft input{min-height:44px}.optionDraft button{min-height:44px;flex:1}}
+/* Tablet (721–1100 px): the section navigation stays a vertical list beside the section, never a truncated strip. */
+@media(min-width:721px) and (max-width:1100px){
+  .settingsLayout{grid-template-columns:210px minmax(0,1fr)!important}
+  .settingsLayout .settingsNav{display:grid!important;grid-template-columns:1fr!important;overflow:visible;position:sticky;top:12px}
+  .settingsLayout .settingsNav button{min-width:0;white-space:normal}
+}

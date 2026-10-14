@@ -1,0 +1,591 @@
+{
+ "date": "2026-10-14T15:29:28.688Z",
+ "steps": [
+  {
+   "name": "connexion administrateur (390)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "identité : logo vérifié, pas de champ URL",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "identité : clavier téléphone et e-mail",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "années : une année en cours",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "années : clôture demandée → confirmation explicite",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "années : annuler ne clôture pas",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "structure : classes en liste, sans tableau débordant",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "inscriptions : règles appliquées par le serveur",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "tarifs : montants formatés",
+   "ok": true,
+   "detail": "[\"12 345,67 USD\",\"1 500 000,05 CDF\"]"
+  },
+  {
+   "name": "utilisateurs : liste des membres en premier sur téléphone",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rôles : onglet accessible",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "accueil",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "déconnexion par le menu du compte",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "reconnexion",
+   "ok": true,
+   "detail": ""
+  }
+ ],
+ "sweep": [
+  {
+   "screen": "settings-home",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-readiness",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-identity",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-years",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-structure",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-enrollment",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-tariffs",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-products",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "access-members",
+   "width": 320,
+   "hscroll": false,
+   "over": [
+    "SPAN:393",
+    "SPAN:562",
+    "svg:423",
+    "path:421",
+    "SPAN:798",
+    "svg:592"
+   ],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "home",
+   "width": 320,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-home",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-readiness",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-identity",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-years",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-structure",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-enrollment",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-tariffs",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-products",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "access-members",
+   "width": 375,
+   "hscroll": false,
+   "over": [
+    "SPAN:393",
+    "SPAN:562",
+    "svg:423",
+    "path:421",
+    "SPAN:798",
+    "svg:592"
+   ],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "home",
+   "width": 375,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-home",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-readiness",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-identity",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-years",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-structure",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-enrollment",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-tariffs",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-products",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "access-members",
+   "width": 390,
+   "hscroll": false,
+   "over": [
+    "SPAN:393",
+    "SPAN:562",
+    "svg:423",
+    "path:421",
+    "SPAN:798",
+    "svg:592"
+   ],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "home",
+   "width": 390,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-home",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-readiness",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-identity",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-years",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-structure",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-enrollment",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-tariffs",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-products",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "access-members",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "home",
+   "width": 768,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-home",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-readiness",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-identity",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-years",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-structure",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-enrollment",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-tariffs",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-products",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "access-members",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "home",
+   "width": 1024,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-home",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-readiness",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-identity",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-years",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-structure",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-enrollment",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-tariffs",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-products",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "access-members",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "home",
+   "width": 1280,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-home",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-readiness",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-identity",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-years",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-structure",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-enrollment",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-tariffs",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "settings-products",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "access-members",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  },
+  {
+   "screen": "home",
+   "width": 1440,
+   "hscroll": false,
+   "over": [],
+   "targetsUnder24": []
+  }
+ ],
+ "consoleErrors": [],
+ "failures": [],
+ "pass": true
+}

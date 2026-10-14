@@ -1,4 +1,4 @@
-# EduSync — matrice d'audit produit (Niveau 0 et Niveau 1 uniquement)
+# EduSync — matrice d'audit produit (Niveaux 0, 1 et 2)
 
 Base : 52e226d → commits de cette passe (voir `CERTIFICATION_EVIDENCE_MANIFEST.md` pour le SHA exact).
 Preuves : `certification/n0-n1-20261007/*.json` (sondes réelles), captures `certification/n0-n1-20261007/captures/`.
@@ -50,5 +50,33 @@ Preuves : `certification/n0-n1-20261007/*.json` (sondes réelles), captures `cer
 | Résilience (K) | — | — | — | 503 | — | — | FUNCTIONAL_FIX → PASS | `resilience-live.json` |
 | Sauvegarde / restauration (G) | — | — | — | outil local | — | — | PASS | `backup-restore-live.json` |
 | Chaîne d'approvisionnement (J) | — | — | — | — | — | — | SECURITY_FIX → PASS (PyJWT, source-map-js, verrou Python) | `pip-audit.json`, `sbom.cdx.json` |
-| MFA (C) | — | PLATFORM | — | — | — | — | OWNER_DECISION | `MFA_PROPOSAL.md` |
+| MFA (C) | — | PLATFORM | — | — | — | — | FUNCTIONAL_FIX → PASS (option B + décisions du 2026-10-14) | `MFA_PLATFORM_OPTION_B_REPORT.md` |
 | Rôles industriels | — | — | — | — | — | — | OWNER_DECISION (non activés) | `PLATFORM_ROLES_PROPOSAL.md` |
+
+## Niveau 2 — administration de l'école (2026-10-14)
+
+Preuves : `certification/n2-20261014/n2-live.json` (sonde réelle, 50/50), `n2-journey.json` (parcours téléphone 14/14
+et 70 mesures de 320 à 1440 px), captures `certification/n2-20261014/captures/`. Rapport : `N2_CERTIFICATION_REPORT.md`.
+
+| Surface | Écran | Rôles | Permission | API | Desktop | Mobile | État | Preuve |
+|---|---|---|---|---|---|---|---|---|
+| Création de membres par l'école | Accès & rôles › Ajouter un membre | ADMIN_SYSTEME_ECOLE | `access.users.create` | `POST /access/members` | oui | oui (feuille du bas) | FUNCTIONAL_FIX → PASS | `n2-live.json` |
+| Mot de passe provisoire montré une fois, jamais rejoué | idem | idem | idem | idem | oui | oui | SECURITY_FIX → PASS | `n2-live.json` |
+| Changement obligatoire à la 1re connexion | Connexion | tous | — | `POST /auth/password/first-change` | oui | oui | SECURITY_FIX → PASS | `n2-live.json` |
+| Rattachement d'un compte d'une autre école | Accès & rôles | idem | `access.users.create` | `POST /access/members` | oui | oui | PASS ; ni renommage ni réinitialisation (compte partagé) | `n2-live.json` |
+| Renommer, réinitialiser, désactiver, réactiver | fiche membre | idem | `access.users.update/activate/credentials.reset` | `/access/members/{id}*` | oui | oui | FUNCTIONAL_FIX → PASS ; révocation immédiate | `n2-live.json` |
+| Anti-escalade (gouvernance) | rôles, attributions, membres | délégués | `access.*` | `/access/*` | — | — | SECURITY_FIX → PASS | `n2-live.json` |
+| Isolation écoles jumelles A/B | toutes | — | — | — | — | — | PASS (0 fuite) | `n2-live.json` |
+| Centre de configuration mobile-first | Paramètres | lecture `settings.*` | — | `/settings/*` | oui (navigation latérale) | oui (liste → section) | UX_FIX → PASS | `n2-journey.json` |
+| Années : confirmations, année suivante proposée | Paramètres › Années | `settings.academic_year.*` | — | `/settings/academic-years*` | oui | oui | UX_FIX → PASS | `n2-journey.json` |
+| Logo vérifié (au lieu d'une URL) | Paramètres › Identité | `settings.documents.manage` | — | `PUT /documents/branding/logo` | oui | oui | SECURITY_FIX → PASS | `n2-journey.json` |
+| Options des sections | Paramètres › Structure | `settings.options.manage` | — | `/settings/options*` | oui | oui | FUNCTIONAL_FIX → PASS | `options_check.mjs` |
+| Désactivation de classe confirmée | Paramètres › Structure | `settings.classes.activate` | — | `PUT /settings/classes/{id}` | oui | oui | UX_FIX → PASS ; classe avec élèves : OWNER_DECISION O2 | `n2-journey.json` |
+| Règles d'inscription | Paramètres › Inscriptions | `settings.enrollment_policy.*` | — | `/settings/policies/ENROLLMENT` | oui | oui | FUNCTIONAL_FIX → PASS | `enrollment_check.mjs` |
+| Autres politiques | — | — | — | `/settings/policies/{kind}` | — | — | OWNER_DECISION O3 (aucun module ne les applique) | `N2_OWNER_DECISIONS.md` |
+| Montants exacts et dates françaises | Tarifs, Articles, Années | — | — | — | oui | oui | UX_FIX → PASS | test `formatMoney` sans flottant |
+| Mise en service guidée | Paramètres › Mise en service | — | — | `/settings/overview` | oui | oui | UX_FIX → PASS | `readiness_check.mjs` (école C) |
+| Barre latérale : icône, rail, aperçu, épingle | shell | tous | — | — | oui | — | UX_FIX → PASS | `rail_check.mjs` |
+| Tiroir mobile fermé au passage bureau | shell | tous | — | — | — | oui | UX_FIX → PASS | `rail_check.mjs` |
+| Mot de passe de l'administrateur initial | Atelier Pro | Manager | — | — | — | — | OWNER_DECISION O1 | `N2_OWNER_DECISIONS.md` |
+| Invitation par lien | — | — | — | — | — | — | BLOCKED_EXTERNAL (fournisseur e-mail/SMS) | `N2_OWNER_DECISIONS.md` |

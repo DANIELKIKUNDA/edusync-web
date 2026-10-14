@@ -106,3 +106,19 @@ saine, à transformer en parcours guidé (aucune donnée fictive créée). Déta
 4. **Compte déjà existant** (même e-mail dans une autre école) : le rattacher (sans voir ni changer son mot de passe)
    ou refuser.
 5. **Désactivation** d'un membre : coupe ses sessions de cette école seulement (le compte reste valable ailleurs).
+
+## 10. Statut des constats après N2 (2026-10-14)
+
+| # | Constat | Statut final |
+|---|---------|--------------|
+| 1 | Clôture d'année sans confirmation | CORRIGÉ : confirmations activer / clôturer / archiver / rouvrir |
+| 2 | Logo saisi comme une URL | CORRIGÉ : envoi d'un fichier vérifié |
+| 3 | Politiques sans écran | PARTIEL : écran Inscriptions (seule politique appliquée) ; autres = OWNER_DECISION O3 |
+| 4 | Options sans écran | CORRIGÉ |
+| 5 | Montants et dates bruts | CORRIGÉ (`formatMoney`, `formatDate`) |
+| 6 | Tiroir mobile ouvert au redimensionnement | CORRIGÉ |
+| 7 | Membres non paginés | CORRIGÉ (lots de 30, filtres) |
+| 8 | « Réduire le menu » | CORRIGÉ (icône, rail, aperçu, épingle) |
+| 9 | Pas de mise en service guidée | CORRIGÉ (prochaine étape) ; assistant pas à pas reporté (N3) |
+| 10 | Multi-école à certifier | CERTIFIÉ (sonde 50/50) |
+| §6 | Gestion des utilisateurs par l'école ABSENTE | CONSTRUITE (décisions D1–D4) |
