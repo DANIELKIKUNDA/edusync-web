@@ -35,3 +35,7 @@
 .es-shell .familyChips button.active,.es-shell .paymentChoice button.active{border-color:#0f4fbf;color:#0f4fbf;background:#f5f8ff}
 .es-shell .payerAvatar{background:#0f4fbf}
 .es-shell .recoveryRow strong,.es-shell .recoveryRow.total{color:#0b3f9c}
+.payModeRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.payModeRow label{display:grid;gap:4px;font-size:12.5px;font-weight:600}
+.payModeRow select,.payModeRow input{min-height:40px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px}
+@media(max-width:720px){.payModeRow{grid-template-columns:1fr}}

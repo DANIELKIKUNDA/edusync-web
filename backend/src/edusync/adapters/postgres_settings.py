@@ -494,6 +494,43 @@ class PostgresSettingsRepository:
                 RETURNING admission_reviewed_at,admission_reviewed_by"""),{"sid":school_id,"u":user_id}).first()
         return {"reviewed_at":_m(r)['admission_reviewed_at'],"reviewed_by":_m(r)['admission_reviewed_by']}
 
+    # ---------- cash-desk rules (Desktop payment_policy, parity lot L5) ----------
+    PAYMENT_MODES = ("CASH","MOBILE_MONEY","BANQUE","AUTRE")
+    PAYMENT_POLICY_DEFAULT = {"partial_payments_enabled":True,"partial_min_amount":"0.00","partial_reporting_mode":"SEPARATE",
+                              "advance_payments_enabled":True,"future_charge_payments_enabled":True,
+                              "accepted_modes":["CASH","MOBILE_MONEY","BANQUE","AUTRE"],"version":None}
+
+    def get_payment_policy(self, school_id: UUID) -> dict[str,Any]:
+        row=self.connection.execute(text("""SELECT partial_payments_enabled,partial_min_amount,partial_reporting_mode,advance_payments_enabled,
+                   future_charge_payments_enabled,accepted_modes,version FROM school_payment_policy WHERE school_id=:sid"""),{"sid":school_id}).first()
+        if row is None: return dict(self.PAYMENT_POLICY_DEFAULT)
+        out=dict(_m(row)); out['partial_min_amount']=str(out['partial_min_amount']); return out
+
+    def put_payment_policy(self, school_id: UUID, *, partial_payments_enabled:bool, partial_min_amount:Decimal, partial_reporting_mode:str,
+                           advance_payments_enabled:bool, future_charge_payments_enabled:bool, accepted_modes:list[str],
+                           expected_version:int|None) -> tuple[dict[str,Any],dict[str,Any]]:
+        """Desktop save_payment_policy."""
+        if partial_reporting_mode not in ('INCLUDE','SEPARATE','EXCLUDE_UNTIL_SETTLED'): raise ValueError("Mode de reporting des acomptes invalide")
+        modes=[m for m in self.PAYMENT_MODES if m in set(accepted_modes or [])]
+        if not modes: raise ValueError("Au moins un mode de paiement doit être autorisé")
+        if partial_min_amount < 0: raise ValueError("L'acompte minimum ne peut pas être négatif")
+        old=self.get_payment_policy(school_id)
+        values={"sid":school_id,"pe":bool(partial_payments_enabled),"pm":partial_min_amount,"rm":partial_reporting_mode,"ae":bool(advance_payments_enabled),
+                "fe":bool(future_charge_payments_enabled),"modes":json.dumps(modes)}
+        cols="partial_payments_enabled,partial_min_amount,partial_reporting_mode,advance_payments_enabled,future_charge_payments_enabled,accepted_modes,version"
+        if old['version'] is None:
+            row=self.connection.execute(text(f"""INSERT INTO school_payment_policy(school_id,partial_payments_enabled,partial_min_amount,partial_reporting_mode,
+                advance_payments_enabled,future_charge_payments_enabled,accepted_modes) VALUES (:sid,:pe,:pm,:rm,:ae,:fe,CAST(:modes AS jsonb)) RETURNING {cols}"""),values).first()
+        else:
+            if expected_version is None or int(old['version'])!=expected_version:
+                raise OptimisticConcurrencyError("Règles d'encaissement modifiées par une autre session; rechargez")
+            row=self.connection.execute(text(f"""UPDATE school_payment_policy SET partial_payments_enabled=:pe,partial_min_amount=:pm,partial_reporting_mode=:rm,
+                advance_payments_enabled=:ae,future_charge_payments_enabled=:fe,accepted_modes=CAST(:modes AS jsonb)
+                WHERE school_id=:sid AND version=:v RETURNING {cols}"""),{**values,"v":expected_version}).first()
+            if row is None: raise OptimisticConcurrencyError("Règles d'encaissement modifiées par une autre session")
+        out=dict(_m(row)); out['partial_min_amount']=str(out['partial_min_amount'])
+        return out,old
+
     CLASS_COLUMNS = "id,academic_year_id,section_id,option_id,reference_code,code,label,enabled,status,archived_at,version"
 
     def _class_for_change(self, school_id: UUID, class_id: UUID) -> dict[str,Any]:

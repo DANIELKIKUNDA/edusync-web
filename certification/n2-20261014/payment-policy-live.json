@@ -1,0 +1,92 @@
+[
+ {
+  "check": "Règles par défaut (Desktop) : acomptes, anticipé, mois futurs autorisés ; 4 modes",
+  "pass": true,
+  "detail": "{'partial_payments_enabled': True, 'partial_min_amount': '0.00', 'partial_reporting_mode': 'SEPARATE', 'advance_payments_enabled': True, 'future_charge_payments_enabled': True, 'accepted_modes': ['CASH', 'MOBILE_MONEY', 'BANQUE', 'AUTRE'], 'version': None}"
+ },
+ {
+  "check": "Acompte permis par défaut",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Acomptes désactivés : paiement partiel refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Acomptes désactivés : solde exact accepté",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Acompte minimum 10 000 : 5 000 refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Acompte minimum 10 000 : 12 000 accepté",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Mois futurs désactivés : paiement d'une mensualité à venir refusé",
+  "pass": true,
+  "detail": "(409, datetime.date(2026, 11, 1))"
+ },
+ {
+  "check": "Caisse : modes acceptés exposés (espèces, banque)",
+  "pass": true,
+  "detail": "{'accepted_modes': ['CASH', 'BANQUE'], 'partial_payments_enabled': True, 'partial_min_amount': '0.00', 'future_charge_payments_enabled': True, 'advance_payments_enabled': True}"
+ },
+ {
+  "check": "Mode non accepté (Mobile Money) refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Mode accepté (banque) avec référence : enregistré",
+  "pass": true,
+  "detail": "200"
+ },
+ {
+  "check": "Paiement : mode et référence conservés",
+  "pass": true,
+  "detail": "('BANQUE', 'VIR-532A9')"
+ },
+ {
+  "check": "Mode inconnu refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Paiements anticipés désactivés : utilisation d'un plan refusée",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Aucun mode autorisé : réglage refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Version périmée : réglage refusé (409)",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Sans droit : le caissier ne modifie pas les règles (403)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Autre école : règles par défaut, pas celles de L5",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Audit : chaque réglage tracé",
+  "pass": true,
+  "detail": "5"
+ }
+]

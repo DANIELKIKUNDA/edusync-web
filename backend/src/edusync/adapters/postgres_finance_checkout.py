@@ -74,7 +74,26 @@ class PostgresFinanceCheckoutRepository:
    alloc=min(left,c.remaining);covered[str(c.id)]=alloc;left-=alloc
   if any(covered.get(i['charge_id'],Decimal('0'))<Decimal(i['balance']) for i in outstanding):
    raise ValueError("Les obligations exigées à l'inscription doivent être soldées avant les autres frais")
- def collect(self,school_id:UUID,user_id:UUID,membership_id:UUID,enrollment_id:UUID,charge_ids:list[UUID],amount:Decimal,currency:str,idempotency_key:str,use_anticipation:bool=False):
+ def _apply_payment_policy(self,school_id,rows,charges,charge_ids,amount,mode,use_anticipation):
+  # Desktop finance_checkout (parity lot L5): accepted modes, future months, partial payments and minimum deposit, advance.
+  from edusync.adapters.postgres_settings import PostgresSettingsRepository
+  from datetime import date
+  policy=PostgresSettingsRepository(self.conn).get_payment_policy(school_id)
+  if mode not in PostgresSettingsRepository.PAYMENT_MODES:raise ValueError('Mode de paiement invalide')
+  if mode not in set(policy['accepted_modes']):raise ValueError("Ce mode de paiement n'est pas autorisé par la configuration de l'école")
+  if use_anticipation and not policy['advance_payments_enabled']:raise ValueError("Les paiements anticipés sont désactivés par la politique de l'école")
+  due={str(r['id']):r.get('due_date') for r in rows};selected=set(charge_ids)
+  if not policy['future_charge_payments_enabled'] and not use_anticipation and any(due.get(str(i)) and due[str(i)]>date.today() for i in selected):
+   raise ValueError("Le paiement d'un mois futur est désactivé par la politique de l'école")
+  if use_anticipation:return
+  left=Decimal(str(amount));minimum=Decimal(str(policy['partial_min_amount'] or 0))
+  for c in sorted((x for x in charges if x.id in selected),key=lambda x:(x.chain or '',x.order,str(x.id))):
+   if left<=0:break
+   n=min(left,c.remaining);left-=n
+   if 0<n<c.remaining:
+    if not policy['partial_payments_enabled']:raise ValueError("Les paiements partiels ne sont pas autorisés par la politique de l'école")
+    if minimum>0 and n<minimum:raise ValueError(f"L'acompte minimum autorisé est de {minimum:,.2f}".replace(',',' '))
+ def collect(self,school_id:UUID,user_id:UUID,membership_id:UUID,enrollment_id:UUID,charge_ids:list[UUID],amount:Decimal,currency:str,idempotency_key:str,use_anticipation:bool=False,mode:str='CASH',reference:str|None=None):
   self._lock_idempotency_key(school_id,idempotency_key)
   existing=self.conn.execute(text('SELECT id,receipt_number,amount,currency,enrollment_id FROM finance_payments WHERE school_id=:sid AND idempotency_key=:k'),{'sid':str(school_id),'k':idempotency_key}).mappings().first()
   if existing:
@@ -91,6 +110,7 @@ class PostgresFinanceCheckoutRepository:
   # Only the selected charges must match: a student may owe CDF and USD fees, paid separately.
   if currency not in {'CDF','USD'} or any(c.currency!=currency for c in charges if c.id in selected_ids):raise ValueError('Devise incohérente')
   self._registration_bundle_first(school_id,enrollment_id,charges,charge_ids,amount)
+  self._apply_payment_policy(school_id,rows,charges,charge_ids,amount,mode,use_anticipation)
   plan=self.anticipation(school_id,enrollment_id,currency) if use_anticipation else None
   plan_available=bool(plan and plan.get('available'))
   normal,advance=split_payment(amount,expected,plan_available)
@@ -98,7 +118,7 @@ class PostgresFinanceCheckoutRepository:
    self.accept_anticipation(school_id,enrollment_id,UUID(str(plan['plan_id'])),user_id)
    plan['accepted']=True;plan['membership_status']='ACCEPTED'
   pid=uuid4(); receipt=f"REC-{str(pid).split('-')[0].upper()}"
-  self.conn.execute(text('INSERT INTO finance_payments(id,school_id,enrollment_id,cash_session_id,actor_user_id,amount,currency,receipt_number,idempotency_key) VALUES(:id,:sid,:eid,:cs,:uid,:a,:cur,:r,:k)'),{'id':str(pid),'sid':str(school_id),'eid':str(enrollment_id),'cs':str(session),'uid':str(user_id),'a':amount,'cur':currency,'r':receipt,'k':idempotency_key})
+  self.conn.execute(text('INSERT INTO finance_payments(id,school_id,enrollment_id,cash_session_id,actor_user_id,amount,currency,receipt_number,idempotency_key,payment_mode,payment_reference) VALUES(:id,:sid,:eid,:cs,:uid,:a,:cur,:r,:k,:mode,:ref)'),{'mode':mode,'ref':(reference or '').strip()[:80] or None,'id':str(pid),'sid':str(school_id),'eid':str(enrollment_id),'cs':str(session),'uid':str(user_id),'a':amount,'cur':currency,'r':receipt,'k':idempotency_key})
   left=normal; details=[]
   selected_set=set(charge_ids)
   for c in sorted((x for x in charges if x.id in selected_set),key=lambda x:(x.chain or '',x.order,str(x.id))):

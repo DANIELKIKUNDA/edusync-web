@@ -23,6 +23,15 @@ def children(family_id:UUID,actor:ActorContext=Depends(require_school_actor),ser
 def balance(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.checkout.balance.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return {'items':PostgresFinanceCheckoutRepository(conn).charges(actor.school_id,enrollment_id)}
+@router.get('/payment-options')
+def payment_options(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ # The modes the school accepts (Desktop payment policy), shown at the cash desk.
+ need(actor,'finance.checkout.collect')
+ from edusync.adapters.postgres_settings import PostgresSettingsRepository
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  p=PostgresSettingsRepository(conn).get_payment_policy(actor.school_id)
+  return {'accepted_modes':p['accepted_modes'],'partial_payments_enabled':p['partial_payments_enabled'],'partial_min_amount':p['partial_min_amount'],
+          'future_charge_payments_enabled':p['future_charge_payments_enabled'],'advance_payments_enabled':p['advance_payments_enabled']}
 @router.get('/registration-bundle/{enrollment_id}')
 def registration_bundle(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  # Desktop registration_bundle_due (parity lot L4): obligations required at enrollment, to settle before other fees.
@@ -37,12 +46,13 @@ def anticipation(enrollment_id:UUID,currency:str=Query(...,pattern='^(CDF|USD)$'
   return {'available':bool(plan and plan.get('available')),'accepted':bool(plan and plan.get('accepted')),'membership_status':plan.get('membership_status') if plan else None,'plan':plan}
 class CollectBody(BaseModel):
  enrollment_id:UUID;charge_ids:list[UUID]=Field(min_length=1);amount:Decimal=Field(gt=0);currency:str;use_anticipation:bool=False
+ mode:str='CASH';reference:str|None=Field(default=None,max_length=80)
 @router.post('/collect')
 def collect(body:CollectBody,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.checkout.collect')
  if not idempotency_key:raise HTTPException(400,'Idempotency-Key obligatoire')
  try:
-  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return PostgresFinanceCheckoutRepository(conn).collect(actor.school_id,actor.user_id,actor.membership_id,body.enrollment_id,body.charge_ids,body.amount,body.currency,idempotency_key,body.use_anticipation)
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return PostgresFinanceCheckoutRepository(conn).collect(actor.school_id,actor.user_id,actor.membership_id,body.enrollment_id,body.charge_ids,body.amount,body.currency,idempotency_key,body.use_anticipation,mode=body.mode,reference=body.reference)
  except ValueError as e:raise HTTPException(409,str(e)) from e
  # Database invariants (e.g. received > obligation) are business conflicts, never a 500.
  except IntegrityError as e:raise HTTPException(409,'Opération refusée : elle violerait une règle financière (montant déjà réglé)') from e

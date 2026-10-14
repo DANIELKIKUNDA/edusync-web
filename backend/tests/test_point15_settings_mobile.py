@@ -6,8 +6,10 @@ CSS=(ROOT/'frontend/src/styles.css').read_text()
 
 def test_settings_placeholders_removed_from_navigation():
     tabs=APP.split('] as const;',1)[0].split('const parameterTabs=[',1)[1]
-    for key in ["'payment'","'documents'","'advanced'"]:
+    for key in ["'documents'","'advanced'"]:
         assert key not in tabs
+    # Parity lot L5 2026-10 (justified adaptation): 'payment' edits the Desktop cash-desk rules enforced by the checkout.
+    assert "'payment'" in tabs and "<PaymentPolicySettings token={token}" in APP
     # Parity lot L3 2026-10 (justified adaptation): 'benefits' is a real editor of the Desktop benefit policies
     # (/settings/benefit-policies), consumed at enrollment and in the due charges.
     assert "'benefits'" in tabs and "<BenefitsSettings token={token}" in APP

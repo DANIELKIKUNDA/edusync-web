@@ -219,3 +219,16 @@ def test_admission_conditions_copy_the_desktop():
     router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
     for cap in ("settings.enrollment_policy.manage", "settings.enrollment_policy.activate", "settings.enrollment_policy.review"):
         assert f"_need(actor,'{cap}')" in router, cap
+
+
+def test_cash_desk_rules_copy_the_desktop():
+    checkout = (ROOT / "backend/src/edusync/adapters/postgres_finance_checkout.py").read_text(encoding="utf-8")
+    for message in ("Les paiements partiels ne sont pas autorisés par la politique de l'école", "L'acompte minimum autorisé est de",
+                    "Le paiement d'un mois futur est désactivé par la politique de l'école",
+                    "Ce mode de paiement n'est pas autorisé par la configuration de l'école"):
+        assert message in checkout, message
+    assert "payment_mode,payment_reference" in checkout
+    repo = (ROOT / "backend/src/edusync/adapters/postgres_settings.py").read_text(encoding="utf-8")
+    assert "Au moins un mode de paiement doit être autorisé" in repo
+    router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
+    assert "_need(actor,'settings.payment_policy.manage')" in router

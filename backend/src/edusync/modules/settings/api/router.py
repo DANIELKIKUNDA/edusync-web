@@ -604,6 +604,32 @@ def review_admission_conditions(response:Response,idempotency_key:str|None=Heade
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_ADMISSION_REVIEW',payload={},action=action);return result.body
     except Exception as exc:_error(exc)
 
+class PaymentPolicyPut(BaseModel):
+    partial_payments_enabled:bool=True
+    partial_min_amount:Decimal=Field(default=Decimal('0'),ge=0,max_digits=18,decimal_places=2)
+    partial_reporting_mode:Literal['INCLUDE','SEPARATE','EXCLUDE_UNTIL_SETTLED']='SEPARATE'
+    advance_payments_enabled:bool=True
+    future_charge_payments_enabled:bool=True
+    accepted_modes:list[Literal['CASH','MOBILE_MONEY','BANQUE','AUTRE']]=Field(min_length=1,max_length=4)
+    expected_version:int|None=Field(default=None,ge=1)
+
+@router.get('/payment-policy')
+def payment_policy(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.payment_policy.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresSettingsRepository(conn).get_payment_policy(actor.school_id))
+
+@router.put('/payment-policy')
+def put_payment_policy(body:PaymentPolicyPut,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop save_payment_policy: partial payments and minimum deposit, advance and future months, accepted modes."""
+    _need(actor,'settings.payment_policy.manage');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out,old=PostgresSettingsRepository(conn).put_payment_policy(actor.school_id,**body.model_dump())
+            out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='PAYMENT_POLICY_SAVED',entity_type='SchoolPaymentPolicy',entity_id=actor.school_id,old=_jsonable(old),new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_PAYMENT_POLICY',payload=body.model_dump(mode='json'),action=action);return result.body
+    except Exception as exc:_error(exc)
+
 class BillingPolicyPut(BaseModel):
     billing_months:list[str]=Field(min_length=1,max_length=12)
     month_due_at_enrollment:str|None=Field(default=None,max_length=2)
