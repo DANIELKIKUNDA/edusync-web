@@ -1,0 +1,22 @@
+// Enrollment rules screen: phone display, save, reload shows the saved state; then restores the initial rules.
+import {connect, delay} from './cdp.mjs';
+const p = await connect();
+await p.viewport(390, 844); await p.go(); await delay(1800);
+await p.ev('[...document.querySelectorAll(".es-bottom button")].find(b=>/Menu/.test(b.innerText))?.click()'); await delay(600);
+await p.click('Paramètres'); await p.waitFor('!!document.querySelector(".settingsNav")'); await delay(800);
+await p.ev('[...document.querySelectorAll(".settingsNav button")].find(b=>b.innerText.includes("Inscriptions")).click()'); await p.waitFor('!!document.querySelector(".policyForm")'); await delay(600);
+const read = () => p.ev('JSON.stringify([...document.querySelectorAll(".switchRow input")].map(i=>i.checked))');
+const initial = await read(); console.log('initial', initial);
+const m = await p.metrics(); console.log('hscroll', m.hscroll, 'cibles<36', m.smallTargets);
+await p.shot('settings-enrollment-390', true);
+await p.ev('document.querySelectorAll(".switchRow input")[0].click()'); await delay(200);
+await p.ev('document.querySelector(".policyForm .primaryBtn").click()'); await delay(1500);
+await p.go(); await delay(1500);
+await p.ev('[...document.querySelectorAll(".es-bottom button")].find(b=>/Menu/.test(b.innerText))?.click()'); await delay(600);
+await p.click('Paramètres'); await p.waitFor('!!document.querySelector(".settingsNav")'); await delay(800);
+await p.ev('[...document.querySelectorAll(".settingsNav button")].find(b=>b.innerText.includes("Inscriptions")).click()'); await p.waitFor('!!document.querySelector(".policyForm")'); await delay(800);
+const after = await read(); console.log('après rechargement', after, 'changé', after !== initial);
+await p.ev('document.querySelectorAll(".switchRow input")[0].click()'); await delay(200);
+await p.ev('document.querySelector(".policyForm .primaryBtn").click()'); await delay(1500);
+console.log('restauré', await read());
+process.exit(0);

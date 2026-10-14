@@ -5,8 +5,12 @@ API=(ROOT/'frontend/src/api.ts').read_text()
 CSS=(ROOT/'frontend/src/styles.css').read_text()
 
 def test_settings_placeholders_removed_from_navigation():
-    for key in ["'payment'","'enrollment'","'benefits'","'documents'","'advanced'"]:
-        assert key not in APP.split('] as const;',1)[0].split('const parameterTabs=[',1)[1]
+    tabs=APP.split('] as const;',1)[0].split('const parameterTabs=[',1)[1]
+    for key in ["'payment'","'benefits'","'documents'","'advanced'"]:
+        assert key not in tabs
+    # N2 2026-10 (justified adaptation): 'enrollment' is back as a real editor of the policy the schooling module
+    # enforces (/settings/policies/ENROLLMENT), not a placeholder.
+    assert "'enrollment'" in tabs and "putPolicy(token,'ENROLLMENT'" in APP
 
 def test_real_settings_editors_are_wired():
     for token in ['IdentitySettings','ContributionsSettings','ProductsSettings','createTariff','updateSchoolIdentity','listSettingsProducts','listSettingsContributions']:

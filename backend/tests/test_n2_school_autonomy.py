@@ -107,3 +107,12 @@ def test_sidebar_collapse_is_an_icon_button_with_rail_overlay_and_pin():
     assert "(hover:hover) and (pointer:fine)" in shell and "schedulePeek(true, 280)" in shell  # mouse only, after a delay
     assert ":focus-visible" in shell and "e.key === 'Escape' && peek" in shell  # keyboard opens it, Esc closes it
     assert "if (mq.matches) setDrawer(false)" in shell  # the phone drawer closes when the layout becomes desktop
+
+
+def test_enrollment_rules_screen_matches_what_the_schooling_module_enforces():
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    uc = (ROOT / "backend/src/edusync/modules/schooling/application/use_cases.py").read_text(encoding="utf-8")
+    for field in ("birth_date", "birth_place", "nationality", "address", "previous_school"):
+        assert f"'{field}'" in app and f'"{field}"' in uc, field  # only fields the server accepts as extra requirements
+    assert "guardian_required_at_enrollment:guardian" in app and "guardian_phone_required:phone" in app
+    assert "can('settings.enrollment_policy.manage')" in app and "expected_version:policy?.version??null" in app
