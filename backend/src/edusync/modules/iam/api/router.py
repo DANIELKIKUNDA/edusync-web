@@ -156,6 +156,11 @@ def login(body: LoginInput, request: Request, response: Response, services: AppS
             raise HTTPException(status_code=401, detail="Connexion impossible")
         guard.success(body.email, ip)
 
+        # N2 (owner decision 2026-10-14): a temporary password set by a school must be replaced before any session.
+        if conn.execute(text("SELECT must_change_password FROM users WHERE id=:u"), {"u": str(user.id)}).scalar():
+            step_token = platform_mfa.create_challenge(conn, services.settings, user_id=user.id, user_version=user.version, purpose="PASSWORD")
+            return {"password_change_required": True, "change_token": step_token, "expires_in": services.settings.mfa_challenge_seconds}
+
         if body.scope == "AUTO":
             contexts = _login_contexts(conn, user.id)
             if not contexts:
@@ -410,6 +415,31 @@ def platform_mfa_step_up(body: MfaReauthInput, request: Request, response: Respo
         guard.failure(str(actor.user_id), ip)
         platform_mfa.security_audit(conn, user_id=actor.user_id, action="MFA_FAILED", detail={"method": "TOTP", "stage": "STEP_UP"}, rejected=True)
     raise HTTPException(status_code=400, detail=_MFA_WRONG)
+
+
+class FirstPasswordInput(BaseModel):
+    change_token: str = Field(min_length=20, max_length=128)
+    new_password: str = Field(min_length=10, max_length=512)
+
+
+@router.post("/password/first-change")
+def first_password_change(body: FirstPasswordInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """Replaces a temporary password (set by a school administrator) with the person's own. No session is opened here:
+    the client signs in again with the new password, then follows the normal path (space choice, second factor)."""
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    with services.platform_db.platform_transaction() as conn:
+        challenge = platform_mfa.load_challenge(conn, services.settings, body.change_token, "PASSWORD")
+        if challenge is None:
+            raise HTTPException(status_code=401, detail="Étape expirée : reconnectez-vous avec le mot de passe provisoire.")
+        user = PostgresUserRepository(conn).get(challenge.user_id)
+        if verify_password(body.new_password, user.password_hash):
+            raise HTTPException(status_code=422, detail="Choisissez un mot de passe différent du mot de passe provisoire.")
+        conn.execute(text("""UPDATE users SET password_hash=:p, version=version+1, must_change_password=false, password_set_by='SELF'
+            WHERE id=:u AND version=:v"""), {"p": hash_password(body.new_password), "u": str(user.id), "v": user.version})
+        platform_mfa.consume_challenge(conn, challenge)
+        platform_mfa.security_audit(conn, user_id=user.id, action="PASSWORD_REPLACED_AFTER_TEMPORARY")
+    return {"changed": True}
 
 
 @router.get("/me")

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
+import secrets
 
 import jwt
 from argon2 import PasswordHasher
@@ -54,3 +55,12 @@ def decode_access_token(token: str, *, secret: str, issuer: str, audience: str) 
     if payload.get("typ") != "access":
         raise jwt.InvalidTokenError("Type de jeton invalide")
     return payload
+
+
+_TEMP_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+
+
+def new_temporary_password() -> str:
+    """Temporary password handed over by an administrator (read aloud or copied): 3 groups of 4 unambiguous characters
+    (about 69 bits). It must be replaced at the first sign-in."""
+    return "-".join("".join(secrets.choice(_TEMP_ALPHABET) for _ in range(4)) for _ in range(3))

@@ -8,8 +8,9 @@ SRC=ROOT/'src'/'edusync'
 # logout_all: authenticated by the device-session cookie like logout (CSRF origin check, audited).
 # mfa_verify/mfa_enroll_start/mfa_enroll_confirm (option B, 2026-10-13): second step of a platform sign-in, authenticated
 # by the single-use step token issued after the password (hashed server-side, 5 min, attempt-limited, CSRF origin check).
+# first_password_change (N2): same kind of step token, issued only after the temporary password was verified.
 PUBLIC_AUTH={'login','refresh_session','logout','logout_all','setup_status','create_first_manager','open_signed_document',
-             'mfa_verify','mfa_enroll_start','mfa_enroll_confirm'}
+             'mfa_verify','mfa_enroll_start','mfa_enroll_confirm','first_password_change'}
 HTTP={'get','post','put','patch','delete'}
 
 def _routes(path:Path):

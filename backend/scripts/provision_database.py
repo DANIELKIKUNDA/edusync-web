@@ -181,6 +181,7 @@ def main() -> None:
             ("0055_notifications_center", "0055_notifications_center.sql"),
             ("0056_platform_mfa_totp", "0056_platform_mfa_totp.sql"),
             ("0057_mfa_step_up_school_context", "0057_mfa_step_up_school_context.sql"),
+            ("0058_school_user_management", "0058_school_user_management.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):

@@ -140,3 +140,76 @@
 /* Primary action stands out in the assign dialog */
 .assignDialog .modalActions button:last-child{background:linear-gradient(135deg,#1559c4,#0b75d1);color:#fff;border:0;box-shadow:0 7px 18px rgba(18,84,191,.18)}
 .assignDialog .modalActions button:last-child:disabled{opacity:.45;box-shadow:none}
+
+/* N2 members: compact rows (tap -> sheet), filters, member sheet, add dialog, one-time password. Phone first. */
+.accessPage .memberList{list-style:none;margin:0;padding:0}
+.accessPage .memberRow{width:100%;display:grid;grid-template-columns:40px minmax(0,1.3fr) minmax(0,1fr) auto 18px;gap:12px;text-align:left;font:inherit;color:inherit;cursor:pointer;min-height:60px}
+.accessPage .memberRow:focus-visible{outline:2px solid #1557d6;outline-offset:2px}
+.accessPage .memberRow>svg{color:#8a95a8}
+.accessPage .memberRow .memberIdentity{display:grid;min-width:0}
+.accessPage .memberRow .memberIdentity b,.accessPage .memberRow .memberIdentity small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.memberSummary{display:flex;align-items:center;gap:6px;min-width:0}
+.memberSummary .roleChip{max-width:100%;overflow:hidden}
+.memberSummary .roleChip b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.moreRoles{font-size:12px;font-weight:700;color:#5b6578;background:#eef2f8;border-radius:999px;padding:2px 8px}
+.statePill{display:inline-flex;align-items:center;font-style:normal;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.statePill.ok{background:#e8f6ef;color:#166a43}.statePill.off{background:#f1f3f7;color:#5b6578}
+.statePill.wait{background:#fff4e0;color:#8a4b00}.statePill.info{background:#e9f0ff;color:#1557d6}
+.memberFilters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.memberFilters button{min-height:36px;padding:0 12px;border:1px solid #dfe5ee;border-radius:999px;background:#fff;font-weight:650;font-size:13px;color:#3d4659;cursor:pointer}
+.memberFilters button.on{background:#1557d6;border-color:#1557d6;color:#fff}
+.memberFilters button span{opacity:.75;margin-left:3px}
+.moreBtn{margin:12px auto 0;display:flex}
+.memberSheet{width:min(520px,100%);height:100dvh;background:#fff;display:flex;flex-direction:column;box-shadow:-20px 0 50px rgba(15,28,51,.18);animation:sheetIn .28s cubic-bezier(.2,.8,.2,1) both}
+.memberSheetWho{display:flex;gap:12px;align-items:center;min-width:0}
+.memberSheetWho h3{margin:0;font-size:18px;overflow-wrap:anywhere}
+.memberSheetWho small{color:#5b6578;overflow-wrap:anywhere}
+.avatar.lg{width:46px;height:46px;border-radius:13px;font-size:15px;flex:none}
+.memberFacts{display:flex;gap:6px;flex-wrap:wrap}
+.sheetNote{display:flex;gap:8px;align-items:flex-start;margin:0;padding:10px 12px;border-radius:10px;background:#f4f6fa;color:#3d4659;font-size:13px;line-height:1.45}
+.sheetSection{display:grid;gap:8px}
+.sheetSectionHead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sheetSectionHead h4{margin:0;font-size:14px;text-transform:uppercase;letter-spacing:.4px;color:#5b6578}
+.sheetRoles{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.sheetRoles li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e8edf4;border-radius:11px}
+.sheetRoles li span{display:grid;min-width:0}.sheetRoles small{color:#5b6578}
+.sheetRoles .textBtn{min-height:40px;padding:0 10px}
+.accountActions{display:grid;gap:6px}
+.actionRow{display:flex;gap:12px;align-items:flex-start;width:100%;min-height:56px;padding:11px 12px;border:1px solid #e8edf4;border-radius:11px;background:#fff;text-align:left;font:inherit;color:#1b2536;cursor:pointer}
+.actionRow span{display:grid;gap:2px}.actionRow small{color:#5b6578;font-size:12.5px;line-height:1.4}
+.actionRow:hover:not(:disabled){border-color:#c8d6ee;background:#f8fafd}
+.actionRow:disabled{opacity:.55;cursor:not-allowed}
+.actionRow.danger b,.actionRow.danger svg{color:#b42318}
+.renameBox{display:grid;gap:10px}
+.renameBox label{display:grid;gap:5px;font-size:13px;font-weight:650}
+.renameBox input{min-height:44px;padding:0 12px;border:1px solid #d5dbe6;border-radius:10px;font-size:15px}
+.addMemberDialog label{display:grid;gap:5px}
+.addMemberDialog input,.addMemberDialog select{min-height:44px;font-size:16px}
+.fieldError{color:#b42318;font-weight:600;font-size:12.5px}
+.secretLead{margin:0;font-weight:650}
+.secretBox{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px;border:1px dashed #b9c6dc;border-radius:12px;background:#f8fafd}
+.secretBox code{font-size:22px;font-weight:800;letter-spacing:.06em;user-select:all;flex:1;min-width:200px}
+.secretHint{display:flex;gap:8px;align-items:flex-start;margin:0;font-size:13px;color:#7a4b00;background:#fff8e6;border:1px solid #f3dfa8;padding:10px 12px;border-radius:10px;line-height:1.45}
+@media(max-width:1100px){.accessPage .memberRow{grid-template-columns:40px minmax(0,1fr) auto 18px}.accessPage .memberRow .memberSummary{display:none}}
+@media(max-width:720px){
+  .accessPage .memberRow{grid-template-columns:40px minmax(0,1fr) 18px;gap:10px;padding:10px 12px}
+  .accessPage .memberRow .memberState{grid-column:2;grid-row:2;margin-top:-4px}
+  .accessPage .memberRow .memberState:empty{display:none}
+  .accessPage .memberRow>svg{grid-column:3;grid-row:1}
+  .memberSheet{width:100%;height:auto;max-height:92dvh;margin-top:auto;border-radius:18px 18px 0 0;box-shadow:0 -16px 40px rgba(15,28,51,.2)}
+  .sheetBackdrop:has(.memberSheet){align-items:flex-end}
+  .memberSheet .sheetBody{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+  .heroActions{display:flex;gap:8px;flex-wrap:wrap}
+}
+@media(prefers-reduced-motion:reduce){.memberSheet{animation:none!important}}
+/* Phone hierarchy (N2): primary action and the member list first; indicators and guardrails come after, compact. */
+@media(max-width:720px){
+  .accessPage{display:flex;flex-direction:column}
+  .accessPage .personnelHero p{display:none}
+  .accessPage .accessMetrics{order:5;margin-top:4px}
+  .accessPage .accessMetrics .personMetric{min-height:84px;padding:10px}
+  .accessPage .guardrails{order:6;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:8px 10px}
+  .accessPage .guardrails::-webkit-scrollbar{display:none}
+  .accessPage .guardrails span{white-space:nowrap;flex:none}
+  .accessPage .personTabs{position:sticky;top:var(--es-top,56px);z-index:5;background:var(--es-bg,#f4f6fa)}
+}

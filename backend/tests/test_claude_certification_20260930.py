@@ -397,15 +397,16 @@ def test_access_governance_guardrails_are_enforced_server_side():
     assert "personne ne modifie ses propres droits" in s                       # no self-service revoke
     assert "vous ne pouvez pas modifier un rôle que vous détenez" in s         # no editing a role you hold
     assert "code NOT LIKE 'platform.%'" in s                                   # no platform capability
-    assert s.count("_assert_managers_remain(conn, actor.school_id)") == 2      # never zero access managers
+    assert s.count("_assert_managers_remain(conn, actor.school_id)") == 3      # never zero access managers (role edit, revoke, N2 member deactivation)
     assert "Les rôles standards ne se modifient pas" in s                      # standard roles immutable
-    assert s.count("_idempotent(services, actor, idempotency_key") == 5        # every mutation idempotent
-    assert s.count('_audit(conn, actor, "ACCESS_') == 5                        # every mutation journaled
+    assert s.count("_idempotent(services, actor, idempotency_key") == 5        # every role mutation idempotent
+    assert s.count("_idempotent_iam(services, actor,") >= 3                     # N2 member mutations idempotent (create, rename, (de)activate; reset never replayed)
+    assert s.count('_audit(conn, actor, "ACCESS_') == 9                        # every mutation journaled (5 role + 4 member call sites)
 
 
 def test_access_names_resolved_only_for_this_schools_members():
     s = (SRC / "modules/access/api/router.py").read_text(encoding="utf-8")
-    assert "def _user_cards" in s and "WHERE id=ANY(CAST(:ids AS uuid[]))" in s
+    assert "def _user_cards" in s and "WHERE u.id=ANY(CAST(:ids AS uuid[]))" in s
     assert "JOIN users" not in s.split("def members", 1)[1].split("def scope_options", 1)[0]
 
 

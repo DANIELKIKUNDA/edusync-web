@@ -2,7 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
-import {createFirstManager,HttpLoginError,isMfaStep,loginAuto,loginPlatform,loginSchool,MfaError,mfaEnrollConfirm,mfaEnrollStart,mfaVerify,setupStatus,type LoginContext,type MfaEnrollment as MfaEnrollmentData,type MfaStep,type SchoolLoginResult,type SetupStatus} from './api';
+import {createFirstManager,firstPasswordChange,HttpLoginError,isMfaStep,isPasswordChangeStep,loginAuto,loginPlatform,loginSchool,MfaError,mfaEnrollConfirm,mfaEnrollStart,mfaVerify,setupStatus,type LoginContext,type MfaEnrollment as MfaEnrollmentData,type MfaStep,type SchoolLoginResult,type SetupStatus} from './api';
 import {toast} from 'sonner';
 import {friendlyError,UserFacingError} from './platform/errors';
 import {NavGlyph} from './platform/nav_icons';
@@ -178,23 +178,48 @@ function MfaEnrollment({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>voi
  </div>
 }
 
+const newPasswordSchema=z.object({password:z.string().min(10,'Au moins 10 caractères.'),confirm:z.string().min(1,'Confirmez le mot de passe.')}).refine(v=>v.password===v.confirm,{message:'Les deux mots de passe ne correspondent pas.',path:['confirm']});
+type NewPasswordForm=z.infer<typeof newPasswordSchema>;
+
+/** First sign-in with a temporary password (set by a school administrator): the person chooses their own. */
+function PasswordChangeScreen({token,email,onChanged,onRestart}:{token:string;email:string;onChanged:(password:string)=>Promise<void>;onRestart:()=>void}){
+ const [error,setError]=useState('');const [dead,setDead]=useState(false);
+ const f=useForm<NewPasswordForm>({resolver:zodResolver(newPasswordSchema),defaultValues:{password:'',confirm:''},mode:'onTouched'});
+ const submit=f.handleSubmit(async v=>{setError('');try{await firstPasswordChange(token,v.password);await onChanged(v.password)}catch(e){setError(mfaMessage(e,'Modification impossible. Réessayez.'));if(expired(e))setDead(true)}});
+ const e=f.formState.errors;
+ return <form className="lg-card" onSubmit={submit} noValidate aria-labelledby="pw-title">
+  <div className="lg-head"><span className="lg-step">Première connexion</span><h1 id="pw-title">Choisissez votre mot de passe</h1>
+   <p>Votre administrateur vous a remis un mot de passe provisoire. Remplacez-le par un mot de passe personnel que vous seul connaissez{email?` pour ${email}`:''}.</p></div>
+  <Field id="pw-new" label="Nouveau mot de passe" error={e.password?.message} hint="10 caractères minimum. Évitez votre nom ou votre date de naissance."><PasswordInput id="pw-new" autoComplete="new-password" reg={f.register('password')} invalid={!!e.password}/></Field>
+  <Field id="pw-confirm" label="Confirmer le mot de passe" error={e.confirm?.message}><PasswordInput id="pw-confirm" autoComplete="new-password" reg={f.register('confirm')} invalid={!!e.confirm}/></Field>
+  {error&&<div className="lg-error" role="alert"><NavGlyph g="alert" size={16}/>{error}</div>}
+  {dead?<button type="button" className="lg-submit" onClick={onRestart}>Revenir à la connexion</button>
+   :<button className="lg-submit" disabled={f.formState.isSubmitting}>{f.formState.isSubmitting?<><i className="lg-spin"/>Enregistrement…</>:'Enregistrer et continuer'}</button>}
+  {!dead&&<button type="button" className="lg-link" onClick={onRestart}>Utiliser un autre compte</button>}
+ </form>
+}
+
 export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user:PlatformIdentity)=>void;onSchool:(s:Saved)=>void}){
  const [serverError,setServerError]=useState('');
  const [setup,setSetup]=useState<SetupStatus|null>(null);const [created,setCreated]=useState('');
  const [choice,setChoice]=useState<LoginContext[]|null>(null);const [busy,setBusy]=useState('');const [atelier,setAtelier]=useState(false);
  const pending=useRef<{email:string;password:string}|null>(null);
  const [mfa,setMfa]=useState<MfaStep|null>(null);
+ const [pwdStep,setPwdStep]=useState<{token:string;email:string}|null>(null);const lastEmail=useRef('');
  const {register,handleSubmit,setValue,reset,formState:{errors,isSubmitting}}=useForm<Form>({resolver:zodResolver(schema),defaultValues:{email:'',password:''}});
  useEffect(()=>{let alive=true;setupStatus().then(s=>{if(alive)setSetup(s)}).catch(()=>{/* serveur injoignable : la connexion affichera l’erreur */});return()=>{alive=false}},[]);
  useEffect(()=>()=>{pending.current=null},[]);
  // Platform accounts: the password step returns a second-factor step instead of a session (option B).
- const finish=(r:any)=>{pending.current=null;if(isMfaStep(r)){setChoice(null);setMfa(r);return}setMfa(null);if(r.scope==='PLATFORM')onPlatform(r.access_token,{full_name:r.user.full_name,email:r.user.email});else onSchool({token:r.access_token,school:r.school,user:r.user,permissions:r.permissions})};
- const submit=handleSubmit(async v=>{setServerError('');try{const email=v.email.trim();if(atelier){finish(await loginPlatform(email,v.password));return}const r=await loginAuto(email,v.password);
+ const finish=(r:any)=>{pending.current=null;if(isPasswordChangeStep(r)){setChoice(null);setPwdStep({token:r.change_token,email:lastEmail.current});return}setPwdStep(null);if(isMfaStep(r)){setChoice(null);setMfa(r);return}setMfa(null);if(r.scope==='PLATFORM')onPlatform(r.access_token,{full_name:r.user.full_name,email:r.user.email});else onSchool({token:r.access_token,school:r.school,user:r.user,permissions:r.permissions})};
+ const submit=handleSubmit(async v=>{setServerError('');try{const email=v.email.trim();lastEmail.current=email;if(atelier){finish(await loginPlatform(email,v.password));return}const r=await loginAuto(email,v.password);
   if('choice_required' in r){pending.current={email,password:v.password};setChoice(r.contexts);return}finish(r)}catch(e){setServerError(loginMessage(e))}});
  const pick=async(c:LoginContext)=>{const cred=pending.current;if(!cred){setChoice(null);return}setServerError('');setBusy(c.scope+(c.school_code||''));
   try{finish(c.scope==='PLATFORM'?await loginPlatform(cred.email,cred.password):await loginSchool(cred.email,cred.password,c.school_code||''))}
   catch(e){setServerError(e instanceof TypeError?loginMessage(e):'Cet espace n’est plus accessible. Choisissez-en un autre ou reconnectez-vous.')}finally{setBusy('')}};
- const back=()=>{pending.current=null;setChoice(null);setMfa(null);setServerError('');reset({email:'',password:''})};
+ // After the temporary password is replaced, sign in again with the new one: the normal path follows (space, code).
+ const afterPasswordChange=async(newPassword:string)=>{const email=pwdStep?.email||lastEmail.current;const r=await loginAuto(email,newPassword);
+  if('choice_required' in r){pending.current={email,password:newPassword};setPwdStep(null);setChoice(r.contexts);return}finish(r)};
+ const back=()=>{pending.current=null;setChoice(null);setMfa(null);setPwdStep(null);setServerError('');reset({email:'',password:''})};
  const showSetup=Boolean(setup?.setup_required&&setup.setup_available&&!created);
  const blockedSetup=Boolean(setup?.setup_required&&!setup.setup_available);
  return <div className="lg-page">
@@ -208,6 +233,7 @@ export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user
   <div className="lg-pane" role="main">
    {showSetup&&setup?<FirstRunSetup status={setup} onCreated={email=>{setCreated(email);setValue('email',email)}}/>:
    blockedSetup?<div className="lg-card"><div className="lg-head"><span className="lg-step">Première installation</span><h1>Installation à finaliser</h1><p>Aucun Manager Système n’existe encore. Sur ce serveur, il est créé par l’opérateur (code d’installation ou script d’administration).</p></div></div>:
+   pwdStep?<PasswordChangeScreen token={pwdStep.token} email={pwdStep.email} onChanged={afterPasswordChange} onRestart={back}/>:
    mfa?(mfa.mfa_enrollment_required?<MfaEnrollment step={mfa} onDone={finish} onRestart={back}/>:<MfaChallenge step={mfa} onDone={finish} onRestart={back}/>):
    choice?<ContextChooser contexts={choice} busy={busy} error={serverError} onPick={pick} onBack={back}/>:
    <form className="lg-card" onSubmit={submit} noValidate aria-labelledby="lg-title">
@@ -219,7 +245,7 @@ export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user
     <button className="lg-submit" disabled={isSubmitting}>{isSubmitting?<><i className="lg-spin"/>Vérification…</>:'Se connecter'}</button>
     <p className="lg-note"><NavGlyph g="lock" size={14}/>Connexion chiffrée. Votre établissement est reconnu automatiquement.</p>
    </form>}
-   <div className="lg-foot"><span>© {new Date().getFullYear()} VolcanoTech · EduSync</span>{setup?.setup_required&&<span className="lg-foot-sep" aria-hidden="true">·</span>}{/* Shown only while no Manager système exists yet: afterwards the Manager signs in like everyone (AUTO). */!mfa&&Boolean(setup?.setup_required)&&!choice&&!showSetup&&<button type="button" className="lg-quiet" aria-pressed={atelier} onClick={()=>{setAtelier(x=>!x);setServerError('')}}>{atelier?'Retour à la connexion établissement':'Accès Atelier Pro (Manager système)'}</button>}</div>
+   <div className="lg-foot"><span>© {new Date().getFullYear()} VolcanoTech · EduSync</span>{setup?.setup_required&&<span className="lg-foot-sep" aria-hidden="true">·</span>}{/* Shown only while no Manager système exists yet: afterwards the Manager signs in like everyone (AUTO). */!mfa&&!pwdStep&&Boolean(setup?.setup_required)&&!choice&&!showSetup&&<button type="button" className="lg-quiet" aria-pressed={atelier} onClick={()=>{setAtelier(x=>!x);setServerError('')}}>{atelier?'Retour à la connexion établissement':'Accès Atelier Pro (Manager système)'}</button>}</div>
   </div>
   <small className="lg-credit">Photo : Sangga Rima Roman Selia / Unsplash</small>
  </div>

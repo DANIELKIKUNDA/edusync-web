@@ -33,12 +33,17 @@ export async function platformMfaStatus(token:string){return json<PlatformMfaSta
 export async function platformStepUp(token:string,code:string):Promise<{confirmed:boolean;valid_seconds:number}>{const r=await fetch(`${API}/auth/platform/mfa/step-up`,{method:'POST',headers:auth(token),body:JSON.stringify({code})});if(!r.ok)return mfaFailure(r);return r.json()}
 export async function regenerateRecoveryCodes(token:string,code:string):Promise<{recovery_codes:string[]}>{const r=await fetch(`${API}/auth/platform/mfa/recovery-codes`,{method:'POST',headers:auth(token),body:JSON.stringify({code})});if(!r.ok)return mfaFailure(r);return r.json()}
 
+/** N2: a temporary password set by a school must be replaced before any session (owner decision 2026-10-14). */
+export type PasswordChangeStep={password_change_required:true;change_token:string;expires_in:number};
+export function isPasswordChangeStep(r:unknown):r is PasswordChangeStep{return !!r&&(r as {password_change_required?:unknown}).password_change_required===true}
+export async function firstPasswordChange(change_token:string,new_password:string):Promise<{changed:boolean}>{const r=await fetch(`${API}/auth/password/first-change`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({change_token,new_password})});if(!r.ok)return mfaFailure(r);return r.json()}
+
 export async function loginPlatform(email:string,password:string):Promise<PlatformLoginResult|MfaStep>{
   const r=await fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,scope:'PLATFORM'})});
   if(!r.ok)throw new HttpLoginError(r.status);return r.json();
 }
 export type LoginContext={scope:'SCHOOL'|'PLATFORM';school_code:string|null;label:string};
-export type AutoLoginResult=PlatformLoginResult|SchoolLoginResult|MfaStep|{choice_required:true;contexts:LoginContext[]};
+export type AutoLoginResult=PlatformLoginResult|SchoolLoginResult|MfaStep|PasswordChangeStep|{choice_required:true;contexts:LoginContext[]};
 /** Sign-in without a school code: the server determines the context after authentication. When the account
  * opens several spaces it returns the list and no session is created until the user picks one. */
 export async function loginAuto(email:string,password:string):Promise<AutoLoginResult>{

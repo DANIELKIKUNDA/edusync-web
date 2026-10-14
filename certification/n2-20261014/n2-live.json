@@ -1,0 +1,252 @@
+[
+  {
+    "check": "Écoles jumelles créées par la plateforme, administrateurs connectés",
+    "pass": true,
+    "detail": "N2A-58DBB2 / N2B-58DBB2"
+  },
+  {
+    "check": "Rôles standard visibles par l'administrateur (dont Caissier)",
+    "pass": true,
+    "detail": "['ADMIN_SYSTEME_ECOLE', 'CAISSIER', 'DIRECTEUR_DISCIPLINE', 'DIRECTEUR_ETUDES', 'DIRECTION_SECTION', 'GESTIONNAIRE', 'INTENDANT', 'PREFET_ETUDES']"
+  },
+  {
+    "check": "Création d'un membre par l'école : compte créé, rôle attribué, mot de passe provisoire affiché",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Double clic / réponse perdue : même membre, et le mot de passe n'est jamais rejoué",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Mot de passe provisoire absent du registre d'idempotence et de l'audit",
+    "pass": true,
+    "detail": "(0, 0)"
+  },
+  {
+    "check": "Compte marqué « mot de passe à remplacer » (défini par l'école)",
+    "pass": true,
+    "detail": "(True, 'SCHOOL')"
+  },
+  {
+    "check": "Même personne ajoutée deux fois → 409 explicite",
+    "pass": true,
+    "detail": "409"
+  },
+  {
+    "check": "Première connexion : aucune session avant d'avoir choisi son mot de passe",
+    "pass": true,
+    "detail": "['password_change_required', 'change_token', 'expires_in']"
+  },
+  {
+    "check": "Nouveau mot de passe identique au provisoire → refusé (422)",
+    "pass": true,
+    "detail": "422"
+  },
+  {
+    "check": "Mot de passe personnel enregistré (sans ouvrir de session)",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Étape consommée : réutilisation refusée",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Ancien mot de passe provisoire refusé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Connexion avec son mot de passe → espace école ouvert avec ses droits de caissier",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Adresse déjà utilisée dans l'école B → compte rattaché, aucun mot de passe affiché",
+    "pass": true,
+    "detail": "{\"email\":\"n2-admin-b-58dbb2@example.test\",\"created\":false,\"full_name\":\"Admin jumelle B\",\"role_label\":null,\"membership_id\":\"745dfbbd-097c-421b-9c19-b381877d1037\""
+  },
+  {
+    "check": "Le nom du compte existant n'est pas modifié par l'école A",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Le titulaire garde son mot de passe et voit maintenant ses deux écoles",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte partagé : réinitialisation du mot de passe par l'école A refusée (409)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Compte partagé : changement de nom par l'école A refusé (409)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Liste des membres : compte partagé signalé, mot de passe provisoire signalé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Modification du nom d'un membre propre à l'école",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Réinitialisation : nouveau provisoire, sessions coupées",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Après réinitialisation : ancien jeton coupé immédiatement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Après réinitialisation : ancien mot de passe refusé, provisoire → changement exigé",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Désactivation : accès à l'école coupé",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "check": "Désactivation : jeton en cours refusé immédiatement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Désactivation : plus aucun espace à la connexion (403)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Réinitialisation d'un membre désactivé → refusée (409)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Réactivation : accès rétabli avec ses rôles",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Personne n'agit sur son propre compte (désactivation de soi → 403)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Rôle propre à l'école créé (délégation limitée)",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Anti-escalade : un délégué ne donne pas le rôle d'administrateur qu'il n'a pas (403)",
+    "pass": true,
+    "detail": "{\"detail\":\"Refusé : ce rôle donne des droits de gestion des accès que vous n’avez pas vous-même (access.grants.exception"
+  },
+  {
+    "check": "Anti-escalade : création d'un complice administrateur refusée (403)",
+    "pass": true,
+    "detail": "403"
+  },
+  {
+    "check": "Anti-escalade : aucun compte complice créé (transaction annulée)",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "check": "Le délégué peut transmettre un rôle qu'il détient entièrement",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "check": "Le délégué ne peut pas réinitialiser un mot de passe (droit absent → 403)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Journal : création, rattachement, modification, réinitialisation, désactivation, réactivation audités",
+    "pass": true,
+    "detail": "['ACCESS_MEMBER_ACTIVATED', 'ACCESS_MEMBER_ATTACHED', 'ACCESS_MEMBER_CREATED', 'ACCESS_MEMBER_CREDENTIALS_RESET', 'ACCESS_MEMBER_DEACTIVATED', 'ACCESS_MEMBER_UPDATED']"
+  },
+  {
+    "check": "Configuration jumelle : même classe « 1A », même frais « MINERVAL », même tarif dans A et B",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "École A : ne voit que ses classes",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "École A : ne voit que ses tarifs",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "École A : ne voit que ses types de frais",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "UUID deviné : modifier la classe de B depuis A → refusé (404/409/422)",
+    "pass": true,
+    "detail": "409"
+  },
+  {
+    "check": "Membres : A ne liste aucun membre de B (hors compte rattaché à A)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "UUID deviné : désactiver un membre de l'école B depuis A → 404",
+    "pass": true,
+    "detail": "404"
+  },
+  {
+    "check": "UUID deviné : réinitialiser un membre de l'école B depuis A → 404",
+    "pass": true,
+    "detail": "404"
+  },
+  {
+    "check": "UUID deviné : renommer un membre de l'école B depuis A → 404",
+    "pass": true,
+    "detail": "404"
+  },
+  {
+    "check": "UUID deviné : attribuer un rôle un membre de l'école B depuis A → 404",
+    "pass": true,
+    "detail": "404"
+  },
+  {
+    "check": "UUID deviné : attribuer dans A un rôle propre à B → 404",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Journal des droits de B : aucune action de l'école A",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Vue d'ensemble de A : identité de A uniquement",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Base : aucune attribution de rôle à cheval sur deux écoles",
+    "pass": true,
+    "detail": "0"
+  }
+]

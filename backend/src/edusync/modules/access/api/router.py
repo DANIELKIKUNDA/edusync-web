@@ -9,7 +9,9 @@ Guardrails, enforced server-side for every school:
   * no self-service: nobody changes their own roles;
   * a school role can never carry a platform capability;
   * the school can never lose its last access manager (access.roles.manage);
-  * standard roles are immutable; custom roles belong to one school only (RLS + trigger).
+  * standard roles are immutable; custom roles belong to one school only (RLS + trigger);
+  * nobody hands over, through a role, an access-governance capability (access.*) they do not hold, nor acts on a
+    member holding one they lack (N2 anti-escalation, 2026-10-14).
 """
 from __future__ import annotations
 
@@ -74,7 +76,7 @@ def _idempotent(services: AppServices, actor: ActorContext, key: str | None, ope
         raise HTTPException(409, str(e)) from e
 
 
-def _user_cards(services: AppServices, user_ids: set[str]) -> dict[str, dict]:
+def _user_cards(services: AppServices, user_ids: set[str], school_id: UUID | None = None) -> dict[str, dict]:
     """Names/e-mails for user ids already proven to belong to this school (read under tenant RLS).
 
     Tenant RLS on users only exposes the caller's own row (privacy); the platform pool resolves
@@ -83,8 +85,15 @@ def _user_cards(services: AppServices, user_ids: set[str]) -> dict[str, dict]:
     if not ids:
         return {}
     with services.platform_db.platform_transaction() as conn:
-        rows = conn.execute(text("SELECT id,full_name,email FROM users WHERE id=ANY(CAST(:ids AS uuid[]))"), {"ids": ids}).mappings().all()
-    return {str(r["id"]): {"full_name": r["full_name"], "email": str(r["email"])} for r in rows}
+        rows = conn.execute(text("""SELECT u.id,u.full_name,u.email,u.must_change_password,
+              (CAST(:s AS uuid) IS NOT NULL AND (u.is_platform_admin
+                OR EXISTS (SELECT 1 FROM school_memberships o WHERE o.user_id=u.id AND o.school_id<>CAST(:s AS uuid) AND o.active)
+                OR EXISTS (SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
+                           WHERE a.user_id=u.id AND a.school_id IS NULL AND a.active AND r.level='PLATFORM'))) AS shared
+            FROM users u WHERE u.id=ANY(CAST(:ids AS uuid[]))"""), {"ids": ids, "s": str(school_id) if school_id else None}).mappings().all()
+    # "shared": the account also opens another school or Atelier Pro (its password and name belong to its owner).
+    return {str(r["id"]): {"full_name": r["full_name"], "email": str(r["email"]), "must_change_password": bool(r["must_change_password"]),
+                           "shared_account": bool(r["shared"])} for r in rows}
 
 
 def _school_capabilities(conn) -> dict[str, dict]:
@@ -159,7 +168,7 @@ def members(q: str | None = Query(None, max_length=120), actor: ActorContext = D
               LEFT JOIN rbac_assignments a ON a.membership_id=m.id AND a.school_id=m.school_id AND a.active=true AND (a.valid_until IS NULL OR a.valid_until>now())
               LEFT JOIN rbac_roles r ON r.id=a.role_id
               WHERE m.school_id=:sid GROUP BY m.id,m.user_id,m.active"""), {"sid": str(actor.school_id)}).mappings().all()
-    cards = _user_cards(services, {str(r["user_id"]) for r in rows})
+    cards = _user_cards(services, {str(r["user_id"]) for r in rows}, actor.school_id)
     needle = (q or "").strip().lower()
     items = []
     for r in rows:
@@ -233,6 +242,7 @@ def create_role(b: RoleInput, idempotency_key: str | None = Header(None, alias="
             base = _role(conn, b.clone_from_role_id)
             caps = sorted(set(caps) | set(_role_caps(conn, base["id"])))
         caps = _validated_caps(conn, caps)
+        _assert_can_delegate(actor, caps)  # N2 anti-escalation: a role never carries more than its author holds
         code = "CUSTOM_" + uuid4().hex[:10].upper()
         rid = conn.execute(text("""INSERT INTO rbac_roles(school_id,code,label,description,level,kind,status,created_by_user_id)
               VALUES(:s,:c,:l,:d,'SCHOOL','SCHOOL_CUSTOM','ACTIVE',:u) RETURNING id"""),
@@ -267,6 +277,7 @@ def update_role(role_id: UUID, b: RoleInput, if_match: str | None = Header(None,
             raise HTTPException(403, "Refusé : vous ne pouvez pas modifier un rôle que vous détenez vous-même")
         before = _role_caps(conn, role_id)
         caps = _validated_caps(conn, b.capabilities)
+        _assert_can_delegate(actor, set(caps) - set(before))  # N2 anti-escalation on the added capabilities
         conn.execute(text("DELETE FROM rbac_role_capabilities WHERE role_id=:r"), {"r": str(role_id)})
         for cap in caps:
             conn.execute(text("INSERT INTO rbac_role_capabilities(role_id,capability_code) VALUES(:r,:c)"), {"r": str(role_id), "c": cap})
@@ -339,6 +350,7 @@ def assign(membership_id: UUID, b: AssignInput, idempotency_key: str | None = He
         role = _role(conn, b.role_id)
         if role["status"] != "ACTIVE" or (role["kind"] == "SCHOOL_CUSTOM" and str(role["school_id"]) != str(actor.school_id)):
             raise HTTPException(404, "Rôle introuvable")
+        _assert_can_delegate(actor, _role_caps(conn, b.role_id))  # N2 anti-escalation: only what the assigner holds
         scopes = []
         for s in b.scopes:
             if s.type == "SCHOOL":
@@ -389,3 +401,223 @@ def revoke(assignment_id: UUID, b: ReasonInput, idempotency_key: str | None = He
         return 200, out
 
     return _idempotent(services, actor, idempotency_key, "ACCESS_ROLE_REVOKE", {"assignment": str(assignment_id), **b.model_dump()}, action)
+
+
+# --------------------------------------------------------------------------------------- members (N2, 2026-10-14)
+# The school administrates its own users with the capabilities its owner-approved role already holds
+# (migration 0008). Account rows are global (one person may work in several schools), so these operations run on
+# the IAM connection and every statement names the school explicitly. Owner decisions of 2026-10-14:
+#  * a new account gets a temporary password, shown once, that must be replaced at the first sign-in;
+#  * an e-mail already used elsewhere is attached to this school without touching its password;
+#  * the administrator may reset a forgotten password (temporary again, sessions ended, audited);
+#  * a password or a name is never changed on an account shared with another school or with Atelier Pro: it would
+#    hand that other space to this school's administrator.
+from edusync.shared.infrastructure.security import hash_password, new_temporary_password  # noqa: E402
+
+EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+
+
+class MemberCreate(BaseModel):
+    email: str = Field(min_length=5, max_length=320, pattern=EMAIL_PATTERN)
+    full_name: str = Field(min_length=3, max_length=180)
+    role_id: UUID | None = None
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class MemberUpdate(BaseModel):
+    full_name: str = Field(min_length=3, max_length=180)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+def _member_caps(conn, school_id: UUID, membership_id) -> set[str]:
+    """School capabilities currently held by a member (active roles, any scope)."""
+    return {r[0] for r in conn.execute(text("""SELECT DISTINCT rc.capability_code FROM rbac_assignments a
+          JOIN rbac_roles r ON r.id=a.role_id AND r.status='ACTIVE' JOIN rbac_role_capabilities rc ON rc.role_id=r.id
+          WHERE a.school_id=:s AND a.membership_id=:m AND a.active AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())"""),
+        {"s": str(school_id), "m": str(membership_id)})}
+
+
+GOVERNANCE_PREFIX = "access."
+
+
+def _governance(capabilities) -> set[str]:
+    return {c for c in capabilities if c.startswith(GOVERNANCE_PREFIX)}
+
+
+def _assert_can_delegate(actor: ActorContext, capabilities) -> None:
+    """Anti-escalation on governance power: nobody hands over (through a role) an access-governance capability they
+    do not hold themselves. Business capabilities (finance, schooling…) are what the access manager assigns without
+    holding them: the owner-approved ADMIN_SYSTEME_ECOLE administers access, not cash (migration 0008)."""
+    lacking = sorted(_governance(capabilities) - set(actor.permissions))
+    if lacking and not actor.is_platform_admin:
+        raise HTTPException(403, "Refusé : ce rôle donne des droits de gestion des accès que vous n’avez pas vous-même (" + ", ".join(lacking[:3]) + ("…" if len(lacking) > 3 else "") + ")")
+
+
+def _account_shared(conn, user_id, school_id: UUID) -> bool:
+    """The account also opens another school or the platform console."""
+    return bool(conn.execute(text("""SELECT 1 FROM school_memberships WHERE user_id=:u AND school_id<>:s AND active
+        UNION ALL SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
+          WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM'
+        UNION ALL SELECT 1 FROM users WHERE id=:u AND is_platform_admin LIMIT 1"""), {"u": str(user_id), "s": str(school_id)}).first())
+
+
+def _target(conn, actor: ActorContext, membership_id: UUID) -> dict:
+    row = conn.execute(text("""SELECT m.id, m.user_id, m.active, m.version FROM school_memberships m
+        WHERE m.id=:m AND m.school_id=:s FOR UPDATE OF m"""), {"m": str(membership_id), "s": str(actor.school_id)}).mappings().first()
+    if not row:
+        raise HTTPException(404, "Membre introuvable dans cette école")
+    if str(membership_id) == str(actor.membership_id):
+        raise HTTPException(403, "Refusé : cette action ne s’applique pas à votre propre compte (utilisez « Sécurité et appareils »)")
+    lacking = _governance(_member_caps(conn, actor.school_id, membership_id)) - set(actor.permissions)
+    if lacking and not actor.is_platform_admin:
+        raise HTTPException(403, "Refusé : ce membre détient des droits de gestion des accès que vous n’avez pas")
+    return dict(row)
+
+
+def _idempotent_iam(services: AppServices, actor: ActorContext, key: str | None, operation: str, payload: dict, action):
+    if not (key or "").strip():
+        raise HTTPException(400, "Idempotency-Key obligatoire")
+    try:
+        with services.platform_db.platform_transaction() as conn:
+            result = IdempotentExecutor(PostgresIdempotencyRepository(conn)).execute(
+                scope_key=str(actor.school_id), idempotency_key=key, operation=operation, payload=payload,
+                school_id=str(actor.school_id), actor_user_id=str(actor.user_id), action=lambda: action(conn))
+            return result.body
+    except (IdempotencyConflict, IdempotencyInProgress) as e:
+        raise HTTPException(409, str(e)) from e
+
+
+def _revoke_member_sessions(conn, school_id: UUID, membership_id, reason: str) -> int:
+    return conn.execute(text("""UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason=coalesce(revoked_reason,:r)
+        WHERE school_id=:s AND membership_id=:m AND revoked_at IS NULL"""), {"s": str(school_id), "m": str(membership_id), "r": reason}).rowcount
+
+
+@router.post("/members", status_code=201)
+def create_member(b: MemberCreate, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                  actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """New account with a temporary password (shown once), or an existing account attached without its password."""
+    _need(actor, "access.users.create")
+    if b.role_id:
+        _need(actor, "access.permissions.assign")
+    email = b.email.strip().lower()
+    # The temporary password is never part of the idempotency payload nor of the audit.
+    payload = {"email": email, "full_name": b.full_name.strip(), "role_id": str(b.role_id) if b.role_id else None, "reason": b.reason}
+
+    issued: dict = {}  # the temporary password lives only in this request, never in the idempotency registry
+
+    def action(conn):
+        temporary = None
+        user = conn.execute(text("SELECT id, active, full_name FROM users WHERE lower(email::text)=:e FOR UPDATE"), {"e": email}).mappings().first()
+        if user and not user["active"]:
+            raise HTTPException(409, "Ce compte EduSync est désactivé : il ne peut pas être rattaché")
+        if user:
+            existing = conn.execute(text("SELECT id, active FROM school_memberships WHERE user_id=:u AND school_id=:s"),
+                                    {"u": str(user["id"]), "s": str(actor.school_id)}).mappings().first()
+            if existing:
+                raise HTTPException(409, "Cette personne est déjà membre de l’école" + ("" if existing["active"] else " (désactivée : réactivez-la)"))
+            uid, created = user["id"], False
+        else:
+            temporary = new_temporary_password()
+            uid = conn.execute(text("""INSERT INTO users(email,full_name,password_hash,active,is_platform_admin,version,must_change_password,password_set_by)
+                VALUES(:e,:n,:p,true,false,1,true,'SCHOOL') RETURNING id"""), {"e": email, "n": b.full_name.strip(), "p": hash_password(temporary)}).scalar_one()
+            created = True
+        mid = conn.execute(text("INSERT INTO school_memberships(id,school_id,user_id,active,created_at,version) VALUES(gen_random_uuid(),:s,:u,true,now(),1) RETURNING id"),
+                           {"s": str(actor.school_id), "u": str(uid)}).scalar_one()
+        role_label = None
+        if b.role_id:
+            role = _role(conn, b.role_id)
+            if role["status"] != "ACTIVE" or (role["kind"] == "SCHOOL_CUSTOM" and str(role["school_id"]) != str(actor.school_id)):
+                raise HTTPException(404, "Rôle introuvable")
+            _assert_can_delegate(actor, _role_caps(conn, b.role_id))
+            aid = conn.execute(text("""INSERT INTO rbac_assignments(user_id,role_id,school_id,membership_id,granted_by_user_id,reason)
+                VALUES(:u,:r,:s,:m,:by,:reason) RETURNING id"""), {"u": str(uid), "r": str(b.role_id), "s": str(actor.school_id), "m": str(mid),
+                                                                    "by": str(actor.user_id), "reason": b.reason}).scalar_one()
+            conn.execute(text("INSERT INTO rbac_assignment_scopes(assignment_id,scope_type,scope_value) VALUES(:a,'SCHOOL',NULL)"), {"a": str(aid)})
+            role_label = role["label"]
+        out = {"membership_id": str(mid), "email": email, "full_name": b.full_name.strip() if created else user["full_name"],
+               "created": created, "attached_existing_account": not created, "role_label": role_label}
+        _audit(conn, actor, "ACCESS_MEMBER_CREATED" if created else "ACCESS_MEMBER_ATTACHED", "school_membership", mid, out, reason=b.reason)
+        issued["temporary_password"] = temporary
+        return 201, out
+
+    body = _idempotent_iam(services, actor, idempotency_key, "ACCESS_MEMBER_CREATE", payload, action)
+    # Shown once to the administrator. A replay (lost response, double click) gets no password: reset it if needed.
+    return {**body, "temporary_password": issued.get("temporary_password")}
+
+
+@router.patch("/members/{membership_id}")
+def update_member(membership_id: UUID, b: MemberUpdate, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                  actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, "access.users.update")
+
+    def action(conn):
+        m = _target(conn, actor, membership_id)
+        if _account_shared(conn, m["user_id"], actor.school_id):
+            raise HTTPException(409, "Compte partagé avec un autre espace EduSync : seul son titulaire peut modifier son nom")
+        old = conn.execute(text("SELECT full_name FROM users WHERE id=:u"), {"u": str(m["user_id"])}).scalar_one()
+        conn.execute(text("UPDATE users SET full_name=:n WHERE id=:u"), {"n": b.full_name.strip(), "u": str(m["user_id"])})
+        out = {"membership_id": str(membership_id), "full_name": b.full_name.strip()}
+        _audit(conn, actor, "ACCESS_MEMBER_UPDATED", "school_membership", membership_id, out, reason=b.reason, old={"full_name": old})
+        return 200, out
+
+    return _idempotent_iam(services, actor, idempotency_key, "ACCESS_MEMBER_UPDATE", {"membership": str(membership_id), **b.model_dump()}, action)
+
+
+def _set_member_active(membership_id: UUID, active: bool, b: ReasonInput, key: str | None, actor: ActorContext, services: AppServices):
+    _need(actor, "access.users.activate")
+
+    def action(conn):
+        m = _target(conn, actor, membership_id)
+        if bool(m["active"]) == active:
+            return 200, {"membership_id": str(membership_id), "active": active, "unchanged": True}
+        # The membership version moves on: tokens of this school carry it and stop working at once.
+        conn.execute(text("UPDATE school_memberships SET active=:a, version=version+1 WHERE id=:m AND school_id=:s"),
+                     {"a": active, "m": str(membership_id), "s": str(actor.school_id)})
+        revoked = 0
+        if not active:
+            _assert_managers_remain(conn, actor.school_id)
+            revoked = _revoke_member_sessions(conn, actor.school_id, membership_id, "MEMBER_DEACTIVATED")
+        out = {"membership_id": str(membership_id), "active": active, "sessions_revoked": revoked}
+        _audit(conn, actor, "ACCESS_MEMBER_ACTIVATED" if active else "ACCESS_MEMBER_DEACTIVATED", "school_membership", membership_id, out, reason=b.reason)
+        return 200, out
+
+    return _idempotent_iam(services, actor, key, "ACCESS_MEMBER_ACTIVATE" if active else "ACCESS_MEMBER_DEACTIVATE",
+                           {"membership": str(membership_id), **b.model_dump()}, action)
+
+
+@router.post("/members/{membership_id}/deactivate")
+def deactivate_member(membership_id: UUID, b: ReasonInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                      actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Ends this person's access to this school only (sessions of this school end now); the account stays valid elsewhere."""
+    return _set_member_active(membership_id, False, b, idempotency_key, actor, services)
+
+
+@router.post("/members/{membership_id}/activate")
+def activate_member(membership_id: UUID, b: ReasonInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                    actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    return _set_member_active(membership_id, True, b, idempotency_key, actor, services)
+
+
+@router.post("/members/{membership_id}/credentials-reset")
+def reset_member_credentials(membership_id: UUID, b: ReasonInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                             actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Forgotten password: a new temporary password (shown once, to be replaced at the next sign-in); every session of
+    the account ends. Refused for an account shared with another school or with Atelier Pro."""
+    _need(actor, "access.users.credentials.reset")
+    if not (idempotency_key or "").strip():
+        raise HTTPException(400, "Idempotency-Key obligatoire")
+    # Not replayable on purpose: a lost response is answered by a new reset, never by re-sending an old password.
+    with services.platform_db.platform_transaction() as conn:
+        m = _target(conn, actor, membership_id)
+        if not m["active"]:
+            raise HTTPException(409, "Ce membre est désactivé : réactivez-le d’abord")
+        if _account_shared(conn, m["user_id"], actor.school_id):
+            raise HTTPException(409, "Compte partagé avec un autre espace EduSync : la réinitialisation revient à son titulaire ou à la plateforme")
+        temporary = new_temporary_password()
+        conn.execute(text("""UPDATE users SET password_hash=:p, version=version+1, must_change_password=true, password_set_by='SCHOOL' WHERE id=:u"""),
+                     {"p": hash_password(temporary), "u": str(m["user_id"])})
+        revoked = conn.execute(text("""UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason=coalesce(revoked_reason,'PASSWORD_RESET')
+            WHERE user_id=:u AND revoked_at IS NULL"""), {"u": str(m["user_id"])}).rowcount
+        out = {"membership_id": str(membership_id), "sessions_revoked": revoked, "must_change_password": True}
+        _audit(conn, actor, "ACCESS_MEMBER_CREDENTIALS_RESET", "school_membership", membership_id, out, reason=b.reason)
+    return {**out, "temporary_password": temporary}
