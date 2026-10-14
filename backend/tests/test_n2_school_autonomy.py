@@ -122,3 +122,11 @@ def test_readiness_is_a_guided_path_to_the_sections_that_settle_each_item():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
     assert "const READINESS_TARGET:Record<string,TabKey>={IDENTITY:'identity',ACADEMIC_YEAR:'years',STRUCTURE:'structure',FEE_TYPES:'fees',TARIFFS:'tariffs'}" in app
     assert "Prochaine étape" in app and "onOpen(READINESS_TARGET[next.code])" in app
+
+
+def test_section_options_are_managed_without_deletion():
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    api = (ROOT / "frontend/src/api.ts").read_text(encoding="utf-8")
+    assert "export async function putOption(" in api and "settings/options/${encodeURIComponent(input.code)}" in api
+    assert "can('settings.options.manage')" in app and "expected_version:o.version" in app
+    assert "Désactiver l’option" in app and "option_id:optionId||null" in app
