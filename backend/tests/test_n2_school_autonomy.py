@@ -81,3 +81,20 @@ def test_frontend_offers_member_management_and_first_sign_in_screen():
         assert marker in access, marker
     login = (ROOT / "frontend/src/login.tsx").read_text(encoding="utf-8")
     assert "PasswordChangeScreen" in login and "isPasswordChangeStep(r)" in login
+
+
+def test_settings_centre_confirms_year_transitions_and_uploads_a_verified_logo():
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    years = app[app.index("function Years("):app.index("function Structure(")]
+    assert "await confirmAction(confirmText[action](y))" in years and "Préparer une nouvelle année" in years
+    assert "URL du logo" not in app and "<LogoField token={token}" in app and "uploadSchoolLogo(token,f)" in app
+    assert "await confirmAction(off?" in app  # class deactivation is confirmed, never a silent toggle
+    assert "settingsBack" in app and "edusyncSettingsDetail" in app  # phone: list of sections → section screen
+
+
+def test_amounts_are_formatted_from_strings_never_through_floats():
+    fmt = (ROOT / "frontend/src/platform/format.ts").read_text(encoding="utf-8")
+    body = fmt[fmt.index("export function formatMoney("):fmt.index("export function formatDate(")]
+    assert "Number(" not in body and "parseFloat" not in body
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    assert "formatMoney(t.amount,t.currency)" in app and "formatMoney(x.unit_price,x.currency)" in app

@@ -1,0 +1,64 @@
+/* N2 — Centre de configuration. Desktop: side navigation + section. Phone (≤720px): list of sections → section screen. */
+.settingsNav button{display:flex;align-items:center;gap:10px;text-align:left}
+.settingsNavText{display:grid;gap:1px;min-width:0}
+.settingsNavText b{font-weight:inherit}
+.settingsNavText small,.settingsNavChevron,.settingsBack{display:none}
+
+.emptyGuide{border:1px dashed #cbd5e1;border-radius:12px;padding:12px 14px;margin:10px 0;background:#f8fafc}
+.emptyGuide b{display:block;font-size:14px}.emptyGuide p{margin:4px 0 0;color:#64748b;font-size:13px;line-height:1.45}
+.addLine{display:flex;align-items:center;gap:10px;width:100%;justify-content:flex-start;min-height:44px;margin:4px 0 12px}
+.addLine small{color:#64748b;font-weight:500}
+.formActions,.stickyActions{display:flex;gap:9px;justify-content:flex-end;align-items:center}
+.yearCreate{margin-bottom:12px}
+.yearList article.current{border-color:#86efac;background:#f0fdf4}
+.rowActions .hint{color:#64748b;font-size:12px}
+.rowActions .dangerSoft{color:#b91c1c;border-color:#fecaca;background:#fff}
+.eduDialogActions button.danger{background:#b91c1c}
+
+.logoField{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #e5e9f1;border-radius:12px;padding:12px;margin-bottom:14px;background:#fff}
+.logoField>div:nth-child(2){display:grid;gap:3px;min-width:0}.logoField small{color:#64748b;font-size:12px;line-height:1.4}
+.logoPreview{width:64px;height:64px;border-radius:12px;background:#f1f5f9;display:grid;place-items:center;overflow:hidden;color:#64748b}
+.logoPreview img{width:100%;height:100%;object-fit:contain}
+.fieldError{color:#b91c1c;font-size:12px}
+
+.identityForm{grid-template-columns:1fr!important}
+.identityForm fieldset{border:0;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.identityForm legend{grid-column:1/-1;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;padding:6px 0 2px}
+
+.classCreate{align-items:end}
+.classGroups{display:grid;gap:14px;margin-top:14px}
+.classGroups h4{margin:0 0 6px;font-size:13px;color:#475569}
+.classList,.moneyList{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.classList li,.moneyList li{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #e5e9f1;border-radius:10px;padding:9px 12px;background:#fff;min-height:52px}
+.classList li>div,.moneyList li>div{display:grid;gap:2px;min-width:0}
+.classList small,.moneyList small{color:#64748b;font-size:12px}
+.classList li.off{background:#f8fafc;color:#64748b}
+.classList button{min-height:36px;padding:0 12px}
+.moneyList .amount{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:15px}
+
+@media(max-width:720px){
+  .settingsHeader p{display:none}
+  .settingsLayout .settingsNav{display:grid!important;grid-template-columns:1fr!important;overflow:visible;padding:4px;gap:0}
+  .settingsLayout .settingsNav button{min-height:60px;min-width:0;width:100%;padding:10px 8px;border-radius:10px;border-bottom:1px solid #f1f5f9}
+  .settingsLayout .settingsNav button.active{background:transparent;color:inherit}
+  .settingsLayout .settingsNav button>span:first-child{width:36px;height:36px;border-radius:10px;background:#f1f5f9;display:grid;place-items:center;flex:none}
+  .settingsNavText{flex:1}.settingsNavText b{font-weight:650;font-size:15px}
+  .settingsNavText small{display:block;color:#64748b;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .settingsNavChevron{display:block;font-style:normal;font-size:22px;color:#94a3b8;line-height:1}
+  .settingsLayout.phoneHome .settingsContent{display:none}
+  .settingsLayout.phoneDetail .settingsNav{display:none!important}
+  .settingsLayout.phoneDetail~*,.settingsLayout.phoneDetail{margin-top:0}
+  .settingsBack{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 10px 0 4px;margin:0 0 6px;border:0;background:transparent;color:#1d4ed8;font-weight:650;font-size:15px}
+  .settingsBack span{font-size:24px;line-height:1}
+  .logoField{grid-template-columns:56px minmax(0,1fr)}.logoField>button{grid-column:1/-1;min-height:44px}
+  .logoPreview{width:56px;height:56px}
+  .identityForm fieldset{grid-template-columns:1fr}
+  .stickyActions{position:sticky;bottom:calc(58px + env(safe-area-inset-bottom));z-index:3;background:linear-gradient(transparent,#fff 30%);padding:12px 0 6px;margin:0 -2px}
+  .stickyActions .primaryBtn,.formActions .primaryBtn{flex:1;min-height:48px}
+  .formActions{grid-column:1/-1}
+  .classCreate{grid-template-columns:1fr!important}.classCreate .primaryBtn{min-height:48px}
+}
+@media(prefers-reduced-motion:reduce){.settingsLayout *{transition:none!important;animation:none!important}}
+.settingsContent .primaryBtn:disabled,.settingsContent button:disabled{opacity:.5;cursor:not-allowed}
+.formActions .ghost{background:transparent!important;color:#334155!important;border:1px solid #cbd5e1!important;box-shadow:none!important}
+@media(max-width:720px){.settingsHeader.phoneDetailHead{display:none}}

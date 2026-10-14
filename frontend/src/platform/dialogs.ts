@@ -22,3 +22,23 @@ export function promptText(options:TextPromptOptions):Promise<string|null>{
     queueMicrotask(()=>input.focus());
   });
 }
+
+export type ConfirmOptions={title:string;message:string;confirmLabel:string;danger?:boolean};
+
+/** Explicit confirmation before a consequential action. Esc, the backdrop, × and "Annuler" all answer false. */
+export function confirmAction(options:ConfirmOptions):Promise<boolean>{
+  return new Promise(resolve=>{
+    const host=document.createElement('div');host.className='eduDialogBackdrop';host.setAttribute('role','presentation');
+    const dialog=document.createElement('section');dialog.className='eduDialog';dialog.setAttribute('role','alertdialog');dialog.setAttribute('aria-modal','true');
+    const titleId=`edu-dialog-${crypto.randomUUID()}`;dialog.setAttribute('aria-labelledby',titleId);dialog.setAttribute('aria-describedby',`${titleId}-d`);
+    const head=document.createElement('div');head.className='eduDialogHead';
+    const copy=document.createElement('div');const h=document.createElement('h3');h.id=titleId;h.textContent=options.title;const p=document.createElement('p');p.id=`${titleId}-d`;p.textContent=options.message;copy.append(h,p);head.appendChild(copy);
+    const close=document.createElement('button');close.type='button';close.className='eduDialogClose';close.textContent='×';close.setAttribute('aria-label','Fermer');head.appendChild(close);
+    const actions=document.createElement('div');actions.className='eduDialogActions';const cancel=document.createElement('button');cancel.type='button';cancel.className='ghost';cancel.textContent='Annuler';const ok=document.createElement('button');ok.type='submit';ok.textContent=options.confirmLabel;if(options.danger)ok.className='danger';actions.append(cancel,ok);
+    dialog.append(head,actions);host.appendChild(dialog);document.body.appendChild(host);
+    const finish=(value:boolean)=>{document.removeEventListener('keydown',escape);host.remove();resolve(value)};
+    const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')finish(false)};document.addEventListener('keydown',escape);
+    close.onclick=()=>finish(false);cancel.onclick=()=>finish(false);ok.onclick=()=>finish(true);host.onmousedown=e=>{if(e.target===host)finish(false)};
+    queueMicrotask(()=>cancel.focus());
+  });
+}
