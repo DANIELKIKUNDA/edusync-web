@@ -97,3 +97,29 @@ def daily_report_pdf(*, school_name: str, report: dict[str, Any]) -> bytes:
     c.drawString(16 * mm, y, "Rapport généré par EduSync. Les devises ne sont jamais additionnées entre elles.")
     c.showPage(); c.save()
     return buf.getvalue()
+
+
+def advance_receipt_pdf(*, school: dict[str, Any], fund: dict[str, Any]) -> bytes:
+    """N3-D — Desktop export_advance_receipt_pdf (A5): amount received, already imputed, available."""
+    from reportlab.lib.pagesizes import A5
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A5)
+    width, height = A5
+    y = height - 16 * mm
+    cur = CURRENCY.get(fund["currency"], fund["currency"])
+    c.setFont("Helvetica-Bold", 14); c.drawString(14 * mm, y, school.get("name") or "École"); y -= 7 * mm
+    c.setFont("Helvetica", 8); c.drawString(14 * mm, y, " · ".join(x for x in [school.get("address"), school.get("phone")] if x)); y -= 9 * mm
+    c.setFont("Helvetica-Bold", 13); c.drawString(14 * mm, y, f"REÇU FONDS ANTICIPÉ {fund.get('receipt_number') or ''}"); y -= 9 * mm
+    name = " ".join(x for x in [fund.get("last_name"), fund.get("middle_name"), fund.get("first_name")] if x)
+    at = fund.get("received_at")
+    lines = [("Élève", name), ("Matricule", fund.get("matricule") or "—"), ("Classe", fund.get("class_label") or "—"),
+             ("Montant reçu", f"{_money(fund['amount'])} {cur}"), ("Déjà imputé", f"{_money(fund.get('allocated_amount'))} {cur}"),
+             ("Disponible", f"{_money(fund.get('available_amount'))} {cur}"), ("Mode", fund.get("mode") or "—"), ("Référence", fund.get("reference") or "—"),
+             ("Caissier", fund.get("cashier") or "—"), ("Date", at.strftime("%Y-%m-%d %H:%M:%S") if hasattr(at, "strftime") else str(at or "")[:19]),
+             ("Statut", fund.get("status") or "—")]
+    for label, value in lines:
+        c.setFont("Helvetica-Bold", 9); c.drawString(14 * mm, y, f"{label} :"); c.setFont("Helvetica", 9); c.drawString(47 * mm, y, str(value)); y -= 5.5 * mm
+    y -= 6 * mm; c.setFont("Helvetica-Oblique", 7)
+    c.drawString(14 * mm, y, "Fonds anticipé : montant reçu avant imputation, distinct d'un plan de paiement anticipé.")
+    c.showPage(); c.save()
+    return buf.getvalue()

@@ -221,7 +221,7 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 
 | Id | Écart | Domaine | Poids Finance |
 |----|-------|---------|---------------|
-| G-ADV-1 | Fonds anticipés (réception, imputation, annulation / remboursement, reçu, analyse) | Finance | **élevé** |
+| G-ADV-1 | Fonds anticipés (réception, imputation, annulation / remboursement, reçu, analyse) | Finance | **CORRIGÉ** (N3-D : réception avec reçu propre, imputation plus anciennes d'abord, annulation / remboursement par le gestionnaire, reçu PDF ; jamais mêlé aux plans ; sonde fonds 29/29) |
 | G-REV-1 | Annulation / remboursement d'un paiement (contre-opération motivée) | Finance | **CORRIGÉ** (N3-B : contre-opération en ajout seul, propre paiement / autorité supérieure ; sonde caisse 37/37) |
 | G-CAI-1 | Enregistrement des dépenses de caisse | Caisse | **CORRIGÉ** (N3-B : dépense motivée dans la caisse ouverte) |
 | G-CAI-2 | Réouverture motivée d'une caisse clôturée | Caisse | **CORRIGÉ** (N3-B : réouverture motivée de la journée, gestionnaire) |
@@ -267,7 +267,7 @@ au début de leur lot, sonde à l'appui.
 | Id | Écart | Lot | Statut |
 |----|-------|-----|--------|
 | G-DEC-5 | Responsabilité de règlement **par frais** (famille, retenue, tiers ; montant prévu ≤ restant réel ; remplacement tracé) — le Web n'avait qu'une responsabilité par inscription, conservée comme extension | N3-C | **CORRIGÉ** |
-| G-DEC-6 | Crédit né d'une décision quand le déjà-payé dépasse le nouveau net (Desktop : fonds anticipé d'origine DECISION_CREDIT) ; refus d'annuler une décision dont le crédit est déjà utilisé | N3-D | à porter avec les fonds anticipés |
+| G-DEC-6 | Crédit né d'une décision quand le déjà-payé dépasse le nouveau net (Desktop : fonds anticipé d'origine DECISION_CREDIT) ; refus d'annuler une décision dont le crédit est déjà utilisé | N3-D | **CORRIGÉ** |
 | G-CAI-5 | Garde-fou de capacité qui comptait les paiements annulés (un frais redevenu payable était refusé) | N3-B | **CORRIGÉ** |
 
 ## 4. `OWNER_DECISION_REQUIRED`

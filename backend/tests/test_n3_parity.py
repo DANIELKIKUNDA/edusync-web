@@ -77,3 +77,23 @@ def test_n3c_one_definition_of_decided_amount():
         src = read(f)
         assert "finance_charge_decision_amount(" in src and "sum(d.amount) FROM finance_decisions" not in src, f
     assert "recalculate(school_id, enrollment_id)" in read("backend/src/edusync/adapters/postgres_fee_schedules.py")
+
+
+def test_n3d_advance_funds_copy_desktop_and_stay_separate_from_plans():
+    repo = read("backend/src/edusync/adapters/postgres_advance_funds.py")
+    for message in ("Les fonds anticipés sont désactivés dans la configuration de l'école", "Ce fonds anticipé n'a plus de solde disponible",
+                    "Montant d'allocation invalide", "Aucune charge exigible n'est disponible pour cette allocation",
+                    "Un fonds déjà alloué ne peut pas être annulé/remboursé globalement sans correction détaillée", "Ce fonds n'est plus actif",
+                    "Cette décision a produit un crédit déjà utilisé; une régularisation explicite est requise"):
+        assert message in repo, message
+    for plan_table in ("anticipation_plans", "anticipation_memberships", "anticipation_payment_links", "finance_advance_allocations "):
+        assert plan_table not in repo, plan_table          # Plan anticipé ≠ fonds anticipé
+    sql = read("backend/migrations/0071_n3d_advance_funds.sql")
+    assert "REVOKE UPDATE, DELETE ON finance_advance_funds, finance_advance_fund_allocations, finance_advance_fund_closures FROM edusync_tenant" in sql
+    assert "CREATE OR REPLACE VIEW finance_advance_fund_state" in sql and "trg_advance_fund_allocation_capacity" in sql
+    router = read("backend/src/edusync/modules/finance_checkout/api/router.py")
+    for cap in ("finance.advance_funds.receive", "finance.advance_funds.read", "finance.advance_funds.allocate", "finance.advance_funds.refund",
+                "finance.advance_funds.receipt.print"):
+        assert f"need(actor,'{cap}')" in router, cap
+    decisions = read("backend/src/edusync/adapters/postgres_financial_decisions.py")
+    assert "ensure_decision_credit" in decisions and "close_decision_credits" in decisions

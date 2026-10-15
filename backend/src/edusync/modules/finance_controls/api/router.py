@@ -116,4 +116,9 @@ def set_responsibility(b:ResponsibilityBody,actor:ActorContext=Depends(require_s
 def credits(status:str=Query('OPEN',pattern='^(OPEN|CONSUMED|REFUNDED|CANCELLED|ALL)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.credits.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-  return {'items':rows(c,"""SELECT cr.*,cr.original_amount-cr.consumed_amount remaining,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label FROM finance_credits cr LEFT JOIN enrollments e ON e.id=cr.enrollment_id LEFT JOIN students s ON s.id=e.student_id LEFT JOIN school_classes sc ON sc.id=e.class_id WHERE cr.school_id=:s AND (:st='ALL' OR cr.status=:st) ORDER BY cr.created_at DESC""",{'s':str(actor.school_id),'st':status}), 'read_only':True}
+  # N3-D: credits and overpayments are the Desktop « fonds anticipés » (received advances and decision credits).
+  st={'OPEN':'ACTIF','CONSUMED':'EPUISE','REFUNDED':'REMBOURSE','CANCELLED':'ANNULE','ALL':'ALL'}[status]
+  return {'items':rows(c,"""SELECT f.id,f.enrollment_id,f.currency,f.amount original_amount,f.allocated_amount consumed_amount,f.available_amount remaining,
+     f.origin_type origin,f.status,f.receipt_number,f.received_at created_at,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label
+     FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id
+     WHERE f.school_id=:s AND (:st='ALL' OR f.status=:st) ORDER BY f.received_at DESC""",{'s':str(actor.school_id),'st':st}),'read_only':True}

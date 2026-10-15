@@ -11,8 +11,8 @@
   * charge_financial_explanation, student_financial_operator_view, financial_operator_follow_up, set_charge_responsibility.
 Web mapping: the charge net (after the benefit discount, L3) is the base and is never rewritten; what remains payable is
 net minus the applications (finance_charge_decision_amount). A FIXED decision carries a currency and applies only to the
-charges of that currency (CDF and USD are never converted). The credit a decision may create when more was already paid
-than the new net (Desktop: an advance fund of origin DECISION_CREDIT) belongs to the « fonds anticipés » lot (N3-D).
+charges of that currency (CDF and USD are never converted). The credit a decision creates when more was already settled than
+the new net is a « fonds anticipé » of origin DECISION_CREDIT (N3-D, postgres_advance_funds.py).
 """
 from __future__ import annotations
 
@@ -91,6 +91,8 @@ class PostgresFinancialDecisionsRepository:
             raise ValueError("Décision financière active introuvable")
         if not reason:
             raise ValueError("Le motif d'annulation est obligatoire")
+        from edusync.adapters.postgres_advance_funds import PostgresAdvanceFundsRepository
+        PostgresAdvanceFundsRepository(self.c).close_decision_credits(school_id, decision_id, user_id=user_id, reason=reason)   # Desktop: refused if used
         row = self.c.execute(text("""UPDATE finance_decisions SET status='CANCELLED',cancelled_by=:u,cancelled_at=now(),cancel_reason=:r
             WHERE id=:id RETURNING *"""), {"u": user_id, "r": reason, "id": decision_id}).mappings().one()
         self.recalculate(school_id, d["enrollment_id"])
@@ -123,8 +125,10 @@ class PostgresFinancialDecisionsRepository:
         self.c.execute(text("""DELETE FROM finance_decision_applications WHERE school_id=:s AND charge_id IN
             (SELECT id FROM finance_charges WHERE school_id=:s AND enrollment_id=:e)"""), {"s": school_id, "e": enrollment_id})
         out = []
+        from edusync.adapters.postgres_advance_funds import PostgresAdvanceFundsRepository
+        funds = PostgresAdvanceFundsRepository(self.c)
         for ch in charges:
-            base = money(ch["net_amount"]); current = base; non_cumulative_applied = False
+            base = money(ch["net_amount"]); current = base; non_cumulative_applied = False; last_decision = None
             due = ch["due_date"]
             for d in decisions:
                 if not self._matches(d, ch):
@@ -147,8 +151,14 @@ class PostgresFinancialDecisionsRepository:
                 self.c.execute(text("""INSERT INTO finance_decision_applications(school_id,decision_id,charge_id,base_amount,applied_amount,net_after)
                     VALUES(:s,:d,:c,:b,:a,:n)"""), {"s": school_id, "d": d["id"], "c": ch["id"], "b": base, "a": reduction, "n": current})
                 out.append({"decision_id": str(d["id"]), "charge_id": str(ch["id"]), "applied": str(reduction), "net_after": str(current)})
+                last_decision = d["id"]
                 if not d["cumulative"]:
                     non_cumulative_applied = True
+            # G-DEC-6 — Desktop: settled above the new net becomes a credit (advance fund of origin DECISION_CREDIT).
+            outside = self.c.execute(text("SELECT COALESCE(sum(amount),0) FROM finance_charge_regularizations WHERE charge_id=:c"), {"c": ch["id"]}).scalar_one()
+            credit = money(ch["paid_amount"]) + money(outside) - current
+            if credit > 0:
+                funds.ensure_decision_credit(school_id, enrollment_id=enrollment_id, charge=ch, credit=credit, decision_id=last_decision)
         return out
 
     # ---------- read models ----------

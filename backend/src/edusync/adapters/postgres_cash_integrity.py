@@ -26,7 +26,8 @@ from sqlalchemy.engine import Connection
 
 CENT = Decimal("0.01")
 SOURCE_LABELS = {"PAIEMENT_ELEVE": "Paiement élève", "VENTE_ARTICLE": "Vente article", "DEPENSE_JOURNALIERE": "Dépense",
-                 "ANNULATION": "Annulation", "REMBOURSEMENT": "Remboursement"}
+                 "ANNULATION": "Annulation", "REMBOURSEMENT": "Remboursement", "FONDS_ANTICIPE": "Fonds anticipé",
+                 "RESTITUTION_FONDS_ANTICIPE": "Restitution fonds anticipé"}
 
 
 def money(v) -> Decimal:
@@ -73,6 +74,14 @@ class PostgresCashIntegrityRepository:
             SELECT r.performed_at, 'SORTIE', r.reversal_type, r.amount, r.currency, p.payment_mode, p.receipt_number, r.reason, u.full_name, NULL, r.performed_by, NULL, false
               FROM finance_payment_reversals r JOIN finance_payments p ON p.id=r.payment_id LEFT JOIN users u ON u.id=r.performed_by
              WHERE r.school_id=:s AND r.business_date=:d
+            UNION ALL
+            SELECT f.received_at, 'ENTREE', 'FONDS_ANTICIPE', f.amount, f.currency, f.mode, f.receipt_number, NULL, u.full_name, s.membership_id, f.received_by, NULL, false
+              FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id LEFT JOIN users u ON u.id=f.received_by
+             WHERE f.school_id=:s AND f.origin_type='PAYMENT_ADVANCE' AND s.business_date=:d
+            UNION ALL
+            SELECT c.performed_at, 'SORTIE', 'RESTITUTION_FONDS_ANTICIPE', c.amount, f.currency, f.mode, coalesce(f.receipt_number, f.reference), c.reason, u.full_name, NULL, c.performed_by, NULL, false
+              FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id LEFT JOIN users u ON u.id=c.performed_by
+             WHERE c.school_id=:s AND c.business_date=:d AND c.closure_type IN ('ANNULATION','REMBOURSEMENT')
             ORDER BY 1"""), {"s": school_id, "d": day}).mappings().all()
         return [dict(r) for r in rows]
 
@@ -204,8 +213,19 @@ class PostgresCashIntegrityRepository:
                               {"s": str(session_id)}).mappings().all()
         return {str(r["currency"]): str(r["amount"]) for r in rows}
 
+    def session_advance_funds(self, session_id) -> dict[str, str]:
+        rows = self.c.execute(text("SELECT currency, COALESCE(sum(amount),0) AS amount FROM finance_advance_funds WHERE cash_session_id=:s GROUP BY currency"),
+                              {"s": str(session_id)}).mappings().all()
+        return {str(r["currency"]): str(r["amount"]) for r in rows}
+
     def supervisor_reversals(self, school_id: UUID, day) -> dict[str, str]:
         rows = self.c.execute(text("""SELECT currency, COALESCE(sum(amount),0) AS amount FROM finance_payment_reversals
-            WHERE school_id=:s AND business_date=COALESCE(CAST(:d AS date),CURRENT_DATE) AND cash_session_id IS NULL GROUP BY currency"""),
+            WHERE school_id=:s AND business_date=COALESCE(CAST(:d AS date),CURRENT_DATE) AND cash_session_id IS NULL GROUP BY currency
+            UNION ALL
+            SELECT f.currency, c.amount FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id
+            WHERE c.school_id=:s AND c.business_date=COALESCE(CAST(:d AS date),CURRENT_DATE) AND c.closure_type IN ('ANNULATION','REMBOURSEMENT')"""),
             {"s": str(school_id), "d": day}).mappings().all()
-        return {str(r["currency"]): str(r["amount"]) for r in rows}
+        out: dict[str, Decimal] = {}
+        for r in rows:
+            out[str(r["currency"])] = out.get(str(r["currency"]), Decimal("0")) + money(r["amount"])
+        return {k: str(v) for k, v in out.items()}

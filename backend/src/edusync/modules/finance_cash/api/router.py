@@ -19,9 +19,9 @@ def totals(conn,sid):
  exp=conn.execute(text("""SELECT currency,COALESCE(sum(amount),0) amount FROM finance_cash_expenses WHERE cash_session_id=:s GROUP BY currency"""),{'s':str(sid)}).mappings().all()
  return {str(x['currency']):str(x['amount']) for x in rows},{str(x['currency']):str(x['amount']) for x in exp}
 def projection(conn,row):
- receipts,expenses=totals(conn,row['id']); out=dict(row); rev=PostgresCashIntegrityRepository(conn).session_reversals(row['id'])
+ receipts,expenses=totals(conn,row['id']); out=dict(row); ci=PostgresCashIntegrityRepository(conn); rev=ci.session_reversals(row['id']); adv=ci.session_advance_funds(row['id'])
  for cur in ('CDF','USD'):
-  opening=Decimal(str(row.get('opening_'+cur.lower()) or 0)); inc=Decimal(receipts.get(cur,'0')); ex=Decimal(expenses.get(cur,'0')); rv=Decimal(rev.get(cur,'0')); expected=opening+inc-ex-rv
+  opening=Decimal(str(row.get('opening_'+cur.lower()) or 0)); inc=Decimal(receipts.get(cur,'0'))+Decimal(adv.get(cur,'0')); ex=Decimal(expenses.get(cur,'0')); rv=Decimal(rev.get(cur,'0')); expected=opening+inc-ex-rv
   out[cur.lower()]={'opening':str(opening),'receipts':str(inc),'expenses':str(ex),'reversals':str(rv),'expected_cash':str(expected),'counted':str(row.get('counted_'+cur.lower())) if row.get('counted_'+cur.lower()) is not None else None,'variance':str(Decimal(str(row.get('counted_'+cur.lower())))-expected) if row.get('counted_'+cur.lower()) is not None else None}
  return out
 @router.get('/current')
@@ -80,7 +80,7 @@ def journal(session_id:UUID,actor:ActorContext=Depends(require_school_actor),ser
   r=one(c,'SELECT * FROM finance_cash_sessions WHERE id=:id AND school_id=:sid',{'id':str(session_id),'sid':str(actor.school_id)})
   if not r:raise HTTPException(404,'Caisse introuvable')
   if str(r['membership_id'])!=str(actor.membership_id) and 'finance.cash.other.read' not in actor.permissions:raise HTTPException(403,'Cette caisse appartient à un autre caissier')
-  items=c.execute(text("""SELECT p.created_at,'RECEIPT' kind,p.receipt_number reference,p.amount,p.currency,CAST(p.id AS text) payment_id,EXISTS(SELECT 1 FROM finance_payment_reversals x WHERE x.payment_id=p.id) reversed FROM finance_payments p WHERE p.cash_session_id=:id UNION ALL SELECT e.created_at,'EXPENSE',e.label,e.amount,e.currency,NULL,false FROM finance_cash_expenses e WHERE e.cash_session_id=:id UNION ALL SELECT r.performed_at,r.reversal_type,p.receipt_number,r.amount,r.currency,NULL,false FROM finance_payment_reversals r JOIN finance_payments p ON p.id=r.payment_id WHERE r.cash_session_id=:id ORDER BY created_at"""),{'id':str(session_id)}).mappings().all()
+  items=c.execute(text("""SELECT p.created_at,'RECEIPT' kind,p.receipt_number reference,p.amount,p.currency,CAST(p.id AS text) payment_id,EXISTS(SELECT 1 FROM finance_payment_reversals x WHERE x.payment_id=p.id) reversed FROM finance_payments p WHERE p.cash_session_id=:id UNION ALL SELECT e.created_at,'EXPENSE',e.label,e.amount,e.currency,NULL,false FROM finance_cash_expenses e WHERE e.cash_session_id=:id UNION ALL SELECT r.performed_at,r.reversal_type,p.receipt_number,r.amount,r.currency,NULL,false FROM finance_payment_reversals r JOIN finance_payments p ON p.id=r.payment_id WHERE r.cash_session_id=:id UNION ALL SELECT f.received_at,'ADVANCE_FUND',f.receipt_number,f.amount,f.currency,NULL,false FROM finance_advance_funds f WHERE f.cash_session_id=:id ORDER BY created_at"""),{'id':str(session_id)}).mappings().all()
   return {'session':projection(c,r),'items':[dict(x) for x in items]}
 
 

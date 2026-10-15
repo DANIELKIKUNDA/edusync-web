@@ -228,3 +228,64 @@ def put_print_settings(body:PrintSettingsBody,actor:ActorContext=Depends(require
   conn.execute(_t("""INSERT INTO audit_events(school_id,actor_user_id,membership_id,action,entity_type,entity_id,source,new_json) VALUES(:sid,:uid,:mid,'PRINT_SETTINGS_UPDATED','SchoolPrintSettings',:sid,'WEB',
    jsonb_build_object('receipt_policy',CAST(:p AS text),'receipt_format',CAST(:f AS text),'receipt_prefix',CAST(:px AS text),'receipt_copies',CAST(:cp AS integer)))"""),{'sid':str(actor.school_id),'uid':str(actor.user_id),'mid':str(actor.membership_id),'p':body.receipt_policy,'f':body.receipt_format,'px':body.receipt_prefix.upper(),'cp':body.receipt_copies})
   return dict(row)
+
+# ---------------------------------------------------------------- N3-D — fonds anticipés (Desktop operations.py:290-470)
+# Plan anticipé ≠ fonds anticipé: these routes never read nor write the payment plans.
+from edusync.adapters.postgres_advance_funds import PostgresAdvanceFundsRepository
+from edusync.modules.finance_cash.application.documents import advance_receipt_pdf
+class AdvanceFundBody(BaseModel):
+ enrollment_id:UUID;amount:Decimal=Field(gt=0,max_digits=18,decimal_places=2);currency:str=Field(pattern='^(CDF|USD)$')
+ mode:str='CASH';reference:str|None=Field(default=None,max_length=120)
+@router.post('/advance-funds',status_code=201)
+def receive_advance_fund(b:AdvanceFundBody,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Desktop receive_advance_fund: money received before imputation, own receipt, cashier's open session."""
+ need(actor,'finance.advance_funds.receive')
+ if not idempotency_key:raise HTTPException(400,'Idempotency-Key obligatoire')
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   out=PostgresAdvanceFundsRepository(conn).receive(actor.school_id,user_id=actor.user_id,membership_id=actor.membership_id,enrollment_id=b.enrollment_id,amount=b.amount,currency=b.currency,mode=b.mode,reference=b.reference,idempotency_key=idempotency_key)
+   if not out.get('replayed'):_audit(conn,actor,'RECEIVE_ADVANCE_FUND','AdvanceFund',out['id'],{'enrollment_id':str(b.enrollment_id),'amount':str(out['amount']),'currency':out['currency'],'receipt_number':out['receipt_number']})
+   return _jsonable_any(out)
+ except ValueError as e:raise HTTPException(409,str(e)) from e
+@router.get('/advance-funds')
+def list_advance_funds(enrollment_id:UUID|None=None,student_id:UUID|None=None,include_closed:bool=True,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'finance.advance_funds.read')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  return {'items':_jsonable_any(PostgresAdvanceFundsRepository(conn).list(actor.school_id,enrollment_id=enrollment_id,student_id=student_id,include_closed=include_closed))}
+class AllocateBody(BaseModel):amount:Decimal|None=Field(default=None,gt=0,max_digits=18,decimal_places=2)
+@router.post('/advance-funds/{fund_id}/allocate')
+def allocate_advance_fund(fund_id:UUID,b:AllocateBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Desktop allocate_advance_fund: oldest payable charges of the same currency first."""
+ need(actor,'finance.advance_funds.allocate')
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   out=PostgresAdvanceFundsRepository(conn).allocate(actor.school_id,fund_id,user_id=actor.user_id,amount=b.amount)
+   _audit(conn,actor,'ALLOCATE_ADVANCE_FUND','AdvanceFund',fund_id,{'applied':out['applied'],'available_amount':out['available_amount'],'allocations':out['allocations'],'previous_available':out.pop('old_available')})
+   return out
+ except LookupError as e:raise HTTPException(404,str(e)) from e
+ except ValueError as e:raise HTTPException(409,str(e)) from e
+ except IntegrityError as e:raise HTTPException(409,'Opération refusée : elle violerait une règle financière (montant déjà réglé)') from e
+class FundCloseBody(BaseModel):reversal_type:str=Field(pattern='^(ANNULATION|REMBOURSEMENT)$');reason:str=Field(min_length=3,max_length=500)
+@router.post('/advance-funds/{fund_id}/close')
+def close_advance_fund(fund_id:UUID,b:FundCloseBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Desktop reverse_advance_fund — superior authority (GESTIONNAIRE, owner decision 2026-10-15)."""
+ need(actor,'finance.advance_funds.refund')
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   out=PostgresAdvanceFundsRepository(conn).close(actor.school_id,fund_id,user_id=actor.user_id,reversal_type=b.reversal_type,reason=b.reason)
+   _audit(conn,actor,f'ADVANCE_FUND_{b.reversal_type}','AdvanceFund',fund_id,{'status':out['status'],'previous':out.pop('old_status'),'reason':b.reason})
+   return _jsonable_any(out)
+ except LookupError as e:raise HTTPException(404,str(e)) from e
+ except ValueError as e:raise HTTPException(409,str(e)) from e
+@router.get('/advance-funds/{fund_id}/receipt.pdf')
+def advance_fund_receipt(fund_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'finance.advance_funds.receipt.print')
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   f=PostgresAdvanceFundsRepository(conn).fund(actor.school_id,fund_id);school=_school_for_receipt(conn,actor.school_id)
+ except LookupError as e:raise HTTPException(404,str(e)) from e
+ if f.get('origin_type')!='PAYMENT_ADVANCE':raise HTTPException(409,'Un crédit issu d’une décision n’a pas de reçu de caisse')
+ if f.get('received_by'):
+  from sqlalchemy import text as _t
+  with services.platform_db.platform_transaction() as pc:f['cashier']=pc.execute(_t("SELECT full_name FROM users WHERE id=:id"),{'id':str(f['received_by'])}).scalar_one_or_none()
+ return Response(advance_receipt_pdf(school=school,fund=f),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="fonds_anticipe_{f.get("receipt_number")}.pdf"'})

@@ -1,0 +1,150 @@
+{
+  "school": "N3D-1DD90",
+  "results": [
+    {
+      "check": "Fonds désactivés par l'école : réception refusée",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "Mode non accepté par l'école : refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Montant nul refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Devise inconnue refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Sans caisse ouverte : refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Le gestionnaire ne reçoit pas de fonds (caisse)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Réception : fonds disponible, reçu propre dans la séquence unique",
+      "pass": true,
+      "detail": "(201, 'REC-2026-000001')"
+    },
+    {
+      "check": "Réception rejouée (même clé) : aucun doublon",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Caisse : le fonds est une entrée de la session du caissier",
+      "pass": true,
+      "detail": "30000.00"
+    },
+    {
+      "check": "Les frais ne bougent pas à la réception (montant conservé, non imputé)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Reçu de fonds anticipé PDF",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "Imputation partielle : 5 000 sur la plus ancienne échéance",
+      "pass": true,
+      "detail": "{\"fund_id\":\"94c7b8c4-d827-480d-817e-409d0a288f29\",\"applied\":\"5000.00\",\"available_amount\":\"25000.00\",\"status\":\"ACTIF\",\"al"
+    },
+    {
+      "check": "Imputation au-delà du disponible refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Imputation totale : plus anciennes d'abord, jamais au-delà du dû ; fonds épuisé",
+      "pass": true,
+      "detail": "(200, [Decimal('10000.00'), Decimal('20000.00'), Decimal('20000.00')])"
+    },
+    {
+      "check": "Fonds épuisé : nouvelle imputation refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Fonds imputé : remboursement global refusé (Desktop)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Remboursement : refusé au caissier (autorité supérieure)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Remboursement : motif trop court refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Remboursement par le gestionnaire : fonds remboursé",
+      "pass": true,
+      "detail": "{\"id\":\"513543fd-c546-418e-b814-f63860399738\",\"school_id\":\"eca732b0-c60c-4c70-8751-080b2f8db42c\",\"student_id\":\"bf74e141-1"
+    },
+    {
+      "check": "Fonds remboursé : plus d'imputation",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Journée : entrée FONDS_ANTICIPE et sortie RESTITUTION_FONDS_ANTICIPE",
+      "pass": true,
+      "detail": "{'FONDS_ANTICIPE': Decimal('38000.00'), 'RESTITUTION_FONDS_ANTICIPE': Decimal('8000.00')}"
+    },
+    {
+      "check": "Décision après paiement : crédit de 20 000 (sans reçu ni entrée de caisse)",
+      "pass": true,
+      "detail": "[{'id': '2a897daf-d00a-42e1-bd9b-8ecf122bc43f', 'school_id': 'eca732b0-c60c-4c70-8751-080b2f8db42c', 'student_id': '2b555948-1541-4fb3-8826-be35eaa4f601', 'enrollment_id': 'e255c670-0d1b-4844-a5ff-c4da8b48a9a4', 'amount': '20000.00', 'currency': 'CDF', 'mode': 'AUTRE', 'reference': \"Crédit issu d'un"
+    },
+    {
+      "check": "Crédit : pas de reçu de caisse",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Annulation de la décision : crédit non utilisé clôturé",
+      "pass": true,
+      "detail": "{'2a897daf-d00a-42e1-bd9b-8ecf122bc43f': 'ANNULE'}"
+    },
+    {
+      "check": "Crédit déjà utilisé : annulation de la décision refusée (Desktop)",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "Registre des crédits et trop-perçus : fonds et crédits de l'école",
+      "pass": true,
+      "detail": "4"
+    },
+    {
+      "check": "Plan anticipé ≠ fonds anticipé : aucune ligne de plan ni de l'ancien mécanisme",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "check": "Fonds, imputations et clôtures : aucun UPDATE / DELETE possible",
+      "pass": true,
+      "detail": "{'finance_advance_funds': False, 'finance_advance_fund_allocations': False, 'finance_advance_fund_closures': False}"
+    },
+    {
+      "check": "Audit : réception, imputation et remboursement tracés",
+      "pass": true,
+      "detail": "{'ADVANCE_FUND_REMBOURSEMENT': 1, 'ALLOCATE_ADVANCE_FUND': 3, 'RECEIVE_ADVANCE_FUND': 2}"
+    }
+  ]
+}

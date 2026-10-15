@@ -68,3 +68,6 @@
 .operatorCharges .opRight{display:flex;align-items:center;gap:8px}.operatorCharges .opRight button{min-height:44px}
 .operatorCharges li.op-EXONEREE,.operatorCharges li.op-SOLDEE{background:#f0fdf4}.operatorCharges li.op-NEUTRALISEE{opacity:.7}
 .decisionForm label{display:grid;gap:4px;font-weight:600;font-size:13px}.decisionForm input,.decisionForm select{min-height:40px}
+/* N3-D — fonds anticipés */
+.fundsPanel{display:grid;gap:10px;margin-top:14px;padding:12px;border:1px solid #dbe3ef;border-radius:12px;background:#fff}
+.fundActions{display:flex;gap:6px;flex-wrap:wrap}.fundActions button{min-height:44px}
