@@ -112,7 +112,9 @@ check("Paiement : mode et référence conservés", (pm.payment_mode, pm.payment_
 check("Mode inconnu refusé", collect("5000", mode="CHEQUE").status_code == 409)
 ok(policy(advance_payments_enabled=False))
 r = collect("5000", advance=True)
-check("Paiements anticipés désactivés : utilisation d'un plan refusée", r.status_code == 409 and "anticipés sont désactivés" in r.text, r.status_code)
+# Lot L6: the former surplus-as-provision path is retired from the cash desk whatever the switch; at the Desktop the switch
+# gates the « fonds anticipé » (operations.py, not ported yet) and plans are collected through collect-plan.
+check("Ancien chemin d'avance refusé : un plan s'encaisse selon le plan anticipé", r.status_code == 409 and "plan de paiement anticipé" in r.text, r.status_code)
 check("Aucun mode autorisé : réglage refusé", policy(accepted_modes=[]).status_code == 422)
 cur = adm.get("settings/payment-policy").json()
 r = adm.put("settings/payment-policy", json={**{k2: cur[k2] for k2 in ("partial_payments_enabled", "partial_min_amount", "partial_reporting_mode", "advance_payments_enabled",

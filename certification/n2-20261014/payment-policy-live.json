@@ -52,7 +52,7 @@
  {
   "check": "Paiement : mode et référence conservés",
   "pass": true,
-  "detail": "('BANQUE', 'VIR-532A9')"
+  "detail": "('BANQUE', 'VIR-753FA')"
  },
  {
   "check": "Mode inconnu refusé",
@@ -60,7 +60,7 @@
   "detail": ""
  },
  {
-  "check": "Paiements anticipés désactivés : utilisation d'un plan refusée",
+  "check": "Ancien chemin d'avance refusé : un plan s'encaisse selon le plan anticipé",
   "pass": true,
   "detail": "409"
  },

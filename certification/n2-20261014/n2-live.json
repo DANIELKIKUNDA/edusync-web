@@ -2,7 +2,7 @@
   {
     "check": "Écoles jumelles créées par la plateforme, administrateurs connectés",
     "pass": true,
-    "detail": "N2A-46189A / N2B-46189A"
+    "detail": "N2A-A5DD04 / N2B-A5DD04"
   },
   {
     "check": "Rôles standard visibles par l'administrateur (dont Caissier)",
@@ -67,7 +67,7 @@
   {
     "check": "Adresse déjà utilisée dans l'école B → compte rattaché, aucun mot de passe affiché",
     "pass": true,
-    "detail": "{\"email\":\"n2-admin-b-46189a@example.test\",\"created\":false,\"full_name\":\"Admin jumelle B\",\"role_label\":null,\"membership_id\":\"9f0f88c7-5627-4250-b0c2-4f76abcf1193\""
+    "detail": "{\"email\":\"n2-admin-b-a5dd04@example.test\",\"created\":false,\"full_name\":\"Admin jumelle B\",\"role_label\":null,\"membership_id\":\"a9f0d8f6-e01c-4d8c-8124-d7c00d652207\""
   },
   {
     "check": "Le nom du compte existant n'est pas modifié par l'école A",
@@ -202,7 +202,7 @@
   {
     "check": "UUID deviné : modifier la classe de B depuis A → refusé (404/409/422)",
     "pass": true,
-    "detail": "409"
+    "detail": "404"
   },
   {
     "check": "Membres : A ne liste aucun membre de B (hors compte rattaché à A)",

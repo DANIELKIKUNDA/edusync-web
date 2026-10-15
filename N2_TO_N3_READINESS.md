@@ -20,7 +20,8 @@ avant ou pendant le N3. **Le N3 n'est pas démarré** (hors mandat).
 
 | # | Sujet | Origine | Priorité |
 |---|-------|---------|----------|
-| 1 | Décisions ouvertes O1 (administrateur initial), O2 (classe avec élèves), O5 (groupes tarifaires des options), O6 (droit de réactivation des classes) | N2_OWNER_DECISIONS.md | haute pour O2 (touche les inscriptions) |
+| 1 | O1, O2, O5, O6 décidés et appliqués ; restent : rôle titulaire de `finance.anticipation_plans.manage`, transfert financier au changement de classe | N2_OWNER_DECISIONS.md §4 | haute (avant l'usage des plans en école) |
+| 1b | Écarts de parité Finance à porter en N3 : fonds anticipé (mécanisme distinct des plans), présentation des acomptes dans les rapports, préfixe des rapports, chaîne séquentielle des mensualités, mode de vente des articles | N2_SETTINGS_PARITY_13_RUBRIQUES.md §2 | haute (N3 Finance) |
 | 2 | Rejouer la sonde d'isolation sur les modules N3 avec les écoles jumelles A/B (y compris le logo) | multi-tenant | haute |
 | 3 | Mesure de contraste automatique (axe-core) et passage lecteur d'écran | UX/UI §3 | moyenne |
 | 4 | Test sur appareils physiques (Android d'entrée de gamme, iPhone) | mobile §5 | moyenne |
@@ -30,7 +31,7 @@ avant ou pendant le N3. **Le N3 n'est pas démarré** (hors mandat).
 | 8 | `EnrollmentWizard` : indicateur d'étapes accessible, brouillon | wizards | moyenne |
 | 9 | Récapitulatif d'erreurs pour les longs formulaires ; traduction des derniers messages serveur techniques | formulaires | basse |
 | 10 | Raccourci clavier de la barre latérale ; cibles de 44 px (AAA) | benchmark | basse |
-| 11 | Politiques PAYMENT, DOCUMENTS, etc. : écran seulement quand un module les applique | O3 | au fil des modules |
+| 11 | Politiques : encaissement, avantages, admission et reçus ont désormais leur écran (parité Desktop) ; communications = extension Web | O3 | au fil des modules |
 
 ## 3. Verdict
 

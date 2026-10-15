@@ -400,4 +400,6 @@ au Web** (`DORMANT_FUTURE`).
 | O2 | Copier le Desktop (pause avec élèves, archivage si vide) | migration 0059 (`status` ACTIVE / INACTIVE / ARCHIVED, `enabled` = ACTIVE), route `POST /settings/classes/{id}/status`, effectifs qui gardent les classes en pause, archivage refusé avec inscriptions validées, classe archivée en lecture seule, année close en lecture seule ; sonde `class_status_probe.py` 21/21 |
 | O6 | Corriger le RBAC | état : `settings.classes.activate` seul ; renommage : `settings.classes.rename` seul ; un `PUT` avec `enabled` ne change plus l'état (refus explicite) ; audit `SCHOOL_CLASS_STATUS_CHANGED` avant/après |
 | Sauvegardes | Pas de restauration directe par l'école | aucun bouton de restauration ; reste `NOT_APPLICABLE_IN_SAAS` (à documenter dans la comparaison des 13 rubriques) |
-| O3, O5 | Parité avant N3 Finance | lot « parité Paramètres » en cours |
+| O3, O5 | Parité avant N3 Finance | lots L1 à L7 livrés (`106d02d` → `9064067`), sondes réelles PASS |
+| L6 | Plan anticipé ≠ fonds anticipé | plans copiés du Desktop ; ancien mécanisme Web (plan simplifié en provision, 0 donnée) retiré de la caisse, tables conservées ; fonds anticipé = écart N3 distinct |
+| 8 | Comparaison des 13 rubriques | N2_SETTINGS_PARITY_13_RUBRIQUES.md |

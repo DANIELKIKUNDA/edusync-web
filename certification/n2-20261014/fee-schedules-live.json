@@ -47,7 +47,7 @@
  {
   "check": "Frais dus : groupes séquentiels par frais (mensuel et tranches), brut = net sans avantage",
   "pass": true,
-  "detail": "{None, 'MONTHLY:SCOLARITE', 'TERM:ETAT'}"
+  "detail": "{None, 'TERM:ETAT', 'MONTHLY:SCOLARITE'}"
  },
  {
   "check": "Réapplication : rien n'est dupliqué (0 créé, mises à jour seulement)",
