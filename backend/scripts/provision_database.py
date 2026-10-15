@@ -190,6 +190,7 @@ def main() -> None:
             ("0064_payment_policy_desktop_parity", "0064_payment_policy_desktop_parity.sql"),
             ("0065_receipt_settings_desktop_parity", "0065_receipt_settings_desktop_parity.sql"),
             ("0066_anticipation_plans_desktop_parity", "0066_anticipation_plans_desktop_parity.sql"),
+            ("0067_admin_school_anticipation_plans", "0067_admin_school_anticipation_plans.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):

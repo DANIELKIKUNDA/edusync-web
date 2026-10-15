@@ -268,3 +268,13 @@ def test_anticipation_plans_copy_the_desktop():
     assert "_need(actor,'finance.anticipation_plans.manage')" in settings
     ui = (ROOT / "frontend/src/settings_anticipation.tsx").read_text(encoding="utf-8")
     assert "c’est différent d’une avance libre (fonds anticipé)" in ui and "créez une nouvelle version" in ui
+
+
+def test_n3a_admin_school_holds_plan_management_only():
+    # N3-A / G-PLAN-1: ADMIN_SYSTEME_ECOLE gets plan management; no other standard role is widened.
+    sql = (ROOT / "backend/migrations/0067_admin_school_anticipation_plans.sql").read_text(encoding="utf-8")
+    assert "('ADMIN_SYSTEME_ECOLE','finance.anticipation_plans.manage')" in sql
+    granted = {line.split("'")[1] for line in sql.splitlines() if line.strip().startswith("('")}
+    assert granted == {"ADMIN_SYSTEME_ECOLE"}
+    prov = (ROOT / "backend/scripts/provision_database.py").read_text(encoding="utf-8")
+    assert "0067_admin_school_anticipation_plans.sql" in prov

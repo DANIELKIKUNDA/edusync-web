@@ -234,7 +234,7 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-FIN-1 | Chaîne séquentielle limitée à SCOLARITE (à comparer) | Encaissement | moyen |
 | G-FIN-2 | Lots de frais et lot journal + badge | Encaissement | moyen |
 | G-FIN-3 | Suggestion d'imputation / action recommandée | Encaissement | faible |
-| G-PLAN-1 | Attribuer `finance.anticipation_plans.manage` à `ADMIN_SYSTEME_ECOLE` (décision prise) | Plans | faible (petit correctif) |
+| G-PLAN-1 | Attribuer `finance.anticipation_plans.manage` à `ADMIN_SYSTEME_ECOLE` (décision prise) | Plans | **CORRIGÉ** (N3-A, migration 0067, sonde 32/32) |
 | G-PER-1 | Frais ouverts d'un enfant du personnel | Personnel | faible |
 | G-PER-2 | Retenue sur salaire = règlement hors caisse (+ annulation) | Personnel / Finance | **élevé** |
 | G-REC-1 | Statut de recouvrement historique | Recouvrement | moyen |
@@ -257,7 +257,7 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-DOC-4 | Rapport financier périodique PDF / Excel (à vérifier) | Documents | moyen |
 | G-IMP-1 | Finalisation de l'historique financier sans toucher la caisse (à vérifier) | Import | moyen |
 | G-IMP-2 | Réparation des dates d'inscription, suggestions historiques | Import | faible |
-| G-ROLE-1 | Correspondance opération Desktop → droit → rôle Web | Rôles | **élevé** (transversal) |
+| G-ROLE-1 | Correspondance opération Desktop → droit → rôle Web | Rôles | **établie** (N3_RBAC_DESKTOP_WEB_MAP.md) ; attribution aux rôles Web en attente de validation |
 
 37 écarts, dont 9 marqués *à vérifier* ou *à comparer* : ces derniers seront soit confirmés, soit reclassés `PARITY_OK`
 au début de leur lot, sonde à l'appui.

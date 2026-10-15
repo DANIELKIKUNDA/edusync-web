@@ -101,7 +101,7 @@ def charges(e):
 check("Plan : un mois cible ne peut pas être aussi un mois de contribution", plan("Mauvais", ["05"], ["05", "01"]).status_code == 409)
 check("Plan : frais non mensuel refusé", plans.put("settings/anticipation-plans", json={"academic_year_id": y["id"], "name": "Plan inscription", "fee_type_id": ins["id"],
       "target_months": ["05"], "contribution_months": ["01"]}, headers=k()).status_code == 409)
-check("Sans droit « gérer les plans » : création refusée (403)", adm.put("settings/anticipation-plans", json={"academic_year_id": y["id"], "name": "Plan administrateur",
+check("Sans droit « gérer les plans » (caissier) : création refusée (403)", cash.put("settings/anticipation-plans", json={"academic_year_id": y["id"], "name": "Plan administrateur",
       "fee_type_id": sco["id"], "target_months": ["05"], "contribution_months": ["01"]}, headers=k()).status_code == 403)
 opt = ok(plan("Mai-Juin étalés (facultatif)", ["05", "06"], ["01", "02", "03"]))
 man = ok(plan("Juin anticipé (obligatoire)", ["06"], ["02", "03", "04"], mode="MANDATORY"))
@@ -217,6 +217,13 @@ with owner.connect() as c:
 check("Audit : plans, adhésions et paiements selon plan tracés", acts.get("ANTICIPATION_PLAN_SAVED", 0) >= 3 and acts.get("ANTICIPATION_MEMBERSHIP_SET", 0) >= 4
       and acts.get("ANTICIPATION_PAYMENT_RECORDED", 0) >= 3, acts)
 check("Plan anticipé ≠ fonds anticipé : aucune provision créée par les plans", provisions == 0, provisions)
+# N3-A / G-PLAN-1 (owner decision 2026-10-15): the school system administrator creates plans by default; the cashier does not.
+adm_plan = adm.put("settings/anticipation-plans", json={"academic_year_id": y["id"], "name": "Plan créé par l'administrateur", "fee_type_id": sco["id"],
+                   "target_months": ["04"], "contribution_months": ["01"], "effective_from": f"{sy}-09-01"}, headers=k())
+check("Droits : l'administrateur de l'école crée un plan (ADMIN_SYSTEME_ECOLE)", adm_plan.status_code == 201, adm_plan.status_code)
+cash_plan = cash.put("settings/anticipation-plans", json={"academic_year_id": y["id"], "name": "Plan du caissier", "fee_type_id": sco["id"],
+                     "target_months": ["04"], "contribution_months": ["01"], "effective_from": f"{sy}-09-01"}, headers=k())
+check("Droits : le caissier ne crée pas de plan", cash_plan.status_code == 403, cash_plan.status_code)
 
 passed = sum(r["pass"] for r in results)
 out = Path(__file__).with_name("anticipation-live.json")

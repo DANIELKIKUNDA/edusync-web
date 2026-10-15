@@ -10,7 +10,7 @@
   "detail": ""
  },
  {
-  "check": "Sans droit « gérer les plans » : création refusée (403)",
+  "check": "Sans droit « gérer les plans » (caissier) : création refusée (403)",
   "pass": true,
   "detail": ""
  },
@@ -67,7 +67,7 @@
  {
   "check": "Plan obligatoire : adhésion automatique au premier paiement",
   "pass": true,
-  "detail": "{'id': '672359ed-03af-49e2-bdf2-55a77d18b420', 'school_id': '79010917-d134-49f8-b84d-c227644feb12', 'plan_id': '832746ff-6f73-4cb4-9394-58ed11e80586', 'enrollment_id': 'c6cfec5d-c84b-4f03-9407-885d1828175e', 'status': 'ENROLLED', 'snapshot_target_amount': '55000.00', 'currency': 'CDF', 'decided_at':"
+  "detail": "{'id': 'ca945735-d5ba-43b5-b770-90a4ac224d5b', 'school_id': '6a8227c4-9c23-4b74-bc4f-e63cf65b67c5', 'plan_id': '0a288ca4-0de2-4d16-b365-18089bc07e64', 'enrollment_id': '142eafe3-8627-4901-bbc2-59d20614efe4', 'status': 'ENROLLED', 'snapshot_target_amount': '55000.00', 'currency': 'CDF', 'decided_at':"
  },
  {
   "check": "Plan obligatoire : février soldé, 18 333,34 vers juin",
@@ -148,5 +148,15 @@
   "check": "Plan anticipé ≠ fonds anticipé : aucune provision créée par les plans",
   "pass": true,
   "detail": "0"
+ },
+ {
+  "check": "Droits : l'administrateur de l'école crée un plan (ADMIN_SYSTEME_ECOLE)",
+  "pass": true,
+  "detail": "201"
+ },
+ {
+  "check": "Droits : le caissier ne crée pas de plan",
+  "pass": true,
+  "detail": "403"
  }
 ]
