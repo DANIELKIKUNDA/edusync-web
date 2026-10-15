@@ -1,5 +1,5 @@
 {
-  "school": "N3B-4736F",
+  "school": "N3B-92C2C",
   "results": [
     {
       "check": "Dépense : le caissier l'enregistre dans sa caisse ouverte",
@@ -34,7 +34,7 @@
     {
       "check": "Contre-opération : le caissier annule son propre paiement (caisse ouverte)",
       "pass": true,
-      "detail": "(200, '{\"id\":\"0d9b5ef6-d013-419c-be48-90f61adec3bb\",\"payment_id\":\"38f3f7be-e327-4aab-91b0-d84bf28a7f46\",\"receipt_number\":\"REC-2')"
+      "detail": "(200, '{\"id\":\"61c3ee64-9845-481e-8a1f-8926994ef0b5\",\"payment_id\":\"ea9f8664-a409-45e3-9aef-cee3458eb893\",\"receipt_number\":\"REC-2')"
     },
     {
       "check": "Contre-opération : le mois redevient payable (le paiement ne compte plus)",
@@ -79,7 +79,7 @@
     {
       "check": "Le gestionnaire rembourse un paiement d'une caisse clôturée",
       "pass": true,
-      "detail": "(200, '{\"id\":\"2a0aae1e-2645-481b-8751-55c01c1716c7\",\"payment_id\":\"69f9b4ae-767e-474a-82ca-2ac5f3f89ca8\",\"receipt_number\":\"REC-2')"
+      "detail": "(200, '{\"id\":\"cec709dc-3c01-404d-b2af-0b416806de4c\",\"payment_id\":\"c833af9d-00c4-4139-8872-7051c84c394c\",\"receipt_number\":\"REC-2')"
     },
     {
       "check": "Remboursement : le mois redevient payable",
@@ -114,12 +114,12 @@
     {
       "check": "Clôture globale par le gestionnaire : instantanés par devise",
       "pass": true,
-      "detail": "(200, '{\"day\":\"2026-10-15\",\"status\":\"CLOSED\",\"closed\":true,\"closed_at\":\"2026-10-15T20:56:30.411701+01:00\",\"reopened_at\":null,\"reopen_reason\":null,\"open_sessions\":0,\"se')"
+      "detail": "(200, '{\"day\":\"2026-10-15\",\"status\":\"CLOSED\",\"closed\":true,\"closed_at\":\"2026-10-15T21:18:36.833792+01:00\",\"reopened_at\":null,\"reopen_reason\":null,\"open_sessions\":0,\"se')"
     },
     {
       "check": "Instantané CDF = entrées − sorties (paiements, dépense, contre-opérations)",
       "pass": true,
-      "detail": "{'currency': 'CDF', 'entries': '80000.00', 'outflows': '41500.00', 'net': '38500.00', 'sessions': 2, 'closed_at': '2026-10-15T20:56:30.411701+01:00', 'closed_by_name': 'Agent GES'}"
+      "detail": "{'currency': 'CDF', 'entries': '80000.00', 'outflows': '41500.00', 'net': '38500.00', 'sessions': 2, 'closed_at': '2026-10-15T21:18:36.833792+01:00', 'closed_by_name': 'Agent GES'}"
     },
     {
       "check": "Clôture globale : une seconde fois sans effet (Desktop)",

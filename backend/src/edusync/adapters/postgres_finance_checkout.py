@@ -28,7 +28,7 @@ class PostgresFinanceCheckoutRepository:
   adj={}
   if ids:
    adj={str(a['id']):a for a in self.conn.execute(text("""SELECT c.id,
-     coalesce((SELECT sum(d.amount) FROM finance_decisions d WHERE d.school_id=c.school_id AND d.charge_id=c.id AND d.status='ACTIVE' AND d.currency=c.currency),0) decisions,
+     finance_charge_decision_amount(c.id) decisions,
      coalesce((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.school_id=c.school_id AND r.charge_id=c.id),0) outside_cash
      FROM finance_charges c WHERE c.school_id=:sid AND c.id=ANY(CAST(:ids AS uuid[]))"""),{'sid':str(school_id),'ids':ids}).mappings().all()}
   out=[]

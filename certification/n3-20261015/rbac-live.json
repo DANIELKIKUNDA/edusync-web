@@ -1,5 +1,5 @@
 {
-  "school": "RBAC-559AA",
+  "school": "RBAC-DF6ED",
   "results": [
     {
       "check": "GESTIONNAIRE : autorité financière supérieure (10 droits)",
@@ -69,7 +69,7 @@
     {
       "check": "Le gestionnaire passe le contrôle de droit (inscription inconnue : refus métier, pas 403)",
       "pass": true,
-      "detail": "500"
+      "detail": "409"
     }
   ]
 }

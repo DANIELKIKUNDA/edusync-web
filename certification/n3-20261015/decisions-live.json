@@ -1,0 +1,145 @@
+{
+  "school": "N3C-F13F5",
+  "results": [
+    {
+      "check": "Préparation : 10 mensualités à 20 000 CDF",
+      "pass": true,
+      "detail": "10"
+    },
+    {
+      "check": "Nature hors Desktop (REDUCTION) refusée à la création",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "Portée inconnue refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Pourcentage > 100 refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Cible obligatoire pour une portée FEE_CODE",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Motif obligatoire",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Inscription inconnue : refus métier (plus de 500)",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "Droits : le caissier ne décide pas",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Droits : l'administrateur technique ne décide pas",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Réduction 25 % sur tous les frais : 15 000 par mois",
+      "pass": true,
+      "detail": "[Decimal('15000.00'), Decimal('15000.00'), Decimal('15000.00')]"
+    },
+    {
+      "check": "Montant fixe sur le code de frais, après la réduction (ordre de priorité) : 13 000",
+      "pass": true,
+      "detail": "[Decimal('13000.00'), Decimal('13000.00'), Decimal('13000.00')]"
+    },
+    {
+      "check": "Montant fixe en USD : ne touche pas les frais en CDF (aucune conversion)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Exonération : toujours 100 % (valeur forcée par le Desktop)",
+      "pass": true,
+      "detail": "('PERCENT', '100.00')"
+    },
+    {
+      "check": "Exonération du mois de novembre seulement",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Non cumulatif : la 2e décision non cumulative est ignorée, la cumulative s'applique (20 000 − 10 % − 1 000 = 17 000)",
+      "pass": true,
+      "detail": "[Decimal('17000.00'), Decimal('17000.00'), Decimal('17000.00')]"
+    },
+    {
+      "check": "Période : seules les échéances de décembre à janvier sont réduites",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "check": "Annulation : recalcul immédiat, montants rétablis",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Annulation : une seconde fois refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Recalcul explicite idempotent",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Caisse : le reste à payer affiché tient compte des décisions (13 000)",
+      "pass": true,
+      "detail": "13000.00"
+    },
+    {
+      "check": "Caisse : encaisser plus que le reste dû est refusé",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "Explication : brut, décisions dans l'ordre de priorité, net, réglé, reste",
+      "pass": true,
+      "detail": "{'gross': '20000.00', 'net_after_decisions': '13000.00', 'settled': '13000.00', 'remaining': '0'}"
+    },
+    {
+      "check": "Vue opérateur : SOLDEE, EXONEREE et A_REGLER",
+      "pass": true,
+      "detail": "['A_REGLER', 'EXONEREE', 'SOLDEE']"
+    },
+    {
+      "check": "Suivi : décisions de l'année avec leur nombre d'applications",
+      "pass": true,
+      "detail": "8"
+    },
+    {
+      "check": "Responsabilité : jamais au-delà du restant réel (13 000)",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "Responsabilité : la nouvelle remplace l'ancienne (annulée, jamais supprimée)",
+      "pass": true,
+      "detail": "{'CANCELLED': 1, 'PLANNED': 1}"
+    },
+    {
+      "check": "Responsabilité : le caissier ne la fixe pas",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Audit : création, annulation et responsabilités tracées",
+      "pass": true,
+      "detail": "{'CANCEL_FINANCIAL_DECISION': 1, 'CREATE_FINANCIAL_DECISION': 8, 'SET_CHARGE_RESPONSIBILITY': 2}"
+    }
+  ]
+}

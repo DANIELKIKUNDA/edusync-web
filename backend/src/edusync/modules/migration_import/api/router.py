@@ -320,7 +320,7 @@ def execute_finance_history(batch_id:UUID,body:ExecuteFinanceHistoryBody,idempot
    # Lock the obligation and recompute what is still owed now (cash payments, decisions and
    # regularizations may have happened since analysis, including earlier rows of this batch).
    ch=conn.execute(text("""SELECT fc.net_amount,fc.paid_amount,
-     coalesce((SELECT sum(d.amount) FROM finance_decisions d WHERE d.school_id=fc.school_id AND d.charge_id=fc.id AND d.status='ACTIVE' AND d.currency=fc.currency),0) decisions,
+     finance_charge_decision_amount(fc.id) decisions,
      coalesce((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.school_id=fc.school_id AND r.charge_id=fc.id),0) outside_cash
      FROM finance_charges fc WHERE fc.school_id=:sid AND fc.id=:ch AND fc.status='ACTIVE' FOR UPDATE OF fc"""),{'sid':actor.school_id,'ch':n['charge_id']}).mappings().first()
    if not ch:raise HTTPException(409,STALE_ANALYSIS)

@@ -49,3 +49,31 @@ def test_n3b_mobile_ui_present():
     for text in ("Dépense de caisse", "Contre-opération", "Clôturer la journée", "Rouvrir la journée", "Journal de caisse (PDF)", "Rapport journalier (PDF)"):
         assert text in ui, text
     assert "createPortal" in ui
+
+
+def test_n3c_decisions_copy_desktop_rules():
+    from decimal import Decimal
+    from edusync.adapters.postgres_financial_decisions import FULL, KINDS, SCOPES, PostgresFinancialDecisionsRepository
+    assert KINDS == {"DISCOUNT", "EXEMPTION", "INDIVIDUAL_FREE", "COLLECTIVE_EXEMPTION", "DIRECTION_EXCEPTION", "THIRD_PARTY_COVERAGE"}
+    assert SCOPES == {"ALL_FEES", "FEE_CODE", "FEE_CATEGORY", "CHARGE"} and FULL == {"EXEMPTION", "INDIVIDUAL_FREE", "COLLECTIVE_EXEMPTION"}
+    m = PostgresFinancialDecisionsRepository._matches
+    ch = {"id": "c1", "fee_code": "SCOLARITE", "fee_category": "SCOLAIRE"}
+    assert m({"scope_type": "ALL_FEES"}, ch) and m({"scope_type": "FEE_CODE", "scope_ref": "scolarite"}, ch)
+    assert m({"scope_type": "CHARGE", "charge_id": "c1"}, ch) and not m({"scope_type": "CHARGE", "charge_id": "c2"}, ch)
+    repo = read("backend/src/edusync/adapters/postgres_financial_decisions.py")
+    for message in ("Portée ou nature de décision financière invalide", "La valeur doit être un pourcentage ou un montant fixe",
+                    "Valeur de décision financière invalide", "Le motif de la décision financière est obligatoire",
+                    "La cible de la décision financière est obligatoire", "Décision financière active introuvable",
+                    "Le motif d'annulation est obligatoire", "La responsabilité prévue ne peut pas dépasser le restant réel de ce frais"):
+        assert message in repo, message
+    assert "if non_cumulative_applied and not d[\"cumulative\"]" in repo
+
+
+def test_n3c_one_definition_of_decided_amount():
+    sql = read("backend/migrations/0070_n3c_financial_decisions.sql")
+    assert "CREATE OR REPLACE FUNCTION finance_charge_decision_amount" in sql and "CREATE OR REPLACE VIEW finance_charge_effective" in sql
+    assert "v_obligation := v_net - finance_charge_decision_amount(NEW.charge_id)" in sql
+    for f in ("backend/src/edusync/adapters/postgres_finance_checkout.py", "backend/src/edusync/modules/migration_import/api/router.py"):
+        src = read(f)
+        assert "finance_charge_decision_amount(" in src and "sum(d.amount) FROM finance_decisions" not in src, f
+    assert "recalculate(school_id, enrollment_id)" in read("backend/src/edusync/adapters/postgres_fee_schedules.py")

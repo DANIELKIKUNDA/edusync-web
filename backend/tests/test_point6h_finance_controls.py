@@ -2,7 +2,7 @@ from pathlib import Path
 from edusync.modules.finance_controls.domain.models import credit_remaining,VALID_DECISIONS,VALID_RESPONSIBILITIES
 ROOT=Path(__file__).parents[2]
 def test_finance_control_domains_are_explicit():
- assert {'EXEMPTION','REDUCTION'}<=VALID_DECISIONS
+ assert {'EXEMPTION','DISCOUNT','THIRD_PARTY_COVERAGE'}<=VALID_DECISIONS and 'REDUCTION' not in VALID_DECISIONS  # N3-C: Desktop natures
  assert {'FAMILY','PAYROLL','SCHOOL','THIRD_PARTY'}==VALID_RESPONSIBILITIES
  assert credit_remaining('100','25')==75
 def test_credit_is_not_a_manual_cashier_mutation():

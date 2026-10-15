@@ -174,6 +174,11 @@ class PostgresFeeScheduleRepository:
                     sequence_order,tariff_id) VALUES (:id,:sid,:e,:s,:f,:label,:cur,:net,:gross,:pct,:disc,:per,:pl,:po,:due,:sg,:so,:t)"""),
                     {**values, "id": uuid4(), "sid": school_id, "e": enrollment_id, "s": s["id"], "f": s["fee_type_id"], "per": periodicity})
                 created += 1
+        if (created or updated) and self.connection.execute(text("""SELECT 1 FROM finance_decisions WHERE school_id=:sid AND enrollment_id=:e
+                AND status='ACTIVE' LIMIT 1"""), {"sid": school_id, "e": enrollment_id}).first():
+            # Desktop generate_charges_for_enrollment ends with recalculate_enrollment_financial_decisions (N3-C).
+            from edusync.adapters.postgres_financial_decisions import PostgresFinancialDecisionsRepository
+            PostgresFinancialDecisionsRepository(self.connection).recalculate(school_id, enrollment_id)
         return created, updated
 
     # ---------- registration bundle (Desktop terrain.py::registration_bundle_codes, parity lot L4) ----------

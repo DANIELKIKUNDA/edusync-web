@@ -227,10 +227,10 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-CAI-2 | Réouverture motivée d'une caisse clôturée | Caisse | **CORRIGÉ** (N3-B : réouverture motivée de la journée, gestionnaire) |
 | G-CAI-3 | Droit de clôture (ADMIN / DIRECTION au Desktop) | Caisse | **CORRIGÉ** (N3-B : clôture individuelle caissier, clôture globale gestionnaire) |
 | G-CAI-4 | Journée de caisse de l'école vs sessions par caissier (à qualifier) | Caisse | **CORRIGÉ** (N3-B : sessions individuelles conservées + journée de l'école clôturée globalement avec instantanés) |
-| G-DEC-1 | Types de décision financière Desktop (6) ≠ Web (4) | Décisions | **élevé** |
-| G-DEC-2 | Recalcul des décisions d'une inscription | Décisions | moyen |
-| G-DEC-3 | Explication d'un frais (brut → net → payé) | Décisions | moyen |
-| G-DEC-4 | Vue opérateur et suivi financier | Décisions | moyen |
+| G-DEC-1 | Types de décision financière Desktop (6) ≠ Web (4) | Décisions | **CORRIGÉ** (N3-C : 6 natures Desktop, portées, % / fixe, priorité, cumul, période ; anciennes décisions Web conservées telles quelles ; sonde décisions 28/28) |
+| G-DEC-2 | Recalcul des décisions d'une inscription | Décisions | **CORRIGÉ** (N3-C : recalcul à la création, à l'annulation, après génération des frais, et sur demande) |
+| G-DEC-3 | Explication d'un frais (brut → net → payé) | Décisions | **CORRIGÉ** (N3-C : explication brut → avantage → décisions → net → réglé → reste) |
+| G-DEC-4 | Vue opérateur et suivi financier | Décisions | **CORRIGÉ** (N3-C : situation financière de l'élève et suivi ; + responsabilité prévue par frais, écart trouvé à la comparaison fine) |
 | G-FIN-1 | Chaîne séquentielle limitée à SCOLARITE (à comparer) | Encaissement | moyen |
 | G-FIN-2 | Lots de frais et lot journal + badge | Encaissement | moyen |
 | G-FIN-3 | Suggestion d'imputation / action recommandée | Encaissement | faible |
@@ -261,6 +261,14 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 
 37 écarts, dont 9 marqués *à vérifier* ou *à comparer* : ces derniers seront soit confirmés, soit reclassés `PARITY_OK`
 au début de leur lot, sonde à l'appui.
+
+### Écarts trouvés pendant la comparaison fine (lots N3)
+
+| Id | Écart | Lot | Statut |
+|----|-------|-----|--------|
+| G-DEC-5 | Responsabilité de règlement **par frais** (famille, retenue, tiers ; montant prévu ≤ restant réel ; remplacement tracé) — le Web n'avait qu'une responsabilité par inscription, conservée comme extension | N3-C | **CORRIGÉ** |
+| G-DEC-6 | Crédit né d'une décision quand le déjà-payé dépasse le nouveau net (Desktop : fonds anticipé d'origine DECISION_CREDIT) ; refus d'annuler une décision dont le crédit est déjà utilisé | N3-D | à porter avec les fonds anticipés |
+| G-CAI-5 | Garde-fou de capacité qui comptait les paiements annulés (un frais redevenu payable était refusé) | N3-B | **CORRIGÉ** |
 
 ## 4. `OWNER_DECISION_REQUIRED`
 
