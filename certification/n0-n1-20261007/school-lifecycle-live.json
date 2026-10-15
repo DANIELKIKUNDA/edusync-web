@@ -35,6 +35,16 @@
     "detail": "201"
   },
   {
+    "check": "Admin initial : 1re connexion = choisir son mot de passe, aucune session",
+    "pass": true,
+    "detail": "['change_token', 'expires_in', 'password_change_required']"
+  },
+  {
+    "check": "Admin initial : mot de passe choisi ; le provisoire est refusé ensuite",
+    "pass": true,
+    "detail": "(200, 401)"
+  },
+  {
     "check": "Admin initial : connexion AUTO dans son école",
     "pass": true,
     "detail": "200"

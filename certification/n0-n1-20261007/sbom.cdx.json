@@ -1,10 +1,10 @@
 {
  "bomFormat": "CycloneDX",
  "specVersion": "1.5",
- "serialNumber": "urn:uuid:17643ce7-c727-40ae-96e7-0134ccad87e5",
+ "serialNumber": "urn:uuid:d83c0da6-516d-48c1-a00b-3582a4e21915",
  "version": 1,
  "metadata": {
-  "timestamp": "2026-10-14T08:03:54.613956+00:00",
+  "timestamp": "2026-10-15T12:33:09.560821+00:00",
   "component": {
    "type": "application",
    "name": "edusync-web",

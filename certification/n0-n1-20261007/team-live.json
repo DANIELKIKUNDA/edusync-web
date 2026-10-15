@@ -77,7 +77,7 @@
   {
     "check": "Création concurrente du même compte : un seul compte",
     "pass": true,
-    "detail": "[201, 409] users=1"
+    "detail": "[201, 201] users=1"
   },
   {
     "check": "Création de compte auditée",
@@ -142,12 +142,12 @@
   {
     "check": "Fiche compte : rôles, permissions effectives, sessions, audit",
     "pass": true,
-    "detail": "['AUDITEUR_829142', 'SUPPORT_829142']"
+    "detail": "['AUDITEUR_817CC2', 'SUPPORT_817CC2']"
   },
   {
     "check": "Archivage : nombre de comptes concernés annoncé",
     "pass": true,
-    "detail": "{'id': '95f86cab-cb72-4086-84b9-417d80e458e0', 'status': 'ARCHIVED', 'users_losing_role': 1}"
+    "detail": "{'id': 'e3a3ed0d-ee58-4d39-b893-11e3b0c1dc2d', 'status': 'ARCHIVED', 'users_losing_role': 1}"
   },
   {
     "check": "Rôle archivé : capacité retirée immédiatement",
@@ -187,7 +187,7 @@
   {
     "check": "Suspension : sessions révoquées",
     "pass": true,
-    "detail": "{'user_id': '555db27c-c3dc-484c-906e-352b24a4c5f7', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
+    "detail": "{'user_id': '03905931-3910-4d97-bef6-85009747987f', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
   },
   {
     "check": "Suspension : jeton en cours coupé immédiatement",
