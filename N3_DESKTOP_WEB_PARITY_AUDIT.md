@@ -237,11 +237,11 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-PLAN-1 | Attribuer `finance.anticipation_plans.manage` à `ADMIN_SYSTEME_ECOLE` (décision prise) | Plans | **CORRIGÉ** (N3-A, migration 0067, sonde 32/32) |
 | G-PER-1 | Frais ouverts d'un enfant du personnel | Personnel | **CORRIGÉ** (N3-F : frais ouverts de l'enfant ; situation par enfant dans la fiche agent) |
 | G-PER-2 | Retenue sur salaire = règlement hors caisse (+ annulation) | Personnel / Finance | **CORRIGÉ** (N3-F : retenue = règlement hors caisse, sans paiement ni reçu ni caisse ; annulation motivée ; sonde 17/17) |
-| G-REC-1 | Statut de recouvrement historique | Recouvrement | moyen |
-| G-REC-2 | Analyses par type de frais et par caissier | Recouvrement | moyen |
-| G-REC-3 | Rapport financier journalier | Recouvrement | moyen |
-| G-REC-4 | Présentation des acomptes dans les rapports | Recouvrement | moyen |
-| G-REC-5 | Préfixe et numérotation des rapports | Documents | faible |
+| G-REC-1 | Statut de recouvrement historique | Recouvrement | **CORRIGÉ** (N3-G : statut de l'import historique prêt / à vérifier / importé) |
+| G-REC-2 | Analyses par type de frais et par caissier | Recouvrement | **CORRIGÉ** (N3-G : analyses par type de frais, par caissier, fonds anticipés) |
+| G-REC-3 | Rapport financier journalier | Recouvrement | **CORRIGÉ** (N3-B : rapport financier journalier et PDF) |
+| G-REC-4 | Présentation des acomptes dans les rapports | Recouvrement | **CORRIGÉ** (N3-G : acomptes inclus / présentés à part / reconnus une fois soldés, selon la règle de l'école) |
+| G-REC-5 | Préfixe et numérotation des rapports | Documents | **CORRIGÉ** (N3-G : PDF officiel numéroté par année PREFIXE-NNN, préfixe paramétrable, Excel sans numéro ; sonde rapports 25/25) |
 | G-REV-2 | Duplicata de reçu compté et tracé (à vérifier) | Reçus | **PARITY_OK** (vérifié N3-B : ORIGINAL puis DUPLICATA comptés et tracés, déjà au Web) |
 | G-ART-1 | Rapport des ventes d'articles | Articles | faible |
 | G-SCO-1 | Doublons probables avant création d'un élève | Élèves | moyen |
@@ -251,10 +251,10 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-SCO-5 | Suspension d'un élève (route et écran) | Élèves | moyen |
 | G-SCO-6 | Réinscription d'une année sur l'autre (à comparer) | Élèves | moyen |
 | G-EFF-1 | Contributions : quantités remises / restantes, réceptionnaire (à vérifier) | Effectifs | faible |
-| G-DOC-1 | Montant en toutes lettres sur le reçu (à vérifier) | Documents | faible |
-| G-DOC-2 | Relevé de compte élève PDF | Documents | moyen |
+| G-DOC-1 | Montant en toutes lettres sur le reçu (à vérifier) | Documents | **CORRIGÉ** (N3-G : montant en lettres sur le reçu, copie de money_in_words) |
+| G-DOC-2 | Relevé de compte élève PDF | Documents | **CORRIGÉ** (N3-G : relevé du compte élève PDF) |
 | G-DOC-3 | Journal de caisse PDF, rapport journalier PDF | Documents | **CORRIGÉ** (N3-B : journal de caisse PDF, rapport journalier PDF) |
-| G-DOC-4 | Rapport financier périodique PDF / Excel (à vérifier) | Documents | moyen |
+| G-DOC-4 | Rapport financier périodique PDF / Excel (à vérifier) | Documents | **CORRIGÉ** (N3-G : rapport financier périodique PDF / Excel ; ancienne synthèse par modèle corrigée — elle comptait en double un paiement sur plusieurs frais) |
 | G-IMP-1 | Finalisation de l'historique financier sans toucher la caisse (à vérifier) | Import | moyen |
 | G-IMP-2 | Réparation des dates d'inscription, suggestions historiques | Import | faible |
 | G-ROLE-1 | Correspondance opération Desktop → droit → rôle Web | Rôles | **CORRIGÉ** (N3-A : pas de 1:1 ; GESTIONNAIRE = autorité financière supérieure ; migration 0068 ; sonde rbac 14/14) |
@@ -269,6 +269,9 @@ au début de leur lot, sonde à l'appui.
 | G-DEC-5 | Responsabilité de règlement **par frais** (famille, retenue, tiers ; montant prévu ≤ restant réel ; remplacement tracé) — le Web n'avait qu'une responsabilité par inscription, conservée comme extension | N3-C | **CORRIGÉ** |
 | G-DEC-6 | Crédit né d'une décision quand le déjà-payé dépasse le nouveau net (Desktop : fonds anticipé d'origine DECISION_CREDIT) ; refus d'annuler une décision dont le crédit est déjà utilisé | N3-D | **CORRIGÉ** |
 | G-CAI-5 | Garde-fou de capacité qui comptait les paiements annulés (un frais redevenu payable était refusé) | N3-B | **CORRIGÉ** |
+| G-REC-6 | Synthèse par modèle Web : un paiement imputé sur plusieurs frais était compté plusieurs fois ; paiements annulés comptés | N3-G | **CORRIGÉ** |
+| G-REC-7 | Recouvrement mensuel : retenues hors caisse séparées de l'encaissement et taux d'encaissement (Desktop cash / noncash) | N3-G | **CORRIGÉ** |
+| G-PER-3 | Fiche agent : l'onglet Enfants n'affichait qu'un identifiant (aucun écran de prise en charge) | N3-F | **CORRIGÉ** |
 
 ## 4. `OWNER_DECISION_REQUIRED`
 

@@ -1,5 +1,5 @@
 {
-  "school": "N3E-BF3D9",
+  "school": "N3E-0FED0",
   "results": [
     {
       "check": "Chaîne séquentielle : scolarité mensuelle chaînée (MONTHLY:SCOLARITE)",
@@ -24,7 +24,7 @@
     {
       "check": "Transport de novembre payable avant septembre et octobre (frais non séquentiel)",
       "pass": true,
-      "detail": "{\"id\":\"07b68491-4fea-4a30-8278-e4e6a075f8b2\",\"receipt_number\":\"REC-2026-000001\",\"amount\":\"5000\",\"currency\":\"CDF\",\"replay"
+      "detail": "{\"id\":\"f06e8bb6-5ed2-471d-a8bc-55e88cb89218\",\"receipt_number\":\"REC-2026-000001\",\"amount\":\"5000\",\"currency\":\"CDF\",\"replay"
     },
     {
       "check": "Scolarité : octobre seul refusé tant que septembre est ouvert (message Desktop)",
@@ -34,12 +34,12 @@
     {
       "check": "Scolarité : septembre + octobre sur un seul reçu (périodes consécutives)",
       "pass": true,
-      "detail": "(200, '{\"id\":\"6f18d026-cfc8-4471-9cb9-677d2cddfc88\",\"receipt_number\":\"REC-2026-000002\",\"amount\":\"40000\",\"currency\":\"CDF\",\"replayed\":false,\"allocations\":[{\"label\":\"Sept')"
+      "detail": "(200, '{\"id\":\"dd6affaf-ab3c-405e-af93-1606a798c163\",\"receipt_number\":\"REC-2026-000002\",\"amount\":\"40000\",\"currency\":\"CDF\",\"replayed\":false,\"allocations\":[{\"label\":\"Sept')"
     },
     {
       "check": "Montant partiel sur 3 mois : le plus ancien soldé, le suivant partiel, le dernier intact (ordre de la chaîne)",
       "pass": true,
-      "detail": "{'6a50475c-5a65-40de-976e-c24c6f15a17d': Decimal('0.00'), 'c0d32bdb-1669-43a9-8cce-1ff949ba855d': Decimal('20000.00'), '838e2f7d-129b-4dfb-8a7f-76be6e93937f': Decimal('10000.00')}"
+      "detail": "{'5d45e3e0-02eb-4d8d-8e44-0bda31d065f9': Decimal('0.00'), '7dd2bf9e-6849-4c4c-84e6-8d4d615214df': Decimal('20000.00'), '5c3c17a6-69f4-4ae8-920f-d0e56e3da579': Decimal('10000.00')}"
     },
     {
       "check": "Tranches : la 2e tranche avant la 1re refusée",
@@ -49,12 +49,12 @@
     {
       "check": "Caisse : chaque période indique les périodes antérieures à sélectionner avec elle",
       "pass": true,
-      "detail": "['838e2f7d-129b-4dfb-8a7f-76be6e93937f', '6a50475c-5a65-40de-976e-c24c6f15a17d']"
+      "detail": "['5c3c17a6-69f4-4ae8-920f-d0e56e3da579', '5d45e3e0-02eb-4d8d-8e44-0bda31d065f9']"
     },
     {
       "check": "Répartition automatique : plus anciennes exigibles d'abord, jamais au-delà du dû",
       "pass": true,
-      "detail": "[{'charge_id': '7fdc2042-dd10-4c1d-9b79-734e4a0e39a2', 'label': 'Écusson', 'amount': '2000.00'}, {'charge_id': 'a93fe966-2b63-42bc-9371-4c1a383ca15f', 'label': 'Journal de classe', 'amount': '3000.00'}, {'charge_id': '15d6098c-dfdf-4ab9-b1d5-e4f100445899', 'label': '1re tranche', 'amount': '6000.00'"
+      "detail": "[{'charge_id': 'fcdc850f-d165-48e9-b54f-a61635bcdbbf', 'label': 'Écusson', 'amount': '2000.00'}, {'charge_id': '1851c7d0-6ac2-4797-ae67-89f847346927', 'label': 'Journal de classe', 'amount': '3000.00'}, {'charge_id': '55fd85a6-bb85-47c6-87f6-ac0ee7136054', 'label': '1re tranche', 'amount': '6000.00'"
     },
     {
       "check": "Répartition : montant supérieur aux frais exigibles refusé (message Desktop)",

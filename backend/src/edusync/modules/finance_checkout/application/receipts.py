@@ -19,6 +19,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from edusync.modules.documents.application.object_store import logo_stream
+from edusync.modules.finance_reports.domain.periodic import money_in_words
 
 DARK = colors.HexColor("#123A8C")
 MUTED = colors.HexColor("#475467")
@@ -83,7 +84,10 @@ def _story(school: dict[str, Any], r: dict[str, Any], width: float, narrow: bool
     table.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, 0), 0.6, DARK), ("LINEABOVE", (0, -1), (-1, -1), 0.6, DARK),
                                ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F8FAFC")]),
                                ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5), ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
-    story += [table, Spacer(1, 4 * mm)]
+    story += [table, Spacer(1, 2.5 * mm)]
+    # N3-G / G-DOC-1 — Desktop receipt block « MONTANT EN LETTRES » (money_in_words).
+    words = money_in_words(r["amount"], r["currency"])
+    story += [Paragraph("MONTANT EN LETTRES :", st["bold"]), Paragraph(escape(words[:1].upper() + words[1:] + "."), st["cell"]), Spacer(1, 3 * mm)]
     story.append(Paragraph("Montant enregistré dans la caisse de l'école. Conservez ce reçu.", st["foot"]))
     story.append(Paragraph("Édité par EduSync", st["foot"]))
     return story

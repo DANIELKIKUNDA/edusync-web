@@ -2,7 +2,7 @@
  {
   "check": "Réglages par défaut : préfixe REC, 1 copie",
   "pass": true,
-  "detail": "{'receipt_policy': 'NONE', 'receipt_format': 'A5', 'receipt_prefix': 'REC', 'receipt_copies': 1, 'version': 0}"
+  "detail": "{'receipt_policy': 'NONE', 'receipt_format': 'A5', 'receipt_prefix': 'REC', 'receipt_copies': 1, 'report_prefix': 'RAP', 'version': 0}"
  },
  {
   "check": "Reçu numéroté PRÉFIXE-ANNÉE-000001 (Desktop)",
@@ -12,7 +12,7 @@
  {
   "check": "Réglages : préfixe RCU (mis en majuscules), 2 copies, ticket 58 mm",
   "pass": true,
-  "detail": "{\"receipt_policy\":\"PROPOSE\",\"receipt_format\":\"58MM\",\"receipt_prefix\":\"RCU\",\"receipt_copies\":2,\"version\":1}"
+  "detail": "{\"receipt_policy\":\"PROPOSE\",\"receipt_format\":\"58MM\",\"receipt_prefix\":\"RCU\",\"receipt_copies\":2,\"report_prefix\":\"RAP\",\"version\":1}"
  },
  {
   "check": "Reçu suivant : nouveau préfixe, compteur continu (000002)",
@@ -22,7 +22,7 @@
  {
   "check": "Vente d'article : même séquence de reçus (000003)",
   "pass": true,
-  "detail": "(200, 'RCU-2026-000003', '{\"id\":\"c30bc9da-5bd1-4899-bfc3-361f234a94e5\",\"payment_id\":\"06c41a4d-2085-4d68-a56a-d0716acbe3bf\",\"receipt_number\":\"RCU-2')"
+  "detail": "(200, 'RCU-2026-000003', '{\"id\":\"c6876359-0d0f-4653-8dc0-84372071b7b3\",\"payment_id\":\"8f62b54a-60d9-4777-8b00-f83cedc07213\",\"receipt_number\":\"RCU-2')"
  },
  {
   "check": "Impression : 2 exemplaires dans le PDF",

@@ -139,3 +139,27 @@ def test_n3f_payroll_deduction_is_noncash():
     assert "trg_noncash_settlement_capacity" in sql
     ui = read("frontend/src/staff_finance_ui.tsx")
     assert "Confirmer une retenue" in ui and "Aucune entrée de caisse ni reçu n’est créé" in ui
+
+
+def test_n3g_money_in_words_copies_desktop():
+    from edusync.modules.finance_reports.domain.periodic import money_in_words, number_to_french_words, periodic_title, REPORT_PROFILES
+    assert number_to_french_words(80) == "quatre-vingts" and number_to_french_words(71) == "soixante et onze" and number_to_french_words(200) == "deux cents"
+    assert money_in_words(1250.5, "CDF") == "mille deux cent cinquante francs congolais et cinquante centimes"
+    assert money_in_words(1, "USD") == "un dollar américain"
+    assert set(REPORT_PROFILES) == {"CONSOLIDE", "INSCRIPTION_JUIN", "JOURNAL_ECUSSON", "FRAIS_SCOLAIRES", "ARTICLES_SCOLAIRES"}
+    assert periodic_title(REPORT_PROFILES["CONSOLIDE"], "MENSUEL") == "RAPPORT FINANCIER MENSUEL CONSOLIDÉ"
+    assert "MONTANT EN LETTRES :" in read("backend/src/edusync/modules/finance_checkout/application/receipts.py")
+
+
+def test_n3g_periodic_reports_follow_desktop_rules():
+    repo = read("backend/src/edusync/adapters/postgres_periodic_reports.py")
+    for text_ in ("Profil de rapport inconnu", "La date de début doit précéder la date de fin", "Type de période invalide",
+                  "Paiement mixte · ", "Acompte · ", " · soldé", "NOT EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id)"):
+        assert text_ in repo, text_
+    assert 'f"{prefix}-{int(n):03d}"' in repo
+    router = read("backend/src/edusync/modules/finance_reports/api/router.py")
+    assert "@router.post('/periodic/pdf')" in router and "never consumes an official number" in router
+    assert "COALESCE(pa.amount,fp.amount)" in router and "count(DISTINCT fp.id)" in router          # former double counting fixed
+    sql = read("backend/migrations/0074_n3g_periodic_reports.sql")
+    assert "report_prefix varchar(12) NOT NULL DEFAULT 'RAP'" in sql and "REVOKE UPDATE, DELETE ON finance_generated_reports" in sql
+    assert "noncash" in read("backend/src/edusync/adapters/postgres_finance_recovery.py")

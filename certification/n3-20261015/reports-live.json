@@ -1,0 +1,130 @@
+{
+  "school": "N3G-BAC7D",
+  "results": [
+    {
+      "check": "Consolidé : une ligne par paiement (le paiement sur 2 mois compté une seule fois, 25 000)",
+      "pass": true,
+      "detail": "25000.00"
+    },
+    {
+      "check": "Paiement annulé exclu des rapports",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Acompte présenté à part (SEPARATE) : « Acompte · … (acompte) »",
+      "pass": true,
+      "detail": "Acompte · Frais scolaires — Septembre (acompte)"
+    },
+    {
+      "check": "Paiement mixte (solde + acompte) signalé",
+      "pass": true,
+      "detail": "Paiement mixte · Frais scolaires — Septembre + Frais scolaires — Octobre (acompte)"
+    },
+    {
+      "check": "Consolidé : total FC = encaissements valides de la journée",
+      "pass": true,
+      "detail": "({'CDF': '62000.00', 'USD': '0.00'}, '62000')"
+    },
+    {
+      "check": "Profil Inscriptions + juin : seulement le paiement d'inscription",
+      "pass": true,
+      "detail": "['Inscription']"
+    },
+    {
+      "check": "Profil Frais scolaires : mensualités seulement (sans inscription, sans journal)",
+      "pass": true,
+      "detail": "['Acompte · Frais scolaires — Septembre (acompte)', 'Paiement mixte · Frais scolaires — Septembre + Frais scolaires — Octobre (acompte)']"
+    },
+    {
+      "check": "Profil Journal + écusson",
+      "pass": true,
+      "detail": "{'CDF': '5000.00', 'USD': '0.00'}"
+    },
+    {
+      "check": "Profil Articles : ventes d'articles",
+      "pass": true,
+      "detail": "['Pull × 1']"
+    },
+    {
+      "check": "Mode INCLUDE : acompte inclus sans préfixe",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Mode « exclure jusqu'au solde » : septembre reconnu une fois soldé (20 000), octobre partiel non compté",
+      "pass": true,
+      "detail": "[('Frais scolaires — Septembre · soldé', '20000.00')]"
+    },
+    {
+      "check": "PDF officiel numéroté par année : RAP-001 puis RAP-002",
+      "pass": true,
+      "detail": "(200, b'%PDF-1.4', 'RAP-001', 'RAP-002')"
+    },
+    {
+      "check": "Excel compagnon : ne consomme aucun numéro officiel",
+      "pass": true,
+      "detail": "(200, 2)"
+    },
+    {
+      "check": "Préfixe des rapports paramétrable (RPT-003)",
+      "pass": true,
+      "detail": "RPT-003"
+    },
+    {
+      "check": "Période invalide refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Profil inconnu refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Analyse par frais : attendu, réglé et reste par type de frais",
+      "pass": true,
+      "detail": "{'ECUSSON': ('2000.00', '0.00'), 'SCOLARITE': ('30000.00', '170000.00'), 'INSCRIPTION': ('15000.00', '0.00'), 'JOURNAL_CLASSE': ('3000.00', '0.00')}"
+    },
+    {
+      "check": "Analyse par caissier : paiements valides seulement, nom du caissier",
+      "pass": true,
+      "detail": "[{'cashier_id': 'e5d4fa49-019a-46f3-bdfd-80fd41b442df', 'currency': 'CDF', 'payment_count': 5, 'amount': '62000.00', 'cashier_name': 'Agent CASH'}]"
+    },
+    {
+      "check": "Analyse des fonds anticipés disponible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Statut de l'import historique (prêt / à vérifier / importé)",
+      "pass": true,
+      "detail": "{'ready': 0, 'to_verify': 0, 'posted': 0, 'total': 0}"
+    },
+    {
+      "check": "Recouvrement mensuel : colonne hors caisse séparée et taux d'encaissement",
+      "pass": true,
+      "detail": "['ord', 'month_label', 'debtors', 'in_order', 'not_in_order', 'expected', 'cash_collected', 'noncash', 'outside_cash', 'regularized_total', 'remaining', 'recovery_rate', 'cash_recovery_rate']"
+    },
+    {
+      "check": "Relevé du compte : synthèse par devise, paiement annulé marqué ANNULE",
+      "pass": true,
+      "detail": "['ANNULE', 'VALIDE', 'VALIDE', 'VALIDE', 'VALIDE', 'VALIDE']"
+    },
+    {
+      "check": "Relevé du compte élève PDF",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "Reçu PDF avec montant en lettres (génération)",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "Droits : le caissier ne génère pas le rapport périodique officiel",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

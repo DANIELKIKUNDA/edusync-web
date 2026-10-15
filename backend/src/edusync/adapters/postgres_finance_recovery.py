@@ -28,7 +28,10 @@ class PostgresFinanceRecoveryRepository:
           SELECT COALESCE(fc.period_order,EXTRACT(MONTH FROM fc.due_date)::int,0) ord,
                  COALESCE(fc.period_label,to_char(fc.due_date,'TMMonth'),'Autres') month_label,
                  fc.enrollment_id,fc.effective_net_amount net_amount,fc.paid_amount,
-                 fc.outside_cash_amount outside_cash
+                 fc.outside_cash_amount outside_cash,
+                 -- N3-G (Desktop monthly_recovery_overview): non-cash settlements (payroll deductions) shown apart from cash
+                 COALESCE((SELECT sum(ns.amount) FROM finance_noncash_settlements ns WHERE ns.charge_id=fc.id
+                   AND NOT EXISTS (SELECT 1 FROM finance_noncash_cancellations nc WHERE nc.settlement_id=ns.id)),0) noncash
           FROM finance_charge_effective fc JOIN enrollments e ON e.id=fc.enrollment_id
           JOIN school_classes sc ON sc.id=e.class_id AND sc.school_id=e.school_id
           JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=e.school_id
@@ -37,12 +40,13 @@ class PostgresFinanceRecoveryRepository:
           SELECT ord,month_label,count(DISTINCT enrollment_id) debtors,
                  count(DISTINCT enrollment_id) FILTER (WHERE paid_amount+outside_cash>=net_amount) in_order,
                  count(DISTINCT enrollment_id) FILTER (WHERE paid_amount+outside_cash<net_amount) not_in_order,
-                 sum(net_amount) expected,sum(paid_amount) cash_collected,sum(outside_cash) outside_cash
+                 sum(net_amount) expected,sum(paid_amount-noncash) cash_collected,sum(noncash) noncash,sum(outside_cash) outside_cash
           FROM base GROUP BY ord,month_label
-        ) SELECT ord,month_label,debtors,in_order,not_in_order,expected,cash_collected,outside_cash,
-                 cash_collected+outside_cash regularized_total,
-                 greatest(expected-cash_collected-outside_cash,0) remaining,
-                 CASE WHEN expected>0 THEN round((cash_collected+outside_cash)*100/expected,1) ELSE 0 END recovery_rate
+        ) SELECT ord,month_label,debtors,in_order,not_in_order,expected,cash_collected,noncash,outside_cash,
+                 cash_collected+noncash+outside_cash regularized_total,
+                 greatest(expected-cash_collected-noncash-outside_cash,0) remaining,
+                 CASE WHEN expected>0 THEN round((cash_collected+noncash+outside_cash)*100/expected,1) ELSE 0 END recovery_rate,
+                 CASE WHEN expected>0 THEN round(cash_collected*100/expected,1) ELSE 0 END cash_recovery_rate
           FROM agg ORDER BY ord,month_label"""
         with self.conn.cursor(row_factory=dict_row) as c:
             c.execute(sql,(school_id,year_id,currency,*scope_args));return [dict(r) for r in c.fetchall()]

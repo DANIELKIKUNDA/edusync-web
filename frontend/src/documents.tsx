@@ -49,12 +49,12 @@ function Catalog({token,permissions,schoolName}:{token:string;permissions:string
 
 function Identity({token}:{token:string}){
  const [logo,setLogo]=useState<string|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const input=useRef<HTMLInputElement>(null);
- const [print,setPrint]=useState<PrintSettings|null>(null);const [prefixDraft,setPrefixDraft]=useState('REC');useEffect(()=>{if(print?.receipt_prefix)setPrefixDraft(print.receipt_prefix)},[print?.receipt_prefix]);
+ const [print,setPrint]=useState<PrintSettings|null>(null);const [prefixDraft,setPrefixDraft]=useState('REC');useEffect(()=>{if(print?.receipt_prefix)setPrefixDraft(print.receipt_prefix)},[print?.receipt_prefix]);const [reportDraft,setReportDraft]=useState('RAP');useEffect(()=>{if(print?.report_prefix)setReportDraft(print.report_prefix)},[print?.report_prefix]);
  async function load(){try{const b=await schoolLogoBlob(token);setLogo(old=>{if(old)URL.revokeObjectURL(old);return b?URL.createObjectURL(b):null})}catch(e){setError(friendlyError(e))}finally{setLoading(false)}}
  useEffect(()=>{void load();getPrintSettings(token).then(setPrint).catch(()=>setPrint(null));return()=>{setLogo(old=>{if(old)URL.revokeObjectURL(old);return null})}},[token]);
  async function upload(f:File){setError('');if(f.size>1048576){setError('Le logo dépasse 1 Mo.');return}if(!['image/png','image/jpeg'].includes(f.type)){setError('Choisissez une image PNG ou JPEG.');return}
   try{setBusy(true);await uploadSchoolLogo(token,f);toast.success('Logo enregistré : il apparaîtra sur les prochains documents.');await load()}catch(e){setError(friendlyError(e))}finally{setBusy(false);if(input.current)input.current.value=''}}
- async function savePrint(next:Partial<PrintSettings>){if(!print)return;try{const r=await putPrintSettings(token,{receipt_policy:next.receipt_policy||print.receipt_policy,receipt_format:next.receipt_format||print.receipt_format,receipt_prefix:(next.receipt_prefix??print.receipt_prefix??'REC').toUpperCase(),receipt_copies:next.receipt_copies??print.receipt_copies??1});setPrint(r);toast.success('Réglage d’impression enregistré')}catch(e){setError(friendlyError(e))}}
+ async function savePrint(next:Partial<PrintSettings>){if(!print)return;try{const r=await putPrintSettings(token,{receipt_policy:next.receipt_policy||print.receipt_policy,receipt_format:next.receipt_format||print.receipt_format,receipt_prefix:(next.receipt_prefix??print.receipt_prefix??'REC').toUpperCase(),receipt_copies:next.receipt_copies??print.receipt_copies??1,report_prefix:(next.report_prefix??print.report_prefix??'RAP').toUpperCase()});setPrint(r);toast.success('Réglage d’impression enregistré')}catch(e){setError(friendlyError(e))}}
  return <div className="docIdentity">
   <section className="panel docPanel"><div className="panelHead"><div><h3>Logo de l’école</h3><p>Utilisé dans l’en-tête des documents PDF et Excel et sur les reçus.</p></div></div>
    {error&&<div className="error" role="alert">{error}</div>}
@@ -72,6 +72,7 @@ function Identity({token}:{token:string}){
    </fieldset>
    <fieldset className="receiptNumbering"><legend>Numérotation et copies</legend>
     <label>Préfixe des reçus<input value={prefixDraft} maxLength={12} onChange={e=>setPrefixDraft(e.target.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase())} onBlur={()=>{if(prefixDraft&&prefixDraft!==print.receipt_prefix)void savePrint({receipt_prefix:prefixDraft})}}/><small>Exemple : {prefixDraft||'REC'}-{new Date().getFullYear()}-000123 (numéro séquentiel par année).</small></label>
+    <label>Préfixe des rapports<input value={reportDraft} maxLength={12} onChange={e=>setReportDraft(e.target.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase())} onBlur={()=>{if(reportDraft&&reportDraft!==print.report_prefix)void savePrint({report_prefix:reportDraft})}}/><small>Rapport financier officiel : {reportDraft||'RAP'}-001, numéroté par année scolaire (règle Desktop).</small></label>
     <label>Nombre de copies<select value={print.receipt_copies??1} onChange={e=>void savePrint({receipt_copies:Number(e.target.value)})}>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
    </fieldset>
    <p className="es-hint">Un navigateur ne peut pas imprimer sans confirmation. L’impression directe sur une imprimante de caisse nécessitera un petit programme local, prévu pour une étape ultérieure.</p>

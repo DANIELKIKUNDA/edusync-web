@@ -215,15 +215,16 @@ def get_print_settings(actor:ActorContext=Depends(require_school_actor),services
 class PrintSettingsBody(BaseModel):
  receipt_policy:str=Field(pattern='^(NONE|PROPOSE|AUTO_PREVIEW)$');receipt_format:str=Field(pattern='^(A5|80MM|58MM)$')
  receipt_prefix:str=Field(default='REC',pattern='^[A-Za-z0-9]{1,12}$');receipt_copies:int=Field(default=1,ge=1,le=5)
+ report_prefix:str=Field(default='RAP',pattern='^[A-Za-z0-9]{1,12}$')   # N3-G / G-REC-5 (Desktop document settings)
 @router.put('/print-settings')
 def put_print_settings(body:PrintSettingsBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'settings.documents.manage')
  from sqlalchemy import text as _t
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-  row=conn.execute(_t("""INSERT INTO school_print_settings(school_id,receipt_policy,receipt_format,receipt_prefix,receipt_copies,updated_by) VALUES(:sid,:p,:f,:px,:cp,:u)
+  row=conn.execute(_t("""INSERT INTO school_print_settings(school_id,receipt_policy,receipt_format,receipt_prefix,receipt_copies,report_prefix,updated_by) VALUES(:sid,:p,:f,:px,:cp,:rp,:u)
    ON CONFLICT(school_id) DO UPDATE SET receipt_policy=EXCLUDED.receipt_policy,receipt_format=EXCLUDED.receipt_format,receipt_prefix=EXCLUDED.receipt_prefix,
-   receipt_copies=EXCLUDED.receipt_copies,updated_by=EXCLUDED.updated_by,updated_at=now(),version=school_print_settings.version+1
-   RETURNING receipt_policy,receipt_format,receipt_prefix,receipt_copies,version"""),{'sid':str(actor.school_id),'p':body.receipt_policy,'f':body.receipt_format,
+   receipt_copies=EXCLUDED.receipt_copies,report_prefix=EXCLUDED.report_prefix,updated_by=EXCLUDED.updated_by,updated_at=now(),version=school_print_settings.version+1
+   RETURNING receipt_policy,receipt_format,receipt_prefix,receipt_copies,report_prefix,version"""),{'sid':str(actor.school_id),'p':body.receipt_policy,'f':body.receipt_format,'rp':body.report_prefix.upper(),
    'px':body.receipt_prefix.upper(),'cp':body.receipt_copies,'u':str(actor.user_id)}).mappings().one()
   conn.execute(_t("""INSERT INTO audit_events(school_id,actor_user_id,membership_id,action,entity_type,entity_id,source,new_json) VALUES(:sid,:uid,:mid,'PRINT_SETTINGS_UPDATED','SchoolPrintSettings',:sid,'WEB',
    jsonb_build_object('receipt_policy',CAST(:p AS text),'receipt_format',CAST(:f AS text),'receipt_prefix',CAST(:px AS text),'receipt_copies',CAST(:cp AS integer)))"""),{'sid':str(actor.school_id),'uid':str(actor.user_id),'mid':str(actor.membership_id),'p':body.receipt_policy,'f':body.receipt_format,'px':body.receipt_prefix.upper(),'cp':body.receipt_copies})

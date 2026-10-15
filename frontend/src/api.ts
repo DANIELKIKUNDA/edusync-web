@@ -335,7 +335,7 @@ export type DeviceSession={id:string;label:string|null;created_at:string;last_se
 export type InternalNotification={id:string;category:string;title:string;body:string;created_at:string;read_at:string|null};
 export type SetupStatus={setup_required:boolean;setup_available:boolean;token_required:boolean};
 export type ArchivedDocument={id:string;document_code:string;format:'PDF'|'XLSX'|'CSV';title:string;byte_size:number;updated_at:string;file_name:string|null;generated_by:string|null;generations:number};
-export type PrintSettings={receipt_policy:'NONE'|'PROPOSE'|'AUTO_PREVIEW';receipt_format:'A5'|'80MM'|'58MM';receipt_prefix:string;receipt_copies:number;version:number};
+export type PrintSettings={receipt_policy:'NONE'|'PROPOSE'|'AUTO_PREVIEW';receipt_format:'A5'|'80MM'|'58MM';receipt_prefix:string;receipt_copies:number;report_prefix?:string;version:number};
 export type BasketLineInput={enrollment_id:string;charge_ids:string[];amount:string;currency:'CDF'|'USD'};
 export type BasketResult={basket_id:string;family_id:string;totals:Record<string,string>;replayed:boolean;lines:{line_no:number;payment_id:string;receipt_number:string;amount:string;currency:string;last_name:string;middle_name?:string|null;first_name:string;class_label:string;allocations:{label:string;amount:string}[]}[]};
 
@@ -362,7 +362,7 @@ export async function documentLink(token:string,id:string){return json<{url:stri
 export async function printReceipt(token:string,paymentId:string,format?:'A5'|'80MM'|'58MM'):Promise<Blob>{const r=await fetch(`${API}/finance/checkout/receipts/${paymentId}/print${format?qp({format}):''}`,{method:'POST',headers:mutationHeaders(token)});if(!r.ok)throw new UserFacingError(await serverDetail(r,'Impression impossible'));return r.blob()}
 export async function printBasketReceipts(token:string,basketId:string,format?:'A5'|'80MM'|'58MM'):Promise<Blob>{const r=await fetch(`${API}/finance/checkout/family-baskets/${basketId}/receipts/print${format?qp({format}):''}`,{method:'POST',headers:mutationHeaders(token)});if(!r.ok)throw new UserFacingError(await serverDetail(r,'Impression impossible'));return r.blob()}
 export async function getPrintSettings(token:string){return json<PrintSettings>(await fetch(`${API}/finance/checkout/print-settings`,{headers:auth(token)}),'Réglages indisponibles')}
-export async function putPrintSettings(token:string,body:{receipt_policy:PrintSettings['receipt_policy'];receipt_format:PrintSettings['receipt_format'];receipt_prefix:string;receipt_copies:number}){return json<PrintSettings>(await fetch(`${API}/finance/checkout/print-settings`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Enregistrement impossible')}
+export async function putPrintSettings(token:string,body:{receipt_policy:PrintSettings['receipt_policy'];receipt_format:PrintSettings['receipt_format'];receipt_prefix:string;receipt_copies:number;report_prefix?:string}){return json<PrintSettings>(await fetch(`${API}/finance/checkout/print-settings`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Enregistrement impossible')}
 export async function familyCollect(token:string,body:{family_id:string;lines:BasketLineInput[]},key:string){return json<BasketResult>(await fetch(`${API}/finance/checkout/family-collect`,{method:'POST',headers:{...auth(token),'Idempotency-Key':key},body:JSON.stringify(body)}),'Encaissement du panier refusé')}
 
 // ---- Atelier Pro: platform team governance (N1) ----
