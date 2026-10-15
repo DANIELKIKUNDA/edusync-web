@@ -14,6 +14,7 @@ from sqlalchemy import text
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
 from edusync.adapters.postgres_repositories import PostgresAuditRepository, PostgresOutboxRepository, PostgresSchoolRepository
 from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
+from edusync.adapters.postgres_anticipation import PostgresAnticipationRepository
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
 from edusync.bootstrap.dependencies import get_services, require_school_actor
 from edusync.bootstrap.services import AppServices
@@ -628,6 +629,47 @@ def put_payment_policy(body:PaymentPolicyPut,response:Response,idempotency_key:s
             out,old=PostgresSettingsRepository(conn).put_payment_policy(actor.school_id,**body.model_dump())
             out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='PAYMENT_POLICY_SAVED',entity_type='SchoolPaymentPolicy',entity_id=actor.school_id,old=_jsonable(old),new=out);return 200,out
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_PAYMENT_POLICY',payload=body.model_dump(mode='json'),action=action);return result.body
+    except Exception as exc:_error(exc)
+
+class AnticipationPlanPut(BaseModel):
+    academic_year_id:UUID
+    plan_id:UUID|None=None
+    name:str=Field(min_length=2,max_length=160)
+    fee_type_id:UUID
+    target_months:list[str]=Field(min_length=1,max_length=12)
+    contribution_months:list[str]=Field(min_length=1,max_length=12)
+    participation_mode:Literal['OPTIONAL','MANDATORY']='OPTIONAL'
+    scope_type:Literal['SCHOOL','SECTION','OPTION_GROUP','ACADEMIC_CLASS','CLASS']='SCHOOL'
+    scope_ref:str|None=Field(default=None,max_length=64)
+    effective_from:date|None=None
+    active:bool=True
+
+@router.get('/anticipation-plans')
+def anticipation_plans(year_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'finance.anticipation_plans.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresAnticipationRepository(conn).list_plans(actor.school_id,year_id))
+
+@router.put('/anticipation-plans')
+def put_anticipation_plan(body:AnticipationPlanPut,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop save_anticipation_plan: a plan with memberships keeps its structure (new version instead)."""
+    _need(actor,'finance.anticipation_plans.manage');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out,old=PostgresAnticipationRepository(conn).save_plan(actor.school_id,**body.model_dump())
+            out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='ANTICIPATION_PLAN_SAVED',entity_type='AnticipationPlan',entity_id=UUID(str(out['id'])),old=_jsonable(old) if old else None,new=out)
+            return (200 if old else 201),out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_ANTICIPATION_PLAN',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
+    except Exception as exc:_error(exc)
+
+@router.post('/anticipation-plans/{plan_id}/active')
+def set_anticipation_plan_active(plan_id:UUID,body:ActiveFlag,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'finance.anticipation_plans.manage');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out,old=PostgresAnticipationRepository(conn).set_plan_active(actor.school_id,plan_id,active=body.active)
+            out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='ANTICIPATION_PLAN_ACTIVATED' if body.active else 'ANTICIPATION_PLAN_DEACTIVATED',entity_type='AnticipationPlan',entity_id=plan_id,old=_jsonable(old),new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_ANTICIPATION_PLAN_ACTIVE',payload={**body.model_dump(mode='json'),'plan_id':str(plan_id)},action=action);return result.body
     except Exception as exc:_error(exc)
 
 class BillingPolicyPut(BaseModel):

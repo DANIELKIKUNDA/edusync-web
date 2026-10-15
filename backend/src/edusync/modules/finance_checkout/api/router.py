@@ -11,6 +11,10 @@ router=APIRouter(tags=['Centre financier · Encaissement'])
 def need(a,c):
  try:a.require(c)
  except PermissionError as e:raise HTTPException(403,str(e))
+def need_plan_view(a):
+ # Desktop applicable_anticipation_plans / anticipation_payment_preview carry no role check: whoever records the parent's
+ # decision or collects with a plan at the cash desk sees the applicable plans (no extra right to grant the cashier).
+ if not any(c in a.permissions for c in ('finance.anticipation.collect','finance.anticipation_membership.set')):need(a,'finance.anticipation_plans.read')
 @router.get('/search')
 def search(q:str=Query(...,min_length=1),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.checkout.search')
@@ -23,6 +27,68 @@ def children(family_id:UUID,actor:ActorContext=Depends(require_school_actor),ser
 def balance(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.checkout.balance.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return {'items':PostgresFinanceCheckoutRepository(conn).charges(actor.school_id,enrollment_id)}
+def _audit(conn,actor,action,entity_type,entity_id,new):
+ import json as _json
+ from sqlalchemy import text as _t
+ conn.execute(_t("""INSERT INTO audit_events(school_id,actor_user_id,membership_id,action,entity_type,entity_id,source,new_json)
+  VALUES(:sid,:uid,:mid,:a,:et,:eid,'WEB',CAST(:n AS jsonb))"""),{'sid':str(actor.school_id),'uid':str(actor.user_id),'mid':str(actor.membership_id),
+  'a':action,'et':entity_type,'eid':str(entity_id),'n':_json.dumps(new,default=str)})
+
+@router.get('/anticipation-plans/{enrollment_id}')
+def anticipation_plans_for(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ # Desktop applicable_anticipation_plans: active, effective plans whose scope matches the student's class, with membership.
+ need_plan_view(actor)
+ from edusync.adapters.postgres_anticipation import PostgresAnticipationRepository
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   return {'items':_jsonable_any(PostgresAnticipationRepository(conn).applicable_plans(actor.school_id,enrollment_id))}
+ except ValueError as e:raise HTTPException(409,str(e)) from e
+class MembershipBody(BaseModel):
+ enrollment_id:UUID;status:str=Field(pattern='^(ENROLLED|DECLINED|PAUSED)$');notes:str|None=Field(default=None,max_length=500)
+@router.post('/anticipation-plans/{plan_id}/membership')
+def anticipation_membership(plan_id:UUID,body:MembershipBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ # Desktop set_anticipation_membership: the parent joins, declines or pauses (installments rebuilt, target frozen).
+ need(actor,'finance.anticipation_membership.set')
+ from edusync.adapters.postgres_anticipation import PostgresAnticipationRepository
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   out,old=PostgresAnticipationRepository(conn).set_membership(actor.school_id,body.enrollment_id,plan_id,status=body.status,user_id=actor.user_id,notes=body.notes)
+   _audit(conn,actor,'ANTICIPATION_MEMBERSHIP_SET','AnticipationMembership',out['id'],{'plan_id':str(plan_id),'enrollment_id':str(body.enrollment_id),
+          'status':out['status'],'snapshot_target_amount':str(out['snapshot_target_amount']),'previous':(old or {}).get('status')})
+   return _jsonable_any(out)
+ except LookupError as e:raise HTTPException(404,str(e)) from e
+ except ValueError as e:raise HTTPException(409,str(e)) from e
+@router.get('/anticipation-plans/{plan_id}/preview')
+def anticipation_preview(plan_id:UUID,enrollment_id:UUID,month:str=Query(...,pattern='^(0[1-9]|1[0-2])$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need_plan_view(actor)
+ from edusync.adapters.postgres_anticipation import PostgresAnticipationRepository
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   return _jsonable_any(PostgresAnticipationRepository(conn).preview(actor.school_id,enrollment_id,plan_id,month))
+ except LookupError as e:raise HTTPException(404,str(e)) from e
+ except ValueError as e:raise HTTPException(409,str(e)) from e
+class PlanCollectBody(BaseModel):
+ enrollment_id:UUID;plan_id:UUID;contribution_month:str=Field(pattern='^(0[1-9]|1[0-2])$');amount:Decimal=Field(gt=0);currency:str=Field(pattern='^(CDF|USD)$')
+ mode:str='CASH';reference:str|None=Field(default=None,max_length=80)
+@router.post('/collect-plan')
+def collect_plan(body:PlanCollectBody,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ # Desktop record_monthly_payment_with_anticipation: current month first, then only the plan's target months.
+ need(actor,'finance.anticipation.collect')
+ if not idempotency_key:raise HTTPException(400,'Idempotency-Key obligatoire')
+ from edusync.adapters.postgres_anticipation import PostgresAnticipationRepository
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   out=PostgresAnticipationRepository(conn).collect_with_plan(actor.school_id,user_id=actor.user_id,membership_id=actor.membership_id,enrollment_id=body.enrollment_id,
+        plan_id=body.plan_id,contribution_month=body.contribution_month,amount=body.amount,currency=body.currency,idempotency_key=idempotency_key,mode=body.mode,reference=body.reference)
+   if not out.get('replayed'):_audit(conn,actor,'ANTICIPATION_PAYMENT_RECORDED','FinancePayment',out['id'],{'plan_id':str(body.plan_id),'contribution_month':body.contribution_month,'amount':out['amount'],'allocations':out['allocations']})
+   return out
+ except LookupError as e:raise HTTPException(404,str(e)) from e
+ except ValueError as e:raise HTTPException(409,str(e)) from e
+ except IntegrityError as e:raise HTTPException(409,'Opération refusée : elle violerait une règle financière (montant déjà réglé)') from e
+def _jsonable_any(v):
+ import json as _json
+ return _json.loads(_json.dumps(v,default=str))
+
 @router.get('/payment-options')
 def payment_options(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  # The modes the school accepts (Desktop payment policy), shown at the cash desk.

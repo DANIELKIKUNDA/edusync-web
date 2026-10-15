@@ -1,0 +1,152 @@
+[
+ {
+  "check": "Plan : un mois cible ne peut pas être aussi un mois de contribution",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Plan : frais non mensuel refusé",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Sans droit « gérer les plans » : création refusée (403)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Plan facultatif : sans adhésion, encaissement selon le plan refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Adhésion : cible figée = mai + juin restants (110 000)",
+  "pass": true,
+  "detail": "110000.00"
+ },
+ {
+  "check": "Arrondis (Desktop) : 110 000 / 3 = 36 666,67 + 36 666,67 + 36 666,66",
+  "pass": true,
+  "detail": "[('01', Decimal('36666.67')), ('02', Decimal('36666.67')), ('03', Decimal('36666.66'))]"
+ },
+ {
+  "check": "Aperçu janvier : mois courant 40 000 + part du plan 36 666,67",
+  "pass": true,
+  "detail": "76666.67"
+ },
+ {
+  "check": "Paiement de janvier : janvier soldé puis mai alimenté (mois cibles dans l'ordre du plan)",
+  "pass": true,
+  "detail": "(Decimal('40000.00'), Decimal('36666.67'), Decimal('0.00'))"
+ },
+ {
+  "check": "Traçabilité : allocation vers mai liée à l'adhésion",
+  "pass": true,
+  "detail": "[('05', Decimal('36666.67'))]"
+ },
+ {
+  "check": "Montant au-delà du mois courant et des mois cibles : refusé, aucun autre mois alimenté",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Mois hors période de contribution : refusé",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Après les refus : février, mars, avril intacts (aucune allocation non prévue)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Devise : paiement USD sur un plan CDF refusé (aucune conversion)",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Plan obligatoire : adhésion automatique au premier paiement",
+  "pass": true,
+  "detail": "{'id': '672359ed-03af-49e2-bdf2-55a77d18b420', 'school_id': '79010917-d134-49f8-b84d-c227644feb12', 'plan_id': '832746ff-6f73-4cb4-9394-58ed11e80586', 'enrollment_id': 'c6cfec5d-c84b-4f03-9407-885d1828175e', 'status': 'ENROLLED', 'snapshot_target_amount': '55000.00', 'currency': 'CDF', 'decided_at':"
+ },
+ {
+  "check": "Plan obligatoire : février soldé, 18 333,34 vers juin",
+  "pass": true,
+  "detail": "(Decimal('40000.00'), Decimal('18333.34'))"
+ },
+ {
+  "check": "Mois déjà payé : la cible ne reprend que le reste (30 000 + 55 000 = 85 000)",
+  "pass": true,
+  "detail": "85000.00"
+ },
+ {
+  "check": "Changement de tarif : refusé tant que mai a déjà reçu de l'argent (élève 1)",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Adhésion : échéancier figé, part proposée jamais supérieure au reste réel des mois cibles",
+  "pass": true,
+  "detail": "('36666.67', '110000.00')"
+ },
+ {
+  "check": "Exonération : mai exonéré n'est pas alimenté, la part va sur juin",
+  "pass": true,
+  "detail": "(Decimal('0.00'), Decimal('36666.67'))"
+ },
+ {
+  "check": "Abandon : les mois futurs non payés sont neutralisés (Desktop), l'historique reste",
+  "pass": true,
+  "detail": "{'09': 'ACTIVE', '01': 'ACTIVE', '02': 'CANCELLED', '05': 'CANCELLED', '06': 'CANCELLED'}"
+ },
+ {
+  "check": "Abandon : le plan ne peut plus alimenter les mois neutralisés",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Réintégration : les mois neutralisés redeviennent dus",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Transfert : mois à partir de mars neutralisés, février reste dû",
+  "pass": true,
+  "detail": "{'02': 'ACTIVE', '03': 'CANCELLED', '06': 'CANCELLED'}"
+ },
+ {
+  "check": "Changement d'année : un plan d'une autre année n'est pas proposé ni utilisable",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Changement d'année : les plans proposés sont ceux de l'année de l'élève",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Plan avec adhésions : changement de structure refusé (nouvelle version)",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Ancien mécanisme Web (surplus en provision) retiré de la caisse",
+  "pass": true,
+  "detail": "409"
+ },
+ {
+  "check": "Autre école : plan de L6 introuvable",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "check": "Audit : plans, adhésions et paiements selon plan tracés",
+  "pass": true,
+  "detail": "{'ANTICIPATION_MEMBERSHIP_SET': 5, 'ANTICIPATION_PAYMENT_RECORDED': 3, 'ANTICIPATION_PLAN_SAVED': 3}"
+ },
+ {
+  "check": "Plan anticipé ≠ fonds anticipé : aucune provision créée par les plans",
+  "pass": true,
+  "detail": "0"
+ }
+]

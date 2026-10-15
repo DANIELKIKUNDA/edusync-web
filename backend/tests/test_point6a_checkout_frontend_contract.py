@@ -8,14 +8,18 @@ def test_receipt_print_is_not_automatic():
 def test_permission_gates_collect():assert "finance.checkout.collect" in UI
 
 def test_anticipation_is_integrated_in_same_checkout():
- for s in ['Montant remis par le parent','Paiement avec avance','checkoutAnticipation','Échéance suivante']:assert s in UI
+ # Parity lot L6 (owner decision 2026-10-14): the plan payment lives in the same checkout, Desktop model.
+ for s in ['Montant remis par le parent','Paiement selon un plan anticipé','checkoutPlans','checkoutCollectPlan','Échéance suivante']:assert s in UI
 
 
-def test_first_payment_can_activate_advance_plan_without_pre_enrollment():
- for text in ['Paiement normal','Paiement avec avance','Participation possible dès ce paiement','Confirmer le paiement avec avance ?','EduSync retiendra ce choix']:
+def test_plan_membership_and_mandatory_first_payment():
+ # Optional plan: the parent joins or declines; mandatory plan: membership recorded with the first plan payment.
+ for text in ['Adhérer au plan','Refuser','Adhésion automatique au premier paiement selon le plan','Confirmer le paiement selon le plan ?','Ce plan est obligatoire']:
   assert text in UI
- assert 'aucun plan anticipé accepté pour cet élève' not in UI
+ # The former simplified plan (surplus kept as a provision) is retired from the cash desk.
+ for old in ['Paiement avec avance','use_anticipation','Mis en avance','checkoutAnticipation']:
+  assert old not in UI
 
 def test_cashier_ui_hides_accounting_complexity():
  assert 'Fonds anticipés' not in UI
- assert 'Mis en avance' in UI
+ assert 'aucun montant mis en réserve' in UI and 'Mois courant d’abord, puis uniquement les mois cibles du plan' in UI

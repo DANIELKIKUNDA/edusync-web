@@ -15,6 +15,6 @@ def test_cash_ui_is_table_first_not_card_wall():
  assert 'cashDaySummary(token,day)' in s
 def test_anticipation_collection_has_single_checkout_path():
  s=read('frontend/src/finance.tsx')
- assert 'Paiement avec avance' in s
+ assert 'Paiement selon un plan anticipé' in s and 'Paiement avec avance' not in s
  assert "tab==='advance'" not in s
  assert 'Fonds anticipés</button>' not in s

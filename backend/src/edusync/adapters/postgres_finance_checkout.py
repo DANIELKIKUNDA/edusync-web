@@ -100,6 +100,10 @@ class PostgresFinanceCheckoutRepository:
    if str(existing['enrollment_id'])!=str(enrollment_id) or Decimal(str(existing['amount']))!=Decimal(str(amount)) or existing['currency']!=currency:
     raise ValueError('Idempotency-Key déjà utilisée pour un autre encaissement')
    out=dict(existing);out.pop('enrollment_id');return {**out,'replayed':True}
+  if use_anticipation:
+   # Parity lot L6: the former simplified plan (surplus stored as a provision) is retired from the cash desk; a payment plan
+   # is collected through collect_with_plan (Desktop model), a free advance is a distinct « fonds anticipé » (not merged).
+   raise ValueError("Le paiement anticipé s'encaisse désormais selon un plan de paiement anticipé (mois courant puis mois ciblés du plan)")
   session=self.conn.execute(text("SELECT id FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' ORDER BY opened_at DESC LIMIT 1 FOR UPDATE"),{'sid':str(school_id),'mid':str(membership_id)}).scalar_one_or_none()
   if not session:raise ValueError('Aucune caisse ouverte pour cet utilisateur')
   rows=self.conn.execute(text("SELECT * FROM finance_charges WHERE school_id=:sid AND enrollment_id=:eid AND status='ACTIVE' FOR UPDATE"),{'sid':str(school_id),'eid':str(enrollment_id)}).mappings().all()

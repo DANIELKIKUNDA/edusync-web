@@ -39,3 +39,9 @@
 .payModeRow label{display:grid;gap:4px;font-size:12.5px;font-weight:600}
 .payModeRow select,.payModeRow input{min-height:40px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px}
 @media(max-width:720px){.payModeRow{grid-template-columns:1fr}}
+/* Parity lot L6 — paiement selon un plan anticipé */
+.planPanel{display:grid;gap:10px;margin-top:14px;padding:12px;border:1px solid #dbe3ef;border-radius:12px;background:#f8fafc}
+.planSummary{display:grid;gap:2px}.planSummary small{color:#475569}
+.planField{display:grid;gap:4px;font-weight:600;max-width:320px}.planField select{min-height:40px}
+.planPanel .paymentChoice button:disabled{cursor:default}
+@media (max-width:600px){.planField{max-width:none}}

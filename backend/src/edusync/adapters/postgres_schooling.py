@@ -261,7 +261,8 @@ class PostgresSchoolingRepository:
         target={"ABANDON":"ABANDON","TRANSFER":"TRANSFERRED","SUSPEND":"SUSPENDED","REINTEGRATE":"ACTIVE"}.get(event_type)
         if target is None:raise ValueError("Transition invalide")
         if event_type=='TRANSFER' and not (destination or '').strip():raise ValueError("Destination du transfert obligatoire")
-        self.connection.execute(text("INSERT INTO student_status_events(school_id,student_id,event_type,effective_date,reason,destination,actor_user_id) VALUES (:sid,:student,:event,:d,:reason,:destination,:actor)"),{"sid":school_id,"student":student_id,"event":event_type,"d":effective_date,"reason":reason,"destination":destination,"actor":actor_user_id})
+        event_id=self.connection.execute(text("INSERT INTO student_status_events(school_id,student_id,event_type,effective_date,reason,destination,actor_user_id) VALUES (:sid,:student,:event,:d,:reason,:destination,:actor) RETURNING id"),{"sid":school_id,"student":student_id,"event":event_type,"d":effective_date,"reason":reason,"destination":destination,"actor":actor_user_id}).scalar_one()
+        self._apply_lifecycle_to_future_charges(school_id,student_id,event_id=event_id,event_type=event_type,effective_date=effective_date,reason=reason)
         if event_type in {'ABANDON','TRANSFER'}:
             self.connection.execute(text("UPDATE class_assignments SET effective_until=:d,reason=:reason WHERE school_id=:sid AND student_id=:student AND effective_until IS NULL"),{"d":effective_date,"reason":event_type+': '+reason,"sid":school_id,"student":student_id})
         elif event_type=='REINTEGRATE':
@@ -271,6 +272,28 @@ class PostgresSchoolingRepository:
             self.connection.execute(text("INSERT INTO class_assignments(school_id,student_id,enrollment_id,class_id,effective_from,reason) VALUES (:sid,:student,:eid,:class,:d,'REINTEGRATE')"),{"sid":school_id,"student":student_id,"eid":active_enrollment._mapping['id'],"class":active_enrollment._mapping['class_id'],"d":effective_date})
         r=self.connection.execute(text("UPDATE students SET status=:status WHERE school_id=:sid AND id=:id AND version=:expected RETURNING *"),{"status":target,"sid":school_id,"id":student_id,"expected":expected_version}).first()
         return _row(r)
+
+    def _apply_lifecycle_to_future_charges(self, school_id:UUID, student_id:UUID, *, event_id, event_type:str, effective_date:date, reason:str)->None:
+        """Desktop apply_lifecycle_to_future_charges: neutralize only unpaid future obligations; history and settlements stay."""
+        enrollment=self.connection.execute(text("""SELECT e.id FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id
+          WHERE e.school_id=:sid AND e.student_id=:st AND ay.status='ACTIVE' AND e.status='VALIDATED'"""),{"sid":school_id,"st":student_id}).scalar_one_or_none()
+        if enrollment is None:return
+        if event_type=='REINTEGRATE':
+            restored=[r[0] for r in self.connection.execute(text("""DELETE FROM finance_charge_lifecycle_states l USING finance_charges c
+              WHERE l.charge_id=c.id AND c.school_id=:sid AND c.enrollment_id=:e RETURNING l.charge_id"""),{"sid":school_id,"e":enrollment}).all()]
+            if restored:
+                self.connection.execute(text("UPDATE finance_charges SET status='ACTIVE' WHERE school_id=:sid AND id=ANY(:ids)"),{"sid":school_id,"ids":restored})
+            return
+        if event_type not in {'ABANDON','TRANSFER','SUSPEND'}:return
+        rows=self.connection.execute(text("""SELECT c.id FROM finance_charges c WHERE c.school_id=:sid AND c.enrollment_id=:e AND c.status='ACTIVE'
+          AND c.due_date IS NOT NULL AND c.due_date>=:d AND c.paid_amount=0
+          AND NOT EXISTS (SELECT 1 FROM finance_charge_regularizations r WHERE r.school_id=c.school_id AND r.charge_id=c.id)"""),
+          {"sid":school_id,"e":enrollment,"d":effective_date}).all()
+        for (cid,) in rows:
+            self.connection.execute(text("""INSERT INTO finance_charge_lifecycle_states(charge_id,school_id,event_id,effective_on,reason)
+              VALUES (:c,:sid,:ev,:d,:r) ON CONFLICT (charge_id) DO UPDATE SET event_id=EXCLUDED.event_id,effective_on=EXCLUDED.effective_on,reason=EXCLUDED.reason"""),
+              {"c":cid,"sid":school_id,"ev":event_id,"d":effective_date,"r":f"{event_type}: {reason}"})
+            self.connection.execute(text("UPDATE finance_charges SET status='CANCELLED' WHERE id=:c AND school_id=:sid"),{"c":cid,"sid":school_id})
 
     def summary(self, school_id:UUID, *, scopes:tuple[tuple[str,str|None],...])->dict[str,int]:
         where,params=_student_scope_where(scopes)

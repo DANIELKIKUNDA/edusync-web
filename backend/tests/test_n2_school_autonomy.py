@@ -242,3 +242,29 @@ def test_receipt_settings_copy_the_desktop():
     assert 'roll = 80 if fmt == "80MM" else 58' in receipts and "Exemplaire" in receipts
     sql = (ROOT / "backend/migrations/0065_receipt_settings_desktop_parity.sql").read_text(encoding="utf-8")
     assert "receipt_copies BETWEEN 1 AND 5" in sql and "'58MM'" in sql
+
+
+def test_anticipation_plans_copy_the_desktop():
+    # Parity lot L6 (owner decision 2026-10-14): Plan anticipé ≠ Fonds anticipé. Live: certification/n2-20261014/anticipation_probe.py.
+    from decimal import Decimal
+    from edusync.adapters.postgres_anticipation import split_equal, month_list
+    assert split_equal(Decimal("100.00"), 3) == [Decimal("33.34"), Decimal("33.33"), Decimal("33.33")]  # Desktop _split_equal
+    assert sum(split_equal(Decimal("10.01"), 4)) == Decimal("10.01")
+    assert month_list(["9", "10", "10"]) == ["09", "10"]
+    repo = (ROOT / "backend/src/edusync/adapters/postgres_anticipation.py").read_text(encoding="utf-8")
+    for message in ("Un mois cible ne peut pas être aussi un mois de contribution dans le même plan", "Un plan anticipé doit porter sur un frais mensuel",
+                    "Désactivez-le et créez une nouvelle version", "CDF et USD restent séparés : aucune conversion implicite",
+                    "aucun autre mois ne peut être alimenté", "Adhésion automatique : plan obligatoire",
+                    "Ce mois ne fait pas partie de la période de contribution du plan"):
+        assert message in repo, message
+    assert "INSERT INTO anticipation_payment_links" in repo and "finance_advance_allocations" not in repo  # no provision
+    checkout = (ROOT / "backend/src/edusync/adapters/postgres_finance_checkout.py").read_text(encoding="utf-8")
+    collect = checkout[checkout.index(" def collect("):]
+    assert collect.index("if use_anticipation:") < collect.index("FROM finance_cash_sessions")  # old path refused first
+    router = (ROOT / "backend/src/edusync/modules/finance_checkout/api/router.py").read_text(encoding="utf-8")
+    for cap in ("finance.anticipation_plans.read", "finance.anticipation_membership.set", "finance.anticipation.collect"):
+        assert f"need(actor,'{cap}')" in router, cap
+    settings = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
+    assert "_need(actor,'finance.anticipation_plans.manage')" in settings
+    ui = (ROOT / "frontend/src/settings_anticipation.tsx").read_text(encoding="utf-8")
+    assert "c’est différent d’une avance libre (fonds anticipé)" in ui and "créez une nouvelle version" in ui

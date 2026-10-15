@@ -35,7 +35,7 @@ export function PaymentPolicySettings({token, can}: {token: string; can: (x: str
     <form className="policyForm" onSubmit={save} noValidate><fieldset disabled={!editable || busy}>
       <label className="switchRow"><span>Autoriser les paiements partiels / acomptes<small>Sinon, chaque frais choisi doit être soldé en une fois.</small></span><input type="checkbox" role="switch" checked={d.partial_payments_enabled} onChange={flag('partial_payments_enabled')}/></label>
       {d.partial_payments_enabled && <FormField label="Acompte minimum (0 = aucun minimum)"><input inputMode="decimal" value={String(d.partial_min_amount)} onChange={e => setD({...d, partial_min_amount: e.target.value})}/></FormField>}
-      <label className="switchRow"><span>Autoriser les paiements anticipés<small>Avance versée sur un plan de paiement anticipé.</small></span><input type="checkbox" role="switch" checked={d.advance_payments_enabled} onChange={flag('advance_payments_enabled')}/></label>
+      <label className="switchRow"><span>Autoriser les paiements anticipés<small>Avance libre (fonds anticipé), distincte des plans de paiement anticipé, qui ont leur propre écran.</small></span><input type="checkbox" role="switch" checked={d.advance_payments_enabled} onChange={flag('advance_payments_enabled')}/></label>
       <label className="switchRow"><span>Autoriser le paiement des mois futurs<small>Une mensualité dont l’échéance n’est pas encore arrivée.</small></span><input type="checkbox" role="switch" checked={d.future_charge_payments_enabled} onChange={flag('future_charge_payments_enabled')}/></label>
     </fieldset>
     <fieldset disabled={!editable || busy}><legend>Modes de paiement acceptés</legend>
