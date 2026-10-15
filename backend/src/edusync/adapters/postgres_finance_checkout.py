@@ -93,6 +93,11 @@ class PostgresFinanceCheckoutRepository:
    if 0<n<c.remaining:
     if not policy['partial_payments_enabled']:raise ValueError("Les paiements partiels ne sont pas autorisés par la politique de l'école")
     if minimum>0 and n<minimum:raise ValueError(f"L'acompte minimum autorisé est de {minimum:,.2f}".replace(',',' '))
+ def _require_day_open(self,school_id,session_id):
+  # N3-B / G-CAI-4: no collection on a school cash day closed globally (Desktop: "La caisse du jour est clôturée").
+  from edusync.adapters.postgres_cash_integrity import PostgresCashIntegrityRepository
+  day=self.conn.execute(text("SELECT business_date FROM finance_cash_sessions WHERE id=:id"),{'id':str(session_id)}).scalar_one()
+  PostgresCashIntegrityRepository(self.conn).require_day_open(school_id,day)
  def collect(self,school_id:UUID,user_id:UUID,membership_id:UUID,enrollment_id:UUID,charge_ids:list[UUID],amount:Decimal,currency:str,idempotency_key:str,use_anticipation:bool=False,mode:str='CASH',reference:str|None=None):
   self._lock_idempotency_key(school_id,idempotency_key)
   existing=self.conn.execute(text('SELECT id,receipt_number,amount,currency,enrollment_id FROM finance_payments WHERE school_id=:sid AND idempotency_key=:k'),{'sid':str(school_id),'k':idempotency_key}).mappings().first()
@@ -106,6 +111,7 @@ class PostgresFinanceCheckoutRepository:
    raise ValueError("Le paiement anticipé s'encaisse désormais selon un plan de paiement anticipé (mois courant puis mois ciblés du plan)")
   session=self.conn.execute(text("SELECT id FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' ORDER BY opened_at DESC LIMIT 1 FOR UPDATE"),{'sid':str(school_id),'mid':str(membership_id)}).scalar_one_or_none()
   if not session:raise ValueError('Aucune caisse ouverte pour cet utilisateur')
+  self._require_day_open(school_id,session)
   rows=self.conn.execute(text("SELECT * FROM finance_charges WHERE school_id=:sid AND enrollment_id=:eid AND status='ACTIVE' FOR UPDATE"),{'sid':str(school_id),'eid':str(enrollment_id)}).mappings().all()
   charges=self._cash_payable(school_id,rows); payable={str(c.id):c for c in charges}
   from edusync.modules.finance_checkout.domain.models import validate_selection,split_payment
@@ -175,6 +181,7 @@ class PostgresFinanceCheckoutRepository:
   if owned!=set(ids):raise ValueError('Un élève du panier n’appartient pas à cette famille')
   session=self.conn.execute(text("SELECT id FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' ORDER BY opened_at DESC LIMIT 1"),{'sid':str(school_id),'mid':str(membership_id)}).scalar_one_or_none()
   if not session:raise ValueError('Aucune caisse ouverte pour cet utilisateur')
+  self._require_day_open(school_id,session)
   paid=[]
   for n,l in enumerate(lines,start=1):
    r=self.collect(school_id,user_id,membership_id,UUID(str(l['enrollment_id'])),[UUID(str(c)) for c in l['charge_ids']],Decimal(str(l['amount'])),l['currency'],f'{idempotency_key}#L{n}',False)
@@ -264,6 +271,7 @@ class PostgresFinanceCheckoutRepository:
   if existing:return {**dict(existing),'replayed':True}
   session=self.conn.execute(text("SELECT id FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' ORDER BY opened_at DESC LIMIT 1 FOR UPDATE"),{'sid':str(school_id),'mid':str(membership_id)}).scalar_one_or_none()
   if not session:raise ValueError('Aucune caisse ouverte pour cet utilisateur')
+  self._require_day_open(school_id,session)
   p=self.conn.execute(text("SELECT * FROM school_products WHERE school_id=:sid AND id=:pid AND enabled=true FOR UPDATE"),{'sid':str(school_id),'pid':str(product_id)}).mappings().first()
   if not p:raise ValueError('Article indisponible')
   if p['stock_tracking']:

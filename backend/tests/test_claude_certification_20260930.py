@@ -67,6 +67,8 @@ class ScriptedConnection:
             return _Result(scalar=1)
         if "FROM school_print_settings" in sql:
             return _Result()
+        if "FROM finance_cash_days" in sql:  # N3-B: school cash day not closed
+            return _Result()
         if sql.startswith(("INSERT", "UPDATE")):
             self.writes.append((sql.split("(")[0], params))
             return _Result()

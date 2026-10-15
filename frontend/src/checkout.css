@@ -45,3 +45,17 @@
 .planField{display:grid;gap:4px;font-weight:600;max-width:320px}.planField select{min-height:40px}
 .planPanel .paymentChoice button:disabled{cursor:default}
 @media (max-width:600px){.planField{max-width:none}}
+/* N3-B — dépenses, contre-opérations, journée de caisse de l'école */
+.cashExpenseBox{display:grid;gap:10px;margin-top:12px;padding:12px;border:1px solid #dbe3ef;border-radius:12px;background:#fff}
+.cashExpenseGrid{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.cashExpenseGrid label,.reversalReason{display:grid;gap:4px;font-weight:600;font-size:13px}
+.cashExpenseGrid input,.cashExpenseGrid select,.reversalReason textarea{min-height:40px;width:100%;box-sizing:border-box}
+.cashExpenseBox>button{justify-self:start;min-height:44px}
+.schoolDay{display:grid;gap:10px;margin-top:14px;padding:12px;border:1px solid #dbe3ef;border-radius:12px;background:#f8fafc}
+.dayDetails,.dayOps ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.dayDetails li,.dayOps li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e5e9f1;border-radius:10px;background:#fff}
+.dayOps summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
+.dayActions{display:flex;flex-wrap:wrap;gap:8px}
+.dayActions button,.dayOps button,.cashJournalRow button{min-height:44px}
+.reversalKind{display:grid;gap:6px;border:0;padding:0;margin:8px 0}
+@media (max-width:600px){.dayActions button{flex:1 1 100%}}

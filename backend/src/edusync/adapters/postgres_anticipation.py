@@ -297,6 +297,7 @@ class PostgresAnticipationRepository:
             ORDER BY opened_at DESC LIMIT 1 FOR UPDATE"""), {"sid": str(school_id), "mid": str(membership_id)}).scalar_one_or_none()
         if not session:
             raise ValueError("Aucune caisse ouverte pour cet utilisateur")
+        co._require_day_open(school_id, session)
         amount = money(amount)
         if amount <= 0:
             raise ValueError("Montant invalide")

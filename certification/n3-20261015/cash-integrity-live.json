@@ -1,0 +1,190 @@
+{
+  "school": "N3B-4736F",
+  "results": [
+    {
+      "check": "Dépense : le caissier l'enregistre dans sa caisse ouverte",
+      "pass": true,
+      "detail": "201"
+    },
+    {
+      "check": "Dépense : motif trop court refusé (Desktop : motif >= 3)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Dépense : devise inconnue refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Dépense : l'administrateur technique n'a pas le droit",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Dépense : sans caisse ouverte, refus",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Paiement initial : mois soldé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Contre-opération : le caissier annule son propre paiement (caisse ouverte)",
+      "pass": true,
+      "detail": "(200, '{\"id\":\"0d9b5ef6-d013-419c-be48-90f61adec3bb\",\"payment_id\":\"38f3f7be-e327-4aab-91b0-d84bf28a7f46\",\"receipt_number\":\"REC-2')"
+    },
+    {
+      "check": "Contre-opération : le mois redevient payable (le paiement ne compte plus)",
+      "pass": true,
+      "detail": "20000.00"
+    },
+    {
+      "check": "Contre-opération : une seconde fois refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Contre-opération : motif trop court refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Paiement jamais modifié ni supprimé : le paiement annulé reste intact",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Aucun UPDATE / DELETE possible sur paiements, contre-opérations, instantanés (droits SQL)",
+      "pass": true,
+      "detail": "{'finance_payments': False, 'finance_payment_reversals': False, 'finance_cash_day_snapshots': False}"
+    },
+    {
+      "check": "Paiement d'un autre caissier : refusé au caissier (autorité supérieure)",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "check": "Session : la contre-opération du caissier est une sortie de sa caisse",
+      "pass": true,
+      "detail": "{'opening': '5000.00', 'receipts': '80000.00', 'expenses': '1500.00', 'reversals': '20000.00', 'expected_cash': '63500.00', 'counted': None, 'variance': None}"
+    },
+    {
+      "check": "Caisse clôturée : le caissier ne corrige plus son paiement (autorité supérieure)",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "check": "Le gestionnaire rembourse un paiement d'une caisse clôturée",
+      "pass": true,
+      "detail": "(200, '{\"id\":\"2a0aae1e-2645-481b-8751-55c01c1716c7\",\"payment_id\":\"69f9b4ae-767e-474a-82ca-2ac5f3f89ca8\",\"receipt_number\":\"REC-2')"
+    },
+    {
+      "check": "Remboursement : le mois redevient payable",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "L'administrateur technique ne fait aucune contre-opération",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Synthèse de la journée : remboursement supérieur compté en sortie",
+      "pass": true,
+      "detail": "{'opening': '5000.00', 'receipts': '80000.00', 'expenses': '1500.00', 'expected_cash': '43500.00', 'reversals': '20000.00', 'supervisor_reversals': '20000.00'}"
+    },
+    {
+      "check": "Clôture globale : refusée au caissier",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Clôture globale : refusée à l'administrateur technique",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Clôture globale : refusée tant qu'une caisse individuelle est ouverte",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "Clôture globale par le gestionnaire : instantanés par devise",
+      "pass": true,
+      "detail": "(200, '{\"day\":\"2026-10-15\",\"status\":\"CLOSED\",\"closed\":true,\"closed_at\":\"2026-10-15T20:56:30.411701+01:00\",\"reopened_at\":null,\"reopen_reason\":null,\"open_sessions\":0,\"se')"
+    },
+    {
+      "check": "Instantané CDF = entrées − sorties (paiements, dépense, contre-opérations)",
+      "pass": true,
+      "detail": "{'currency': 'CDF', 'entries': '80000.00', 'outflows': '41500.00', 'net': '38500.00', 'sessions': 2, 'closed_at': '2026-10-15T20:56:30.411701+01:00', 'closed_by_name': 'Agent GES'}"
+    },
+    {
+      "check": "Clôture globale : une seconde fois sans effet (Desktop)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Journée clôturée : ouverture d'une caisse refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Journée clôturée : contre-opération refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Réouverture : refusée au caissier",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Réouverture : motif trop court refusé (Desktop : >= 5)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Réouverture par le gestionnaire avec motif",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "Après réouverture : le caissier rouvre une caisse",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Journal de caisse PDF (gestionnaire)",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "Rapport financier journalier PDF (caissier)",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "Rapport journalier : détail par source (paiement, dépense, annulation, remboursement)",
+      "pass": true,
+      "detail": "['ANNULATION', 'DEPENSE_JOURNALIERE', 'PAIEMENT_ELEVE', 'REMBOURSEMENT']"
+    },
+    {
+      "check": "Réimpression : la 2e impression est un DUPLICATA compté et tracé",
+      "pass": true,
+      "detail": "['ORIGINAL', 'DUPLICATA']"
+    },
+    {
+      "check": "Audit : annulation, remboursement, dépense, clôture et réouverture tracées",
+      "pass": true,
+      "detail": "{'CLOSE_CASH_DAY': 1, 'PAYMENT_ANNULATION': 1, 'PAYMENT_REMBOURSEMENT': 1, 'RECORD_EXPENSE': 1, 'REOPEN_CASH_DAY': 1}"
+    },
+    {
+      "check": "Autre école : paiement de N3-B introuvable",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

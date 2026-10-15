@@ -222,11 +222,11 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | Id | Écart | Domaine | Poids Finance |
 |----|-------|---------|---------------|
 | G-ADV-1 | Fonds anticipés (réception, imputation, annulation / remboursement, reçu, analyse) | Finance | **élevé** |
-| G-REV-1 | Annulation / remboursement d'un paiement (contre-opération motivée) | Finance | **élevé** |
-| G-CAI-1 | Enregistrement des dépenses de caisse | Caisse | **élevé** |
-| G-CAI-2 | Réouverture motivée d'une caisse clôturée | Caisse | moyen |
-| G-CAI-3 | Droit de clôture (ADMIN / DIRECTION au Desktop) | Caisse | moyen |
-| G-CAI-4 | Journée de caisse de l'école vs sessions par caissier (à qualifier) | Caisse | moyen |
+| G-REV-1 | Annulation / remboursement d'un paiement (contre-opération motivée) | Finance | **CORRIGÉ** (N3-B : contre-opération en ajout seul, propre paiement / autorité supérieure ; sonde caisse 37/37) |
+| G-CAI-1 | Enregistrement des dépenses de caisse | Caisse | **CORRIGÉ** (N3-B : dépense motivée dans la caisse ouverte) |
+| G-CAI-2 | Réouverture motivée d'une caisse clôturée | Caisse | **CORRIGÉ** (N3-B : réouverture motivée de la journée, gestionnaire) |
+| G-CAI-3 | Droit de clôture (ADMIN / DIRECTION au Desktop) | Caisse | **CORRIGÉ** (N3-B : clôture individuelle caissier, clôture globale gestionnaire) |
+| G-CAI-4 | Journée de caisse de l'école vs sessions par caissier (à qualifier) | Caisse | **CORRIGÉ** (N3-B : sessions individuelles conservées + journée de l'école clôturée globalement avec instantanés) |
 | G-DEC-1 | Types de décision financière Desktop (6) ≠ Web (4) | Décisions | **élevé** |
 | G-DEC-2 | Recalcul des décisions d'une inscription | Décisions | moyen |
 | G-DEC-3 | Explication d'un frais (brut → net → payé) | Décisions | moyen |
@@ -242,7 +242,7 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-REC-3 | Rapport financier journalier | Recouvrement | moyen |
 | G-REC-4 | Présentation des acomptes dans les rapports | Recouvrement | moyen |
 | G-REC-5 | Préfixe et numérotation des rapports | Documents | faible |
-| G-REV-2 | Duplicata de reçu compté et tracé (à vérifier) | Reçus | faible |
+| G-REV-2 | Duplicata de reçu compté et tracé (à vérifier) | Reçus | **PARITY_OK** (vérifié N3-B : ORIGINAL puis DUPLICATA comptés et tracés, déjà au Web) |
 | G-ART-1 | Rapport des ventes d'articles | Articles | faible |
 | G-SCO-1 | Doublons probables avant création d'un élève | Élèves | moyen |
 | G-SCO-2 | Arriérés historiques montrés à l'inscription (à comparer) | Élèves | moyen |
@@ -253,7 +253,7 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-EFF-1 | Contributions : quantités remises / restantes, réceptionnaire (à vérifier) | Effectifs | faible |
 | G-DOC-1 | Montant en toutes lettres sur le reçu (à vérifier) | Documents | faible |
 | G-DOC-2 | Relevé de compte élève PDF | Documents | moyen |
-| G-DOC-3 | Journal de caisse PDF, rapport journalier PDF | Documents | moyen |
+| G-DOC-3 | Journal de caisse PDF, rapport journalier PDF | Documents | **CORRIGÉ** (N3-B : journal de caisse PDF, rapport journalier PDF) |
 | G-DOC-4 | Rapport financier périodique PDF / Excel (à vérifier) | Documents | moyen |
 | G-IMP-1 | Finalisation de l'historique financier sans toucher la caisse (à vérifier) | Import | moyen |
 | G-IMP-2 | Réparation des dates d'inscription, suggestions historiques | Import | faible |

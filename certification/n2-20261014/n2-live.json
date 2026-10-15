@@ -2,7 +2,7 @@
   {
     "check": "Écoles jumelles créées par la plateforme, administrateurs connectés",
     "pass": true,
-    "detail": "N2A-00F2B8 / N2B-00F2B8"
+    "detail": "N2A-0E1001 / N2B-0E1001"
   },
   {
     "check": "Rôles standard visibles par l'administrateur (dont Caissier)",
@@ -67,7 +67,7 @@
   {
     "check": "Adresse déjà utilisée dans l'école B → compte rattaché, aucun mot de passe affiché",
     "pass": true,
-    "detail": "{\"email\":\"n2-admin-b-00f2b8@example.test\",\"created\":false,\"full_name\":\"Admin jumelle B\",\"role_label\":null,\"membership_id\":\"2337e021-07a0-4d9b-b015-0c60b0ecfc31\""
+    "detail": "{\"email\":\"n2-admin-b-0e1001@example.test\",\"created\":false,\"full_name\":\"Admin jumelle B\",\"role_label\":null,\"membership_id\":\"7c37117d-71e6-49b5-bf51-e6b5c7fb8a27\""
   },
   {
     "check": "Le nom du compte existant n'est pas modifié par l'école A",
