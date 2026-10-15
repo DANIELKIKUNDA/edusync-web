@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
+from decimal import Decimal
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from io import BytesIO
@@ -352,3 +353,54 @@ def profile_pdf(staff_id:UUID,actor:ActorContext=Depends(require_school_actor),s
         school=PostgresSchoolRepository(conn).get(actor.school_id);data=build_staff_profile_pdf(item,school_name=school.name if school else 'École')
         archive_generated(conn,actor,data=data,fmt='PDF',required_capability='personnel.profile.print_pdf',document_code=f'personnel.profile.{staff_id}',title='Fiche agent',file_name=f'fiche_agent_{staff_id}.pdf')
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="agent_{staff_id}.pdf"'})
+
+
+# ---------------------------------------------------------------- N3-F — staff children finance (Desktop staff_finance.py)
+from edusync.adapters.postgres_staff_finance import PostgresStaffFinanceRepository
+
+@router.get("/{staff_id}/children/finance")
+def staff_children_finance(staff_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop list_staff_children: mode, expected, settled, payroll deducted, balance, in order (per currency)."""
+    _need(actor,'personnel.staff_children.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return {'items':_jsonable(PostgresStaffFinanceRepository(conn).children(actor.school_id,staff_id))}
+
+@router.get("/{staff_id}/children/{student_id}/open-charges")
+def staff_child_open_charges(staff_id:UUID,student_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """G-PER-1 — Desktop staff_child_open_charges."""
+    _need(actor,'personnel.staff_children.read')
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            return {'items':_jsonable(PostgresStaffFinanceRepository(conn).open_charges(actor.school_id,staff_id,student_id))}
+    except Exception as exc:_error(exc)
+
+class PayrollLine(BaseModel):
+    charge_id:UUID;amount:Decimal=Field(gt=0,max_digits=18,decimal_places=2)
+class PayrollDeductionBody(BaseModel):
+    allocations:list[PayrollLine]|None=None;reference:str|None=Field(default=None,max_length=120);period_label:str|None=Field(default=None,max_length=80)
+
+@router.post("/{staff_id}/children/{student_id}/payroll-deductions")
+def confirm_payroll_deduction(staff_id:UUID,student_id:UUID,body:PayrollDeductionBody,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """G-PER-2 — Desktop confirm_staff_payroll_deduction: non-cash settlement, no payment, no receipt, no cash operation."""
+    _need(actor,'personnel.payroll_deduction.confirm');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out=PostgresStaffFinanceRepository(conn).confirm(actor.school_id,user_id=actor.user_id,staff_id=staff_id,student_id=student_id,
+                allocations=[{'charge_id':str(a.charge_id),'amount':a.amount} for a in body.allocations] if body.allocations else None,reference=body.reference,period_label=body.period_label)
+            _audit_outbox(conn,request_actor,action='CONFIRM_STAFF_PAYROLL_DEDUCTION',entity_type='Staff',entity_id=staff_id,old=None,new={'student_id':str(student_id),**_jsonable(out),'reference':body.reference})
+            return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='PERSONNEL_PAYROLL_DEDUCTION',payload={**body.model_dump(mode='json'),'staff_id':str(staff_id),'student_id':str(student_id)},action=action);return result.body
+    except Exception as exc:_error(exc)
+
+class NoncashCancelBody(BaseModel):reason:str=Field(min_length=3,max_length=500)
+@router.post("/payroll-deductions/{settlement_id}/cancel")
+def cancel_payroll_deduction(settlement_id:UUID,body:NoncashCancelBody,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Desktop cancel_staff_noncash_settlement: reason required; the charge becomes owed again."""
+    _need(actor,'personnel.payroll_deduction.cancel');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            out=PostgresStaffFinanceRepository(conn).cancel(actor.school_id,settlement_id,user_id=actor.user_id,reason=body.reason)
+            _audit_outbox(conn,request_actor,action='CANCEL_STAFF_NONCASH_SETTLEMENT',entity_type='StaffNoncashSettlement',entity_id=settlement_id,old={'status':'CONFIRMED'},new=out,reason=body.reason)
+            return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='PERSONNEL_PAYROLL_DEDUCTION_CANCEL',payload={**body.model_dump(mode='json'),'settlement_id':str(settlement_id)},action=action);return result.body
+    except Exception as exc:_error(exc)

@@ -124,3 +124,7 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 /* Parity lot L6 — plans de paiement anticipé */
 .planList li{align-items:flex-start}.planList li>div:first-child{display:grid;gap:2px;min-width:0}.planList li.muted{opacity:.7}
 .planForm{margin-bottom:14px}
+/* N3-F — enfants du personnel, retenue sur salaire */
+.staffChildren{display:grid;gap:10px}.staffChild{display:grid;gap:6px;padding:10px 12px;border:1px solid #e5e9f1;border-radius:10px;background:#fff}
+.staffChildHead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}.staffChildHead>div{display:grid;gap:2px}
+.staffChild button{min-height:44px}.staffChild small{color:#475569}

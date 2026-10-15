@@ -235,8 +235,8 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-FIN-2 | Lots de frais et lot journal + badge | Encaissement | **CORRIGÉ** (N3-E : lots nommés, journal de classe + écusson par défaut, payés sans déborder) |
 | G-FIN-3 | Suggestion d'imputation / action recommandée | Encaissement | **CORRIGÉ** (N3-E : action conseillée — lot d'admission puis plus ancienne échéance exigible — et répartition automatique d'un montant) |
 | G-PLAN-1 | Attribuer `finance.anticipation_plans.manage` à `ADMIN_SYSTEME_ECOLE` (décision prise) | Plans | **CORRIGÉ** (N3-A, migration 0067, sonde 32/32) |
-| G-PER-1 | Frais ouverts d'un enfant du personnel | Personnel | faible |
-| G-PER-2 | Retenue sur salaire = règlement hors caisse (+ annulation) | Personnel / Finance | **élevé** |
+| G-PER-1 | Frais ouverts d'un enfant du personnel | Personnel | **CORRIGÉ** (N3-F : frais ouverts de l'enfant ; situation par enfant dans la fiche agent) |
+| G-PER-2 | Retenue sur salaire = règlement hors caisse (+ annulation) | Personnel / Finance | **CORRIGÉ** (N3-F : retenue = règlement hors caisse, sans paiement ni reçu ni caisse ; annulation motivée ; sonde 17/17) |
 | G-REC-1 | Statut de recouvrement historique | Recouvrement | moyen |
 | G-REC-2 | Analyses par type de frais et par caissier | Recouvrement | moyen |
 | G-REC-3 | Rapport financier journalier | Recouvrement | moyen |

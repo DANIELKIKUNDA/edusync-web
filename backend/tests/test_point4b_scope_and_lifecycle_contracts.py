@@ -1,4 +1,5 @@
 from pathlib import Path
+ROOT=Path(__file__).resolve().parents[2]
 from uuid import uuid4
 
 from edusync.shared.application.context import ActorContext
@@ -35,6 +36,11 @@ def test_reactivation_does_not_silently_reopen_old_assignments_or_membership():
 
 
 def test_api_finance_payroll_confirmation_is_not_faked_inside_personnel():
+    # N3-F (Desktop staff_finance.py): the payroll deduction is a NON-CASH settlement — never a payment, a receipt
+    # or a cash operation.
     assert 'staff_children.finance_mode' in ROUTER
-    assert 'payroll_deduction.confirm' not in ROUTER
+    assert "_need(actor,'personnel.payroll_deduction.confirm')" in ROUTER
     assert 'record_payment' not in ROUTER
+    repo=(ROOT/'backend/src/edusync/adapters/postgres_staff_finance.py').read_text(encoding='utf-8')
+    for forbidden in ('INSERT INTO finance_payments','next_receipt_number','finance_cash_'):
+        assert forbidden not in repo, forbidden

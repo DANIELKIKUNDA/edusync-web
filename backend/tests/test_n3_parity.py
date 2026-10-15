@@ -124,3 +124,18 @@ def test_n3e_guidance_copies_desktop():
     assert "codes:str=Query('JOURNAL_CLASSE,ECUSSON'" in router
     ui = read("frontend/src/finance.tsx")
     assert "Action conseillée" in ui and "Journal + écusson" in ui and "c.requires" in ui
+
+
+def test_n3f_payroll_deduction_is_noncash():
+    repo = read("backend/src/edusync/adapters/postgres_staff_finance.py")
+    for message in ("Activez d'abord le mode « retenue à la source » pour cet enfant", "Une ligne choisie n'est plus due",
+                    "Montant de retenue supérieur au reste dû", "Le motif d'annulation est obligatoire", "Cette régularisation n'est plus active",
+                    "Inscription ou lien agent-enfant introuvable"):
+        assert message in repo, message
+    for forbidden in ("INSERT INTO finance_payments", "next_receipt_number", "finance_cash_sessions"):
+        assert forbidden not in repo, forbidden
+    sql = read("backend/migrations/0073_n3f_payroll_deductions.sql")
+    assert "REVOKE UPDATE, DELETE ON finance_noncash_settlements, finance_noncash_cancellations FROM edusync_tenant" in sql
+    assert "trg_noncash_settlement_capacity" in sql
+    ui = read("frontend/src/staff_finance_ui.tsx")
+    assert "Confirmer une retenue" in ui and "Aucune entrée de caisse ni reçu n’est créé" in ui

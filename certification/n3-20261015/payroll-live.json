@@ -1,0 +1,90 @@
+{
+  "school": "N3F-0D5A7",
+  "results": [
+    {
+      "check": "Frais ouverts de l'enfant de l'agent (G-PER-1)",
+      "pass": true,
+      "detail": "10"
+    },
+    {
+      "check": "Retenue refusée tant que le mode « retenue à la source » n'est pas actif (message Desktop)",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "check": "Droits : le caissier ne confirme pas de retenue",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Droits : l'administrateur technique ne confirme pas de retenue",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Montant supérieur au reste dû refusé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Retenue confirmée : 2 lignes, total 25 000 CDF",
+      "pass": true,
+      "detail": "{'total': '25000.00', 'settlement_ids': ['7e520fa5-73d9-48fe-b990-aab2d64fd4e8', 'a335efe3-323d-43d2-8e59-12ae0edfd238'], 'currency_totals': {'CDF': '25000.00'}}"
+    },
+    {
+      "check": "Aucun paiement, aucun reçu créés (séparation comptable Desktop)",
+      "pass": true,
+      "detail": "((0, 0), (0, 0))"
+    },
+    {
+      "check": "La caisse voit les frais réglés hors caisse (septembre soldé, octobre 15 000)",
+      "pass": true,
+      "detail": "15000.00"
+    },
+    {
+      "check": "Journée de caisse : aucune entrée liée à la retenue",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "check": "Vue agent : mode retenue, attendu, réglé, retenu, reste",
+      "pass": true,
+      "detail": "{'expected': '200000.00', 'settled': '25000.00', 'payroll_deducted': '25000.00', 'balance': '175000.00'}"
+    },
+    {
+      "check": "Annulation motivée : le frais redevient dû",
+      "pass": true,
+      "detail": "20000.00"
+    },
+    {
+      "check": "Annulation : une seconde fois refusée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Annulation : motif obligatoire",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Sans lignes : tous les frais ouverts sont réglés (Desktop)",
+      "pass": true,
+      "detail": "{\"total\":\"180000.00\",\"settlement_ids\":[\"705839dd-da0b-4160-b913-b9f80f980851\",\"cc87e2cc-91ea-471e-8083-4ec5af2bf7da\",\"f4"
+    },
+    {
+      "check": "Enfant en ordre après retenue totale",
+      "pass": true,
+      "detail": "{'CDF': {'expected': '200000.00', 'settled': '200000.00', 'payroll_deducted': '200000.00', 'balance': '0'}}"
+    },
+    {
+      "check": "Audit : confirmations et annulation tracées",
+      "pass": true,
+      "detail": "{'CANCEL_STAFF_NONCASH_SETTLEMENT': 1, 'CONFIRM_STAFF_PAYROLL_DEDUCTION': 2}"
+    },
+    {
+      "check": "Retenues et annulations : aucun UPDATE / DELETE possible",
+      "pass": true,
+      "detail": "{'finance_noncash_settlements': False, 'finance_noncash_cancellations': False}"
+    }
+  ]
+}
