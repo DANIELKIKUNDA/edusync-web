@@ -60,3 +60,12 @@ Questions encore ouvertes (ne bloquent pas le N2) :
    décidé, aucun rôle standard ne peut créer de plan (les sondes utilisent un rôle de recette).
 2. Changement de classe d'un élève qui a déjà des frais : le Web copie le Desktop (refus). Une règle de transfert
    financier différente reste à décider si elle est voulue.
+
+## 5. Décisions du 2026-10-15 (après clôture N2)
+
+1. `finance.anticipation_plans.manage` appartient par défaut à `ADMIN_SYSTEME_ECOLE`. Le caissier consulte les plans,
+   enregistre l'adhésion ou le refus et encaisse selon le plan, sans créer la politique. Délégation possible par un rôle
+   `SCHOOL_CUSTOM`. Aucun autre rôle standard n'est élargi. À appliquer : écart G-PLAN-1 (N3_DESKTOP_WEB_PARITY_AUDIT.md).
+2. Élève ayant déjà des frais : le changement de classe reste refusé (règle Desktop), sans transfert automatique ni
+   recalcul ou effacement silencieux. Une procédure de changement avec reprise financière sera un nouveau workflow,
+   conçu et certifié plus tard.
