@@ -97,3 +97,30 @@ def test_n3d_advance_funds_copy_desktop_and_stay_separate_from_plans():
         assert f"need(actor,'{cap}')" in router, cap
     decisions = read("backend/src/edusync/adapters/postgres_financial_decisions.py")
     assert "ensure_decision_credit" in decisions and "close_decision_credits" in decisions
+
+
+def test_n3e_sequence_scope_and_consecutive_periods():
+    from decimal import Decimal
+    from uuid import uuid4
+    import pytest
+    from edusync.modules.finance_checkout.domain.models import DueCharge, NON_SEQUENTIAL, validate_selection
+    sep, oct_, nov = (DueCharge(uuid4(), "Frais scolaires", "CDF", Decimal("20000"), periodicity="MONTHLY", period_label=m, period_order=i,
+                                sequence_group="MONTHLY:SCOLARITE", sequence_order=i) for i, m in enumerate(("Septembre", "Octobre", "Novembre"), 1))
+    with pytest.raises(ValueError, match="ne peut pas être encaissée avant"):
+        validate_selection([sep, oct_, nov], [oct_.id])
+    assert validate_selection([sep, oct_, nov], [sep.id, oct_.id]) == Decimal("40000")     # consecutive periods, one receipt
+    bus = DueCharge(uuid4(), "Transport", "CDF", Decimal("5000"), periodicity="MONTHLY", period_label="Novembre", period_order=3, sequence_group=NON_SEQUENTIAL)
+    assert bus.chain is None and validate_selection([sep, bus], [bus.id]) == Decimal("5000")
+    sql = read("backend/migrations/0072_n3e_checkout_sequence.sql")
+    assert "'MONTHLY:SCOLARITE'" in sql and "'NONE'" in sql
+    assert '"MONTHLY:SCOLARITE" if scolarite else "NONE"' in read("backend/src/edusync/adapters/postgres_fee_schedules.py")
+
+
+def test_n3e_guidance_copies_desktop():
+    repo = read("backend/src/edusync/adapters/postgres_finance_checkout.py")
+    assert "Aucune échéance actuellement exigible. Le prochain frais est futur." in repo
+    assert "Le montant dépasse les frais sélectionnés ou actuellement exigibles" in repo
+    router = read("backend/src/edusync/modules/finance_checkout/api/router.py")
+    assert "codes:str=Query('JOURNAL_CLASSE,ECUSSON'" in router
+    ui = read("frontend/src/finance.tsx")
+    assert "Action conseillée" in ui and "Journal + écusson" in ui and "c.requires" in ui

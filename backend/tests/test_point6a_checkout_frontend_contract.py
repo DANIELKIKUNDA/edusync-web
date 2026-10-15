@@ -1,7 +1,7 @@
 from pathlib import Path
 UI=Path('../frontend/src/finance.tsx').read_text(encoding='utf-8')
 def test_fast_search_and_family_flow_present():
- for s in ['Recherche globale','180','Ajouter un enfant','Échéance suivante','Effacer','Encaisser maintenant']:assert s in UI
+ for s in ['Recherche globale','180','Ajouter un enfant','Action conseillée','Effacer','Encaisser maintenant']:assert s in UI
 def test_receipt_print_is_not_automatic():
  # Closure 2026-10: a receipt preview exists; print() is only reachable from the cashier's explicit click.
  assert UI.count('.print(') == 1 and "onClick={()=>{try{frame.current?.contentWindow?.focus();frame.current?.contentWindow?.print()}" in UI and 'L’impression reste un choix séparé' in UI
@@ -9,7 +9,7 @@ def test_permission_gates_collect():assert "finance.checkout.collect" in UI
 
 def test_anticipation_is_integrated_in_same_checkout():
  # Parity lot L6 (owner decision 2026-10-14): the plan payment lives in the same checkout, Desktop model.
- for s in ['Montant remis par le parent','Paiement selon un plan anticipé','checkoutPlans','checkoutCollectPlan','Échéance suivante']:assert s in UI
+ for s in ['Montant remis par le parent','Paiement selon un plan anticipé','checkoutPlans','checkoutCollectPlan','Action conseillée']:assert s in UI
 
 
 def test_plan_membership_and_mandatory_first_payment():

@@ -39,8 +39,11 @@ class PostgresFinanceCheckoutRepository:
  def charges(self,school_id:UUID,enrollment_id:UUID):
   rows=self.conn.execute(text('''SELECT id,label,currency,net_amount,paid_amount,periodicity,period_label,period_order,sequence_group,sequence_order FROM finance_charges WHERE school_id=:sid AND enrollment_id=:eid AND status='ACTIVE' ORDER BY currency,coalesce(period_order,0),due_date NULLS LAST,label'''),{'sid':str(school_id),'eid':str(enrollment_id)}).mappings().all()
   charges=self._cash_payable(school_id,rows); elig=sequential_eligibility(charges)
+  from edusync.modules.finance_checkout.domain.models import predecessors
+  preds=predecessors(charges)
   # Settled charges (paid, exempted or regularized outside cash) still order the sequential chain but are not offered.
-  return [{**dict(r),'remaining':str(c.remaining),'eligible':elig[c.id][0],'lock_reason':elig[c.id][1]} for r,c in zip(rows,charges) if c.remaining>0]
+  # 'requires': unsettled earlier periods that must be selected with this one (Desktop: consecutive periods, one receipt).
+  return [{**dict(r),'remaining':str(c.remaining),'eligible':elig[c.id][0],'lock_reason':elig[c.id][1],'requires':[str(x) for x in preds[c.id]]} for r,c in zip(rows,charges) if c.remaining>0]
  def anticipation(self,school_id:UUID,enrollment_id:UUID,currency:str):
   # A plan is offered by the school; a parent does not need prior enrollment.
   # Membership is only the remembered decision for this child.
@@ -285,3 +288,54 @@ class PostgresFinanceCheckoutRepository:
    self.conn.execute(text("UPDATE inventory_stock SET quantity=quantity-:q,updated_at=now(),version=version+1 WHERE school_id=:sid AND product_id=:pid"),{'q':quantity,'sid':str(school_id),'pid':str(product_id)})
    self.conn.execute(text("INSERT INTO inventory_stock_movements(id,school_id,product_id,movement_type,quantity_delta,reason,reference,actor_user_id) VALUES(:id,:sid,:pid,'SALE',:delta,'Vente au guichet',:ref,:uid)"),{'id':str(uuid4()),'sid':str(school_id),'pid':str(product_id),'delta':-quantity,'ref':receipt,'uid':str(user_id)})
   return {'id':str(sale_id),'payment_id':str(pay_id),'receipt_number':receipt,'amount':str(total),'currency':p['currency'],'quantity':str(quantity),'product_label':p['label'],'replayed':False}
+
+
+class CheckoutGuidance:
+  """N3-E — Desktop finance_checkout.recommended_checkout / suggest_checkout_allocations and terrain.fee_bundle_due:
+  the cashier's next action and an automatic split, from configured balances only (never invented amounts)."""
+  def __init__(self,conn):self.conn=conn;self.repo=PostgresFinanceCheckoutRepository(conn)
+  def _rows(self,school_id,enrollment_id):
+   rows=self.conn.execute(text('''SELECT fc.*,upper(coalesce(ft.code,'')) fee_code FROM finance_charges fc LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
+     WHERE fc.school_id=:sid AND fc.enrollment_id=:eid AND fc.status='ACTIVE' ORDER BY fc.due_date NULLS LAST,coalesce(fc.period_order,0),fc.label'''),{'sid':str(school_id),'eid':str(enrollment_id)}).mappings().all()
+   charges=self.repo._cash_payable(school_id,rows)
+   from datetime import date
+   today=date.today()
+   return [{'id':str(c.id),'label':c.period_label or c.label,'currency':c.currency,'balance':c.remaining,'fee_code':r['fee_code'],
+            'is_future':bool(r.get('due_date') and r['due_date']>today),'due_date':r.get('due_date')} for r,c in zip(rows,charges) if c.remaining>0]
+  def recommended(self,school_id,enrollment_id)->dict:
+   rows=self._rows(school_id,enrollment_id)
+   if not rows:return {'ready':False,'reason':'Aucun frais impayé','allocations':[],'total':'0'}
+   from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
+   bundle=PostgresFeeScheduleRepository(self.conn).registration_bundle_due(school_id,enrollment_id)
+   if bundle.get('ready'):
+    ids=[{'charge_id':i['charge_id'],'amount':str(i['balance'])} for i in bundle['items'] if Decimal(str(i['balance']))>0]
+    if ids:
+     cur=next((r['currency'] for r in rows if r['id']==ids[0]['charge_id']),'CDF')
+     ids=[x for x in ids if next((r['currency'] for r in rows if r['id']==x['charge_id']),cur)==cur]
+     return {'ready':True,'kind':'INSCRIPTION','label':"Conditions d'inscription",'currency':cur,'allocations':ids,'total':str(sum(Decimal(x['amount']) for x in ids))}
+   due=[r for r in rows if not r['is_future']]
+   if due:
+    f=due[0];return {'ready':True,'kind':'ECHEANCE','label':f['label'],'currency':f['currency'],'allocations':[{'charge_id':f['id'],'amount':str(f['balance'])}],'total':str(f['balance'])}
+   f=rows[0]
+   return {'ready':False,'reason':'Aucune échéance actuellement exigible. Le prochain frais est futur.','next':{'charge_id':f['id'],'label':f['label'],'balance':str(f['balance']),'currency':f['currency']},'allocations':[],'total':'0'}
+  def suggest(self,school_id,enrollment_id,amount,currency,selected=None,include_future=False)->list[dict]:
+   left=Decimal(str(amount)).quantize(Decimal('0.01'))
+   if left<=0:return []
+   rows=[r for r in self._rows(school_id,enrollment_id) if r['currency']==currency]
+   if selected:rows=[r for r in rows if r['id'] in set(selected)]
+   elif not include_future:rows=[r for r in rows if not r['is_future']]
+   out=[]
+   for r in rows:
+    if left<=0:break
+    n=min(left,r['balance'])
+    if n>0:out.append({'charge_id':r['id'],'label':r['label'],'amount':str(n)});left-=n
+   if left>0:raise ValueError('Le montant dépasse les frais sélectionnés ou actuellement exigibles')
+   return out
+  def fee_bundle(self,school_id,enrollment_id,codes)->dict:
+   codes=[c.strip().upper() for c in codes if c.strip()]
+   rows=[r for r in self._rows(school_id,enrollment_id) if r['fee_code'] in codes]
+   present=set(self.conn.execute(text('''SELECT DISTINCT upper(ft.code) FROM finance_charges fc JOIN fee_types ft ON ft.id=fc.fee_type_id
+     WHERE fc.school_id=:sid AND fc.enrollment_id=:eid AND upper(ft.code)=ANY(:c)'''),{'sid':str(school_id),'eid':str(enrollment_id),'c':codes}).scalars().all())
+   totals={}
+   for r in rows:totals[r['currency']]=str(Decimal(totals.get(r['currency'],'0'))+r['balance'])
+   return {'items':[{**r,'balance':str(r['balance'])} for r in rows],'totals':totals,'ready':bool(codes) and set(codes)<=present,'fee_codes':codes}

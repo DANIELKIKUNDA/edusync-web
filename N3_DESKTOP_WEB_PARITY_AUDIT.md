@@ -231,9 +231,9 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-DEC-2 | Recalcul des décisions d'une inscription | Décisions | **CORRIGÉ** (N3-C : recalcul à la création, à l'annulation, après génération des frais, et sur demande) |
 | G-DEC-3 | Explication d'un frais (brut → net → payé) | Décisions | **CORRIGÉ** (N3-C : explication brut → avantage → décisions → net → réglé → reste) |
 | G-DEC-4 | Vue opérateur et suivi financier | Décisions | **CORRIGÉ** (N3-C : situation financière de l'élève et suivi ; + responsabilité prévue par frais, écart trouvé à la comparaison fine) |
-| G-FIN-1 | Chaîne séquentielle limitée à SCOLARITE (à comparer) | Encaissement | moyen |
-| G-FIN-2 | Lots de frais et lot journal + badge | Encaissement | moyen |
-| G-FIN-3 | Suggestion d'imputation / action recommandée | Encaissement | faible |
+| G-FIN-1 | Chaîne séquentielle limitée à SCOLARITE (à comparer) | Encaissement | **CORRIGÉ** (N3-E : seule la scolarité mensuelle et les tranches sont séquentielles ; plusieurs périodes consécutives sur un même reçu ; sonde caisse N3-E 15/15) |
+| G-FIN-2 | Lots de frais et lot journal + badge | Encaissement | **CORRIGÉ** (N3-E : lots nommés, journal de classe + écusson par défaut, payés sans déborder) |
+| G-FIN-3 | Suggestion d'imputation / action recommandée | Encaissement | **CORRIGÉ** (N3-E : action conseillée — lot d'admission puis plus ancienne échéance exigible — et répartition automatique d'un montant) |
 | G-PLAN-1 | Attribuer `finance.anticipation_plans.manage` à `ADMIN_SYSTEME_ECOLE` (décision prise) | Plans | **CORRIGÉ** (N3-A, migration 0067, sonde 32/32) |
 | G-PER-1 | Frais ouverts d'un enfant du personnel | Personnel | faible |
 | G-PER-2 | Retenue sur salaire = règlement hors caisse (+ annulation) | Personnel / Finance | **élevé** |

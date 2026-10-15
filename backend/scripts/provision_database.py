@@ -195,6 +195,7 @@ def main() -> None:
             ("0069_n3b_cash_integrity", "0069_n3b_cash_integrity.sql"),
             ("0070_n3c_financial_decisions", "0070_n3c_financial_decisions.sql"),
             ("0071_n3d_advance_funds", "0071_n3d_advance_funds.sql"),
+            ("0072_n3e_checkout_sequence", "0072_n3e_checkout_sequence.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):

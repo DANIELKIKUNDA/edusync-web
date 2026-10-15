@@ -289,3 +289,25 @@ def advance_fund_receipt(fund_id:UUID,actor:ActorContext=Depends(require_school_
   from sqlalchemy import text as _t
   with services.platform_db.platform_transaction() as pc:f['cashier']=pc.execute(_t("SELECT full_name FROM users WHERE id=:id"),{'id':str(f['received_by'])}).scalar_one_or_none()
  return Response(advance_receipt_pdf(school=school,fund=f),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="fonds_anticipe_{f.get("receipt_number")}.pdf"'})
+
+# ---------------------------------------------------------------- N3-E — guidance (Desktop recommended_checkout, suggest_checkout_allocations, fee bundles)
+from edusync.adapters.postgres_finance_checkout import CheckoutGuidance
+@router.get('/recommended/{enrollment_id}')
+def recommended_checkout(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Admission bundle first, then the oldest charge due today; nothing future is anticipated silently."""
+ need(actor,'finance.checkout.balance.read')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  return _jsonable_any(CheckoutGuidance(conn).recommended(actor.school_id,enrollment_id))
+@router.get('/suggest/{enrollment_id}')
+def suggest_allocations(enrollment_id:UUID,amount:Decimal=Query(...,gt=0),currency:str=Query(...,pattern='^(CDF|USD)$'),include_future:bool=False,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'finance.checkout.balance.read')
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+   return {'allocations':CheckoutGuidance(conn).suggest(actor.school_id,enrollment_id,amount,currency,include_future=include_future)}
+ except ValueError as e:raise HTTPException(409,str(e)) from e
+@router.get('/fee-bundle/{enrollment_id}')
+def fee_bundle(enrollment_id:UUID,codes:str=Query('JOURNAL_CLASSE,ECUSSON',max_length=300),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Desktop fee_bundle_due (default: journal de classe + écusson); paid through the normal collect with these charges."""
+ need(actor,'finance.checkout.balance.read')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  return _jsonable_any(CheckoutGuidance(conn).fee_bundle(actor.school_id,enrollment_id,codes.split(',')))

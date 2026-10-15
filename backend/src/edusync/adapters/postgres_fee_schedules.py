@@ -156,7 +156,10 @@ class PostgresFeeScheduleRepository:
             gross, pct, discount, net = apply_discount(s["amount"], self.benefit_percent(school_id, enrollment, s["fee_code"]))
             label = f"{s['fee_label']} — {s['period_label']}" if s["period_label"] else s["fee_label"]
             periodicity = {"MONTHLY": "MONTHLY", "PERIODIC": "PERIODIC"}.get(s["periodicity"], "ONE_OFF")
-            group = {"MONTHLY": f"MONTHLY:{s['fee_code']}", "PERIODIC": f"TERM:{s['fee_code']}"}.get(s["periodicity"])
+            # N3-E / G-FIN-1 — Desktop: only the monthly tuition (SCOLARITE family) and the tranches are sequential.
+            code = (s["fee_code"] or "").upper()
+            scolarite = code == "SCOLARITE" or code.startswith("SCOLARITE_")
+            group = {"MONTHLY": "MONTHLY:SCOLARITE" if scolarite else "NONE", "PERIODIC": f"TERM:{s['fee_code']}"}.get(s["periodicity"])
             existing = self.connection.execute(text("""SELECT id,paid_amount FROM finance_charges WHERE school_id=:sid AND enrollment_id=:e
                 AND schedule_id=:s FOR UPDATE"""), {"sid": school_id, "e": enrollment_id, "s": s["id"]}).first()
             values = {"label": label[:180], "cur": s["currency"], "net": net, "gross": gross, "pct": pct, "disc": discount, "due": s["due_date"],
