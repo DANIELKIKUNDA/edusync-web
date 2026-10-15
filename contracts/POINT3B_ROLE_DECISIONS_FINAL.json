@@ -120,11 +120,25 @@
         "sync.device.register",
         "sync.device.revoke",
         "sync.finance.quarantine.read",
-        "sync.status.read"
+        "sync.status.read",
+        "finance.anticipation_plans.manage",
+        "finance.anticipation_plans.read"
       ],
-      "capability_count": 86,
+      "capability_count": 88,
       "decision_note": "Administration technique; aucun métier opérationnel implicite.",
-      "decision_date": "2026-09-12"
+      "decision_date": "2026-09-12",
+      "amendments": [
+        {
+          "date": "2026-10-15",
+          "gap": "G-PLAN-1",
+          "added": [
+            "finance.anticipation_plans.manage",
+            "finance.anticipation_plans.read"
+          ],
+          "removed": [],
+          "note": "Décision du propriétaire du 2026-10-15 (N3-A)."
+        }
+      ]
     },
     {
       "code": "PROMOTEUR",
@@ -360,11 +374,43 @@
         "students.account.print",
         "students.account.read",
         "students.lifecycle.history.read",
-        "students.read"
+        "students.read",
+        "finance.payments.reverse.supervisor",
+        "finance.advance_funds.refund",
+        "finance.cash.reopen",
+        "finance.cash.day.close",
+        "finance.decisions.create",
+        "finance.decisions.cancel",
+        "finance.responsibility.set",
+        "personnel.staff_children.finance_mode",
+        "personnel.payroll_deduction.confirm",
+        "personnel.payroll_deduction.cancel"
       ],
-      "capability_count": 108,
+      "capability_count": 118,
       "decision_note": "Gouvernance locale et contrôle; les normes sont décidées administrativement mais paramétrées par un utilisateur technique autorisé.",
-      "decision_date": "2026-09-12"
+      "decision_date": "2026-09-12",
+      "amendments": [
+        {
+          "date": "2026-10-15",
+          "gap": "G-ROLE-1",
+          "added": [
+            "finance.payments.reverse.supervisor",
+            "finance.advance_funds.refund",
+            "finance.cash.reopen",
+            "finance.cash.day.close",
+            "finance.decisions.create",
+            "finance.decisions.cancel",
+            "finance.decisions.read",
+            "finance.responsibility.set",
+            "finance.responsibility.read",
+            "personnel.staff_children.finance_mode",
+            "personnel.payroll_deduction.confirm",
+            "personnel.payroll_deduction.cancel"
+          ],
+          "removed": [],
+          "note": "Décision du propriétaire du 2026-10-15 (N3-A)."
+        }
+      ]
     },
     {
       "code": "RESPONSABLE_FINANCE",
@@ -795,7 +841,6 @@
         "finance.advance_funds.read",
         "finance.advance_funds.receipt.print",
         "finance.advance_funds.receive",
-        "finance.advance_funds.refund",
         "finance.anticipation.collect",
         "finance.anticipation_membership.set",
         "finance.anticipation_plans.read",
@@ -854,11 +899,25 @@
         "sync.finance.arm",
         "sync.finance.quarantine.read",
         "sync.finance.reconcile",
-        "sync.status.read"
+        "sync.status.read",
+        "finance.cash.expense.create"
       ],
       "capability_count": 91,
       "decision_note": "Opérateur inscription/encaissement; caisse propre détaillée, total agrégé via dashboard, corrections de ses paiements selon workflow audité.",
-      "decision_date": "2026-09-12"
+      "decision_date": "2026-09-12",
+      "amendments": [
+        {
+          "date": "2026-10-15",
+          "gap": "G-ROLE-1",
+          "added": [
+            "finance.cash.expense.create"
+          ],
+          "removed": [
+            "finance.advance_funds.refund"
+          ],
+          "note": "Décision du propriétaire du 2026-10-15 (N3-A)."
+        }
+      ]
     },
     {
       "code": "SECRETARIAT",

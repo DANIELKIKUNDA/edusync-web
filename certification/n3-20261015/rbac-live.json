@@ -1,0 +1,75 @@
+{
+  "school": "RBAC-2EBD5",
+  "results": [
+    {
+      "check": "GESTIONNAIRE : autorité financière supérieure (10 droits)",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "ADMIN_SYSTEME_ECOLE : aucune mutation financière opérationnelle",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "ADMIN_SYSTEME_ECOLE : définit les plans anticipés",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "CAISSIER : dépense de caisse",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "CAISSIER : correction de son propre paiement conservée",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "CAISSIER : ni remboursement de fonds anticipé, ni correction supérieure, ni clôture globale",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "CAISSIER : ne crée pas de plan anticipé",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "PROMOTEUR : baseline inchangée (aucun droit N3-A)",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "RESPONSABLE_FINANCE : baseline inchangée (aucun droit N3-A)",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "PREFET_ETUDES : baseline inchangée (aucun droit N3-A)",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "DIRECTION_SECTION : baseline inchangée (aucun droit N3-A)",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "Refus réel : le caissier ne crée pas de décision financière (403)",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "check": "Refus réel : l'administrateur technique ne crée pas de décision financière (403)",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "check": "Le gestionnaire passe le contrôle de droit (inscription inconnue : refus métier, pas 403)",
+      "pass": true,
+      "detail": "500"
+    }
+  ]
+}

@@ -32,8 +32,8 @@ def registry() -> CapabilityRegistry:
 
 def test_registry_has_current_unique_capabilities():
     r = registry()
-    assert len(r.capabilities) == 275
-    assert len(r.by_code()) == 275
+    assert len(r.capabilities) == 277  # N3-A (2026-10-15): reverse.supervisor, cash.day.close
+    assert len(r.by_code()) == 277
     assert "platform.notifications.system.send" in r.by_code()
 
 
@@ -172,7 +172,7 @@ def test_admin_system_school_v1_is_technical_not_business_operator():
     admin = next(x for x in payload["roles"] if x["code"] == "ADMIN_SYSTEME_ECOLE")
     caps = set(admin["final_capabilities"])
     assert admin["owner_decision"] == "APPROVED"
-    assert len(caps) == 86
+    assert len(caps) == 88  # + finance.anticipation_plans.manage/read (G-PLAN-1, 2026-10-15)
     assert "access.roles.manage" in caps
     assert "settings.backups.restore" in caps
     assert "sync.conflicts.resolve" in caps

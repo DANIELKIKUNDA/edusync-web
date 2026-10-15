@@ -142,12 +142,12 @@
   {
     "check": "Fiche compte : rôles, permissions effectives, sessions, audit",
     "pass": true,
-    "detail": "['AUDITEUR_817CC2', 'SUPPORT_817CC2']"
+    "detail": "['AUDITEUR_D78980', 'SUPPORT_D78980']"
   },
   {
     "check": "Archivage : nombre de comptes concernés annoncé",
     "pass": true,
-    "detail": "{'id': 'e3a3ed0d-ee58-4d39-b893-11e3b0c1dc2d', 'status': 'ARCHIVED', 'users_losing_role': 1}"
+    "detail": "{'id': 'e709df9b-a9cf-4b82-b8ff-13bb3ff4c547', 'status': 'ARCHIVED', 'users_losing_role': 1}"
   },
   {
     "check": "Rôle archivé : capacité retirée immédiatement",
@@ -187,7 +187,7 @@
   {
     "check": "Suspension : sessions révoquées",
     "pass": true,
-    "detail": "{'user_id': '03905931-3910-4d97-bef6-85009747987f', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
+    "detail": "{'user_id': '878de9a1-85b0-447e-8a37-936f83607fc4', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
   },
   {
     "check": "Suspension : jeton en cours coupé immédiatement",

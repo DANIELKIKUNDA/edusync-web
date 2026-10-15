@@ -21,7 +21,7 @@ Rôles Desktop : ADMIN, DIRECTION, SECRETARIAT, CAISSIER. Rôles standards Web :
 Migration `0067_admin_school_anticipation_plans.sql` : seul `ADMIN_SYSTEME_ECOLE` est étendu (gestion + lecture
 nécessaire pour voir les plans). Aucun autre rôle standard n'est modifié.
 
-## 2. G-ROLE-1 — opérations N3 et droits Web
+## 2. G-ROLE-1 — opérations N3 et droits Web (état relevé avant la migration 0068 ; état final au §3)
 
 Chaque opération du Desktop a un droit au registre Web (aucun droit manquant). La colonne « Écart » compare **qui**
 peut agir.
@@ -48,19 +48,36 @@ peut agir.
 | rapport journalier, journal de caisse PDF | (lecture) | `finance.reports.daily.generate`, `finance.cash.journal.export_pdf` | CAISSIER, GESTIONNAIRE, PROMOTEUR, RESPONSABLE_FINANCE | conforme |
 | relevé de compte élève | (lecture) | `students.account.read`, `.export_pdf` | CAISSIER et rôles de consultation | conforme |
 
-## 3. Ce qui demande la validation du propriétaire
+## 3. Décision du propriétaire du 2026-10-15 (G-ROLE-1) — appliquée
 
-La règle Desktop est connue pour chaque ligne. Ce qui n'est pas fixé par le Desktop, c'est **à quels rôles Web
-correspondent ADMIN et DIRECTION**. Pour les plans, le propriétaire a choisi ADMIN → `ADMIN_SYSTEME_ECOLE` et interdit
-d'élargir les autres rôles standards. Appliquer la même règle aux lignes ci-dessus donne la proposition suivante
-(à valider avant modification de la matrice de rôles 0008) :
+**Il n'existe pas de correspondance 1:1 entre les anciens rôles Desktop et les rôles Web.** Le Desktop utilisait des
+rôles composites (ADMIN faisait à la fois la configuration technique, la gouvernance financière et la caisse). Le Web
+sépare volontairement :
 
-1. **Divergences** (`finance.payments.reverse`, `finance.advance_funds.refund`) : retirer ces droits du CAISSIER
-   (resserrement conforme au Desktop) et les donner à `ADMIN_SYSTEME_ECOLE`.
-2. **Droits sans titulaire** (dépense, réouverture, décisions, responsabilité, mode et retenue des enfants du personnel) :
-   les donner à `ADMIN_SYSTEME_ECOLE` ; la dépense de caisse (ADMIN, CAISSIER, DIRECTION au Desktop) aussi au CAISSIER.
-3. **Clôture de la journée de l'école** (G-CAI-4) : nouveau droit distinct de la clôture de session, attribué à
-   `ADMIN_SYSTEME_ECOLE` (réouverture : `ADMIN_SYSTEME_ECOLE` seul, comme ADMIN au Desktop).
+| Famille de responsabilités | Rôle Web standard |
+|----------------------------|-------------------|
+| administration et configuration technique (dont la définition des plans anticipés, qui est un paramétrage) | `ADMIN_SYSTEME_ECOLE` |
+| gouvernance et décision financière supérieure | `GESTIONNAIRE` |
+| encaissement et caisse opérationnelle | `CAISSIER` |
+| consultation et contrôle | rôles de lecture déjà approuvés (PROMOTEUR, RESPONSABLE_FINANCE, PREFET_ETUDES, DIRECTION_SECTION…) |
 
-Le rôle Desktop DIRECTION n'a pas d'équivalent unique au Web (PROMOTEUR, GESTIONNAIRE, DIRECTION_SECTION…) : il n'est
-attribué à aucun d'eux sans décision explicite ; une école peut déléguer par rôle `SCHOOL_CUSTOM`.
+Attribution (migration `0068_n3a_role_governance.sql`, contrats `contracts/CAPABILITY_REGISTRY.json` et
+`contracts/POINT3B_ROLE_DECISIONS_FINAL.json` amendés) :
+
+| Opération | Droit Web | Rôle standard | Invariant métier (appliqué par le lot qui porte l'opération) |
+|-----------|-----------|---------------|---------------------------------------------------------------|
+| Correction de **son propre** paiement | `finance.payments.reverse` | CAISSIER (conservé) | le paiement est le sien, sa session est encore ouverte, contre-opération auditable (jamais UPDATE / DELETE) — N3-B |
+| Annulation / remboursement de **tout** paiement (autre caissier, session clôturée) | `finance.payments.reverse.supervisor` (nouveau) | GESTIONNAIRE | motif obligatoire, contre-opération, audit — N3-B |
+| Remboursement d'un fonds anticipé | `finance.advance_funds.refund` | GESTIONNAIRE (**retiré au CAISSIER**) | fonds non imputé, motif — N3-D |
+| Dépense de caisse | `finance.cash.expense.create` | CAISSIER | session ouverte, motif ≥ 3 caractères — N3-B |
+| Clôture individuelle de session | `finance.cash.close` | CAISSIER (inchangé) | — |
+| **Clôture globale de la journée de l'école** | `finance.cash.day.close` (nouveau) | GESTIONNAIRE | instantanés par devise, sessions individuelles conservées — N3-B |
+| Réouverture de la journée | `finance.cash.reopen` | GESTIONNAIRE | motif obligatoire (≥ 5 caractères au Desktop), audit — N3-B |
+| Décisions financières (création, annulation, lecture) | `finance.decisions.*` | GESTIONNAIRE | N3-C |
+| Responsabilité d'un frais | `finance.responsibility.set` / `.read` | GESTIONNAIRE | N3-C |
+| Mode de prise en charge des enfants du personnel | `personnel.staff_children.finance_mode` | GESTIONNAIRE | N3-F |
+| Retenue salariale hors caisse (confirmation, annulation) | `personnel.payroll_deduction.confirm` / `.cancel` | GESTIONNAIRE | aucun reçu ni opération de caisse ; annulation motivée — N3-F |
+| Définition des plans anticipés | `finance.anticipation_plans.manage` | ADMIN_SYSTEME_ECOLE (G-PLAN-1) | — |
+
+`ADMIN_SYSTEME_ECOLE` ne reçoit aucune mutation financière opérationnelle. PROMOTEUR, RESPONSABLE_FINANCE,
+PREFET_ETUDES et DIRECTION_SECTION restent sur leurs baselines. Une école peut déléguer explicitement par `SCHOOL_CUSTOM`.

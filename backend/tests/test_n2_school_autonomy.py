@@ -278,3 +278,20 @@ def test_n3a_admin_school_holds_plan_management_only():
     assert granted == {"ADMIN_SYSTEME_ECOLE"}
     prov = (ROOT / "backend/scripts/provision_database.py").read_text(encoding="utf-8")
     assert "0067_admin_school_anticipation_plans.sql" in prov
+
+
+def test_n3a_role_governance_follows_owner_decision():
+    # G-ROLE-1 (owner decision 2026-10-15): no 1:1 Desktop → Web role mapping; GESTIONNAIRE = superior financial authority.
+    import json
+    fin = json.loads((ROOT / "contracts/POINT3B_ROLE_DECISIONS_FINAL.json").read_text(encoding="utf-8"))
+    caps = {r["code"]: set(r["final_capabilities"]) for r in fin["roles"]}
+    for cap in ("finance.payments.reverse.supervisor", "finance.advance_funds.refund", "finance.cash.reopen", "finance.cash.day.close",
+                "finance.decisions.create", "finance.decisions.cancel", "finance.responsibility.set", "personnel.staff_children.finance_mode",
+                "personnel.payroll_deduction.confirm", "personnel.payroll_deduction.cancel"):
+        assert cap in caps["GESTIONNAIRE"], cap
+        assert cap not in caps["ADMIN_SYSTEME_ECOLE"], cap
+    assert "finance.cash.expense.create" in caps["CAISSIER"] and "finance.payments.reverse" in caps["CAISSIER"]
+    assert "finance.advance_funds.refund" not in caps["CAISSIER"] and "finance.payments.reverse.supervisor" not in caps["CAISSIER"]
+    sql = (ROOT / "backend/migrations/0068_n3a_role_governance.sql").read_text(encoding="utf-8")
+    for untouched in ("PROMOTEUR", "RESPONSABLE_FINANCE", "PREFET_ETUDES", "DIRECTION_SECTION", "ADMIN_SYSTEME_ECOLE"):
+        assert f"('{untouched}'," not in sql, untouched

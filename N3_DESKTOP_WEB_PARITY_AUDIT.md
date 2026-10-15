@@ -257,7 +257,7 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-DOC-4 | Rapport financier périodique PDF / Excel (à vérifier) | Documents | moyen |
 | G-IMP-1 | Finalisation de l'historique financier sans toucher la caisse (à vérifier) | Import | moyen |
 | G-IMP-2 | Réparation des dates d'inscription, suggestions historiques | Import | faible |
-| G-ROLE-1 | Correspondance opération Desktop → droit → rôle Web | Rôles | **établie** (N3_RBAC_DESKTOP_WEB_MAP.md) ; attribution aux rôles Web en attente de validation |
+| G-ROLE-1 | Correspondance opération Desktop → droit → rôle Web | Rôles | **CORRIGÉ** (N3-A : pas de 1:1 ; GESTIONNAIRE = autorité financière supérieure ; migration 0068 ; sonde rbac 14/14) |
 
 37 écarts, dont 9 marqués *à vérifier* ou *à comparer* : ces derniers seront soit confirmés, soit reclassés `PARITY_OK`
 au début de leur lot, sonde à l'appui.
