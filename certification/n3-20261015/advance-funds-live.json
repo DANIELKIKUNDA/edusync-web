@@ -1,5 +1,5 @@
 {
-  "school": "N3D-4CB3C",
+  "school": "N3D-BCC01",
   "results": [
     {
       "check": "Fonds désactivés par l'école : réception refusée",
@@ -59,7 +59,7 @@
     {
       "check": "Imputation partielle : 5 000 sur la plus ancienne échéance",
       "pass": true,
-      "detail": "{\"fund_id\":\"166f59f3-2d04-4362-a106-b6471ca58767\",\"applied\":\"5000.00\",\"available_amount\":\"25000.00\",\"status\":\"ACTIF\",\"al"
+      "detail": "{\"fund_id\":\"e8227439-5f15-4354-8ad7-ee4c31339486\",\"applied\":\"5000.00\",\"available_amount\":\"25000.00\",\"status\":\"ACTIF\",\"al"
     },
     {
       "check": "Imputation au-delà du disponible refusée",
@@ -94,7 +94,7 @@
     {
       "check": "Remboursement par le gestionnaire : fonds remboursé",
       "pass": true,
-      "detail": "{\"id\":\"ed6fe291-6b29-4413-b724-0bdfa8ae3f78\",\"school_id\":\"24184c9c-99dc-464c-8b3a-28ba1bfb6691\",\"student_id\":\"3f8a6b43-d"
+      "detail": "{\"id\":\"31bd4711-6045-4742-99c5-42e4f1b1df89\",\"school_id\":\"d1865ec4-c73a-43cc-9eae-1a5f6b7aba8d\",\"student_id\":\"7e3c063c-e"
     },
     {
       "check": "Fonds remboursé : plus d'imputation",
@@ -109,7 +109,7 @@
     {
       "check": "Décision après paiement : crédit de 20 000 (sans reçu ni entrée de caisse)",
       "pass": true,
-      "detail": "[{'id': '439b0c9f-5020-4a1d-88db-869433e0fead', 'school_id': '24184c9c-99dc-464c-8b3a-28ba1bfb6691', 'student_id': '764c9925-4190-433e-976e-99c09c3ce0a4', 'enrollment_id': '25a72a48-f2d6-4ca9-83e8-57ee148ac713', 'amount': '20000.00', 'currency': 'CDF', 'mode': 'AUTRE', 'reference': \"Crédit issu d'un"
+      "detail": "[{'id': 'f72331fc-04e2-44b7-8a5b-373fec92629a', 'school_id': 'd1865ec4-c73a-43cc-9eae-1a5f6b7aba8d', 'student_id': '544b5b4c-03e2-4941-a467-8270264437c7', 'enrollment_id': 'e7b44215-f836-41f3-a298-27522d69bcad', 'amount': '20000.00', 'currency': 'CDF', 'mode': 'AUTRE', 'reference': \"Crédit issu d'un"
     },
     {
       "check": "Crédit : pas de reçu de caisse",
@@ -119,7 +119,7 @@
     {
       "check": "Annulation de la décision : crédit non utilisé clôturé",
       "pass": true,
-      "detail": "{'439b0c9f-5020-4a1d-88db-869433e0fead': 'ANNULE'}"
+      "detail": "{'f72331fc-04e2-44b7-8a5b-373fec92629a': 'ANNULE'}"
     },
     {
       "check": "Crédit déjà utilisé : annulation de la décision refusée (Desktop)",

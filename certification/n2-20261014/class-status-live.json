@@ -12,7 +12,7 @@
  {
   "check": "Après la pause : élève toujours compté dans les effectifs (total et classe)",
   "pass": true,
-  "detail": "(20, 1)"
+  "detail": "(24, 1)"
  },
  {
   "check": "Après la pause : la classe reste listée dans les effectifs",

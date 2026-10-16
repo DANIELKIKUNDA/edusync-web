@@ -52,7 +52,7 @@
  {
   "check": "Paiement : mode et référence conservés",
   "pass": true,
-  "detail": "('BANQUE', 'VIR-41A60')"
+  "detail": "('BANQUE', 'VIR-9AB11')"
  },
  {
   "check": "Mode inconnu refusé",

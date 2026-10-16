@@ -1,5 +1,5 @@
 {
-  "school": "N3F-FD653",
+  "school": "N3F-4DDC8",
   "results": [
     {
       "check": "Frais ouverts de l'enfant de l'agent (G-PER-1)",
@@ -29,7 +29,7 @@
     {
       "check": "Retenue confirmée : 2 lignes, total 25 000 CDF",
       "pass": true,
-      "detail": "{'total': '25000.00', 'settlement_ids': ['2711afd6-220c-4916-a527-9403dad59dd7', 'c3afc2a9-749f-444c-8af2-e9b7b9efaf58'], 'currency_totals': {'CDF': '25000.00'}}"
+      "detail": "{'total': '25000.00', 'settlement_ids': ['44c7614d-24df-4e25-b98a-505e75d27d97', '7db76f08-1a4b-42e3-8906-e9beb766de25'], 'currency_totals': {'CDF': '25000.00'}}"
     },
     {
       "check": "Aucun paiement, aucun reçu créés (séparation comptable Desktop)",
@@ -69,7 +69,7 @@
     {
       "check": "Sans lignes : tous les frais ouverts sont réglés (Desktop)",
       "pass": true,
-      "detail": "{\"total\":\"180000.00\",\"settlement_ids\":[\"683c426a-a58a-4c1d-8a9f-8ec443996cbe\",\"7fc0f6dd-7634-4b7b-98d0-1900883a4318\",\"10"
+      "detail": "{\"total\":\"180000.00\",\"settlement_ids\":[\"f32ee876-af78-46cf-a156-db54434b323b\",\"5e6019c9-76e8-49df-96b6-ddbacf4f967e\",\"16"
     },
     {
       "check": "Enfant en ordre après retenue totale",
