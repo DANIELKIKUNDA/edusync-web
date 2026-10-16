@@ -1,0 +1,4 @@
+# Build context: never ship local installs or previous builds into the image.
+node_modules
+dist
+*.log

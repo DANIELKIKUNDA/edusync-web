@@ -79,3 +79,10 @@ def test_s5_nginx_streams():
     assert "proxy_buffering off;" in sse and "proxy_read_timeout 1h;" in sse
     assert nginx.index("(notifications|platform/inbox)/stream") < nginx.index("location /api/ {")
     assert "proxy_set_header Host $host;" in nginx.split("location /health-api", 1)[1].split("}", 1)[0]
+
+
+# ---------------------------------------------------------------- S6: reproducible frontend image
+def test_s6_frontend_image_uses_lockfile():
+    docker = (ROOT / "frontend/Dockerfile").read_text(encoding="utf-8")
+    assert "COPY package.json package-lock.json" in docker and "RUN npm ci" in docker and "npm install" not in docker
+    assert "node_modules" in (ROOT / "frontend/.dockerignore").read_text(encoding="utf-8")
