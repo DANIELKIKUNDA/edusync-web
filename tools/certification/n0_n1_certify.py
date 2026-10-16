@@ -25,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[2]
 EVID = ROOT / "certification" / "n0-n1-20261007"
 EVID_N2 = ROOT / "certification" / "n2-20261014"
 EVID_N3 = ROOT / "certification" / "n3-20261015"
+# Pre-staging Docker stack evidence (staging_stack_probe.py, run against docker compose -p edusync-smoke): checksummed only.
+EVID_PRE = ROOT / "certification" / "prestaging-20261016"
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
 RUN = [str(PY), str(ROOT / ".local" / "closure" / "run.py")]
 NPX = "npx.cmd" if os.name == "nt" else "npx"
@@ -112,7 +114,7 @@ def main() -> int:
     versions = {"OS": f"{platform.system()} {platform.release()} ({platform.version()})", "Python": platform.python_version(),
                 "Node": run(["node", "--version"])[1].strip(), "PostgreSQL": run([r"C:\Program Files\PostgreSQL\16\bin\postgres.exe", "--version"])[1].strip(),
                 "Redis (WSL)": run(["wsl.exe", "-d", "Ubuntu-22.04", "--", "redis-server", "--version"], timeout=90)[1].strip()[:60]}
-    evid = sorted(p for d in (EVID, EVID_N2, EVID_N3) for p in d.iterdir() if p.is_file() and p.suffix in (".json", ".py", ".mjs"))
+    evid = sorted(p for d in (EVID, EVID_N2, EVID_N3, EVID_PRE) for p in d.iterdir() if p.is_file() and p.suffix in (".json", ".py", ".mjs"))
     passed = sum(s["result"] == "PASS" for s in steps)
     lines = ["# Manifeste de preuves — certification N0 / N1 / N2 / N3", "",
              f"Généré le {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} par `tools/certification/n0_n1_certify.py`.", "",

@@ -1,0 +1,146 @@
+{
+ "stack": "docker compose -p edusync-smoke (EDUSYNC_ENV=staging)",
+ "checks": [
+  {
+   "check": "Pile démarrée : 8 services en fonctionnement",
+   "result": "PASS",
+   "detail": "{'backend': ('running', 'healthy', 0), 'backup': ('running', '', 0), 'communications-worker': ('running', '', 0), 'frontend': ('running', '', 0), 'migrator': ('exited', '', 0), 'object-storage': ('running', '', 0), 'outbox-worker': ('running', '', 0), 'postgres': ('running', 'healthy', 0), 'redis': "
+  },
+  {
+   "check": "Migrateur terminé avec succès (code 0)",
+   "result": "PASS",
+   "detail": "('exited', '', 0)"
+  },
+  {
+   "check": "API saine (healthcheck Docker)",
+   "result": "PASS",
+   "detail": "('running', 'healthy', 0)"
+  },
+  {
+   "check": "Provisionnement complet de la base vierge",
+   "result": "PASS",
+   "detail": "['migrator-1  | POINT4 platform manager not provisioned by script (EDUSYNC_PLATFORM_ADMIN_PASSWORD empty): first-run setup page stays available']"
+  },
+  {
+   "check": "Contrôles de sécurité actifs en staging : configuration réelle acceptée",
+   "result": "PASS",
+   "detail": "staging s3"
+  },
+  {
+   "check": "Configuration affaiblie refusée en staging (CORS HTTP, secret de dev, push simulé, clé MFA absente)",
+   "result": "PASS",
+   "detail": "[('EDUSYNC_CORS_ORIGINS', True), ('EDUSYNC_JWT_SECRET', True), ('EDUSYNC_PUSH_PROVIDER', True), ('EDUSYNC_MFA_ENCRYPTION_KEY', True)]"
+  },
+  {
+   "check": "SeaweedFS : bucket privé, écriture puis relecture identique (SHA-256)",
+   "result": "PASS",
+   "detail": "['S3CompatibleObjectStorage', '76e64f3ad4d43c02876119512a2240c601c37e18edcde697d0721adb2fc5eca2']"
+  },
+  {
+   "check": "Stockage : lecture anonyme refusée (bucket privé)",
+   "result": "PASS",
+   "detail": "403"
+  },
+  {
+   "check": "Installation vierge : création du premier manager disponible, jeton exigé",
+   "result": "PASS",
+   "detail": "{'setup_required': True, 'setup_available': True, 'token_required': True}"
+  },
+  {
+   "check": "Premier manager : sans jeton ou avec un faux jeton → refusé",
+   "result": "PASS",
+   "detail": "(403, 403)"
+  },
+  {
+   "check": "Premier manager créé avec le jeton de setup à usage unique",
+   "result": "PASS",
+   "detail": "201"
+  },
+  {
+   "check": "Jeton de setup inutilisable une seconde fois (installation terminée)",
+   "result": "PASS",
+   "detail": "409"
+  },
+  {
+   "check": "Connexion plateforme : pas de session avant le second facteur, enrôlement TOTP obligatoire",
+   "result": "PASS",
+   "detail": "['expires_in', 'methods', 'mfa_enrollment_required', 'mfa_required', 'mfa_token', 'scope']"
+  },
+  {
+   "check": "MFA activée : session ouverte après confirmation du code TOTP, codes de secours fournis",
+   "result": "PASS",
+   "detail": "200"
+  },
+  {
+   "check": "Cookie de session : HttpOnly, SameSite=Lax et Secure en staging",
+   "result": "PASS",
+   "detail": "['HttpOnly', 'Max-Age', 'Path', 'SameSite', 'Secure']"
+  },
+  {
+   "check": "Import de 2 Mio (students/analyze) : franchit nginx et la garde de taille, réponse de l'API",
+   "result": "PASS",
+   "detail": "(403, '{\"detail\":\"Jeton école requis\"}')"
+  },
+  {
+   "check": "Import de 2 Mio (students/date-repair/preview) : franchit nginx et la garde de taille, réponse de l'API",
+   "result": "PASS",
+   "detail": "(403, '{\"detail\":\"Jeton école requis\"}')"
+  },
+  {
+   "check": "Corps de 12 Mio : refusé par nginx (413) au-delà de la limite de 11 Mo",
+   "result": "PASS",
+   "detail": "413"
+  },
+  {
+   "check": "Flux SSE via nginx : type text/event-stream, événement « ready »",
+   "result": "PASS",
+   "detail": "[(1, 'event: ready'), (21, ': ping')]"
+  },
+  {
+   "check": "Flux SSE maintenu au-delà de 60 s (ancienne coupure nginx) : battements reçus après 61 s",
+   "result": "PASS",
+   "detail": "(5, [(62, ': ping'), (83, ': ping')])"
+  },
+  {
+   "check": "Sauvegarde réelle exécutée (pg_dump + documents + restauration isolée)",
+   "result": "PASS",
+   "detail": "2026-10-16T10:37:33Z PASS sauvegarde 20261016T103720Z (restauration vérifiée, hors site=false)\nNOTICE:  database \"edusync_restore_check\" does not exist, skipping"
+  },
+  {
+   "check": "Fichier d'état : ok=true, restore_verified=true",
+   "result": "PASS",
+   "detail": "{'finished_at': '2026-10-16T10:37:33Z', 'ok': True, 'restore_verified': True, 'offsite': False, 'detail': '20261016T103720Z'}"
+  },
+  {
+   "check": "Checksums SHA-256 de la sauvegarde vérifiés",
+   "result": "PASS",
+   "detail": "CHECKSUMS_OK\n4"
+  },
+  {
+   "check": "Comptes de lignes : base restaurée isolée encadrée par avant/après sauvegarde (12 tables)",
+   "result": "PASS",
+   "detail": "{'schools': '0', 'users': '1', 'school_memberships': '0', 'rbac_roles': '13', 'rbac_assignments': '1', 'generated_documents': '0', 'audit_events': '3', 'finance_payments': '0', 'finance_charges': '0', 'enrollments': '0', 'students': '0', 'schema_migrations': '78'}"
+  },
+  {
+   "check": "Document de test présent dans la sauvegarde avec le même SHA-256",
+   "result": "PASS",
+   "detail": "76e64f3ad4d43c02"
+  },
+  {
+   "check": "Base de vérification isolée supprimée après contrôle",
+   "result": "PASS",
+   "detail": "0"
+  },
+  {
+   "check": "Écran de santé : base, Redis et stockage OK",
+   "result": "PASS",
+   "detail": "{'database': 'OK', 'redis': 'OK', 'storage': 'OK'}"
+  },
+  {
+   "check": "Écran de santé : dernière sauvegarde OK, restauration vérifiée",
+   "result": "PASS",
+   "detail": "Réussie il y a 6 s · restauration vérifiée"
+  }
+ ],
+ "summary": "28/28"
+}
