@@ -3,6 +3,13 @@ from __future__ import annotations
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Environments that receive real traffic: every runtime safety check applies to all of them (staging included).
+PROTECTED_ENVS = frozenset({"prod", "production", "staging"})
+
+
+def is_protected_env(env: str | None) -> bool:
+    return (env or "").strip().lower() in PROTECTED_ENVS
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EDUSYNC_", env_file=".env", extra="ignore")
@@ -101,7 +108,7 @@ class Settings(BaseSettings):
         return any(marker in low for marker in ("change_me", "change-", "change_", "change%", "password@"))
 
     def assert_runtime_safe(self) -> None:
-        if self.env.lower() not in {"prod", "production"}:
+        if not is_protected_env(self.env):
             return
         if self.jwt_secret == "dev-only-change-me-dev-only-change-me":
             raise RuntimeError("Secret JWT de développement interdit en production")
@@ -120,6 +127,8 @@ class Settings(BaseSettings):
             raise RuntimeError("Limite de corps API production invalide")
         if self.api_max_query_bytes <= 0 or self.api_max_query_bytes > 32768:
             raise RuntimeError("Limite de query-string API production invalide")
+        if (self.push_provider or "disabled").lower() == "mock":
+            raise RuntimeError("Fournisseur push simulé interdit hors développement")
         if not self.mfa_platform_required:
             raise RuntimeError("Le second facteur des comptes plateforme ne peut pas être désactivé en production")
         from edusync.shared.infrastructure.mfa import load_mfa_key
@@ -129,7 +138,7 @@ class Settings(BaseSettings):
 
     def assert_provisioning_safe(self) -> None:
         self.assert_runtime_safe()
-        if self.env.lower() not in {"prod", "production"}:
+        if not is_protected_env(self.env):
             return
         if self.platform_admin_password == "CHANGE_ME_NOW_123!":
             raise RuntimeError("Mot de passe bootstrap Atelier Pro de développement interdit en production")

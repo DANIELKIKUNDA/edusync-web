@@ -18,6 +18,8 @@ import time
 from urllib.parse import quote
 
 from argon2 import PasswordHasher
+
+from edusync.bootstrap.settings import is_protected_env
 from argon2.exceptions import VerificationError, VerifyMismatchError, InvalidHashError
 
 STEP_SECONDS = 30
@@ -129,7 +131,7 @@ def load_mfa_key(configured: str, *, jwt_secret: str, env: str) -> bytes:
         if len(key) != 32:
             raise RuntimeError("EDUSYNC_MFA_ENCRYPTION_KEY doit encoder exactement 32 octets")
         return key
-    if env.lower() in {"prod", "production", "staging"}:
+    if is_protected_env(env):
         raise RuntimeError("EDUSYNC_MFA_ENCRYPTION_KEY obligatoire : le second facteur plateforme est actif")
     return hmac.new(jwt_secret.encode("utf-8"), b"edusync:mfa:dev-derived-key:v1", hashlib.sha256).digest()
 

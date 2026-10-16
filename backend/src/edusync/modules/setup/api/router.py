@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 
 from edusync.bootstrap.dependencies import get_services
 from edusync.bootstrap.services import AppServices
+from edusync.bootstrap.settings import is_protected_env
 from edusync.shared.infrastructure.security import hash_password
 
 router = APIRouter(tags=["Première installation"])
@@ -35,7 +36,7 @@ def _is_loopback(request: Request) -> bool:
 
 
 def _production(services: AppServices) -> bool:
-    return services.settings.env.lower() in {"prod", "production", "staging"}
+    return is_protected_env(services.settings.env)
 
 
 def _token_required(services: AppServices, request: Request) -> bool:

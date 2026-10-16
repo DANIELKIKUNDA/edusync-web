@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from typing import Protocol
 import httpx
 
+from edusync.bootstrap.settings import is_protected_env
+
 
 @dataclass(frozen=True)
 class DeliveryResult: accepted:bool; provider_message_id:str|None=None; error_code:str|None=None
@@ -75,7 +77,7 @@ class OrangeSmsProvider:
 def provider_for(cfg,code:str|None)->SmsProvider|None:
  """Resolve a provider by code. Test providers are refused in production; unknown codes resolve to None
  (deliveries then fail with PROVIDER_NOT_CONFIGURED instead of being reported as sent)."""
- code=(code or '').lower(); prod=cfg.env.lower() in {'prod','production'}
+ code=(code or '').lower(); prod=is_protected_env(cfg.env)
  if code=='mock' and not prod:return MockProvider()
  if code=='sandbox' and not prod:return SandboxSmsProvider()
  if code=='orange':return OrangeSmsProvider(cfg.orange_sms_endpoint,cfg.orange_sms_bearer_token)

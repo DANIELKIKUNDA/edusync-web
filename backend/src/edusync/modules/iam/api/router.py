@@ -15,6 +15,7 @@ from edusync.adapters.postgres_repositories import (
 )
 from edusync.bootstrap.dependencies import get_services, platform_account_suspended, require_platform_actor, require_school_actor
 from edusync.bootstrap.services import AppServices
+from edusync.bootstrap.settings import is_protected_env
 from edusync.shared.application.context import ActorContext
 from edusync.modules.platform.domain.school import SchoolStatus
 from edusync.shared.infrastructure.security import create_access_token, verify_password, hash_password
@@ -36,7 +37,7 @@ def _set_session_cookie(response: Response, services: AppServices, raw: str, exp
     max_age = services.settings.session_cookie_max_age_days * 86400
     if expires_at is not None:
         max_age = min(max_age, max(0, int((expires_at - datetime.now(timezone.utc)).total_seconds())))
-    response.set_cookie(services.settings.persistent_session_cookie, raw, max_age=max_age, httponly=True, secure=services.settings.env.lower() in {"prod","production"}, samesite="lax", path="/api/v1/auth")
+    response.set_cookie(services.settings.persistent_session_cookie, raw, max_age=max_age, httponly=True, secure=is_protected_env(services.settings.env), samesite="lax", path="/api/v1/auth")
 
 
 def _new_device_session(conn, settings, *, user, school=None, membership=None, user_agent: str = "", mfa_method: str | None = None,

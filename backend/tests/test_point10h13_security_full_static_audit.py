@@ -63,7 +63,8 @@ def test_access_jwt_is_algorithm_pinned_and_claims_required():
 def test_persistent_cookie_is_httponly_lax_and_secure_in_production():
     s=(SRC/'modules/iam/api/router.py').read_text(encoding='utf-8')
     assert 'httponly=True' in s and 'samesite="lax"' in s
-    assert 'secure=services.settings.env.lower() in {"prod","production"}' in s
+    # Pre-staging S1: Secure in every protected environment (prod, production and staging).
+    assert 'secure=is_protected_env(services.settings.env)' in s
 
 def test_school_context_reloads_permissions_and_checks_membership_identity():
     s=(SRC/'bootstrap/dependencies.py').read_text(encoding='utf-8')

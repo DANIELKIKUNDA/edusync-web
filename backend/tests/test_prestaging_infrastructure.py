@@ -1,0 +1,40 @@
+"""Pre-staging infrastructure contracts (STAGING_READINESS.md S1–S9). No business rule is tested here."""
+import base64
+from pathlib import Path
+
+import pytest
+
+from edusync.bootstrap.settings import Settings, is_protected_env
+
+ROOT = Path(__file__).resolve().parents[2]
+KEY = base64.b64encode(bytes(range(32))).decode()
+
+
+def safe(env: str, **over):
+    base = dict(_env_file=None, env=env, jwt_secret="p" * 48, cors_origins="https://staging.example.cd",
+                trusted_hosts="staging.example.cd", mfa_encryption_key=KEY,
+                tenant_database_url="postgresql+psycopg://edusync_tenant:Str0ng@db/edusync",
+                platform_database_url="postgresql+psycopg://edusync_platform:Str0ng@db/edusync")
+    return Settings(**{**base, **over})
+
+
+# ---------------------------------------------------------------- S1: staging is a protected environment
+def test_s1_staging_is_protected_like_production():
+    assert is_protected_env("staging") and is_protected_env("Production") and is_protected_env("prod")
+    assert not is_protected_env("dev") and not is_protected_env("") and not is_protected_env(None)
+    safe("staging").assert_runtime_safe()
+    for bad in (dict(jwt_secret="dev-only-change-me-dev-only-change-me"), dict(cors_origins="http://staging.example.cd"),
+                dict(trusted_hosts="*"), dict(tenant_database_url="postgresql+psycopg://edusync_tenant:CHANGE_ME@db/edusync"),
+                dict(mfa_platform_required=False), dict(push_provider="mock"), dict(mfa_encryption_key="")):
+        with pytest.raises(RuntimeError):
+            safe("staging", **bad).assert_runtime_safe()
+    with pytest.raises(RuntimeError):
+        safe("staging", platform_admin_password="CHANGE_ME_NOW_123!").assert_provisioning_safe()
+
+
+def test_s1_simulated_sms_refused_and_secure_cookie_in_staging():
+    from edusync.modules.communications.providers import provider_for
+    assert provider_for(safe("staging"), "mock") is None and provider_for(safe("staging"), "sandbox") is None
+    assert provider_for(Settings(_env_file=None), "mock") is not None
+    iam = (ROOT / "backend/src/edusync/modules/iam/api/router.py").read_text(encoding="utf-8")
+    assert "secure=is_protected_env(services.settings.env)" in iam
