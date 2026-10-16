@@ -12,7 +12,21 @@ Légende :
 * `BLOCKED_EXTERNAL` : dépend d'un service ou d'un compte externe.
 * `APPAREIL` : exige un téléphone ou un poste réel.
 
-## 0. Écarts bloquants à traiter avant le staging (résumé)
+## Mise à jour du 2026-10-16 — S1 à S9 corrigés
+
+Commits d'infrastructure (aucune règle métier) : S1 `0bb3378`, S2 `56862de`, S3 `e5428d9`, S4 `214a260`, S5 `15cba7e`,
+S6 `1afbfb4`, S7 `eb32e7c`, S8 `07f6dcc`, S9 `44624c2`, versions des images `a29b8d1`, garde d'import `b18accc`, test de
+pile `aed2305` (candidat pré-staging). Test réel de la pile Docker en mode staging : 28/28
+(`certification/prestaging-20261016/staging-stack-live.json`). Certification complète N0/N1/N2/N3 : 45/45 sur `aed2305`.
+
+* HSTS : `max-age=31536000`, **sans** `includeSubDomains` ni `preload` (décision du propriétaire).
+* **Mémoire** : la pile complète (PostgreSQL, Redis, SeaweedFS, API, 2 workers, nginx, sauvegarde) a fait tomber
+  PostgreSQL sur un poste de 5,8 Go partagé avec Docker Desktop et un navigateur. Serveur de staging : **4 Go de RAM
+  minimum dédiés**, 2 vCPU, 40 Go de disque (base, documents, sauvegardes locales).
+* Restent `BLOCKED_EXTERNAL` : domaine et certificat public, cible de sauvegarde hors site, supervision externe,
+  e-mail, push et SMS (désactivés proprement, non certifiés).
+
+## 0. Écarts bloquants identifiés avant correction (historique)
 
 | # | Écart | Gravité | Correctif proposé (non appliqué) |
 |---|---|---|---|
