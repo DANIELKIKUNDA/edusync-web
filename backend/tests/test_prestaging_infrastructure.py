@@ -117,3 +117,8 @@ def test_s9_backup_service_verifies_restore_and_reports_status():
         assert contract in script, contract
     assert "FROM postgres:16-alpine" in (ROOT / "deploy/backup/Dockerfile").read_text(encoding="utf-8")
     assert "*.sh text eol=lf" in (ROOT / ".gitattributes").read_text(encoding="utf-8")
+
+
+def test_images_match_certified_runtime_versions():
+    assert (ROOT / "backend/Dockerfile").read_text(encoding="utf-8").startswith("FROM python:3.13-slim")
+    assert (ROOT / "frontend/Dockerfile").read_text(encoding="utf-8").startswith("FROM node:24-alpine")

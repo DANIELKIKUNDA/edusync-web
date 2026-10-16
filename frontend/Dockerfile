@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 # Pre-staging S6: exact dependency tree of the certified lockfile (reproducible build).
 COPY package.json package-lock.json tsconfig.json ./
