@@ -50,9 +50,11 @@ def block(name: str) -> str:
 # ---------------------------------------------------------------- S2: the API receives every runtime variable it needs
 def test_s2_backend_receives_runtime_variables_without_owner_secrets():
     api = block("backend")
-    for var in ("EDUSYNC_TRUSTED_HOSTS", "EDUSYNC_MFA_ENCRYPTION_KEY", "EDUSYNC_DOCUMENT_LINK_SECRET", "EDUSYNC_OBJECT_STORAGE_BACKEND", "EDUSYNC_PUSH_PROVIDER"):
+    for var in ("EDUSYNC_TRUSTED_HOSTS", "EDUSYNC_MFA_ENCRYPTION_KEY", "EDUSYNC_DOCUMENT_LINK_SECRET", "EDUSYNC_BACKUP_STATUS_FILE",
+                "EDUSYNC_OBJECT_STORAGE_BACKEND", "EDUSYNC_PUSH_PROVIDER"):
         assert f"{var}:" in api, var
     assert "EDUSYNC_OWNER_DATABASE_URL" not in api and "POSTGRES_OWNER_PASSWORD" not in api and "PLATFORM_ADMIN_PASSWORD" not in api
+    assert "backup_status:/backup-status:ro" in api
     assert "env_file: ${EDUSYNC_ENV_FILE:-.env}" in block("migrator")
 
 
@@ -103,3 +105,15 @@ def test_s8_forwarded_ips_restricted_to_proxies():
     assert "FORWARDED_ALLOW_IPS: ${EDUSYNC_FORWARDED_ALLOW_IPS:-172.30.57.10,172.30.57.11}" in block("backend")
     assert "ipv4_address: 172.30.57.10" in block("frontend") and "subnet: 172.30.57.0/24" in COMPOSE
     assert "EDUSYNC_FORWARDED_ALLOW_IPS=*" not in (ROOT / ".env.example").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- S9: scheduled backup with verified restore
+def test_s9_backup_service_verifies_restore_and_reports_status():
+    bk = block("backup")
+    assert "build: ./deploy/backup" in bk and "backup_status:/backup-status" in bk and "BACKUP_OFFSITE:" in bk
+    script = (ROOT / "deploy/backup/backup.sh").read_text(encoding="utf-8")
+    for contract in ("pg_dump -Fc", "pg_restore --exit-on-error", "CHECK_DB=edusync_restore_check", "SHA256SUMS",
+                     '"restore_verified"', '[ "$r" -lt "$b" ] || [ "$r" -gt "$a" ]', "-mtime \"+$KEEP_DAYS\""):
+        assert contract in script, contract
+    assert "FROM postgres:16-alpine" in (ROOT / "deploy/backup/Dockerfile").read_text(encoding="utf-8")
+    assert "*.sh text eol=lf" in (ROOT / ".gitattributes").read_text(encoding="utf-8")

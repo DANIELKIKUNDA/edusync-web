@@ -16,7 +16,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    # noeviction: queued messages (outbox, notifications) are never silently dropped when memory is full.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -59,10 +60,14 @@ services:
       EDUSYNC_OBJECT_STORAGE_REGION: ${EDUSYNC_OBJECT_STORAGE_REGION:-us-east-1}
       EDUSYNC_OBJECT_STORAGE_PATH_STYLE: ${EDUSYNC_OBJECT_STORAGE_PATH_STYLE:-true}
       EDUSYNC_SETUP_TOKEN: ${EDUSYNC_SETUP_TOKEN:-}
+      # Written by the backup service; shown on the platform health screen.
+      EDUSYNC_BACKUP_STATUS_FILE: /backup-status/last.json
       # Real providers are BLOCKED_EXTERNAL: push stays disabled (simulated providers are refused outside dev).
       EDUSYNC_PUSH_PROVIDER: ${EDUSYNC_PUSH_PROVIDER:-disabled}
       # Trust X-Forwarded-For only from the reverse proxies (fixed addresses of nginx and of the TLS terminator).
       FORWARDED_ALLOW_IPS: ${EDUSYNC_FORWARDED_ALLOW_IPS:-172.30.57.10,172.30.57.11}
+    volumes:
+      - backup_status:/backup-status:ro
     depends_on:
       migrator:
         condition: service_completed_successfully
@@ -162,6 +167,39 @@ services:
       - object_data:/data
     restart: unless-stopped
 
+  # Daily backup (database + documents), restore verified in an isolated database, optional off-site copy.
+  backup:
+    build: ./deploy/backup
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-edusync}
+      PGUSER: ${POSTGRES_OWNER_USER:-edusync_owner}
+      PGPASSWORD: ${POSTGRES_OWNER_PASSWORD:?POSTGRES_OWNER_PASSWORD required}
+      BACKUP_INTERVAL_SECONDS: ${EDUSYNC_BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_KEEP_DAYS: ${EDUSYNC_BACKUP_KEEP_DAYS:-14}
+      BACKUP_SOURCE_BUCKET: ${EDUSYNC_OBJECT_STORAGE_BUCKET:-edusync-documents}
+      RCLONE_CONFIG_SRC_TYPE: s3
+      RCLONE_CONFIG_SRC_PROVIDER: Other
+      RCLONE_CONFIG_SRC_ENDPOINT: ${EDUSYNC_OBJECT_STORAGE_ENDPOINT:-http://object-storage:8333}
+      RCLONE_CONFIG_SRC_ACCESS_KEY_ID: ${EDUSYNC_OBJECT_STORAGE_ACCESS_KEY:?EDUSYNC_OBJECT_STORAGE_ACCESS_KEY required}
+      RCLONE_CONFIG_SRC_SECRET_ACCESS_KEY: ${EDUSYNC_OBJECT_STORAGE_SECRET_KEY:?EDUSYNC_OBJECT_STORAGE_SECRET_KEY required}
+      # Off-site copy: any rclone remote configured with RCLONE_CONFIG_OFFSITE_* (empty = local backups only).
+      BACKUP_OFFSITE: ${EDUSYNC_BACKUP_OFFSITE:-}
+      RCLONE_CONFIG_OFFSITE_TYPE: ${EDUSYNC_BACKUP_OFFSITE_TYPE:-s3}
+      RCLONE_CONFIG_OFFSITE_PROVIDER: ${EDUSYNC_BACKUP_OFFSITE_PROVIDER:-Other}
+      RCLONE_CONFIG_OFFSITE_ENDPOINT: ${EDUSYNC_BACKUP_OFFSITE_ENDPOINT:-}
+      RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID: ${EDUSYNC_BACKUP_OFFSITE_ACCESS_KEY:-}
+      RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY: ${EDUSYNC_BACKUP_OFFSITE_SECRET_KEY:-}
+    volumes:
+      - backups:/backups
+      - backup_status:/backup-status
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      object-storage:
+        condition: service_started
+    restart: unless-stopped
+
 networks:
   default:
     ipam:
@@ -172,5 +210,7 @@ volumes:
   postgres_data:
   redis_data:
   object_data:
+  backups:
+  backup_status:
   caddy_data:
   caddy_config:
