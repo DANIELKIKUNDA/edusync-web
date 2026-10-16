@@ -122,3 +122,17 @@ def test_s9_backup_service_verifies_restore_and_reports_status():
 def test_images_match_certified_runtime_versions():
     assert (ROOT / "backend/Dockerfile").read_text(encoding="utf-8").startswith("FROM python:3.13-slim")
     assert (ROOT / "frontend/Dockerfile").read_text(encoding="utf-8").startswith("FROM node:24-alpine")
+
+
+def test_every_xlsx_import_route_gets_the_import_ceiling():
+    """Found by the staging stack probe: a 2 MiB file sent to the N3-H date check was refused by the generic 2 MiB guard
+    although its handler accepts 10 MiB. Every route reading its body with read_import_body must get the import ceiling."""
+    from edusync.shared.infrastructure.api_guard import ApiGuardMiddleware
+    router = (ROOT / "backend/src/edusync/modules/migration_import/api/router.py").read_text(encoding="utf-8")
+    paths = set()
+    for chunk in router.split("@router.post('")[1:]:          # one chunk per POST route, up to the next decorator
+        route, body = chunk.split("'", 1)[0], chunk.split("@router.", 1)[0]
+        if "read_import_body(request)" in body:
+            paths.add("/api/v1/import" + route)
+    assert len(paths) == 4, paths
+    assert paths == set(ApiGuardMiddleware.IMPORT_ANALYZE_PATHS)

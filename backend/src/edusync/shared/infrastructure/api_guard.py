@@ -10,8 +10,8 @@ class ApiGuardMiddleware:
     streaming business endpoint. This also closes the chunked-transfer loophole where a
     missing Content-Length could previously bypass the generic size guard.
 
-    Normal API mutations keep the strict configured limit. The three official XLSX
-    analysis endpoints receive a narrowly-scoped 10 MiB ceiling matching the import
+    Normal API mutations keep the strict configured limit. The official XLSX import
+    endpoints (every route reading its body with read_import_body) receive a narrowly-scoped 10 MiB ceiling matching the import
     contract; their own parser applies the same limit and row-count limits afterwards.
     """
 
@@ -20,6 +20,8 @@ class ApiGuardMiddleware:
         "/api/v1/import/students/analyze",
         "/api/v1/import/staff/analyze",
         "/api/v1/import/finance-history/analyze",
+        # Read-only enrollment-date check (N3-H): same XLSX contract and the same handler limit (read_import_body).
+        "/api/v1/import/students/date-repair/preview",
     })
 
     def __init__(self, app, *, max_body_bytes: int = 2_097_152, max_query_bytes: int = 8_192):
