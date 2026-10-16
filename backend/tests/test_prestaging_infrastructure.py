@@ -91,8 +91,15 @@ def test_s6_frontend_image_uses_lockfile():
 # ---------------------------------------------------------------- S7: public TLS + HSTS
 def test_s7_tls_terminator_with_hsts():
     tls = block("tls-proxy")
-    assert 'profiles: ["tls"]' in tls and '"443:443"' in tls
+    assert 'profiles: ["tls"]' in tls and '"443:443"' in tls and "ipv4_address: 172.30.57.11" in tls
     caddy = (ROOT / "deploy/caddy/Caddyfile").read_text(encoding="utf-8")
     assert 'Strict-Transport-Security "max-age=31536000"' in caddy and "flush_interval -1" in caddy
     assert "includeSubDomains" not in caddy and "preload" not in caddy   # owner decision: no subdomains / preload yet
     assert '"127.0.0.1:8080:80"' in block("frontend")      # plain HTTP only on loopback
+
+
+# ---------------------------------------------------------------- S8: forwarded headers trusted only from the proxies
+def test_s8_forwarded_ips_restricted_to_proxies():
+    assert "FORWARDED_ALLOW_IPS: ${EDUSYNC_FORWARDED_ALLOW_IPS:-172.30.57.10,172.30.57.11}" in block("backend")
+    assert "ipv4_address: 172.30.57.10" in block("frontend") and "subnet: 172.30.57.0/24" in COMPOSE
+    assert "EDUSYNC_FORWARDED_ALLOW_IPS=*" not in (ROOT / ".env.example").read_text(encoding="utf-8")

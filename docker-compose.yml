@@ -61,8 +61,8 @@ services:
       EDUSYNC_SETUP_TOKEN: ${EDUSYNC_SETUP_TOKEN:-}
       # Real providers are BLOCKED_EXTERNAL: push stays disabled (simulated providers are refused outside dev).
       EDUSYNC_PUSH_PROVIDER: ${EDUSYNC_PUSH_PROVIDER:-disabled}
-      # Trust X-Forwarded-For only from the reverse proxy network (nginx frontend container).
-      FORWARDED_ALLOW_IPS: ${EDUSYNC_FORWARDED_ALLOW_IPS:-*}
+      # Trust X-Forwarded-For only from the reverse proxies (fixed addresses of nginx and of the TLS terminator).
+      FORWARDED_ALLOW_IPS: ${EDUSYNC_FORWARDED_ALLOW_IPS:-172.30.57.10,172.30.57.11}
     depends_on:
       migrator:
         condition: service_completed_successfully
@@ -123,6 +123,9 @@ services:
     # Loopback only: the public entry point is the TLS terminator (profile "tls").
     ports:
       - "127.0.0.1:8080:80"
+    networks:
+      default:
+        ipv4_address: 172.30.57.10
     restart: unless-stopped
 
   # Public HTTPS (Let's Encrypt) + HSTS. `docker compose --profile tls up -d` with EDUSYNC_DOMAIN set.
@@ -141,6 +144,9 @@ services:
       - caddy_config:/config
     depends_on:
       - frontend
+    networks:
+      default:
+        ipv4_address: 172.30.57.11
     restart: unless-stopped
 
   # Private S3-compatible document storage (SeaweedFS). Replace by an external S3 by pointing
@@ -155,6 +161,12 @@ services:
       - ./deploy/seaweedfs/entrypoint.sh:/deploy/entrypoint.sh:ro
       - object_data:/data
     restart: unless-stopped
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.57.0/24
 
 volumes:
   postgres_data:
