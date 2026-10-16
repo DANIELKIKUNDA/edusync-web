@@ -62,3 +62,11 @@ def test_s3_object_storage_service():
     assert "image: chrislusf/seaweedfs:4.48" in s3 and "S3_SECRET_KEY:" in s3 and "ports:" not in s3   # never published
     entry = (ROOT / "deploy/seaweedfs/entrypoint.sh").read_text(encoding="utf-8")
     assert "umask 077" in entry and "-s3.config=/tmp/s3.json" in entry
+
+
+# ---------------------------------------------------------------- S4: nginx accepts the 10 MiB imports
+def test_s4_nginx_import_size():
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    assert "client_max_body_size 11m;" in nginx
+    from edusync.modules.migration_import.api.router import MAX_IMPORT_BYTES
+    assert MAX_IMPORT_BYTES <= 11 * 1024 * 1024
