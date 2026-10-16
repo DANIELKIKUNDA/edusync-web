@@ -1,5 +1,5 @@
 {
-  "school": "N3G-BAC7D",
+  "school": "N3G-1494D",
   "results": [
     {
       "check": "Consolidé : une ligne par paiement (le paiement sur 2 mois compté une seule fois, 25 000)",
@@ -19,7 +19,7 @@
     {
       "check": "Paiement mixte (solde + acompte) signalé",
       "pass": true,
-      "detail": "Paiement mixte · Frais scolaires — Septembre + Frais scolaires — Octobre (acompte)"
+      "detail": "Paiement mixte · Frais scolaires — Octobre (acompte) + Frais scolaires — Septembre"
     },
     {
       "check": "Consolidé : total FC = encaissements valides de la journée",
@@ -34,7 +34,7 @@
     {
       "check": "Profil Frais scolaires : mensualités seulement (sans inscription, sans journal)",
       "pass": true,
-      "detail": "['Acompte · Frais scolaires — Septembre (acompte)', 'Paiement mixte · Frais scolaires — Septembre + Frais scolaires — Octobre (acompte)']"
+      "detail": "['Acompte · Frais scolaires — Septembre (acompte)', 'Paiement mixte · Frais scolaires — Octobre (acompte) + Frais scolaires — Septembre']"
     },
     {
       "check": "Profil Journal + écusson",
@@ -89,7 +89,7 @@
     {
       "check": "Analyse par caissier : paiements valides seulement, nom du caissier",
       "pass": true,
-      "detail": "[{'cashier_id': 'e5d4fa49-019a-46f3-bdfd-80fd41b442df', 'currency': 'CDF', 'payment_count': 5, 'amount': '62000.00', 'cashier_name': 'Agent CASH'}]"
+      "detail": "[{'cashier_id': '7fbba916-c1c1-495f-91b6-f893e1735c20', 'currency': 'CDF', 'payment_count': 5, 'amount': '62000.00', 'cashier_name': 'Agent CASH'}]"
     },
     {
       "check": "Analyse des fonds anticipés disponible",

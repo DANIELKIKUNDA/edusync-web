@@ -260,6 +260,11 @@ class PostgresSchoolingRepository:
         if not reason:raise ValueError("Motif obligatoire")
         target={"ABANDON":"ABANDON","TRANSFER":"TRANSFERRED","SUSPEND":"SUSPENDED","REINTEGRATE":"ACTIVE"}.get(event_type)
         if target is None:raise ValueError("Transition invalide")
+        # N3-H — Desktop change_student_status invariants.
+        previous=before._mapping['status']
+        if previous==target:raise ValueError("L’élève possède déjà ce statut")
+        if event_type=='REINTEGRATE' and previous not in {'ABANDON','TRANSFERRED','SUSPENDED'}:
+            raise ValueError("Une réintégration suppose un statut antérieur abandon, transfert ou suspension")
         if event_type=='TRANSFER' and not (destination or '').strip():raise ValueError("Destination du transfert obligatoire")
         event_id=self.connection.execute(text("INSERT INTO student_status_events(school_id,student_id,event_type,effective_date,reason,destination,actor_user_id) VALUES (:sid,:student,:event,:d,:reason,:destination,:actor) RETURNING id"),{"sid":school_id,"student":student_id,"event":event_type,"d":effective_date,"reason":reason,"destination":destination,"actor":actor_user_id}).scalar_one()
         self._apply_lifecycle_to_future_charges(school_id,student_id,event_id=event_id,event_type=event_type,effective_date=effective_date,reason=reason)

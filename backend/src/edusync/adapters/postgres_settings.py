@@ -600,10 +600,10 @@ class PostgresSettingsRepository:
         if row is None: raise OptimisticConcurrencyError("Tarif modifié par une autre session ou introuvable")
         out=dict(_m(row));out['amount']=str(out['amount']);return out
 
-    def update_contribution(self, school_id:UUID, contribution_id:UUID, *, label:str,unit:str,enabled:bool,expected_version:int):
-        row=self.connection.execute(text("""UPDATE contribution_types SET label=:label,unit=:unit,enabled=:enabled
-             WHERE id=:id AND school_id=:sid AND version=:expected RETURNING id,code,label,unit,enabled,version"""),
-             {"id":contribution_id,"sid":school_id,"label":label.strip(),"unit":unit.strip() or 'unité',"enabled":enabled,"expected":expected_version}).first()
+    def update_contribution(self, school_id:UUID, contribution_id:UUID, *, label:str,unit:str,enabled:bool,expected_version:int,required_quantity=None):
+        row=self.connection.execute(text("""UPDATE contribution_types SET label=:label,unit=:unit,enabled=:enabled,required_quantity=COALESCE(:req,required_quantity)
+             WHERE id=:id AND school_id=:sid AND version=:expected RETURNING id,code,label,unit,enabled,required_quantity,version"""),
+             {"id":contribution_id,"sid":school_id,"label":label.strip(),"unit":unit.strip() or 'unité',"enabled":enabled,"expected":expected_version,"req":required_quantity}).first()
         if row is None: raise OptimisticConcurrencyError("Contribution modifiée par une autre session ou introuvable")
         return dict(_m(row))
 
@@ -703,11 +703,11 @@ class PostgresSettingsRepository:
 
     # ---------- contributions/products ----------
     def list_contributions(self, school_id:UUID):
-        return [dict(_m(r)) for r in self.connection.execute(text("SELECT id,code,label,unit,enabled,version FROM contribution_types WHERE school_id=:sid ORDER BY label"),{"sid":school_id}).all()]
+        return [dict(_m(r)) for r in self.connection.execute(text("SELECT id,code,label,unit,enabled,required_quantity,version FROM contribution_types WHERE school_id=:sid ORDER BY label"),{"sid":school_id}).all()]
 
-    def create_contribution(self, school_id:UUID,*,code:str,label:str,unit:str='unité'):
-        r=self.connection.execute(text("""INSERT INTO contribution_types(id,school_id,code,label,unit) VALUES(:id,:sid,:code,:label,:unit)
-            RETURNING id,code,label,unit,enabled,version"""),{"id":uuid4(),"sid":school_id,"code":code.strip().upper(),"label":label.strip(),"unit":unit.strip() or 'unité'}).first()
+    def create_contribution(self, school_id:UUID,*,code:str,label:str,unit:str='unité',required_quantity=0):
+        r=self.connection.execute(text("""INSERT INTO contribution_types(id,school_id,code,label,unit,required_quantity) VALUES(:id,:sid,:code,:label,:unit,:req)
+            RETURNING id,code,label,unit,enabled,required_quantity,version"""),{"id":uuid4(),"sid":school_id,"code":code.strip().upper(),"label":label.strip(),"unit":unit.strip() or 'unité',"req":required_quantity or 0}).first()
         return dict(_m(r))
 
     def list_products(self, school_id:UUID):

@@ -3,7 +3,7 @@
   "status": "POINT4B_PERSONNEL_PORTED",
   "role_assignments_finalized": true,
   "owner_decides_roles_and_assignments": true,
-  "capability_count": 277,
+  "capability_count": 278,
   "capabilities": [
     {
       "code": "access.grants.exception",
@@ -5386,6 +5386,25 @@
       "outputs": [],
       "sensitive": false,
       "notes": "N3-A, décision du propriétaire du 2026-10-15",
+      "role_assignment": "OWNER_APPROVED"
+    },
+    {
+      "code": "students.lifecycle.suspend",
+      "domain": "Élèves & inscriptions",
+      "group": "Élèves",
+      "label": "Suspendre un élève",
+      "action": "suspend",
+      "risk": "HIGH",
+      "offline_policy": "LOCAL_WRITE_SYNC",
+      "audit_required": true,
+      "scope_types": [
+        "SCHOOL"
+      ],
+      "source_status": "EXISTING_DESKTOP",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": false,
+      "notes": "N3-H (G-SCO-5) : mêmes titulaires que l'abandon (Desktop change_student_status)",
       "role_assignment": "OWNER_APPROVED"
     }
   ],

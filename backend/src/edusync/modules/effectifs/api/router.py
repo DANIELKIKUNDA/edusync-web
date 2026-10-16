@@ -158,3 +158,14 @@ def export_deposits(year_id:UUID|None=None,scope:HeadcountScope=HeadcountScope.A
         data=deposits_xlsx(school=repo.school_identity(actor.school_id),rows=rows,scope_label=_scope_label(scope),year_label=y["label"])
         archive_generated(conn,actor,data=data,fmt="XLSX",required_capability="contributions.register.read",document_code="contributions.register",title="Registre des dépôts matériels",file_name="registre_depots_materiels.xlsx",academic_year_id=y["id"],filters={"scope":scope.value})
     return StreamingResponse(BytesIO(data),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":'attachment; filename="registre_depots_materiels.xlsx"'})
+
+
+# ---------------------------------------------------------------- N3-H / G-EFF-1 — Desktop contribution_register
+from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRepository as _Parity
+@router.get("/contribution-register")
+def contribution_register(year_id:UUID|None=None,class_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Required / delivered / remaining per pupil and item (a contribution in kind is never turned into a payment)."""
+    _need(actor,"contributions.register.read")
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        import json as _j
+        return _j.loads(_j.dumps(_Parity(conn).contribution_register(actor.school_id,year_id=year_id,class_id=class_id),default=str))

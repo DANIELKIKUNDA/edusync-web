@@ -67,7 +67,7 @@
  {
   "check": "Plan obligatoire : adhésion automatique au premier paiement",
   "pass": true,
-  "detail": "{'id': '105d8497-8041-405f-9dcf-c7d9e73e8c45', 'school_id': 'a0fe272b-191d-4529-8a4f-de1939f2343d', 'plan_id': '24fb5701-735d-4b58-97e8-dde220961aeb', 'enrollment_id': '737a22fd-61e3-4bbf-ad6a-98febe5c8c65', 'status': 'ENROLLED', 'snapshot_target_amount': '55000.00', 'currency': 'CDF', 'decided_at':"
+  "detail": "{'id': '822c7585-fc48-426c-a29a-dc39ddb579f4', 'school_id': '31248ef2-a25d-43dc-a38a-7cbd1d5ea098', 'plan_id': 'bef01172-d7fa-4939-878c-645a2b7000b1', 'enrollment_id': '1b12a429-837d-45dc-922e-62eeb8de53a7', 'status': 'ENROLLED', 'snapshot_target_amount': '55000.00', 'currency': 'CDF', 'decided_at':"
  },
  {
   "check": "Plan obligatoire : février soldé, 18 333,34 vers juin",

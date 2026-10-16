@@ -733,6 +733,7 @@ def put_policy(kind:str,body:PolicyPut,response:Response,idempotency_key:str|Non
 
 class ContributionCreate(BaseModel):
     code:str=Field(min_length=2,max_length=48);label:str=Field(min_length=2,max_length=140);unit:str=Field(default='unité',max_length=48)
+    required_quantity:Decimal=Field(default=Decimal('0'),ge=0,max_digits=18,decimal_places=3)   # N3-H / G-EFF-1 (Desktop required_quantity)
 
 @router.get('/contributions')
 def contributions(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -753,6 +754,7 @@ class ContributionUpdate(BaseModel):
     label:str=Field(min_length=2,max_length=140)
     unit:str=Field(default='unité',max_length=48)
     enabled:bool=True
+    required_quantity:Decimal|None=Field(default=None,ge=0,max_digits=18,decimal_places=3)
 
 @router.put('/contributions/{contribution_id}')
 def update_contribution(contribution_id:UUID,body:ContributionUpdate,response:Response,if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):

@@ -243,20 +243,20 @@ Aucun module d'intendance au Desktop. Web : `/stewardship/*` (stock, biens, inve
 | G-REC-4 | Présentation des acomptes dans les rapports | Recouvrement | **CORRIGÉ** (N3-G : acomptes inclus / présentés à part / reconnus une fois soldés, selon la règle de l'école) |
 | G-REC-5 | Préfixe et numérotation des rapports | Documents | **CORRIGÉ** (N3-G : PDF officiel numéroté par année PREFIXE-NNN, préfixe paramétrable, Excel sans numéro ; sonde rapports 25/25) |
 | G-REV-2 | Duplicata de reçu compté et tracé (à vérifier) | Reçus | **PARITY_OK** (vérifié N3-B : ORIGINAL puis DUPLICATA comptés et tracés, déjà au Web) |
-| G-ART-1 | Rapport des ventes d'articles | Articles | faible |
-| G-SCO-1 | Doublons probables avant création d'un élève | Élèves | moyen |
-| G-SCO-2 | Arriérés historiques montrés à l'inscription (à comparer) | Élèves | moyen |
-| G-SCO-3 | Indicateurs détaillés des familles | Élèves | faible |
-| G-SCO-4 | Diagnostic des contacts famille | Élèves | faible |
-| G-SCO-5 | Suspension d'un élève (route et écran) | Élèves | moyen |
-| G-SCO-6 | Réinscription d'une année sur l'autre (à comparer) | Élèves | moyen |
-| G-EFF-1 | Contributions : quantités remises / restantes, réceptionnaire (à vérifier) | Effectifs | faible |
+| G-ART-1 | Rapport des ventes d'articles | Articles | **CORRIGÉ** (N3-H : ventes de la période, caissier, totaux par devise, ventes annulées signalées ; Analyses de gestion) |
+| G-SCO-1 | Doublons probables avant création d'un élève | Élèves | **CORRIGÉ** (N3-H : copie de find_probable_students, signalés pendant la saisie de l'inscription) |
+| G-SCO-2 | Arriérés historiques montrés à l'inscription (à comparer) | Élèves | **CORRIGÉ** (N3-H : arriérés des années antérieures dans la fiche élève, jamais mêlés à la nouvelle inscription) |
+| G-SCO-3 | Indicateurs détaillés des familles | Élèves | **CORRIGÉ** (N3-H : familles nombreuses, bénéficiaires, enfants du personnel, avec détail) |
+| G-SCO-4 | Diagnostic des contacts famille | Élèves | **CORRIGÉ** (N3-H : sans responsable, plusieurs principaux, sans téléphone, téléphones partagés) |
+| G-SCO-5 | Suspension d'un élève (route et écran) | Élèves | **CORRIGÉ** (N3-H : route et bouton Suspendre ; capacité `students.lifecycle.suspend` donnée aux seuls détenteurs de l'abandon ; contrôles Desktop « déjà ce statut » et réintégration) |
+| G-SCO-6 | Réinscription d'une année sur l'autre (à comparer) | Élèves | **PARITY_OK** après comparaison fine (N3-H : réinscription de l'élève existant dans la nouvelle année, même matricule ; seconde inscription la même année refusée — sonde) |
+| G-EFF-1 | Contributions : quantités remises / restantes, réceptionnaire (à vérifier) | Effectifs | **CORRIGÉ** (N3-H : quantité exigée par article, registre exigé / déposé / reste ; jamais transformé en paiement) |
 | G-DOC-1 | Montant en toutes lettres sur le reçu (à vérifier) | Documents | **CORRIGÉ** (N3-G : montant en lettres sur le reçu, copie de money_in_words) |
 | G-DOC-2 | Relevé de compte élève PDF | Documents | **CORRIGÉ** (N3-G : relevé du compte élève PDF) |
 | G-DOC-3 | Journal de caisse PDF, rapport journalier PDF | Documents | **CORRIGÉ** (N3-B : journal de caisse PDF, rapport journalier PDF) |
 | G-DOC-4 | Rapport financier périodique PDF / Excel (à vérifier) | Documents | **CORRIGÉ** (N3-G : rapport financier périodique PDF / Excel ; ancienne synthèse par modèle corrigée — elle comptait en double un paiement sur plusieurs frais) |
-| G-IMP-1 | Finalisation de l'historique financier sans toucher la caisse (à vérifier) | Import | moyen |
-| G-IMP-2 | Réparation des dates d'inscription, suggestions historiques | Import | faible |
+| G-IMP-1 | Finalisation de l'historique financier sans toucher la caisse (à vérifier) | Import | **CORRIGÉ** (N3-H : montant mensuel supérieur au mois réparti sur les mois suivants comme avance historique ; hors caisse) |
+| G-IMP-2 | Réparation des dates d'inscription, suggestions historiques | Import | **CORRIGÉ** (N3-H : contrôle des dates en lecture seule, suggestions d'élève par ligne ; sonde scolarité 21/21) |
 | G-ROLE-1 | Correspondance opération Desktop → droit → rôle Web | Rôles | **CORRIGÉ** (N3-A : pas de 1:1 ; GESTIONNAIRE = autorité financière supérieure ; migration 0068 ; sonde rbac 14/14) |
 
 37 écarts, dont 9 marqués *à vérifier* ou *à comparer* : ces derniers seront soit confirmés, soit reclassés `PARITY_OK`

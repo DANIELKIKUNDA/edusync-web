@@ -209,3 +209,22 @@ def student_account_pdf_route(student_id: _UUID, actor: ActorContext = Depends(r
     archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='students.account.export_pdf', document_code='students.account',
                          title=f"Relevé du compte élève {mat}", file_name=f"releve_{mat}.pdf")
     return _Stream(_BytesIO(data), media_type='application/pdf', headers={'Content-Disposition': 'inline; filename="releve_compte_eleve.pdf"'})
+
+
+@router.get('/product-sales')
+def product_sales(start: date, end: date, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """N3-H / G-ART-1 — Desktop product_sales_report: sales of the period, cashier, totals per currency (reversed sales flagged)."""
+    need(actor, 'finance.products.sales_report.read')
+    from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRepository
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+            out = PostgresSchoolingParityRepository(c).product_sales_report(actor.school_id, start_date=start, end_date=end)
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+    ids = list({r['cashier_id'] for r in out['rows'] if r.get('cashier_id')})
+    if ids:
+        with services.platform_db.platform_transaction() as pc:
+            names = {str(r[0]): r[1] for r in pc.execute(text("SELECT id,full_name FROM users WHERE id=ANY(CAST(:ids AS uuid[]))"), {'ids': ids}).all()}
+        for r in out['rows']:
+            r['cashier_name'] = names.get(str(r.get('cashier_id'))) or '—'
+    return _jsonable(out)

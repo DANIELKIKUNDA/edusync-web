@@ -11,7 +11,7 @@ def test_api_guard_closes_chunked_body_bypass_and_scopes_import_ceiling():
 def test_import_handlers_stream_with_hard_limit_and_uniform_row_contract():
     s=(ROOT/'backend/src/edusync/modules/migration_import/api/router.py').read_text()
     assert 'async def read_import_body' in s and 'request.stream()' in s
-    assert s.count('read_import_body(request)') == 3
+    assert s.count('read_import_body(request)') == 4   # + N3-H enrollment-date repair preview
     assert "if len(parsed)>10000" not in s
     assert "Maximum 10 000 lignes financières" not in s
     assert s.count('MAX_IMPORT_ROWS') >= 4

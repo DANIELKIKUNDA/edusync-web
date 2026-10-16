@@ -2,6 +2,7 @@
 // register_generated_report, documents.export_periodic_financial_report_pdf/xlsx, operations.analysis_*).
 import React, {useEffect, useState} from 'react';
 import {toast} from 'sonner';
+import {ProductSalesReport} from './schooling_parity_ui';
 import {friendlyError} from './platform/errors';
 import {formatMoney} from './platform/format';
 
@@ -87,6 +88,7 @@ export function FinanceAnalyses({token, can}: {token: string; can: (p: string) =
       <tbody>{cashiers.map((c, i) => <tr key={i}><td><b>{c.cashier_name}</b></td><td>{c.payment_count}</td><td>{money(c.amount, c.currency)}</td></tr>)}{cashiers.length === 0 && <tr><td colSpan={3}>Aucun paiement.</td></tr>}</tbody></table></div></>}
     {can('finance.analysis.advance.read') && funds.length > 0 && <><h3>Fonds anticipés</h3><div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Devise</th><th>Fonds</th><th>Reçus</th><th>Imputés</th><th>Disponibles</th><th>Restitués</th></tr></thead>
       <tbody>{funds.map((f, i) => <tr key={i}><td>{f.currency}</td><td>{f.fund_count}</td><td>{money(f.received_total, f.currency)}</td><td>{money(f.allocated_total, f.currency)}</td><td>{money(f.available_total, f.currency)}</td><td>{money(f.reversed_total, f.currency)}</td></tr>)}</tbody></table></div></>}
+    {can('finance.products.sales_report.read') && <ProductSalesReport token={token}/>}
   </section>;
 }
 

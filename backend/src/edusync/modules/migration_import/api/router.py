@@ -274,12 +274,77 @@ def analyze_fin_row(conn,sid,row):
  elif len(q)>1:issues.append({'level':'ERROR','code':'CHARGE_AMBIGUOUS','field':'fee','message':'Plusieurs obligations correspondent : préciser la période'})
  else:
   x=q[0];n['charge_id']=str(x['id']);remaining=__import__('decimal').Decimal(str(x['net_amount']))-__import__('decimal').Decimal(str(x['paid_amount']))-__import__('decimal').Decimal(str(x['outside_cash']));n['remaining_before']=str(max(remaining,0));n['fee_resolved']=x['label'];n['year_resolved']=x['label_1'] if 'label_1' in x else n['year']
-  if __import__('decimal').Decimal(n['amount'])>remaining:issues.append({'level':'ERROR','code':'OVER_REGULARIZATION','field':'amount','message':f"Montant supérieur au reste dû ({max(remaining,0)} {n['currency']})"})
+  if __import__('decimal').Decimal(n['amount'])>remaining:
+   # N3-H / G-IMP-1 — Desktop finalize_historical_financial_import: a monthly amount above the month's balance is spread
+   # over the following monthly charges of the same fee as historical advances; only what no month can absorb is refused.
+   spread=_historical_spread(conn,sid,n['charge_id'],__import__('decimal').Decimal(n['amount']))
+   if spread is None:issues.append({'level':'ERROR','code':'OVER_REGULARIZATION','field':'amount','message':f"Montant supérieur au reste dû ({max(remaining,0)} {n['currency']})"})
+   else:
+    n['allocations']=spread;issues.append({'level':'WARNING','code':'HISTORICAL_SPREAD','field':'amount','message':'Montant réparti sur les mois suivants (avance historique) : '+', '.join(f"{a['label']} {a['amount']}" for a in spread)})
   if n['reference']:
    dup=conn.execute(text("SELECT 1 FROM financial_history_import_ledger WHERE school_id=:sid AND historical_reference=:r AND amount=:a AND currency=:c LIMIT 1"),{'sid':sid,'r':n['reference'],'a':n['amount'],'c':n['currency']}).first()
    if dup:issues.append({'level':'ERROR','code':'HISTORY_DUPLICATE','field':'reference','message':'Cette référence historique a déjà été reprise'})
   else:issues.append({'level':'WARNING','code':'NO_REFERENCE','field':'reference','message':'Aucune référence historique : conserver la pièce source avant confirmation'})
  return n,issues
+
+def _historical_spread(conn,sid,charge_id,amount):
+ """Allocation of a historical amount over this monthly charge then the following months of the same fee (Desktop)."""
+ from decimal import Decimal as _D
+ base=conn.execute(text("SELECT enrollment_id,fee_type_id,currency,periodicity,coalesce(period_order,0) po FROM finance_charges WHERE id=:c AND school_id=:sid"),{'c':charge_id,'sid':sid}).mappings().first()
+ if not base or base['periodicity']!='MONTHLY':return None
+ rows=conn.execute(text("""SELECT fc.id,coalesce(fc.period_label,fc.label) label,GREATEST(fc.net_amount-finance_charge_decision_amount(fc.id)-fc.paid_amount
+   -COALESCE((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.charge_id=fc.id),0),0) due
+   FROM finance_charges fc WHERE fc.school_id=:sid AND fc.enrollment_id=:e AND fc.fee_type_id=:f AND fc.currency=:cur AND fc.status='ACTIVE' AND coalesce(fc.period_order,0)>=:po
+   ORDER BY coalesce(fc.period_order,0),fc.due_date"""),{'sid':sid,'e':base['enrollment_id'],'f':base['fee_type_id'],'cur':base['currency'],'po':base['po']}).mappings().all()
+ left=amount;out=[]
+ for r in rows:
+  take=min(left,_D(str(r['due'])))
+  if take>0:out.append({'charge_id':str(r['id']),'label':r['label'],'amount':str(take)});left-=take
+  if left<=0:break
+ return out if left<=0 else None
+
+@router.get('/finance-history/rows/{row_id}/suggestions')
+def finance_history_suggestions(row_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """N3-H / G-IMP-2 — Desktop historical_student_suggestions (the Web line carries a matricule: ranked by matricule similarity)."""
+ need(actor,'migration.finance_history.analyze')
+ from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRepository
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  r=conn.execute(text("SELECT normalized_payload FROM financial_history_import_rows WHERE id=:id AND school_id=:sid"),{'id':row_id,'sid':actor.school_id}).scalar_one_or_none()
+  if r is None:raise HTTPException(404,"Ligne d'import historique introuvable")
+  n=dict(r);return {'row_id':str(row_id),'matricule':n.get('matricule'),'suggestions':PostgresSchoolingParityRepository(conn).history_suggestions(actor.school_id,matricule=n.get('matricule') or '',year_label=n.get('year'))}
+
+@router.post('/students/date-repair/preview')
+async def enrollment_date_repair_preview(request:Request,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """N3-H / G-IMP-2 — Desktop preview_enrollment_date_repair: read-only diagnostic of historical enrollment dates (XLSX)."""
+ need(actor,'migration.students.analyze')
+ data=await read_import_body(request);guard_import_payload(data)
+ rows=_date_repair_rows(data)
+ if len(rows)>MAX_IMPORT_ROWS:raise HTTPException(413,'Maximum 5 000 lignes par fichier')
+ from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRepository
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  return PostgresSchoolingParityRepository(conn).date_repair_preview(actor.school_id,rows)
+
+def _date_repair_rows(data:bytes)->list[dict]:
+ from openpyxl import load_workbook
+ wb=load_workbook(io.BytesIO(data),read_only=True,data_only=True);ws=wb.worksheets[0];it=ws.iter_rows(values_only=True)
+ header=[clean(x).lower() if x is not None else '' for x in next(it,[])]
+ def col(*names):
+  for nm in names:
+   for i,h in enumerate(header):
+    if h.replace('*','').strip()==nm:return i
+  return None
+ ci={'last':col('nom'),'middle':col('postnom','post-nom'),'first':col('prénom','prenom'),'sex':col('sexe'),'class':col('classe'),
+     'date':col('date inscription',"date d'inscription",'dates inscription',"dates d'inscription",'dates')}
+ out=[]
+ for rn,row in enumerate(it,2):
+  get=lambda k:(row[ci[k]] if ci[k] is not None and ci[k]<len(row) else None)
+  name=' '.join(str(get(k)).strip() for k in ('last','middle','first') if get(k));d=get('date')
+  if not name:continue
+  try:hd=d.date() if hasattr(d,'date') else (parse_date(d) if d else None)
+  except Exception:hd=None
+  out.append({'row':rn,'name':name,'gender':str(get('sex') or '').strip().upper()[:1],'class':str(get('class') or ''),'date':hd.isoformat() if hd else None,
+              'warning':None if hd else 'Date historique absente ou invalide'})
+ return out
 
 @router.get('/finance-history/template.xlsx')
 def finance_history_template(actor:ActorContext=Depends(require_school_actor)):
@@ -315,8 +380,12 @@ def execute_finance_history(batch_id:UUID,body:ExecuteFinanceHistoryBody,idempot
   if b['error_rows']>0:raise HTTPException(409,'Le lot contient des erreurs')
   if b['warning_rows']>0 and not body.accept_warnings:raise HTTPException(409,'Confirmation explicite requise pour les avertissements')
   rows=conn.execute(text("SELECT id,normalized_payload,status FROM financial_history_import_rows WHERE school_id=:sid AND batch_id=:b AND status IN('VALID','WARNING') ORDER BY row_number FOR UPDATE"),{'sid':actor.school_id,'b':batch_id}).mappings().all();done=0
+  expanded=[]
   for row in rows:
    n=dict(row['normalized_payload'])
+   for a in (n.get('allocations') or [{'charge_id':n['charge_id'],'amount':n['amount']}]):expanded.append((row,{**n,'charge_id':a['charge_id'],'amount':a['amount'],'_row_amount':n['amount']}))
+  ledgered=set()
+  for row,n in expanded:
    # Lock the obligation and recompute what is still owed now (cash payments, decisions and
    # regularizations may have happened since analysis, including earlier rows of this batch).
    ch=conn.execute(text("""SELECT fc.net_amount,fc.paid_amount,
@@ -329,11 +398,13 @@ def execute_finance_history(batch_id:UUID,body:ExecuteFinanceHistoryBody,idempot
    if n.get('reference') and row.get('status')!='WARNING' and conn.execute(text("SELECT 1 FROM financial_history_import_ledger WHERE school_id=:sid AND historical_reference=:r AND amount=:a AND currency=:c LIMIT 1"),{'sid':actor.school_id,'r':n['reference'],'a':n['amount'],'c':n['currency']}).first():raise HTTPException(409,STALE_ANALYSIS+' (référence déjà reprise)')
    rid=uuid4();reason='Reprise historique importée — hors caisse'+(f" · {n['notes']}" if n.get('notes') else '')
    conn.execute(text("INSERT INTO finance_charge_regularizations(id,school_id,charge_id,amount,reason,reference,actor_user_id,created_at) VALUES(:id,:sid,:ch,:a,:reason,:ref,:u,:dt)"),{'id':rid,'sid':actor.school_id,'ch':n['charge_id'],'a':n['amount'],'reason':reason[:240],'ref':n.get('reference'),'u':actor.user_id,'dt':n['paid_on']})
-   conn.execute(text("INSERT INTO financial_history_import_ledger(school_id,batch_id,row_id,charge_id,regularization_id,historical_paid_on,historical_reference,amount,currency) VALUES(:sid,:b,:row,:ch,:r,:d,:ref,:a,:c)"),{'sid':actor.school_id,'b':batch_id,'row':row['id'],'ch':n['charge_id'],'r':rid,'d':n['paid_on'],'ref':n.get('reference'),'a':n['amount'],'c':n['currency']})
-   conn.execute(text("UPDATE financial_history_import_rows SET status='IMPORTED',imported_regularization_id=:r WHERE id=:id"),{'r':rid,'id':row['id']});done+=1
+   if row['id'] not in ledgered:   # one ledger line per source row (a spread row posts several regularizations)
+    ledgered.add(row['id'])
+    conn.execute(text("INSERT INTO financial_history_import_ledger(school_id,batch_id,row_id,charge_id,regularization_id,historical_paid_on,historical_reference,amount,currency) VALUES(:sid,:b,:row,:ch,:r,:d,:ref,:a,:c)"),{'sid':actor.school_id,'b':batch_id,'row':row['id'],'ch':n['charge_id'],'r':rid,'d':n['paid_on'],'ref':n.get('reference'),'a':n.get('_row_amount',n['amount']),'c':n['currency']})
+   conn.execute(text("UPDATE financial_history_import_rows SET status='IMPORTED',imported_regularization_id=COALESCE(imported_regularization_id,:r) WHERE id=:id"),{'r':rid,'id':row['id']});done+=1
   conn.execute(text("UPDATE financial_history_import_batches SET status='EXECUTED',executed_at=now(),version=version+1 WHERE id=:b"),{'b':batch_id})
-  PostgresAuditRepository(conn).append(AuditRecord(action='FINANCIAL_HISTORY_IMPORT_EXECUTED',entity_type='financial_history_import_batch',entity_id=batch_id,actor_user_id=actor.user_id,membership_id=actor.membership_id,school_id=actor.school_id,source=actor.source,new_data={'imported':done,'cash_created':False,'receipt_created':False},correlation_id=actor.correlation_id));PostgresOutboxRepository(conn).add(OutboxMessage(school_id=actor.school_id,aggregate_type='financial_history_import_batch',aggregate_id=batch_id,event_type='FINANCIAL_HISTORY_IMPORT_EXECUTED',payload={'batch_id':str(batch_id),'imported':done,'cash_created':False}))
- return {'batch_id':str(batch_id),'status':'EXECUTED','imported':done,'replayed':False,'cash_created':False,'receipt_created':False}
+  PostgresAuditRepository(conn).append(AuditRecord(action='FINANCIAL_HISTORY_IMPORT_EXECUTED',entity_type='financial_history_import_batch',entity_id=batch_id,actor_user_id=actor.user_id,membership_id=actor.membership_id,school_id=actor.school_id,source=actor.source,new_data={'imported':len(ledgered),'cash_created':False,'receipt_created':False},correlation_id=actor.correlation_id));PostgresOutboxRepository(conn).add(OutboxMessage(school_id=actor.school_id,aggregate_type='financial_history_import_batch',aggregate_id=batch_id,event_type='FINANCIAL_HISTORY_IMPORT_EXECUTED',payload={'batch_id':str(batch_id),'imported':len(ledgered),'cash_created':False}))
+ return {'batch_id':str(batch_id),'status':'EXECUTED','imported':len(ledgered),'replayed':False,'cash_created':False,'receipt_created':False}
 
 # Point 12E — traçabilité opérateur : historique des lots et rapport de contrôle exportable
 _IMPORT_KIND = {

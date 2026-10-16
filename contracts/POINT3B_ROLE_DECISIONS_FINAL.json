@@ -580,11 +580,23 @@
         "students.lifecycle.history.read",
         "students.lifecycle.reintegrate",
         "students.lifecycle.transfer",
-        "students.read"
+        "students.read",
+        "students.lifecycle.suspend"
       ],
-      "capability_count": 83,
+      "capability_count": 84,
       "decision_note": "Chef de section Secondaire; opérations scolaires et communication parents strictement dans son périmètre.",
-      "decision_date": "2026-09-12"
+      "decision_date": "2026-09-12",
+      "amendments": [
+        {
+          "date": "2026-10-15",
+          "gap": "G-SCO-5",
+          "added": [
+            "students.lifecycle.suspend"
+          ],
+          "removed": [],
+          "note": "Suspension Desktop : même périmètre que l'abandon."
+        }
+      ]
     },
     {
       "code": "DIRECTION_SECTION",
@@ -675,11 +687,23 @@
         "students.lifecycle.history.read",
         "students.lifecycle.reintegrate",
         "students.lifecycle.transfer",
-        "students.read"
+        "students.read",
+        "students.lifecycle.suspend"
       ],
-      "capability_count": 83,
+      "capability_count": 84,
       "decision_note": "Même pouvoirs que le Préfet, avec périmètre Primaire, Maternelle, ou les deux.",
-      "decision_date": "2026-09-12"
+      "decision_date": "2026-09-12",
+      "amendments": [
+        {
+          "date": "2026-10-15",
+          "gap": "G-SCO-5",
+          "added": [
+            "students.lifecycle.suspend"
+          ],
+          "removed": [],
+          "note": "Suspension Desktop : même périmètre que l'abandon."
+        }
+      ]
     },
     {
       "code": "DIRECTEUR_ETUDES",
@@ -900,9 +924,10 @@
         "sync.finance.quarantine.read",
         "sync.finance.reconcile",
         "sync.status.read",
-        "finance.cash.expense.create"
+        "finance.cash.expense.create",
+        "students.lifecycle.suspend"
       ],
-      "capability_count": 91,
+      "capability_count": 92,
       "decision_note": "Opérateur inscription/encaissement; caisse propre détaillée, total agrégé via dashboard, corrections de ses paiements selon workflow audité.",
       "decision_date": "2026-09-12",
       "amendments": [
@@ -916,6 +941,15 @@
             "finance.advance_funds.refund"
           ],
           "note": "Décision du propriétaire du 2026-10-15 (N3-A)."
+        },
+        {
+          "date": "2026-10-15",
+          "gap": "G-SCO-5",
+          "added": [
+            "students.lifecycle.suspend"
+          ],
+          "removed": [],
+          "note": "Suspension Desktop : même périmètre que l'abandon."
         }
       ]
     },

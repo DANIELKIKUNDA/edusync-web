@@ -163,3 +163,29 @@ def test_n3g_periodic_reports_follow_desktop_rules():
     sql = read("backend/migrations/0074_n3g_periodic_reports.sql")
     assert "report_prefix varchar(12) NOT NULL DEFAULT 'RAP'" in sql and "REVOKE UPDATE, DELETE ON finance_generated_reports" in sql
     assert "noncash" in read("backend/src/edusync/adapters/postgres_finance_recovery.py")
+
+
+def test_n3h_schooling_copies_desktop():
+    repo = read("backend/src/edusync/adapters/postgres_schooling_parity.py")
+    for name in ("def probable_students", "def historical_arrears", "def family_contact_diagnostics", "def family_kpi_details",
+                 "def product_sales_report", "def contribution_register", "def date_repair_preview", "def history_suggestions"):
+        assert name in repo, name
+    assert "Indicateur familial inconnu" in repo and "La date de début doit précéder la date de fin" in repo
+    for write in ("INSERT INTO", "UPDATE ", "DELETE FROM"):                       # every N3-H read model stays read-only
+        assert write not in repo, write
+    status = read("backend/src/edusync/adapters/postgres_schooling.py")
+    assert "L’élève possède déjà ce statut" in status
+    assert "Une réintégration suppose un statut antérieur abandon, transfert ou suspension" in status
+    assert status.index("L’élève possède déjà ce statut") < status.index("Une réintégration suppose")   # Desktop check order
+    router = read("backend/src/edusync/modules/schooling/api/router.py")
+    assert router.index("@router.get('/students/probable')") < router.index("@router.get('/summary')")
+    assert "@router.post('/students/{student_id}/suspend')" in router and "'students.lifecycle.suspend','SUSPEND'" in router
+    sql = read("backend/migrations/0075_n3h_schooling_parity.sql")
+    assert "WHERE rc.capability_code='students.lifecycle.abandon'" in sql            # suspension follows abandon, no other role widened
+    assert "required_quantity numeric(18,3) NOT NULL DEFAULT 0 CHECK (required_quantity >= 0)" in sql
+    imp = read("backend/src/edusync/modules/migration_import/api/router.py")
+    assert "def _historical_spread" in imp and "'HISTORICAL_SPREAD'" in imp and "'OVER_REGULARIZATION'" in imp
+    assert "@router.post('/students/date-repair/preview')" in imp
+    ui = read("frontend/src/schooling_parity_ui.tsx")
+    assert "aucune donnée n’est modifiée" in ui and "Élève(s) probablement déjà enregistré(s)" in ui
+    assert "lifecycle('SUSPEND')" in read("frontend/src/schooling.tsx")

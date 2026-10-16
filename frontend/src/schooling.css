@@ -1,3 +1,17 @@
 .childBenefits{display:grid;gap:8px;margin-top:10px;padding:10px 12px;border:1px dashed #c7d7fe;border-radius:10px;background:#f8faff}
 .childBenefits>b{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#0f4fbf}
 .childBenefits .fieldError{color:#b91c1c;font-size:12px}
+
+/* N3-H — Desktop schooling parity panels */
+.probableBox{margin:10px 0;padding:12px 14px;border:1px solid #f0c36d;background:#fff8e6;border-radius:12px;display:grid;gap:4px;color:#5c4300}
+.probableBox.arrears{border-color:#e9a39b;background:#fff1ef;color:#6d1f16}
+.probableBox ul{margin:4px 0 0;padding-left:18px;display:grid;gap:2px}
+.probableBox small{color:inherit;opacity:.85}
+.familyInsights{display:grid;gap:12px;margin-bottom:14px}
+.familyKpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.familyKpis>span,.familyKpis>button{display:grid;gap:2px;text-align:left;padding:12px 14px;border:1px solid var(--line,#e2e8f0);border-radius:12px;background:var(--surface,#fff);font:inherit;color:inherit}
+.familyKpis>button{cursor:pointer}
+.familyKpis b{font-size:1.4rem}
+.familyDiag{display:grid;gap:4px;padding:10px 14px;border-radius:12px;background:var(--surface-2,#f6f8fb)}
+.contributionRegister,.productSales{margin-top:14px;max-width:100%;overflow-x:auto}
+.productSales h3{margin:16px 0 8px}

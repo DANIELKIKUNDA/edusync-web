@@ -32,8 +32,8 @@ def registry() -> CapabilityRegistry:
 
 def test_registry_has_current_unique_capabilities():
     r = registry()
-    assert len(r.capabilities) == 277  # N3-A (2026-10-15): reverse.supervisor, cash.day.close
-    assert len(r.by_code()) == 277
+    assert len(r.capabilities) == 278  # N3-A (2026-10-15): reverse.supervisor, cash.day.close ; N3-H: students.lifecycle.suspend
+    assert len(r.by_code()) == 278
     assert "platform.notifications.system.send" in r.by_code()
 
 
