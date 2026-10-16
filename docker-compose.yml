@@ -51,9 +51,10 @@ services:
       EDUSYNC_DOCUMENT_LINK_SECRET: ${EDUSYNC_DOCUMENT_LINK_SECRET:-}
       EDUSYNC_SESSION_ABSOLUTE_DAYS: ${EDUSYNC_SESSION_ABSOLUTE_DAYS:-0}
       EDUSYNC_SESSION_IDLE_DAYS: ${EDUSYNC_SESSION_IDLE_DAYS:-0}
-      EDUSYNC_OBJECT_STORAGE_ENDPOINT: ${EDUSYNC_OBJECT_STORAGE_ENDPOINT:-}
-      EDUSYNC_OBJECT_STORAGE_ACCESS_KEY: ${EDUSYNC_OBJECT_STORAGE_ACCESS_KEY:-}
-      EDUSYNC_OBJECT_STORAGE_SECRET_KEY: ${EDUSYNC_OBJECT_STORAGE_SECRET_KEY:-}
+      EDUSYNC_OBJECT_STORAGE_BACKEND: ${EDUSYNC_OBJECT_STORAGE_BACKEND:-s3}
+      EDUSYNC_OBJECT_STORAGE_ENDPOINT: ${EDUSYNC_OBJECT_STORAGE_ENDPOINT:-http://object-storage:8333}
+      EDUSYNC_OBJECT_STORAGE_ACCESS_KEY: ${EDUSYNC_OBJECT_STORAGE_ACCESS_KEY:?EDUSYNC_OBJECT_STORAGE_ACCESS_KEY required}
+      EDUSYNC_OBJECT_STORAGE_SECRET_KEY: ${EDUSYNC_OBJECT_STORAGE_SECRET_KEY:?EDUSYNC_OBJECT_STORAGE_SECRET_KEY required}
       EDUSYNC_OBJECT_STORAGE_BUCKET: ${EDUSYNC_OBJECT_STORAGE_BUCKET:-edusync-documents}
       EDUSYNC_OBJECT_STORAGE_REGION: ${EDUSYNC_OBJECT_STORAGE_REGION:-us-east-1}
       EDUSYNC_OBJECT_STORAGE_PATH_STYLE: ${EDUSYNC_OBJECT_STORAGE_PATH_STYLE:-true}
@@ -66,6 +67,8 @@ services:
       migrator:
         condition: service_completed_successfully
       redis:
+        condition: service_started
+      object-storage:
         condition: service_started
     # Loopback only: clients reach the API through nginx, so X-Forwarded-For cannot be forged directly.
     ports:
@@ -121,6 +124,20 @@ services:
       - "8080:80"
     restart: unless-stopped
 
+  # Private S3-compatible document storage (SeaweedFS). Replace by an external S3 by pointing
+  # EDUSYNC_OBJECT_STORAGE_ENDPOINT elsewhere and not starting this service.
+  object-storage:
+    image: chrislusf/seaweedfs:4.48
+    entrypoint: ["/bin/sh", "/deploy/entrypoint.sh"]
+    environment:
+      S3_ACCESS_KEY: ${EDUSYNC_OBJECT_STORAGE_ACCESS_KEY:?EDUSYNC_OBJECT_STORAGE_ACCESS_KEY required}
+      S3_SECRET_KEY: ${EDUSYNC_OBJECT_STORAGE_SECRET_KEY:?EDUSYNC_OBJECT_STORAGE_SECRET_KEY required}
+    volumes:
+      - ./deploy/seaweedfs/entrypoint.sh:/deploy/entrypoint.sh:ro
+      - object_data:/data
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
+  object_data:

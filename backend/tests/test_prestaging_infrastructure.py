@@ -50,7 +50,15 @@ def block(name: str) -> str:
 # ---------------------------------------------------------------- S2: the API receives every runtime variable it needs
 def test_s2_backend_receives_runtime_variables_without_owner_secrets():
     api = block("backend")
-    for var in ("EDUSYNC_TRUSTED_HOSTS", "EDUSYNC_MFA_ENCRYPTION_KEY", "EDUSYNC_DOCUMENT_LINK_SECRET", "EDUSYNC_PUSH_PROVIDER"):
+    for var in ("EDUSYNC_TRUSTED_HOSTS", "EDUSYNC_MFA_ENCRYPTION_KEY", "EDUSYNC_DOCUMENT_LINK_SECRET", "EDUSYNC_OBJECT_STORAGE_BACKEND", "EDUSYNC_PUSH_PROVIDER"):
         assert f"{var}:" in api, var
     assert "EDUSYNC_OWNER_DATABASE_URL" not in api and "POSTGRES_OWNER_PASSWORD" not in api and "PLATFORM_ADMIN_PASSWORD" not in api
     assert "env_file: ${EDUSYNC_ENV_FILE:-.env}" in block("migrator")
+
+
+# ---------------------------------------------------------------- S3: private S3 storage is part of the stack
+def test_s3_object_storage_service():
+    s3 = block("object-storage")
+    assert "image: chrislusf/seaweedfs:4.48" in s3 and "S3_SECRET_KEY:" in s3 and "ports:" not in s3   # never published
+    entry = (ROOT / "deploy/seaweedfs/entrypoint.sh").read_text(encoding="utf-8")
+    assert "umask 077" in entry and "-s3.config=/tmp/s3.json" in entry
