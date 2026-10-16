@@ -120,8 +120,27 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    # Loopback only: the public entry point is the TLS terminator (profile "tls").
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
+    restart: unless-stopped
+
+  # Public HTTPS (Let's Encrypt) + HSTS. `docker compose --profile tls up -d` with EDUSYNC_DOMAIN set.
+  tls-proxy:
+    image: caddy:2.10.2-alpine
+    profiles: ["tls"]
+    environment:
+      EDUSYNC_DOMAIN: ${EDUSYNC_DOMAIN:-}
+      EDUSYNC_ACME_EMAIL: ${EDUSYNC_ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
     restart: unless-stopped
 
   # Private S3-compatible document storage (SeaweedFS). Replace by an external S3 by pointing
@@ -141,3 +160,5 @@ volumes:
   postgres_data:
   redis_data:
   object_data:
+  caddy_data:
+  caddy_config:

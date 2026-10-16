@@ -1,0 +1,14 @@
+# Pre-staging S7 — public TLS terminator (Caddy, Apache-2.0): automatic Let's Encrypt certificate and HSTS.
+# Enabled with `docker compose --profile tls up`; EDUSYNC_DOMAIN must resolve to this server (ports 80 and 443 open).
+{
+	email {$EDUSYNC_ACME_EMAIL}
+}
+
+{$EDUSYNC_DOMAIN} {
+	header Strict-Transport-Security "max-age=31536000"
+	header -Server
+	reverse_proxy frontend:80 {
+		# Server-sent events (notifications) must not be buffered.
+		flush_interval -1
+	}
+}

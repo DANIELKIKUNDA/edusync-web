@@ -86,3 +86,13 @@ def test_s6_frontend_image_uses_lockfile():
     docker = (ROOT / "frontend/Dockerfile").read_text(encoding="utf-8")
     assert "COPY package.json package-lock.json" in docker and "RUN npm ci" in docker and "npm install" not in docker
     assert "node_modules" in (ROOT / "frontend/.dockerignore").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- S7: public TLS + HSTS
+def test_s7_tls_terminator_with_hsts():
+    tls = block("tls-proxy")
+    assert 'profiles: ["tls"]' in tls and '"443:443"' in tls
+    caddy = (ROOT / "deploy/caddy/Caddyfile").read_text(encoding="utf-8")
+    assert 'Strict-Transport-Security "max-age=31536000"' in caddy and "flush_interval -1" in caddy
+    assert "includeSubDomains" not in caddy and "preload" not in caddy   # owner decision: no subdomains / preload yet
+    assert '"127.0.0.1:8080:80"' in block("frontend")      # plain HTTP only on loopback
