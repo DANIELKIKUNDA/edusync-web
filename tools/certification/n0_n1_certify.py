@@ -1,4 +1,4 @@
-"""EduSync N0/N1 certification runner (hardening L, 2026-10).
+"""EduSync N0/N1/N2/N3 certification runner (hardening L, 2026-10; N3 Desktop parity lots A–H added 2026-10-16).
 
     python tools/certification/n0_n1_certify.py [--skip-resilience] [--skip-build]
 
@@ -24,12 +24,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 EVID = ROOT / "certification" / "n0-n1-20261007"
 EVID_N2 = ROOT / "certification" / "n2-20261014"
+EVID_N3 = ROOT / "certification" / "n3-20261015"
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
 RUN = [str(PY), str(ROOT / ".local" / "closure" / "run.py")]
 NPX = "npx.cmd" if os.name == "nt" else "npx"
 NPM = "npm.cmd" if os.name == "nt" else "npm"
 PROBES = ("prereq_probe.py", "team_probe.py", "school_lifecycle_probe.py", "health_probe.py", "audit_probe.py",
           "notifications_probe.py", "realtime_probe.py", "hardening_http_probe.py", "mfa_probe.py")
+N2_LOT_PROBES = ("admission_probe.py", "anticipation_probe.py", "benefits_probe.py", "class_status_probe.py", "fee_schedules_probe.py",
+                 "payment_policy_probe.py", "receipt_settings_probe.py", "tariff_rules_probe.py")
+# N3 parity lots (Desktop golden master): each real probe, then the UI check of that lot on the school it just created.
+N3_LOTS = (("N3-A", "rbac_probe.py", None), ("N3-B", "cash_integrity_probe.py", "cash_ui_check.mjs"),
+           ("N3-C", "decisions_probe.py", "decisions_ui_check.mjs"), ("N3-D", "advance_funds_probe.py", "funds_ui_check.mjs"),
+           ("N3-E", "checkout_rules_probe.py", "checkout_ui_check.mjs"), ("N3-F", "payroll_probe.py", "payroll_ui_check.mjs"),
+           ("N3-G", "reports_probe.py", "reports_ui_check.mjs"), ("N3-H", "schooling_parity_probe.py", "schooling_ui_check.mjs"))
 
 
 def run(cmd: list[str], cwd: Path = ROOT, env: dict | None = None, timeout: int = 1800) -> tuple[int, str, float]:
@@ -86,6 +94,13 @@ def main() -> int:
     step("Sonde en conditions réelles : n2_probe.py (N2)", RUN + ["certification/n2-20261014/n2_probe.py"], tail_match(r"== \d+/\d+ PASS"), env=probe_env, timeout=2400)
     step("Parcours UI N2 (téléphone + 7 largeurs)", ["node", "n2_journey.mjs"],
          lambda c, o: (c == 0 and "PARCOURS N2 : PASS" in o, (re.findall(r"PARCOURS N2 : [^\n]+", o) or [o.strip()[-160:]])[-1]), cwd=EVID_N2, timeout=900)
+    for probe in N2_LOT_PROBES:
+        step(f"Sonde en conditions réelles : {probe} (N2)", RUN + [f"certification/n2-20261014/{probe}"], tail_match(r"== \d+/\d+ PASS"), env=probe_env, timeout=2400)
+    for lot, probe, ui in N3_LOTS:
+        step(f"Sonde en conditions réelles : {probe} ({lot})", RUN + [f"certification/n3-20261015/{probe}"], tail_match(r"== \d+/\d+ PASS"), env=probe_env, timeout=2400)
+        if ui:
+            step(f"Contrôle UI {lot} (390 px + 1280 px)", ["node", ui],
+                 lambda c, o, lot=lot: (c == 0 and f"UI {lot} : PASS" in o, (re.findall(rf"UI {lot} : [^\n]+", o) or [o.strip()[-160:]])[-1]), cwd=EVID_N3, timeout=900)
     step("Sauvegarde + restauration vérifiée", [str(PY), "tools/local/backup_restore.py", "--db", "edusync_claude_fresh"], tail_match(r"== \d+/\d+ PASS[^\n]*"))
     step("Chaîne d'approvisionnement (licences, SBOM)", [str(PY), "tools/certification/supply_chain.py"], lambda c, o: (c == 0, o.strip().splitlines()[0] if o.strip() else "?"))
     step("Vulnérabilités npm (npm audit)", [NPM, "audit", "--omit=dev"], lambda c, o: (c == 0, (re.findall(r"found \d+ vulnerabilit\w+", o) or [o.strip()[-120:]])[-1]), cwd=ROOT / "frontend")
@@ -97,9 +112,9 @@ def main() -> int:
     versions = {"OS": f"{platform.system()} {platform.release()} ({platform.version()})", "Python": platform.python_version(),
                 "Node": run(["node", "--version"])[1].strip(), "PostgreSQL": run([r"C:\Program Files\PostgreSQL\16\bin\postgres.exe", "--version"])[1].strip(),
                 "Redis (WSL)": run(["wsl.exe", "-d", "Ubuntu-22.04", "--", "redis-server", "--version"], timeout=90)[1].strip()[:60]}
-    evid = sorted(p for d in (EVID, EVID_N2) for p in d.iterdir() if p.is_file() and p.suffix in (".json", ".py", ".mjs"))
+    evid = sorted(p for d in (EVID, EVID_N2, EVID_N3) for p in d.iterdir() if p.is_file() and p.suffix in (".json", ".py", ".mjs"))
     passed = sum(s["result"] == "PASS" for s in steps)
-    lines = ["# Manifeste de preuves — certification N0 / N1 / N2", "",
+    lines = ["# Manifeste de preuves — certification N0 / N1 / N2 / N3", "",
              f"Généré le {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} par `tools/certification/n0_n1_certify.py`.", "",
              f"* Commit : `{sha}`" + (" (arbre propre au démarrage : le code testé est exactement ce commit)" if not start_dirty
                                       else f" (ATTENTION : {len(start_dirty)} fichier(s) modifié(s) au démarrage : " + ", ".join(f"`{x}`" for x in start_dirty[:20]) + ")"),
