@@ -12,7 +12,7 @@
   {
     "check": "Filtre par action",
     "pass": true,
-    "detail": "42"
+    "detail": "49"
   },
   {
     "check": "Filtre par école (code)",
@@ -122,6 +122,6 @@
   {
     "check": "Performance : recherche d'audit < 300 ms en moyenne",
     "pass": true,
-    "detail": "28 ms sur 2861 événements"
+    "detail": "81 ms sur 6251 événements"
   }
 ]

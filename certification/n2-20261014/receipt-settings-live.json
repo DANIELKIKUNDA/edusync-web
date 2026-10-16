@@ -22,7 +22,7 @@
  {
   "check": "Vente d'article : même séquence de reçus (000003)",
   "pass": true,
-  "detail": "(200, 'RCU-2026-000003', '{\"id\":\"d0763df0-4e8a-405b-862b-8f485b269561\",\"payment_id\":\"3d83b5c9-93c6-46de-bb50-c51537bab1e9\",\"receipt_number\":\"RCU-2')"
+  "detail": "(200, 'RCU-2026-000003', '{\"id\":\"16eb92b0-712b-4d6a-bc18-b6b9db803ab0\",\"payment_id\":\"c2504ce4-2991-47a4-bb08-82777e0ea245\",\"receipt_number\":\"RCU-2')"
  },
  {
   "check": "Impression : 2 exemplaires dans le PDF",

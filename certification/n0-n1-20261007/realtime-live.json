@@ -2,17 +2,17 @@
   {
     "check": "Flux plateforme ouvert (via le proxy de l'interface)",
     "pass": true,
-    "detail": "[('status', 200, 1986.3369278)]"
+    "detail": "[('status', 200, 2394.4613404)]"
   },
   {
     "check": "Flux école ouvert",
     "pass": true,
-    "detail": "[('status', 200, 1986.3391011)]"
+    "detail": "[('status', 200, 2394.480396)]"
   },
   {
     "check": "Notification plateforme reçue en temps réel (< 2 s)",
     "pass": true,
-    "detail": "48 ms"
+    "detail": "63 ms"
   },
   {
     "check": "Le signal ne transporte aucun contenu",
@@ -27,7 +27,7 @@
   {
     "check": "Notification école reçue en temps réel (< 2 s)",
     "pass": true,
-    "detail": "101 ms"
+    "detail": "40 ms"
   },
   {
     "check": "Flux sans authentification refusé",

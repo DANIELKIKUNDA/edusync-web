@@ -112,7 +112,7 @@
   {
     "check": "État MFA du compte : enrôlé, 9 codes restants, désactivation par soi-même impossible",
     "pass": true,
-    "detail": "{'enrolled': True, 'method': 'TOTP', 'confirmed_at': '2026-10-15T12:56:04.582403+01:00', 'recovery_codes_remaining': 9, 'required': True, 'self_disable_allowed': False}"
+    "detail": "{'enrolled': True, 'method': 'TOTP', 'confirmed_at': '2026-10-16T09:09:04.521790+01:00', 'recovery_codes_remaining': 9, 'required': True, 'self_disable_allowed': False}"
   },
   {
     "check": "Régénération sans code TOTP valide : refusée",
@@ -202,7 +202,7 @@
   {
     "check": "Manager : réinitialisation du facteur d'un autre compte, sessions plateforme coupées",
     "pass": true,
-    "detail": "{'user_id': '4d645852-b0b8-451f-a026-6b8c797d74cb', 'mfa_reset': True, 'password_reset': False, 'sessions_revoked': 5, 'factors_revoked': 1, 'recovery_codes_revoked': 10}"
+    "detail": "{'user_id': 'dbc20e04-94f2-438e-9685-de3a0e1ea3ea', 'mfa_reset': True, 'password_reset': False, 'sessions_revoked': 5, 'factors_revoked': 1, 'recovery_codes_revoked': 10}"
   },
   {
     "check": "Après réinitialisation : ancien jeton coupé immédiatement",
@@ -372,7 +372,7 @@
   {
     "check": "Décision 3 : réinitialisation avec mot de passe provisoire",
     "pass": true,
-    "detail": "{\"user_id\":\"f017fb37-ce65-4467-8639-3e972d610371\",\"mfa_reset\":true,\"password_reset\":true,\"sessions_revoked\":3,\"factors_revoked\":1,\"recovery_codes_revo"
+    "detail": "{\"user_id\":\"03bb5c39-0e83-4b1b-ab98-09af4faf4bfc\",\"mfa_reset\":true,\"password_reset\":true,\"sessions_revoked\":3,\"factors_revoked\":1,\"recovery_codes_revo"
   },
   {
     "check": "Décision 3 : ancien mot de passe refusé, toutes les sessions coupées (école comprise)",
