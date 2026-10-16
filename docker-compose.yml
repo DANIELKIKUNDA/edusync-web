@@ -24,7 +24,7 @@ services:
   # One-shot privileged service. The owner/admin bootstrap secrets never enter the API container.
   migrator:
     build: ./backend
-    env_file: .env
+    env_file: ${EDUSYNC_ENV_FILE:-.env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,6 +45,10 @@ services:
       EDUSYNC_OFFLINE_FINANCE_ENABLED: ${EDUSYNC_OFFLINE_FINANCE_ENABLED:-false}
       EDUSYNC_OFFLINE_FINANCE_CERTIFIED: ${EDUSYNC_OFFLINE_FINANCE_CERTIFIED:-false}
       EDUSYNC_CORS_ORIGINS: ${EDUSYNC_CORS_ORIGINS:-http://localhost:5173,http://localhost:8080}
+      # Public domain(s) + localhost (the container health check calls http://localhost:8000).
+      EDUSYNC_TRUSTED_HOSTS: ${EDUSYNC_TRUSTED_HOSTS:-localhost,127.0.0.1}
+      EDUSYNC_MFA_ENCRYPTION_KEY: ${EDUSYNC_MFA_ENCRYPTION_KEY:-}
+      EDUSYNC_DOCUMENT_LINK_SECRET: ${EDUSYNC_DOCUMENT_LINK_SECRET:-}
       EDUSYNC_SESSION_ABSOLUTE_DAYS: ${EDUSYNC_SESSION_ABSOLUTE_DAYS:-0}
       EDUSYNC_SESSION_IDLE_DAYS: ${EDUSYNC_SESSION_IDLE_DAYS:-0}
       EDUSYNC_OBJECT_STORAGE_ENDPOINT: ${EDUSYNC_OBJECT_STORAGE_ENDPOINT:-}
@@ -54,6 +58,8 @@ services:
       EDUSYNC_OBJECT_STORAGE_REGION: ${EDUSYNC_OBJECT_STORAGE_REGION:-us-east-1}
       EDUSYNC_OBJECT_STORAGE_PATH_STYLE: ${EDUSYNC_OBJECT_STORAGE_PATH_STYLE:-true}
       EDUSYNC_SETUP_TOKEN: ${EDUSYNC_SETUP_TOKEN:-}
+      # Real providers are BLOCKED_EXTERNAL: push stays disabled (simulated providers are refused outside dev).
+      EDUSYNC_PUSH_PROVIDER: ${EDUSYNC_PUSH_PROVIDER:-disabled}
       # Trust X-Forwarded-For only from the reverse proxy network (nginx frontend container).
       FORWARDED_ALLOW_IPS: ${EDUSYNC_FORWARDED_ALLOW_IPS:-*}
     depends_on:
@@ -95,7 +101,10 @@ services:
       EDUSYNC_WORKER_DATABASE_URL: ${EDUSYNC_WORKER_DATABASE_URL:?EDUSYNC_WORKER_DATABASE_URL required}
       EDUSYNC_REDIS_URL: ${EDUSYNC_REDIS_URL:-redis://redis:6379/0}
       EDUSYNC_JWT_SECRET: ${EDUSYNC_JWT_SECRET:?EDUSYNC_JWT_SECRET required}
+      # BLOCKED_EXTERNAL until a real operator is integrated and tested: deliveries fail cleanly, never reported as sent.
       EDUSYNC_SMS_PROVIDER: ${EDUSYNC_SMS_PROVIDER:-disabled}
+      EDUSYNC_ORANGE_SMS_ENDPOINT: ${EDUSYNC_ORANGE_SMS_ENDPOINT:-}
+      EDUSYNC_ORANGE_SMS_BEARER_TOKEN: ${EDUSYNC_ORANGE_SMS_BEARER_TOKEN:-}
     depends_on:
       migrator:
         condition: service_completed_successfully

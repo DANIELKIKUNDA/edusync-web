@@ -38,3 +38,19 @@ def test_s1_simulated_sms_refused_and_secure_cookie_in_staging():
     assert provider_for(Settings(_env_file=None), "mock") is not None
     iam = (ROOT / "backend/src/edusync/modules/iam/api/router.py").read_text(encoding="utf-8")
     assert "secure=is_protected_env(services.settings.env)" in iam
+
+
+COMPOSE = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+
+
+def block(name: str) -> str:
+    return COMPOSE.split(f"\n  {name}:\n", 1)[1].split("\n\n", 1)[0]
+
+
+# ---------------------------------------------------------------- S2: the API receives every runtime variable it needs
+def test_s2_backend_receives_runtime_variables_without_owner_secrets():
+    api = block("backend")
+    for var in ("EDUSYNC_TRUSTED_HOSTS", "EDUSYNC_MFA_ENCRYPTION_KEY", "EDUSYNC_DOCUMENT_LINK_SECRET", "EDUSYNC_PUSH_PROVIDER"):
+        assert f"{var}:" in api, var
+    assert "EDUSYNC_OWNER_DATABASE_URL" not in api and "POSTGRES_OWNER_PASSWORD" not in api and "PLATFORM_ADMIN_PASSWORD" not in api
+    assert "env_file: ${EDUSYNC_ENV_FILE:-.env}" in block("migrator")
