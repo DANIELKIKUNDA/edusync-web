@@ -70,3 +70,12 @@ def test_s4_nginx_import_size():
     assert "client_max_body_size 11m;" in nginx
     from edusync.modules.migration_import.api.router import MAX_IMPORT_BYTES
     assert MAX_IMPORT_BYTES <= 11 * 1024 * 1024
+
+
+# ---------------------------------------------------------------- S5: server-sent events unbuffered and kept open
+def test_s5_nginx_streams():
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    sse = nginx.split("location ~ ^/api/v1/(notifications|platform/inbox)/stream$", 1)[1].split("}", 1)[0]
+    assert "proxy_buffering off;" in sse and "proxy_read_timeout 1h;" in sse
+    assert nginx.index("(notifications|platform/inbox)/stream") < nginx.index("location /api/ {")
+    assert "proxy_set_header Host $host;" in nginx.split("location /health-api", 1)[1].split("}", 1)[0]
