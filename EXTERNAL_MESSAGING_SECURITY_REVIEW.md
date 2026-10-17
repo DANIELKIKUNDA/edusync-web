@@ -18,7 +18,7 @@
 | Injection dans les e-mails | échappement HTML de chaque valeur ; destinataire sans retour à la ligne (anti-injection d'en-têtes) | tests modèles et SMTP |
 | SMTP en clair | refusé hors développement | contrôle de démarrage |
 | Lien de compte non HTTPS | refusé hors développement quand l'e-mail est actif | contrôle de démarrage |
-| Dépendances | `firebase-admin`, `aiosmtplib` (Python) et `firebase` (npm) figés ; licences Apache-2.0 / MIT / BSD ; scripts post-installation npm bloqués par la politique d'autorisation | supply chain + npm audit de la certification |
+| Dépendances | `firebase-admin`, `aiosmtplib` (Python), `@firebase/app` et `@firebase/messaging` (npm, sans Firestore ni gRPC) figés ; `npm audit` : 0 vulnérabilité ; licences Apache-2.0 / MIT / BSD ; scripts post-installation npm bloqués par la politique d'autorisation | supply chain + npm audit de la certification |
 
 Limites assumées : Orange ne signe pas ses accusés (IP + secret de chemin compensent) ; SMTP ne prouve pas la livraison
 (`SENT` seulement) ; la consommation SMS est l'estimation réservée (réconciliation par ajustement motivé).

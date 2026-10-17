@@ -21,7 +21,7 @@ vérifier avant la production ; l'architecture n'en dépend pas (port `PushProvi
 
 ## 2. Frontend / PWA
 
-* SDK officiel **firebase** (12.19), chargé à la demande uniquement après l'action « Activer les notifications »
+* SDK officiel Firebase, limité à ses deux paquets utiles **@firebase/app 0.16.2** et **@firebase/messaging 0.13.3** (ceux du SDK firebase 12.19 ; le paquet parapluie entraînait Firestore et une vulnérabilité gRPC inutile côté navigateur), chargé à la demande uniquement après l'action « Activer les notifications »
   (Centre de communication → Réglages → Notifications sur cet appareil). Aucune demande de permission au chargement.
 * Le jeton est obtenu avec **le service worker EduSync existant** (`/sw.js`, `serviceWorkerRegistration`) : pas de
   second service worker. `sw.js` affiche les messages (`push`), ouvre la route EduSync au clic (`notificationclick`,

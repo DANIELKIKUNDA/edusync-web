@@ -31,7 +31,7 @@ export function rememberedSubscription(scope: string): string | null {
 
 async function fcmToken(cfg: PushConfig): Promise<string> {
   if (!cfg.web_config || !cfg.vapid_public_key) throw new Error('Notifications : configuration Firebase incomplète sur la plateforme');
-  const [{initializeApp, getApps}, {getMessaging, getToken, isSupported}] = await Promise.all([import('firebase/app'), import('firebase/messaging')]);
+  const [{initializeApp, getApps}, {getMessaging, getToken, isSupported}] = await Promise.all([import('@firebase/app'), import('@firebase/messaging')]);
   if (!(await isSupported())) throw new Error('Ce navigateur ne permet pas les notifications Firebase');
   const app = getApps()[0] ?? initializeApp(cfg.web_config);
   const registration = await navigator.serviceWorker.ready;           // the existing EduSync service worker
@@ -64,7 +64,7 @@ export async function disablePush(token: string, scope: string, platform = false
   try {
     const cfg = await pushConfig(token, platform);
     if (cfg.provider === 'fcm' && cfg.web_config) {
-      const [{getApps}, {getMessaging, deleteToken}] = await Promise.all([import('firebase/app'), import('firebase/messaging')]);
+      const [{getApps}, {getMessaging, deleteToken}] = await Promise.all([import('@firebase/app'), import('@firebase/messaging')]);
       const app = getApps()[0];
       if (app) await deleteToken(getMessaging(app)).catch(() => undefined);
     }
