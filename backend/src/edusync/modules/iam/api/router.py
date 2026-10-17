@@ -24,6 +24,7 @@ from sqlalchemy import text
 from datetime import datetime, timezone
 from edusync.shared.infrastructure.persistent_sessions import new_session_token, hash_token, hash_user_agent, describe_user_agent
 from edusync.modules.iam.application import platform_mfa
+from edusync.modules.iam.application import account_links
 from edusync.shared.infrastructure.mfa import DIGITS as MFA_DIGITS, ISSUER as MFA_ISSUER, STEP_SECONDS as MFA_PERIOD
 
 router = APIRouter(tags=["Authentification"])
@@ -478,7 +479,10 @@ def _change_password(services: AppServices, user_id, body: "PasswordChangeInput"
         conn.execute(text("UPDATE push_subscriptions SET revoked_at=now(),revoked_reason='PASSWORD_CHANGED' WHERE user_id=:uid AND revoked_at IS NULL"), {'uid': user_id})
         if result.rowcount != 1:
             raise HTTPException(status_code=409, detail="Compte modifié; reconnectez-vous")
+        account_links.revoke_open(conn, user_id, account_links.PASSWORD_RESET, "PASSWORD_CHANGED")
         _security_audit(conn, user_id=user_id, action="PASSWORD_CHANGED", school_id=school_id, detail={"sessions_revoked": n})
+        account_links.security_alert(conn, services.settings, user_id=user_id,
+                                     text_="Le mot de passe de votre compte EduSync vient d’être modifié. Toutes vos sessions ont été fermées.")
     return {"status": "changed", "sessions_invalidated": True}
 
 
@@ -491,6 +495,87 @@ def change_platform_password(body: PasswordChangeInput, actor: ActorContext = De
 @router.post("/password")
 def change_password(body: PasswordChangeInput, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     return _change_password(services, actor.user_id, body, actor.school_id)
+
+
+# ------------------------------------------------------------------ account links sent by e-mail
+class ForgotPasswordInput(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+
+
+@router.post("/password/forgot", status_code=202)
+def forgot_password(body: ForgotPasswordInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """Always the same answer, whether the address exists or not (no account enumeration). A recovery link is e-mailed
+    only to an active school account; platform accounts (second factor) are reset by a Manager Système. Rate limited."""
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    neutral = {"status": "accepted", "detail": "Si un compte correspond à cette adresse, un lien de réinitialisation vient d’être envoyé."}
+    if not account_links.email_available(services.settings):
+        return neutral
+    email = body.email.strip().lower()
+    with services.platform_db.platform_transaction() as conn:
+        user = conn.execute(text("""SELECT u.id, u.email, u.full_name FROM users u WHERE lower(u.email::text)=:e AND u.active
+            AND EXISTS (SELECT 1 FROM school_memberships m JOIN schools s ON s.id=m.school_id WHERE m.user_id=u.id AND m.active AND s.status='ACTIVE')
+            AND NOT EXISTS (SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id WHERE a.user_id=u.id AND r.kind LIKE 'PLATFORM%' AND a.active)
+            AND NOT u.is_platform_admin"""), {"e": email}).mappings().first()
+        if user:
+            raw = account_links.issue(conn, services.settings, user_id=user["id"], purpose=account_links.PASSWORD_RESET)
+            account_links.send_link_email(conn, services.settings, user_id=user["id"], email=user["email"], full_name=user["full_name"],
+                                          purpose=account_links.PASSWORD_RESET, raw=raw)
+            _security_audit(conn, user_id=user["id"], action="PASSWORD_RESET_REQUESTED")
+    return neutral
+
+
+class LinkPasswordInput(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    new_password: str = Field(min_length=10, max_length=512)
+
+
+@router.post("/password/reset")
+def reset_password(body: LinkPasswordInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """Single-use recovery link: new password, every session and push device of the account ends, open links die."""
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    with services.platform_db.platform_transaction() as conn:
+        token = account_links.consume(conn, account_links.PASSWORD_RESET, body.token)
+        if token is None:
+            raise HTTPException(status_code=400, detail=account_links.NEUTRAL_REFUSAL)
+        uid = token["user_id"]
+        conn.execute(text("""UPDATE users SET password_hash=:p, version=version+1, must_change_password=false, password_set_by='SELF' WHERE id=:u"""),
+                     {"p": hash_password(body.new_password), "u": str(uid)})
+        n = conn.execute(text("""UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()), revoked_reason='PASSWORD_RESET'
+            WHERE user_id=:u AND revoked_at IS NULL"""), {"u": str(uid)}).rowcount
+        conn.execute(text("UPDATE push_subscriptions SET revoked_at=now(), revoked_reason='PASSWORD_RESET' WHERE user_id=:u AND revoked_at IS NULL"), {"u": str(uid)})
+        account_links.revoke_open(conn, uid, account_links.PASSWORD_RESET, "USED_OTHER_LINK")
+        _security_audit(conn, user_id=uid, action="PASSWORD_RESET_BY_EMAIL_LINK", detail={"sessions_revoked": n})
+        account_links.security_alert(conn, services.settings, user_id=uid,
+                                     text_="Le mot de passe de votre compte EduSync a été réinitialisé avec un lien envoyé par e-mail. Toutes vos sessions ont été fermées.")
+    return {"changed": True}
+
+
+@router.get("/invitations/{token}")
+def invitation_details(token: str, response: Response, services: AppServices = Depends(get_services)):
+    """What the invitation page shows before acceptance: the name and the school (never the e-mail address)."""
+    response.headers["Cache-Control"] = "no-store"
+    with services.platform_db.platform_transaction() as conn:
+        row = account_links.peek(conn, account_links.INVITATION, token)
+    if row is None:
+        raise HTTPException(status_code=404, detail=account_links.NEUTRAL_REFUSAL)
+    return {"valid": True, "full_name": row["full_name"], "school_name": row["school_name"]}
+
+
+@router.post("/invitations/accept")
+def accept_invitation(body: LinkPasswordInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """The invited person chooses a password: the account becomes usable; the link cannot be used again."""
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    with services.platform_db.platform_transaction() as conn:
+        token = account_links.consume(conn, account_links.INVITATION, body.token)
+        if token is None:
+            raise HTTPException(status_code=400, detail=account_links.NEUTRAL_REFUSAL)
+        conn.execute(text("""UPDATE users SET password_hash=:p, version=version+1, must_change_password=false, password_set_by='SELF' WHERE id=:u"""),
+                     {"p": hash_password(body.new_password), "u": str(token["user_id"])})
+        _security_audit(conn, user_id=token["user_id"], action="INVITATION_ACCEPTED", school_id=token["school_id"])
+    return {"activated": True}
 
 
 @router.post('/refresh')

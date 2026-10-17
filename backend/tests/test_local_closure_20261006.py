@@ -162,23 +162,29 @@ def test_first_manager_setup_is_locked_and_token_gated():
 
 # --- SMS ----------------------------------------------------------------------------------------------
 def test_sms_providers_are_resolved_by_code_and_test_providers_never_run_in_production():
-    from edusync.modules.communications.providers import SandboxSmsProvider, provider_for
-    dev = SimpleNamespace(env="dev", orange_sms_endpoint="", orange_sms_bearer_token="")
-    prod = SimpleNamespace(env="production", orange_sms_endpoint="", orange_sms_bearer_token="")
-    assert isinstance(provider_for(dev, "sandbox"), SandboxSmsProvider)
+    # External messaging (2026-10): the sandbox became the FakeSmsProvider behind SmsProviderPort.
+    import asyncio
+    from edusync.modules.communications.providers import provider_for
+    from edusync.shared.messaging.fakes import FakeSmsProvider
+    base = dict(redis_url=None, orange_sms_client_id="", orange_sms_client_secret="", orange_sms_sender_address="",
+                orange_sms_sender_name="", orange_sms_api_base="https://api.orange.com")
+    dev, prod = SimpleNamespace(env="dev", **base), SimpleNamespace(env="production", **base)
+    assert isinstance(provider_for(dev, "sandbox"), FakeSmsProvider)
     assert provider_for(prod, "sandbox") is None and provider_for(prod, "mock") is None and provider_for(dev, "x") is None
-    sb = SandboxSmsProvider()
-    ok = sb.send_sms(destination="+243810001234", body="b", sender_id="S")
-    assert ok.accepted and ok.provider_message_id and sb.delivery_report(ok.provider_message_id).status == "DELIVERED"
-    assert sb.send_sms(destination="+243810000000", body="b", sender_id="S").error_code == "PROVIDER_REJECTED"
-    assert sb.delivery_report(sb.send_sms(destination="+243810008888", body="b", sender_id="S").provider_message_id).status == "FAILED"
+    fake = FakeSmsProvider()
+    ok = asyncio.run(fake.send_sms(to_e164="+243810001234", body="b"))
+    assert ok.outcome == "SENT" and ok.provider_message_id
+    assert asyncio.run(fake.send_sms(to_e164="+243810000000", body="b")).outcome == "PERMANENT"
+    assert asyncio.run(fake.send_sms(to_e164="+243810009999", body="b")).outcome == "RETRYABLE"
 
 
 def test_sms_sent_requires_provider_proof_and_delivered_requires_a_report():
+    from edusync.shared.messaging.ports import SendResult
+    with pytest.raises(ValueError):
+        SendResult("SENT")                     # no provider proof -> cannot be SENT
     w = (SRC / "modules/communications/worker.py").read_text(encoding="utf-8")
-    assert "result.accepted and result.provider_message_id" in w
-    assert "status='DELIVERED',delivered_at=now() WHERE id=:id AND status='SENT'" in w
-    assert "reconcile_delivery_reports(cfg,engine)" in w
+    assert "result.outcome == ports.SENT" in w
+    assert "status='DELIVERED', delivered_at=coalesce(delivered_at, now())" in w and "def apply_receipt" in w
 
 
 def test_sms_templates_render_strictly():

@@ -32,8 +32,8 @@ def registry() -> CapabilityRegistry:
 
 def test_registry_has_current_unique_capabilities():
     r = registry()
-    assert len(r.capabilities) == 278  # N3-A (2026-10-15): reverse.supervisor, cash.day.close ; N3-H: students.lifecycle.suspend
-    assert len(r.by_code()) == 278
+    assert len(r.capabilities) == 280  # N3-A (2026-10-15): reverse.supervisor, cash.day.close ; N3-H: students.lifecycle.suspend
+    assert len(r.by_code()) == 280  # + platform.messaging.read, platform.sms_wallet.credit (2026-10-16)
     assert "platform.notifications.system.send" in r.by_code()
 
 
@@ -62,7 +62,7 @@ def test_manager_system_owner_decision_is_locked_and_all_atelier_pro():
     assert manager["owner_decision"] == "APPROVED"
     assert set(manager["final_capabilities"]) == expected
     assert "platform.notifications.system.send" in expected
-    assert len(expected) == 10
+    assert len(expected) == 12  # + messagerie externe (2026-10-16)
 
 
 def test_standard_role_decisions_are_finalized_and_owner_approved():

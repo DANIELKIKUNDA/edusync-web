@@ -12,8 +12,10 @@ def test_intendance_full_core_and_signed_adjustment():
  s=text('backend/src/edusync/modules/stewardship/api/router.py')
  for x in ["'/assets'","/history'","'/counts'","/validate'","adjustment_direction"]:assert x in s
 def test_communications_has_real_adapter_contract_and_retries():
- p=text('backend/src/edusync/modules/communications/providers.py');w=text('backend/src/edusync/modules/communications/worker.py')
- assert 'OrangeSmsProvider' in p and 'httpx.post' in p and 'MAX_ATTEMPTS=5' in w and 'attempts<MAX_ATTEMPTS' in w and '2**' in w
+ # External messaging (2026-10): the documented Orange adapter lives behind SmsProviderPort; bounded retries with jitter.
+ p=text('backend/src/edusync/shared/messaging/sms_orange.py');w=text('backend/src/edusync/modules/communications/worker.py')
+ assert 'class OrangeSmsProvider' in p and 'httpx.AsyncClient' in p and '/oauth/v3/token' in p
+ assert 'MAX_ATTEMPTS = 6' in w and 'attempts < MAX_ATTEMPTS' in w and '2 ** max(0, attempt - 1)' in w and 'random.uniform(0.8, 1.2)' in w
 def test_no_direct_login_exception_leak():
  s=text('frontend/src/login.tsx');assert "e instanceof Error?e.message" not in s
 def test_performance_and_security_gates_exist():

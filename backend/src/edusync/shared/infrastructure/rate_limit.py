@@ -21,6 +21,16 @@ RULES: tuple[tuple[str, re.Pattern, str, int, int], ...] = tuple((m, re.compile(
     ("POST", r"^/api/v1/setup/first-manager$", "setup", 10, 3600),
     ("POST", r"^/api/v1/auth/(platform/)?password$", "password", 10, 3600),
     ("POST", r"^/api/v1/auth/refresh$", "refresh", 120, 600),
+    # Account links sent by e-mail: recovery requests per IP, single-use link checks / redemptions.
+    ("POST", r"^/api/v1/auth/password/forgot$", "account_recovery", 5, 3600),
+    ("POST", r"^/api/v1/auth/(password/reset|invitations/accept)$", "account_link_use", 20, 3600),
+    ("GET", r"^/api/v1/auth/invitations/[^/]+$", "account_link_check", 60, 3600),
+    # External messaging: sending and previews per account, wallet movements and provider tests per Manager.
+    ("POST", r"^/api/v1/communications/send$", "comm_send", 60, 3600),
+    ("POST", r"^/api/v1/communications/preview$", "comm_preview", 300, 3600),
+    ("POST", r"^/api/v1/notifications/push-test$", "push_test", 20, 3600),
+    ("POST", r"^/api/v1/platform/messaging/wallets/[^/]+/(credit|adjust)$", "sms_wallet", 60, 3600),
+    ("POST", r"^/api/v1/platform/messaging/test-send$", "provider_test", 20, 3600),
     ("POST", r"^/api/v1/platform/schools$", "school_create", 30, 3600),
     ("POST", r"^/api/v1/platform/schools/[^/]+/bootstrap-admin$", "school_admin", 30, 3600),
     ("POST", r"^/api/v1/platform/schools/[^/]+/(suspend|reactivate)$", "school_status", 30, 3600),

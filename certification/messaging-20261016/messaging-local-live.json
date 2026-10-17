@@ -1,0 +1,273 @@
+{
+ "probe": "messaging_local_probe",
+ "providers": "FAKE (development only)",
+ "run": "B70AB",
+ "checks": [
+  {
+   "check": "Plateforme : SMS, e-mail et push en mode simulé (développement), jamais déclarés certifiés",
+   "pass": true,
+   "detail": "{'sms': {'state': 'SIMULATED', 'available': True}, 'email': {'state': 'SIMULATED', 'available': True}, 'push': {'state': 'SIMULATED', 'available': True}}"
+  },
+  {
+   "check": "RBAC : réglages des canaux refusés sans notifications.internal.configure",
+   "pass": true,
+   "detail": "403"
+  },
+  {
+   "check": "Réglages : l'administrateur système de l'école active SMS, e-mail et push",
+   "pass": true,
+   "detail": "{'version': 1}"
+  },
+  {
+   "check": "Réglages : version périmée refusée (409)",
+   "pass": true,
+   "detail": "409"
+  },
+  {
+   "check": "Aperçu : destinataires, numéro invalide et doublon retirés, coût en unités",
+   "pass": true,
+   "detail": "{'recipients': 5, 'sms_valid': 3, 'sms_invalid': 1, 'sms_duplicates_removed': 1, 'email_valid': 1, 'characters': 43, 'units_per_sms': 1, 'sms_units': 3, 'wallet_balance': 0, 'wallet_reserved': 0, 'wallet_available': 0, 'balance_after': -3, 'sufficient': False, 'too_long': False, 'fingerprint': '363c"
+  },
+  {
+   "check": "SMS sans crédit : envoi refusé (409), aucune réservation, aucun message",
+   "pass": true,
+   "detail": "(409, '{\"detail\":\"Crédit SMS insuffisant : 3 nécessaires, 0 disponibles\"}')"
+  },
+  {
+   "check": "Crédit manuel : solde 100, rejeu de la même clé sans double crédit",
+   "pass": true,
+   "detail": "({'ledger_id': '81422912-42c8-4594-ae55-4864d0d6c99b', 'balance': 100, 'reserved': 0, 'movement': 'TOPUP', 'replayed': False}, {'ledger_id': '81422912-42c8-4594-ae55-4864d0d6c99b', 'balance': 100, 'reserved': 0, 'movement': 'TOPUP', 'replayed': True})"
+  },
+  {
+   "check": "RBAC : un compte école ne peut pas créditer un portefeuille",
+   "pass": true,
+   "detail": "403"
+  },
+  {
+   "check": "Crédit audité une seule fois (rejeu non audité)",
+   "pass": true,
+   "detail": "1"
+  },
+  {
+   "check": "Ajustement : jamais de solde négatif",
+   "pass": true,
+   "detail": "409"
+  },
+  {
+   "check": "Crédit concurrent : 5 clés distinctes + 5 fois la même clé = +60 exactement",
+   "pass": true,
+   "detail": "({'balance': 160, 'reserved': 0}, [200, 200, 200, 200, 200, 200, 200, 200, 200, 200])"
+  },
+  {
+   "check": "Multi-école : l'école B ne voit ni le solde ni le grand livre de l'école A",
+   "pass": true,
+   "detail": "({'balance': 0, 'reserved': 0, 'available': 0, 'threshold': 50, 'low': True, 'consumed_this_month': 0, 'unit': 'SMS_SEGMENT'}, 0)"
+  },
+  {
+   "check": "RBAC : caissier sans droit de composer → 403 ; directeur des études sans SMS de masse → 403",
+   "pass": true,
+   "detail": "(403, 403)"
+  },
+  {
+   "check": "Périmètre de section : un rôle limité au Secondaire ne peut pas viser une classe du Primaire",
+   "pass": true,
+   "detail": "403"
+  },
+  {
+   "check": "Multi-école : la classe de l'école A ne donne aucun destinataire à l'école B",
+   "pass": true,
+   "detail": "{\"recipients\":0,\"sms_valid\":0,\"sms_invalid\":0,\"sms_duplicates_removed\":0,\"email_valid\":0,\"characters\":43,\"units_per_sms\""
+  },
+  {
+   "check": "Confirmation obligatoire : envoi SMS sans empreinte d'aperçu refusé",
+   "pass": true,
+   "detail": "409"
+  },
+  {
+   "check": "Envoi accepté (QUEUED) et rejeu idempotent sans double réservation",
+   "pass": true,
+   "detail": "({'id': '76fd9d91-7be0-4d05-8ea6-1595a8500a37', 'status': 'QUEUED', 'channels': ['SMS'], 'recipients': 5, 'sms_units_reserved': 3, 'replayed': False, 'estimated_segments': 1}, {'id': '76fd9d91-7be0-4d05-8ea6-1595a8500a37', 'status': 'QUEUED', 'channels': ['SMS'], 'recipients': 5, 'sms_units_reserved"
+  },
+  {
+   "check": "Une seule réservation pour le message",
+   "pass": true,
+   "detail": "1"
+  },
+  {
+   "check": "Worker : numéro valide → SENT avec preuve fournisseur, crédits consommés",
+   "pass": true,
+   "detail": "{'destination': '+243810001234', 'status': 'SENT', 'wallet_state': 'CONSUMED', 'last_error_code': None, 'provider_message_id': 'fake-sms-7d14dd0e9ead208790911b51', 'attempts': 1}"
+  },
+  {
+   "check": "Worker : refus permanent du fournisseur → FAILED_PERMANENT, crédits libérés",
+   "pass": true,
+   "detail": "{'destination': '+243810000000', 'status': 'FAILED_PERMANENT', 'wallet_state': 'RELEASED', 'last_error_code': 'PROVIDER_HTTP_403_POL0001', 'provider_message_id': None, 'attempts': 1}"
+  },
+  {
+   "check": "Worker : délai dépassé → FAILED_RETRYABLE, crédits encore réservés, nouvel essai planifié",
+   "pass": true,
+   "detail": "{'destination': '+243810009999', 'status': 'FAILED_RETRYABLE', 'wallet_state': 'RESERVED', 'last_error_code': 'PROVIDER_TIMEOUT', 'provider_message_id': None, 'attempts': 1}"
+  },
+  {
+   "check": "Politique : numéro invalide écarté sans être facturé (NO_VALID_PHONE)",
+   "pass": true,
+   "detail": "['NO_VALID_PHONE']"
+  },
+  {
+   "check": "SENT n'est jamais transformé en DELIVERED sans accusé du fournisseur",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "check": "Nouvelles tentatives bornées : épuisement → FAILED_PERMANENT (lettre morte visible), crédits libérés",
+   "pass": true,
+   "detail": "{'destination': '+243810009999', 'status': 'FAILED_PERMANENT', 'wallet_state': 'RELEASED', 'last_error_code': 'PROVIDER_TIMEOUT', 'provider_message_id': None, 'attempts': 6}"
+  },
+  {
+   "check": "Portefeuille : 160 − 1 SMS consommé = 159, aucune réservation restante",
+   "pass": true,
+   "detail": "{'balance': 159, 'reserved': 0}"
+  },
+  {
+   "check": "Grand livre : TOPUP, RESERVATION, CONSUMPTION, RELEASE tracés",
+   "pass": true,
+   "detail": "['CONSUMPTION', 'RELEASE', 'RESERVATION', 'TOPUP']"
+  },
+  {
+   "check": "Grand livre en ajout seul (modification refusée même au propriétaire)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "check": "Historique : canal, statuts, auteur, unités facturées, erreurs synthétiques",
+   "pass": true,
+   "detail": "{'id': '76fd9d91-7be0-4d05-8ea6-1595a8500a37', 'kind': 'COMMUNIQUE', 'subject': None, 'audience_type': 'CLASS', 'channels': ['SMS'], 'recipient_count': 5, 'sms_segments_reserved': 3, 'created_at': '2026-10-17T12:15:21.822491+01:00', 'dispatched_at': '2026-10-17T12:15:22.764428+01:00', 'author': 'Age"
+  },
+  {
+   "check": "SMS désactivé : envoi SMS refusé « Canal externe non activé »",
+   "pass": true,
+   "detail": "{\"detail\":\"Canal externe non activé pour cette école\"}"
+  },
+  {
+   "check": "Inscription (métier) inchangée quand les SMS sont désactivés",
+   "pass": true,
+   "detail": "201"
+  },
+  {
+   "check": "Récupération : même réponse 202 que l'adresse existe ou non (pas d'énumération)",
+   "pass": true,
+   "detail": "(202, 202)"
+  },
+  {
+   "check": "E-mail de récupération envoyé par le worker avec un lien à usage unique (fragment #reset)",
+   "pass": true,
+   "detail": "True"
+  },
+  {
+   "check": "Jeton stocké sous forme d'empreinte SHA-256 uniquement",
+   "pass": true,
+   "detail": "(1, 0)"
+  },
+  {
+   "check": "Lien chiffré au repos puis effacé après envoi",
+   "pass": true,
+   "detail": "0"
+  },
+  {
+   "check": "Réinitialisation acceptée une fois ; rejeu du même lien refusé",
+   "pass": true,
+   "detail": "(200, 400)"
+  },
+  {
+   "check": "Connexion avec le nouveau mot de passe",
+   "pass": true,
+   "detail": "200"
+  },
+  {
+   "check": "Alerte de sécurité envoyée après la réinitialisation",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "check": "Invitation : aucun mot de passe montré ni envoyé",
+   "pass": true,
+   "detail": "['attached_existing_account', 'created', 'email', 'full_name', 'invitation_sent', 'membership_id', 'role_label', 'temporary_password']"
+  },
+  {
+   "check": "E-mail d'invitation : lien unique, sans mot de passe",
+   "pass": true,
+   "detail": "True"
+  },
+  {
+   "check": "Invitation : nom et école affichés, jamais l'adresse e-mail",
+   "pass": true,
+   "detail": "{\"valid\":true,\"full_name\":\"Invité B70AB\",\"school_name\":\"École messagerie A B70AB\"}"
+  },
+  {
+   "check": "Invitation acceptée une fois ; réutilisation refusée",
+   "pass": true,
+   "detail": "(200, 400)"
+  },
+  {
+   "check": "Invitation expirée refusée",
+   "pass": true,
+   "detail": "400"
+  },
+  {
+   "check": "Push : deux appareils enregistrés, jeton jamais stocké en clair",
+   "pass": true,
+   "detail": "0"
+  },
+  {
+   "check": "Push : la liste de l'utilisateur ne renvoie jamais le jeton",
+   "pass": true,
+   "detail": "2"
+  },
+  {
+   "check": "Push test : envoyé aux 2 appareils par le worker (outbox)",
+   "pass": true,
+   "detail": "[{'status': 'SENT'}, {'status': 'SENT'}]"
+  },
+  {
+   "check": "Jeton déclaré invalide par le fournisseur → appareil désactivé, les autres restent actifs",
+   "pass": true,
+   "detail": "([{'revoked_reason': 'PROVIDER_INVALID_TOKEN'}], 2)"
+  },
+  {
+   "check": "Révocation d'un appareil sans toucher les autres",
+   "pass": true,
+   "detail": "1"
+  },
+  {
+   "check": "Même navigateur réutilisé par un autre compte / une autre école → ancien enregistrement révoqué (aucune fuite A → B)",
+   "pass": true,
+   "detail": "TOKEN_REASSIGNED"
+  },
+  {
+   "check": "Multi-école : l'école B ne voit que ses propres appareils",
+   "pass": true,
+   "detail": "1"
+  },
+  {
+   "check": "Atelier Pro : état des fournisseurs, file et volumes, sans corps de message",
+   "pass": true,
+   "detail": "['providers', 'worker_heartbeat', 'queue', 'account_messages_waiting_dispatch', 'receipts_waiting', 'volumes_24h', 'failure_rate_24h']"
+  },
+  {
+   "check": "Atelier Pro : portefeuille de chaque école (solde, réservé, seuil, consommation 30 j)",
+   "pass": true,
+   "detail": "{'school_id': '926d6c69-2350-459c-81b1-d43ec603a983', 'name': 'École messagerie A B70AB', 'status': 'ACTIVE', 'balance': 159, 'reserved': 0, 'sms_enabled': False, 'threshold': 10, 'consumed_30d': 1, 'last_topup_at': '2026-10-17T12:15:21.432197+01:00', 'available': 159, 'low': False}"
+  },
+  {
+   "check": "RBAC : un compte école n'accède pas à la supervision plateforme",
+   "pass": true,
+   "detail": "403"
+  },
+  {
+   "check": "Aucun jeton push, lien de compte ou secret dans les réponses API ni dans le journal du worker",
+   "pass": true,
+   "detail": "[]"
+  }
+ ],
+ "summary": "53/53"
+}

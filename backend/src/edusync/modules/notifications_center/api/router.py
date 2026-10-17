@@ -5,16 +5,17 @@
 * Campaigns (platform.notifications.system.send): targeting one/many/all active schools, a school role, a
   school member, all platform accounts, a platform role, a platform account. One notification per recipient
   per campaign (unique index), idempotent, audited, internal links only.
-* Push subscriptions per device (mock provider for certification; real providers are BLOCKED_EXTERNAL).
+* Push devices (Firebase Cloud Messaging): registration token encrypted at rest, one row per device, revocable one by
+  one; a token re-registered by another account or school is revoked for the previous one (no cross-account push).
+  Push messages go through the communications outbox / worker like every external message (never sent in a request).
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from dataclasses import replace
 from datetime import datetime, timezone
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
@@ -29,7 +30,9 @@ from edusync.modules.audit.domain.audit import AuditRecord
 from edusync.shared.application.context import ActorContext
 from edusync.shared.application.idempotency import IdempotentExecutor
 from edusync.shared.domain.concurrency import IdempotencyConflict, IdempotencyInProgress
-from edusync.shared.infrastructure.push import build_push_provider
+from edusync.bootstrap.settings import is_protected_env
+from edusync.modules.communications.application.messaging import Recipient, request_message
+from edusync.shared.messaging.sealing import PUSH_TOKEN, cipher, token_hash
 from edusync.shared.infrastructure.realtime import inbox_events, publish_inbox_changed
 
 router = APIRouter(tags=["Notifications"])
@@ -77,20 +80,59 @@ def _cursor(cursor_at: str | None, cursor_id: UUID | None):
 
 class PushSubscriptionInput(BaseModel):
     provider: str = Field(pattern="^(MOCK|WEBPUSH|FCM)$")
-    endpoint: str = Field(min_length=8, max_length=2000)
+    endpoint: str = Field(min_length=8, max_length=4096)       # FCM registration token (never logged, encrypted at rest)
     device_label: str | None = Field(default=None, max_length=120)
+    device_id: UUID | None = None
+    platform: str | None = Field(default=None, max_length=32)
+    browser: str | None = Field(default=None, max_length=48)
 
 
-def _subscribe(c, user_id: UUID, school_id: UUID | None, body: PushSubscriptionInput, settings) -> dict:
-    if body.provider != "MOCK" and (settings.push_provider or "disabled").lower() != body.provider.lower():
+def _push_accepts(settings, provider: str) -> bool:
+    configured = (settings.push_provider or "disabled").lower()
+    if provider == "FCM":
+        return configured == "fcm" or (configured in {"fake", "mock"} and not is_protected_env(settings.env))
+    if provider == "MOCK":
+        return not is_protected_env(settings.env)
+    return False
+
+
+def _subscribe(c, user_id: UUID, school_id: UUID | None, body: PushSubscriptionInput, settings, membership_id: UUID | None = None) -> dict:
+    if not _push_accepts(settings, body.provider):
         raise HTTPException(409, "Ce fournisseur de notifications push n’est pas configuré sur ce serveur")
-    h = hashlib.sha256(body.endpoint.encode("utf-8")).hexdigest()  # the endpoint itself (a capability URL) is never stored
-    row = c.execute(text("""SELECT id FROM push_subscriptions WHERE user_id=:u AND endpoint_hash=:h AND revoked_at IS NULL"""), {"u": str(user_id), "h": h}).first()
+    h = token_hash(body.endpoint)  # uniqueness / lookup only; the token itself is stored encrypted
+    row = c.execute(text("""SELECT id FROM push_subscriptions WHERE user_id=:u AND endpoint_hash=:h AND revoked_at IS NULL
+        AND school_id IS NOT DISTINCT FROM CAST(:s AS uuid)"""), {"u": str(user_id), "h": h, "s": str(school_id) if school_id else None}).first()
     if row:
+        c.execute(text("UPDATE push_subscriptions SET last_used_at=now() WHERE id=:id"), {"id": str(row[0])})
         return {"id": str(row[0]), "status": "already_subscribed"}
-    sid = c.execute(text("""INSERT INTO push_subscriptions(user_id,school_id,provider,endpoint_hash,device_label)
-        VALUES(:u,:s,:p,:h,:l) RETURNING id"""), {"u": str(user_id), "s": str(school_id) if school_id else None, "p": body.provider, "h": h, "l": body.device_label}).scalar_one()
+    sid = uuid4()
+    sealed = cipher(settings, PUSH_TOKEN).encrypt(body.endpoint, owner=str(sid))
+    c.execute(text("""INSERT INTO push_subscriptions(id,user_id,school_id,membership_id,provider,endpoint_hash,token_ciphertext,device_label,device_id,platform,browser)
+        VALUES(:id,:u,:s,:m,:p,:h,:tok,:l,:d,:pf,:br)"""),
+        {"id": str(sid), "u": str(user_id), "s": str(school_id) if school_id else None, "m": str(membership_id) if membership_id else None,
+         "p": body.provider, "h": h, "tok": sealed, "l": body.device_label, "d": str(body.device_id) if body.device_id else None,
+         "pf": body.platform, "br": body.browser})
     return {"id": str(sid), "status": "subscribed"}
+
+
+def _revoke_token_elsewhere(platform_conn, token_h: str, keep_user: UUID, keep_school: UUID | None) -> int:
+    """The same browser token now belongs to another account / school: the previous registration stops receiving."""
+    return platform_conn.execute(text("""UPDATE push_subscriptions SET revoked_at=now(), revoked_reason='TOKEN_REASSIGNED'
+        WHERE endpoint_hash=:h AND revoked_at IS NULL AND (user_id<>:u OR school_id IS DISTINCT FROM CAST(:s AS uuid))"""),
+        {"h": token_h, "u": str(keep_user), "s": str(keep_school) if keep_school else None}).rowcount
+
+
+def _push_config(settings) -> dict:
+    """Public configuration for the browser: Firebase web app config + VAPID public key (never the service account)."""
+    kind = (settings.push_provider or "disabled").lower()
+    try:
+        web = json.loads(settings.fcm_web_config_json) if settings.fcm_web_config_json else None
+    except json.JSONDecodeError:
+        web = None
+    public_keys = {"apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId", "measurementId"}
+    return {"provider": "fcm" if kind == "fcm" else ("fake" if kind in {"fake", "mock"} and not is_protected_env(settings.env) else "disabled"),
+            "web_config": {k: v for k, v in (web or {}).items() if k in public_keys} or None,
+            "vapid_public_key": settings.fcm_vapid_public_key or None}
 
 
 # ------------------------------------------------------------------ platform inbox
@@ -120,10 +162,17 @@ def platform_inbox_read_all(actor: ActorContext = Depends(require_platform_actor
     return {"marked_read": n}
 
 
+@router.get("/platform/inbox/push/config")
+def platform_push_config(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    return _push_config(services.settings)
+
+
 @router.post("/platform/inbox/push-subscriptions", status_code=201)
 def platform_push_subscribe(body: PushSubscriptionInput, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     with services.platform_db.platform_transaction() as c:
-        return _subscribe(c, actor.user_id, None, body, services.settings)
+        out = _subscribe(c, actor.user_id, None, body, services.settings)
+        _revoke_token_elsewhere(c, token_hash(body.endpoint), actor.user_id, None)
+        return out
 
 
 @router.get("/platform/inbox/push-subscriptions")
@@ -171,11 +220,45 @@ def school_inbox_read_all(actor: ActorContext = Depends(require_school_actor), s
     return {"marked_read": n}
 
 
+@router.get("/notifications/push/config")
+def school_push_config(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, "notifications.internal.read")
+    return _push_config(services.settings)
+
+
+@router.get("/notifications/push-subscriptions")
+def school_push_list(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, "notifications.internal.read")
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+        rows = c.execute(text("""SELECT id, provider, device_label, platform, browser, created_at, last_used_at, last_error_code FROM push_subscriptions
+            WHERE user_id=:u AND school_id=:s AND revoked_at IS NULL ORDER BY created_at DESC"""), {"u": str(actor.user_id), "s": str(actor.school_id)}).mappings().all()
+    return {"items": [dict(r) for r in rows]}
+
+
 @router.post("/notifications/push-subscriptions", status_code=201)
 def school_push_subscribe(body: PushSubscriptionInput, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     _need(actor, "notifications.internal.read")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-        return _subscribe(c, actor.user_id, actor.school_id, body, services.settings)
+        out = _subscribe(c, actor.user_id, actor.school_id, body, services.settings, actor.membership_id)
+    with services.platform_db.platform_transaction() as pc:
+        _revoke_token_elsewhere(pc, token_hash(body.endpoint), actor.user_id, actor.school_id)
+    return out
+
+
+@router.post("/notifications/push-test")
+def school_push_test(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Test notification to the caller's own devices of this school, through the normal outbox / worker path."""
+    _need(actor, "notifications.internal.read")
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+        n = c.execute(text("SELECT count(*) FROM push_subscriptions WHERE user_id=:u AND school_id=:s AND revoked_at IS NULL"),
+                      {"u": str(actor.user_id), "s": str(actor.school_id)}).scalar_one()
+        if not n:
+            raise HTTPException(409, "Activez d’abord les notifications sur cet appareil")
+        out = request_message(c, school_id=actor.school_id, kind="PUSH_TEST", channels=["PUSH"], subject="Notifications EduSync activées",
+                              body="Cet appareil recevra les notifications de votre école.",
+                              recipients=[Recipient("USER", actor.user_id, None, user_id=actor.user_id)],
+                              idempotency_key=f"push-test:{uuid4()}", created_by=actor.user_id, link_path="/")
+    return {"message_id": out["id"], "devices": n, "status": "QUEUED"}
 
 
 @router.post("/notifications/push-subscriptions/{subscription_id}/revoke")
@@ -295,10 +378,18 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
                     school_id=None, source=actor.source, correlation_id=request_actor.correlation_id, idempotency_key=key,
                     new_data={"target": t.model_dump(mode="json"), "severity": body.severity, "recipient_count": len(recipients), "title": body.title.strip(),
                               "link_path": body.link_path, "expires_at": body.expires_at.isoformat() if body.expires_at else None}))
-                subs = c.execute(text("""SELECT p.id, p.user_id FROM push_subscriptions p WHERE p.revoked_at IS NULL
+                subs = c.execute(text("""SELECT DISTINCT p.user_id, p.school_id FROM push_subscriptions p WHERE p.revoked_at IS NULL
+                    AND p.token_ciphertext IS NOT NULL
                     AND (p.user_id, coalesce(p.school_id,'00000000-0000-0000-0000-000000000000'::uuid)) IN
                     (SELECT n.user_id, coalesce(n.school_id,'00000000-0000-0000-0000-000000000000'::uuid) FROM notifications n WHERE n.campaign_id=:cid)"""),
                     {"cid": cid}).mappings().all()
+                if subs:
+                    # Push goes through the outbox: one platform message, one recipient per (account, school); the worker
+                    # only targets that account's devices of that school.
+                    request_message(c, school_id=None, kind="PLATFORM", channels=["PUSH"], subject=body.title.strip()[:120],
+                                    body=body.body.strip()[:240], link_path=body.link_path, idempotency_key=f"campaign-push:{cid}", created_by=actor.user_id,
+                                    recipients=[Recipient("USER", uuid5(NAMESPACE_URL, f"{s['user_id']}:{s['school_id']}"), None, user_id=s["user_id"],
+                                                          target_school_id=s["school_id"]) for s in subs])
                 pushed.extend(dict(s) for s in subs)
                 notified.extend((str(r["user_id"]), str(r["school_id"]) if r["school_id"] else None) for r in recipients)
                 return 201, {"id": str(cid), "recipient_count": len(recipients), "target": t.type, "severity": body.severity}
@@ -312,9 +403,7 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
     if notified and not result.replayed:
         publish_inbox_changed(services.settings.redis_url, notified)  # real-time: bells update immediately
     if pushed and not result.replayed:
-        provider = build_push_provider(services.settings)
-        sent = sum(provider.send(s, {"title": body.title.strip(), "severity": body.severity, "link": body.link_path}).accepted for s in pushed)
-        result.body["push"] = {"provider": provider.name, "devices": len(pushed), "accepted": sent}
+        result.body["push"] = {"status": "QUEUED", "recipients_with_devices": len(pushed)}
     return result.body
 
 

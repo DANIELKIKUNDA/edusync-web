@@ -25,6 +25,9 @@ dependencies = [
   # Second factor of platform accounts (option B): AES-256-GCM at rest, local QR code (no external service).
   "cryptography>=46",
   "segno>=1.6",
+  # External messaging (2026-10): SMTP transactional e-mail and Firebase Cloud Messaging (push), behind provider ports.
+  "aiosmtplib>=5.1",
+  "firebase-admin>=7.7",
 ]
 
 [project.optional-dependencies]

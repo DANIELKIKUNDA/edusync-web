@@ -199,6 +199,7 @@ def main() -> None:
             ("0073_n3f_payroll_deductions", "0073_n3f_payroll_deductions.sql"),
             ("0074_n3g_periodic_reports", "0074_n3g_periodic_reports.sql"),
             ("0075_n3h_schooling_parity", "0075_n3h_schooling_parity.sql"),
+            ("0076_external_messaging", "0076_external_messaging.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):
@@ -307,11 +308,22 @@ def main() -> None:
             # worker role even when 0051 ran before the role existed.
             conn.exec_driver_sql(f"GRANT CONNECT ON DATABASE \"{dbname.replace(chr(34), chr(34)*2)}\" TO {WORKER_ROLE}")
             conn.exec_driver_sql(f"GRANT USAGE ON SCHEMA public TO {WORKER_ROLE}")
-            conn.exec_driver_sql(f"GRANT SELECT, UPDATE ON outbox_events, communication_deliveries TO {WORKER_ROLE}")
-            conn.exec_driver_sql(f"GRANT SELECT ON communication_messages, communication_settings TO {WORKER_ROLE}")
-            conn.exec_driver_sql(f"REVOKE INSERT, DELETE ON outbox_events, communication_deliveries FROM {WORKER_ROLE}")
-            # Only the status of a school (suspended school => SMS held), never its identity or contacts.
+            conn.exec_driver_sql(f"GRANT SELECT, UPDATE ON outbox_events TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"REVOKE INSERT, DELETE ON outbox_events FROM {WORKER_ROLE}")
+            # External messaging (0076): the worker dispatches requested messages into deliveries (INSERT), updates their
+            # state, moves SMS credits through school_sms_wallet_apply and applies provider receipts. Never DELETE.
+            conn.exec_driver_sql(f"GRANT SELECT, INSERT, UPDATE ON communication_deliveries TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT SELECT, UPDATE ON communication_messages, communication_recipients TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT SELECT ON communication_settings TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT SELECT, INSERT, UPDATE ON school_sms_wallets TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT SELECT, INSERT ON school_sms_ledger TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT SELECT, UPDATE ON push_subscriptions, provider_receipts TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"REVOKE DELETE ON communication_deliveries, communication_messages, communication_recipients, "
+                                 f"school_sms_wallets, school_sms_ledger, push_subscriptions, provider_receipts FROM {WORKER_ROLE}")
+            # Only the status of a school (suspended school => SMS held) and its name (e-mail / push titles), never contacts.
             conn.exec_driver_sql(f"GRANT SELECT (id, status) ON schools TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT SELECT (name) ON schools TO {WORKER_ROLE}")
+            conn.exec_driver_sql(f"GRANT EXECUTE ON FUNCTION school_sms_wallet_apply(uuid,text,integer,text,uuid,text,uuid,text,text,text,text,numeric,text,numeric,text) TO {WORKER_ROLE}")
             for name in ("0051_persistent_sessions_worker_role.sql", "0053_school_suspension_effects.sql"):
                 sql = (MIGRATIONS / name).read_text(encoding="utf-8")
                 conn.exec_driver_sql(sql[sql.index("DO $$"):], execution_options={"no_parameters": True})  # policies only

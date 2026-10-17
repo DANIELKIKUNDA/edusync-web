@@ -110,6 +110,10 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.include_router(platform_team_router, prefix="/api/v1/platform/team")
     app.include_router(platform_health_router, prefix="/api/v1/platform/system")
     app.include_router(platform_audit_router, prefix="/api/v1/platform/audit-log")
+    from edusync.modules.communications.api.platform_router import router as platform_messaging_router
+    from edusync.modules.communications.api.webhooks import router as provider_webhooks_router
+    app.include_router(platform_messaging_router, prefix="/api/v1/platform/messaging")
+    app.include_router(provider_webhooks_router, prefix="/api/v1/webhooks")
     app.include_router(notifications_center_router, prefix="/api/v1")
     app.include_router(platform_router, prefix="/api/v1/platform")
     app.include_router(settings_router, prefix="/api/v1/settings")

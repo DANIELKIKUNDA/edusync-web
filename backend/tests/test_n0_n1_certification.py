@@ -111,12 +111,17 @@ def test_school_suspension_has_real_effects_everywhere():
 def test_notifications_are_unique_per_recipient_with_safe_links_and_no_real_push():
     sql = (ROOT / "backend/migrations/0055_notifications_center.sql").read_text(encoding="utf-8")
     assert "uq_notifications_campaign_recipient" in sql and "notifications_link_path_ck" in sql and "push_subscriptions" in sql
-    push = (ROOT / "backend/src/edusync/shared/infrastructure/push.py").read_text(encoding="utf-8")
-    assert "class DisabledPushProvider" in push and "class MockPushProvider" in push and '"body"' not in push
+    # External messaging (2026-10): push behind PushProviderPort (FCM), sent by the worker; the fake never records a body.
+    fakes = (ROOT / "backend/src/edusync/shared/messaging/fakes.py").read_text(encoding="utf-8")
+    push_fake = fakes.split("class FakePushProvider", 1)[1]
+    assert '"body"' not in push_fake
+    worker = (ROOT / "backend/src/edusync/modules/communications/worker.py").read_text(encoding="utf-8")
+    assert "Ouvrez EduSync pour lire le message." in worker   # a push never carries the message body
     from edusync.bootstrap.settings import Settings
     assert Settings(_env_file=None).push_provider == "disabled"
     router = (ROOT / "backend/src/edusync/modules/notifications_center/api/router.py").read_text(encoding="utf-8")
-    assert "ON CONFLICT DO NOTHING" in router and "hashlib.sha256(body.endpoint" in router and "actor.require(SEND_CAP)" in router
+    assert "ON CONFLICT DO NOTHING" in router and "token_hash(body.endpoint)" in router and "actor.require(SEND_CAP)" in router
+    assert "cipher(settings, PUSH_TOKEN).encrypt(body.endpoint" in router   # token encrypted at rest, never in clear
 
 
 def test_sensitive_operations_are_rate_limited_and_web_app_sends_security_headers():

@@ -22,11 +22,25 @@
         "platform.schools.create",
         "platform.schools.read",
         "platform.schools.suspend",
-        "platform.schools.update"
+        "platform.schools.update",
+        "platform.messaging.read",
+        "platform.sms_wallet.credit"
       ],
-      "capability_count": 10,
+      "capability_count": 12,
       "decision_note": "Plateforme uniquement; notifications système incluses.",
-      "decision_date": "2026-09-12"
+      "decision_date": "2026-09-12",
+      "amendments": [
+        {
+          "date": "2026-10-16",
+          "gap": "EXTERNAL_MESSAGING",
+          "added": [
+            "platform.messaging.read",
+            "platform.sms_wallet.credit"
+          ],
+          "removed": [],
+          "note": "Messagerie externe : supervision des fournisseurs et portefeuilles SMS des écoles (sans lecture des messages)."
+        }
+      ]
     },
     {
       "code": "ADMIN_SYSTEME_ECOLE",

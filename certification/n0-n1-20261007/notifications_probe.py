@@ -156,15 +156,25 @@ with owner.connect() as c:
     stored = c.execute(text("SELECT count(*) FROM push_subscriptions WHERE endpoint_hash=:h"), {"h": __import__("hashlib").sha256(endpoint.encode()).hexdigest()}).scalar_one()
     raw_leak = c.execute(text("SELECT count(*) FROM push_subscriptions WHERE device_label LIKE :e"), {"e": f"%{endpoint}%"}).scalar_one()
 check("Push : l'adresse de l'appareil n'est jamais stockée en clair (empreinte seulement)", stored == 1 and raw_leak == 0)
-before = rc.llen("edusync:push:mock")
+FAKE_PUSH = "edusync:messaging:fake:push"
+before = rc.llen(FAKE_PUSH)
 secret_body = f"Corps confidentiel {uuid4().hex}"
 r = mgr.post("platform/notification-campaigns", json={"title": "Push N1", "body": secret_body, "severity": "WARNING", "target": T("PLATFORM_USER", user_id=mgr_id)}, headers={"Idempotency-Key": str(uuid4())})
-pushed = [json.loads(x) for x in rc.lrange("edusync:push:mock", 0, 5)]
-check("Push : envoyé à l'appareil abonné (fournisseur simulé)", r.json().get("push", {}).get("accepted", 0) >= 1 and rc.llen("edusync:push:mock") > before, r.json().get("push"))
+# External messaging (2026-10): the campaign only queues the push (transactional outbox); the communications worker sends it.
+deadline, sent = time.time() + 45, 0
+while time.time() < deadline and not sent:
+    with owner.connect() as c:
+        sent = c.execute(text("""SELECT count(*) FROM communication_deliveries d JOIN communication_messages m ON m.id=d.message_id
+            WHERE m.idempotency_key=:k AND d.channel='PUSH' AND d.status='SENT'"""), {"k": f"campaign-push:{r.json()['id']}"}).scalar_one()
+    if not sent:
+        time.sleep(1)
+pushed = [json.loads(x) for x in rc.lrange(FAKE_PUSH, 0, 5)]
+check("Push : mis en file par la campagne puis envoyé par le worker à l'appareil abonné (fournisseur simulé)",
+      r.json().get("push", {}).get("status") == "QUEUED" and sent >= 1 and rc.llen(FAKE_PUSH) > before, (r.json().get("push"), sent))
 check("Push : la charge ne contient ni le corps ni de donnée personnelle", all(secret_body not in json.dumps(p) and "body" not in p for p in pushed))
 mgr.post(f"platform/inbox/push-subscriptions/{sub.json()['id']}/revoke", headers={"Idempotency-Key": str(uuid4())})
 r = mgr.post("platform/notification-campaigns", json={"title": "Push N1 après désabonnement", "body": "x" * 5, "target": T("PLATFORM_USER", user_id=mgr_id)}, headers={"Idempotency-Key": str(uuid4())})
-check("Push : appareil désabonné -> plus aucun envoi", "push" not in r.json() or r.json()["push"]["devices"] == 0, r.json().get("push"))
+check("Push : appareil désabonné -> plus aucun envoi", "push" not in r.json() or r.json()["push"].get("recipients_with_devices", 0) == 0, r.json().get("push"))
 # Multi-device + logout-all revokes every subscription of the account (school member).
 for i in range(2):
     cc.post("notifications/push-subscriptions", json={"provider": "MOCK", "endpoint": f"https://push.example.test/{uuid4()}", "device_label": f"Appareil {i}"})

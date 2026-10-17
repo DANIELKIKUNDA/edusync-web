@@ -55,9 +55,38 @@ class Settings(BaseSettings):
     login_lock_seconds: int = 900
     api_max_body_bytes: int = 2_097_152
     api_max_query_bytes: int = 8_192
-    sms_provider: str = "disabled"
-    orange_sms_endpoint: str = ""
-    orange_sms_bearer_token: str = ""
+    # External messaging (EXTERNAL_MESSAGING_ARCHITECTURE.md). Every provider sits behind a port; "fake" providers exist
+    # for development and tests only and are refused in staging/production (assert_runtime_safe).
+    public_app_url: str = "http://localhost:5180"            # base of invitation / recovery links sent by e-mail
+    # SMS — Orange Developer SMS API (OAuth v3 client credentials). Secrets come from the environment, never from Git.
+    sms_provider: str = "disabled"                           # disabled | orange | fake
+    orange_sms_client_id: str = ""
+    orange_sms_client_secret: str = ""
+    orange_sms_sender_address: str = ""                      # e.g. tel:+2430000 (country sender number of the offer)
+    orange_sms_sender_name: str = ""                         # whitelisted custom sender name, optional
+    orange_sms_api_base: str = "https://api.orange.com"
+    orange_sms_dr_secret: str = ""                           # unguessable path segment of the delivery-receipt callback
+    orange_sms_dr_allowed_ips: str = ""                      # source IPs given by Orange for delivery receipts (comma list)
+    orange_sms_max_tps: float = 5.0                          # documented sending limit: 5 SMS per second
+    # E-mail — standard SMTP (any professional relay); SENT means "accepted by the SMTP server", never DELIVERED.
+    email_provider: str = "disabled"                         # disabled | smtp | fake
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "EduSync"
+    smtp_security: str = "starttls"                          # starttls | tls | none (none: development only)
+    smtp_timeout_seconds: float = 20.0
+    # Push — Firebase Cloud Messaging. The service account is a backend secret (mounted file or injected JSON);
+    # the public web configuration and the VAPID public key are served to the browser, never the service account.
+    fcm_service_account_file: str = ""
+    fcm_service_account_json: str = ""
+    fcm_web_config_json: str = ""                            # public Firebase web app config (apiKey, projectId, appId, messagingSenderId...)
+    fcm_vapid_public_key: str = ""
+    # Account links: invitation 48 h, password recovery 30 min (server-side, configurable).
+    invitation_ttl_hours: int = 48
+    password_reset_ttl_minutes: int = 30
 
     # Object storage (S3-compatible). Empty endpoint + backend "auto" = documents storage disabled (503, clear message).
     object_storage_backend: str = "auto"  # auto | s3 | local
@@ -127,8 +156,16 @@ class Settings(BaseSettings):
             raise RuntimeError("Limite de corps API production invalide")
         if self.api_max_query_bytes <= 0 or self.api_max_query_bytes > 32768:
             raise RuntimeError("Limite de query-string API production invalide")
-        if (self.push_provider or "disabled").lower() == "mock":
+        if (self.push_provider or "disabled").lower() in {"mock", "fake"}:
             raise RuntimeError("Fournisseur push simulé interdit hors développement")
+        if (self.sms_provider or "disabled").lower() in {"mock", "sandbox", "fake"}:
+            raise RuntimeError("Fournisseur SMS simulé interdit hors développement")
+        if (self.email_provider or "disabled").lower() == "fake":
+            raise RuntimeError("Fournisseur e-mail simulé interdit hors développement")
+        if (self.email_provider or "").lower() == "smtp" and (self.smtp_security or "").lower() not in {"starttls", "tls"}:
+            raise RuntimeError("SMTP sans chiffrement interdit hors développement")
+        if (self.email_provider or "disabled").lower() != "disabled" and not self.public_app_url.startswith("https://"):
+            raise RuntimeError("EDUSYNC_PUBLIC_APP_URL doit être une adresse HTTPS : les liens envoyés par e-mail en dépendent")
         if not self.mfa_platform_required:
             raise RuntimeError("Le second facteur des comptes plateforme ne peut pas être désactivé en production")
         from edusync.shared.infrastructure.mfa import load_mfa_key

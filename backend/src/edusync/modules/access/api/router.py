@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
+from edusync.modules.iam.application import account_links
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
 from edusync.adapters.postgres_repositories import PostgresAuditRepository
 from edusync.bootstrap.dependencies import get_services, require_school_actor
@@ -422,6 +423,8 @@ class MemberCreate(BaseModel):
     full_name: str = Field(min_length=3, max_length=180)
     role_id: UUID | None = None
     reason: str = Field(min_length=3, max_length=500)
+    # INVITATION: a single-use link e-mailed to the person (no password shown or sent); needs platform e-mail.
+    delivery: str = Field(default="TEMPORARY_PASSWORD", pattern="^(TEMPORARY_PASSWORD|INVITATION)$")
 
 
 class MemberUpdate(BaseModel):
@@ -501,7 +504,11 @@ def create_member(b: MemberCreate, idempotency_key: str | None = Header(None, al
         _need(actor, "access.permissions.assign")
     email = b.email.strip().lower()
     # The temporary password is never part of the idempotency payload nor of the audit.
-    payload = {"email": email, "full_name": b.full_name.strip(), "role_id": str(b.role_id) if b.role_id else None, "reason": b.reason}
+    payload = {"email": email, "full_name": b.full_name.strip(), "role_id": str(b.role_id) if b.role_id else None, "reason": b.reason,
+               "delivery": b.delivery}
+    invite = b.delivery == "INVITATION"
+    if invite and not account_links.email_available(services.settings):
+        raise HTTPException(409, "L’envoi d’e-mails n’est pas disponible sur la plateforme : utilisez un mot de passe provisoire")
 
     issued: dict = {}  # the temporary password lives only in this request, never in the idempotency registry
 
@@ -517,9 +524,12 @@ def create_member(b: MemberCreate, idempotency_key: str | None = Header(None, al
                 raise HTTPException(409, "Cette personne est déjà membre de l’école" + ("" if existing["active"] else " (désactivée : réactivez-la)"))
             uid, created = user["id"], False
         else:
-            temporary = new_temporary_password()
+            # Invitation: the account gets an unknown random password until the person chooses one through the link.
+            temporary = None if invite else new_temporary_password()
+            secret_pw = temporary or new_temporary_password() + new_temporary_password()
             uid = conn.execute(text("""INSERT INTO users(email,full_name,password_hash,active,is_platform_admin,version,must_change_password,password_set_by)
-                VALUES(:e,:n,:p,true,false,1,true,'SCHOOL') RETURNING id"""), {"e": email, "n": b.full_name.strip(), "p": hash_password(temporary)}).scalar_one()
+                VALUES(:e,:n,:p,true,false,1,:must,'SCHOOL') RETURNING id"""), {"e": email, "n": b.full_name.strip(), "p": hash_password(secret_pw),
+                                                                       "must": not invite}).scalar_one()
             created = True
         mid = conn.execute(text("INSERT INTO school_memberships(id,school_id,user_id,active,created_at,version) VALUES(gen_random_uuid(),:s,:u,true,now(),1) RETURNING id"),
                            {"s": str(actor.school_id), "u": str(uid)}).scalar_one()
@@ -536,6 +546,12 @@ def create_member(b: MemberCreate, idempotency_key: str | None = Header(None, al
             role_label = role["label"]
         out = {"membership_id": str(mid), "email": email, "full_name": b.full_name.strip() if created else user["full_name"],
                "created": created, "attached_existing_account": not created, "role_label": role_label}
+        if created and invite:
+            raw = account_links.issue(conn, services.settings, user_id=uid, purpose=account_links.INVITATION, school_id=actor.school_id,
+                                      membership_id=mid, created_by=actor.user_id)
+            account_links.send_link_email(conn, services.settings, user_id=uid, email=email, full_name=b.full_name.strip(),
+                                          purpose=account_links.INVITATION, raw=raw, school_id=actor.school_id, created_by=actor.user_id)
+            out["invitation_sent"] = True
         _audit(conn, actor, "ACCESS_MEMBER_CREATED" if created else "ACCESS_MEMBER_ATTACHED", "school_membership", mid, out, reason=b.reason)
         issued["temporary_password"] = temporary
         return 201, out
@@ -577,6 +593,11 @@ def _set_member_active(membership_id: UUID, active: bool, b: ReasonInput, key: s
         if not active:
             _assert_managers_remain(conn, actor.school_id)
             revoked = _revoke_member_sessions(conn, actor.school_id, membership_id, "MEMBER_DEACTIVATED")
+            # Push devices of this membership stop receiving; open invitations of this membership die.
+            conn.execute(text("""UPDATE push_subscriptions SET revoked_at=now(), revoked_reason='MEMBER_DEACTIVATED'
+                WHERE membership_id=:m AND revoked_at IS NULL"""), {"m": str(membership_id)})
+            conn.execute(text("""UPDATE account_tokens SET revoked_at=now(), revoked_reason='MEMBER_DEACTIVATED'
+                WHERE membership_id=:m AND used_at IS NULL AND revoked_at IS NULL"""), {"m": str(membership_id)})
         out = {"membership_id": str(membership_id), "active": active, "sessions_revoked": revoked}
         _audit(conn, actor, "ACCESS_MEMBER_ACTIVATED" if active else "ACCESS_MEMBER_DEACTIVATED", "school_membership", membership_id, out, reason=b.reason)
         return 200, out
