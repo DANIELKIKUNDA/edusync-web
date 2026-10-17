@@ -1,0 +1,159 @@
+# EduSync — intégration continue (CICD.md).
+# Toute branche / PR : tests backend, typecheck + build frontend, sécurité.
+# main et tags de certification : en plus, images Docker multi-architecture (linux/amd64 + linux/arm64) publiées sur
+# GHCR, étiquetées par le SHA exact du commit (jamais « latest » seul) — le déploiement staging part de ces images.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["edusync-*", "v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    name: Backend — tests et compilation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.lock
+      - name: Dépendances figées (requirements.lock)
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -c requirements.lock .
+          pip install pytest==9.1.1 pypdf==6.19.0
+      - name: Compilation Python
+        working-directory: backend
+        run: python -m compileall -q src
+      - name: Tests backend
+        working-directory: backend
+        env:
+          PYTHONPATH: src
+          PYTHONUTF8: "1"
+        run: python -m pytest -q -p no:cacheprovider
+
+  frontend:
+    name: Frontend — typecheck et build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Dépendances figées (npm ci)
+        working-directory: frontend
+        run: npm ci
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Build
+        working-directory: frontend
+        run: npx vite build
+
+  security:
+    name: Sécurité — dépendances, licences, secrets
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Vulnérabilités Python (pip-audit sur requirements.lock)
+        run: |
+          pip install pip-audit==2.10.1
+          pip-audit -r backend/requirements.lock --progress-spinner off
+      - name: Vulnérabilités npm (exécution)
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts
+          npm audit --omit=dev
+      - name: Licences et SBOM
+        run: |
+          pip install -c backend/requirements.lock ./backend
+          python tools/certification/supply_chain.py
+      - name: Secrets (formats sans ambiguïté)
+        run: python tools/ci/secret_patterns.py
+
+  images:
+    name: Images Docker (amd64 + arm64) → GHCR
+    needs: [backend, frontend, security]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Noms d'images (minuscules) et étiquettes
+        id: tags
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "registry=ghcr.io/${owner}" >> "$GITHUB_OUTPUT"
+          extra=""
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then extra="${GITHUB_REF#refs/tags/}"; fi
+          echo "extra=${extra}" >> "$GITHUB_OUTPUT"
+      - name: Image backend (API, migrateur, workers)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.registry }}/edusync-backend:${{ github.sha }}
+            ${{ steps.tags.outputs.extra && format('{0}/edusync-backend:{1}', steps.tags.outputs.registry, steps.tags.outputs.extra) || '' }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Image frontend (PWA + nginx)
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.registry }}/edusync-frontend:${{ github.sha }}
+            ${{ steps.tags.outputs.extra && format('{0}/edusync-frontend:{1}', steps.tags.outputs.registry, steps.tags.outputs.extra) || '' }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+      - name: Image sauvegarde
+        uses: docker/build-push-action@v6
+        with:
+          context: deploy/backup
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.registry }}/edusync-backup:${{ github.sha }}
+            ${{ steps.tags.outputs.extra && format('{0}/edusync-backup:{1}', steps.tags.outputs.registry, steps.tags.outputs.extra) || '' }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=backup
+          cache-to: type=gha,mode=max,scope=backup

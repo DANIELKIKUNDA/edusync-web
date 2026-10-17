@@ -11,3 +11,6 @@
 # Scripts executed inside Linux containers keep LF endings.
 *.sh text eol=lf
 Caddyfile text eol=lf
+
+# CI/CD scripts executed on Linux runners / servers keep LF endings.
+*.yml text eol=lf

@@ -1,0 +1,105 @@
+# EduSync — déploiement STAGING uniquement (CICD.md). Jamais de production.
+# Déclenché automatiquement quand la CI de main (ou d'un tag de certification) réussit, ou à la main pour un SHA donné
+# (redéploiement / retour à une version connue). Exécute deploy/staging/remote_deploy.sh sur le serveur via SSH :
+# images du SHA → sauvegarde vérifiée → migrations → smoke tests → PASS conservé / FAIL rollback ou arrêt sûr.
+# Tant que les secrets du staging ne sont pas configurés, le job s'arrête proprement (« staging non configuré »).
+name: Deploy staging
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "SHA complet (40 caractères) déjà construit par la CI"
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Staging — déploiement, migrations, smoke tests
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+       (github.event.workflow_run.head_branch == 'main' || startsWith(github.event.workflow_run.head_branch, 'edusync-')))
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.event.workflow_run.head_sha }}
+    steps:
+      - name: Staging configuré ?
+        id: cfg
+        env:
+          HOST: ${{ secrets.STAGING_SSH_HOST }}
+          KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+          USER_: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          if [[ -z "$HOST" || -z "$KEY" || -z "$KNOWN" || -z "$USER_" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Staging non configuré (secrets STAGING_SSH_* absents) : aucun déploiement."
+            echo "### Staging non configuré — aucun déploiement (secrets STAGING_SSH_* absents)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: SHA valide
+        if: steps.cfg.outputs.configured == 'true'
+        run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "SHA invalide"; exit 1; }'
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.configured == 'true'
+        with:
+          ref: ${{ env.SHA }}
+      - name: Clé SSH de déploiement (jamais affichée)
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/staging_key && chmod 600 ~/.ssh/staging_key
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+      - name: Déploiement sur le serveur (remote_deploy.sh du commit déployé)
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          HOST: ${{ secrets.STAGING_SSH_HOST }}
+          USER_: ${{ secrets.STAGING_SSH_USER }}
+          PORT: ${{ vars.STAGING_SSH_PORT || '22' }}
+          APP_DIR: ${{ vars.STAGING_APP_DIR || '/opt/edusync' }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          registry="ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          scp -i ~/.ssh/staging_key -P "$PORT" -o StrictHostKeyChecking=yes deploy/staging/remote_deploy.sh "$USER_@$HOST:/tmp/edusync_remote_deploy.sh"
+          set +e
+          printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/staging_key -p "$PORT" -o StrictHostKeyChecking=yes "$USER_@$HOST" \
+            "EDUSYNC_APP_DIR='$APP_DIR' GHCR_USER='${{ github.actor }}' bash /tmp/edusync_remote_deploy.sh '$SHA' '$registry'"
+          code=$?
+          set -e
+          case $code in
+            0) echo "### Staging : $SHA déployé et vérifié (smoke tests PASS)" >> "$GITHUB_STEP_SUMMARY" ;;
+            2) echo "### Staging : $SHA refusé — rollback automatique vers la version précédente" >> "$GITHUB_STEP_SUMMARY" ;;
+            3) echo "### Staging : $SHA refusé — arrêt sûr (migration appliquée), restauration manuelle (CICD.md §5)" >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "### Staging : échec avant mise à jour (code $code) — version précédente inchangée" >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
+          exit $code
+      - name: Vérification externe (HTTPS public)
+        if: steps.cfg.outputs.configured == 'true' && vars.STAGING_PUBLIC_URL != ''
+        env:
+          URL: ${{ vars.STAGING_PUBLIC_URL }}
+        run: |
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/health-api" || true)
+            [[ "$code" == "200" ]] && { echo "HTTPS public : $URL/health-api → 200"; exit 0; }
+            sleep 10
+          done
+          echo "HTTPS public injoignable ($URL/health-api → $code)"; exit 1
+      - name: Nettoyage de la clé
+        if: always()
+        run: rm -f ~/.ssh/staging_key

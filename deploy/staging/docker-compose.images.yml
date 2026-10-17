@@ -1,0 +1,23 @@
+# Staging: run the images built and published by CI (GHCR), identified by the exact commit SHA, instead of building on
+# the server. Used together with the base file:
+#   docker compose -f docker-compose.yml -f deploy/staging/docker-compose.images.yml ...
+# EDUSYNC_IMAGE_REGISTRY = ghcr.io/<owner en minuscules> ; EDUSYNC_IMAGE_TAG = SHA complet du commit déployé.
+services:
+  migrator:
+    image: ${EDUSYNC_IMAGE_REGISTRY:?EDUSYNC_IMAGE_REGISTRY required}/edusync-backend:${EDUSYNC_IMAGE_TAG:?EDUSYNC_IMAGE_TAG required}
+    pull_policy: always
+  backend:
+    image: ${EDUSYNC_IMAGE_REGISTRY}/edusync-backend:${EDUSYNC_IMAGE_TAG}
+    pull_policy: always
+  outbox-worker:
+    image: ${EDUSYNC_IMAGE_REGISTRY}/edusync-backend:${EDUSYNC_IMAGE_TAG}
+    pull_policy: always
+  communications-worker:
+    image: ${EDUSYNC_IMAGE_REGISTRY}/edusync-backend:${EDUSYNC_IMAGE_TAG}
+    pull_policy: always
+  frontend:
+    image: ${EDUSYNC_IMAGE_REGISTRY}/edusync-frontend:${EDUSYNC_IMAGE_TAG}
+    pull_policy: always
+  backup:
+    image: ${EDUSYNC_IMAGE_REGISTRY}/edusync-backup:${EDUSYNC_IMAGE_TAG}
+    pull_policy: always
