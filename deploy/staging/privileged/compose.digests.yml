@@ -1,0 +1,22 @@
+# Installed root-owned in /etc/edusync-deploy/compose/ (never taken from an application commit). The controller sets
+# the three variables to images pinned by digest (ghcr.io/danielkikunda/<image>@sha256:...) after verification and pulls
+# them itself: compose never pulls, never builds.
+services:
+  migrator:
+    image: ${EDUSYNC_BACKEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  backend:
+    image: ${EDUSYNC_BACKEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  outbox-worker:
+    image: ${EDUSYNC_BACKEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  communications-worker:
+    image: ${EDUSYNC_BACKEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  frontend:
+    image: ${EDUSYNC_FRONTEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  backup:
+    image: ${EDUSYNC_BACKUP_IMAGE:?set by the deploy controller}
+    pull_policy: never

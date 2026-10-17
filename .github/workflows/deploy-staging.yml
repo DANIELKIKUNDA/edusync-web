@@ -1,8 +1,11 @@
-# EduSync — déploiement STAGING uniquement (CICD.md). Jamais de production.
-# Déclenché automatiquement quand la CI de main (ou d'un tag de certification) réussit, ou à la main pour un SHA donné
-# (redéploiement / retour à une version connue). Exécute deploy/staging/remote_deploy.sh sur le serveur via SSH :
-# images du SHA → sauvegarde vérifiée → migrations → smoke tests → PASS conservé / FAIL rollback ou arrêt sûr.
-# Tant que les secrets du staging ne sont pas configurés, le job s'arrête proprement (« staging non configuré »).
+# EduSync — déploiement STAGING uniquement, modèle à moindre privilège (CICD.md). Jamais de production.
+# Déclenché quand la CI d'un push de main (ou d'un tag edusync-*) réussit, ou à la main pour un SHA déjà construit.
+# La seule action distante est la commande forcée du compte `deploy` :   deploy <SHA complet>
+# Aucun script transféré, aucun SCP / SFTP, aucun accès Docker du compte `deploy` : sur le serveur, la commande forcée
+# (root-owned) valide la requête puis appelle, via une unique règle sudo sans argument, le contrôleur root installé
+# administrativement. Le contrôleur revérifie tout (CI réussie, images autorisées par digest, arm64), sauvegarde,
+# migre, teste, puis conserve la version, revient automatiquement en arrière ou s'arrête de façon sûre.
+# Le GITHUB_TOKEN éphémère du run (lecture du résultat de CI et des images) passe sur l'entrée standard SSH.
 name: Deploy staging
 
 on:
@@ -12,11 +15,12 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: "SHA complet (40 caractères) déjà construit par la CI"
+        description: "SHA complet (40 caractères) déjà construit par une CI réussie"
         required: true
 
 permissions:
   contents: read
+  actions: read
   packages: read
 
 concurrency:
@@ -25,7 +29,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Staging — déploiement, migrations, smoke tests
+    name: Staging — deploy <SHA> (commande forcée)
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
@@ -50,13 +54,9 @@ jobs:
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: SHA valide
+      - name: SHA valide (40 caractères hexadécimaux minuscules)
         if: steps.cfg.outputs.configured == 'true'
         run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "SHA invalide"; exit 1; }'
-      - uses: actions/checkout@v4
-        if: steps.cfg.outputs.configured == 'true'
-        with:
-          ref: ${{ env.SHA }}
       - name: Clé SSH de déploiement (jamais affichée)
         if: steps.cfg.outputs.configured == 'true'
         env:
@@ -66,28 +66,32 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/staging_key && chmod 600 ~/.ssh/staging_key
           printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
-      - name: Déploiement sur le serveur (remote_deploy.sh du commit déployé)
+      - name: deploy <SHA>
         if: steps.cfg.outputs.configured == 'true'
         env:
           HOST: ${{ secrets.STAGING_SSH_HOST }}
           USER_: ${{ secrets.STAGING_SSH_USER }}
           PORT: ${{ vars.STAGING_SSH_PORT || '22' }}
-          APP_DIR: ${{ vars.STAGING_APP_DIR || '/opt/edusync' }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          registry="ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
-          scp -i ~/.ssh/staging_key -P "$PORT" -o StrictHostKeyChecking=yes deploy/staging/remote_deploy.sh "$USER_@$HOST:/tmp/edusync_remote_deploy.sh"
           set +e
-          printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/staging_key -p "$PORT" -o StrictHostKeyChecking=yes "$USER_@$HOST" \
-            "EDUSYNC_APP_DIR='$APP_DIR' GHCR_USER='${{ github.actor }}' bash /tmp/edusync_remote_deploy.sh '$SHA' '$registry'"
+          printf '%s\n' "$RUN_TOKEN" | ssh -i ~/.ssh/staging_key -p "$PORT" -T \
+            -o StrictHostKeyChecking=yes -o BatchMode=yes -o IdentitiesOnly=yes -o ClearAllForwardings=yes \
+            "$USER_@$HOST" "deploy $SHA"
           code=$?
           set -e
           case $code in
-            0) echo "### Staging : $SHA déployé et vérifié (smoke tests PASS)" >> "$GITHUB_STEP_SUMMARY" ;;
-            2) echo "### Staging : $SHA refusé — rollback automatique vers la version précédente" >> "$GITHUB_STEP_SUMMARY" ;;
-            3) echo "### Staging : $SHA refusé — arrêt sûr (migration appliquée), restauration manuelle (CICD.md §5)" >> "$GITHUB_STEP_SUMMARY" ;;
-            *) echo "### Staging : échec avant mise à jour (code $code) — version précédente inchangée" >> "$GITHUB_STEP_SUMMARY" ;;
+            0)  msg="déployé et vérifié (smoke tests PASS)" ;;
+            2)  msg="refusé — rollback automatique vers les digests précédents" ;;
+            3)  msg="refusé — arrêt sûr (migration nouvelle), restauration supervisée (CICD.md §6)" ;;
+            64) msg="requête refusée par la commande forcée" ;;
+            65) msg="vérification refusée (CI, dépôt ou images)" ;;
+            70) msg="échec avant tout changement (sauvegarde, registre) — version précédente intacte" ;;
+            75) msg="un autre déploiement est en cours" ;;
+            78) msg="installation serveur non sûre — réinstallation administrative requise" ;;
+            *)  msg="échec SSH ou inattendu (code $code)" ;;
           esac
+          echo "### Staging $SHA : $msg" >> "$GITHUB_STEP_SUMMARY"
           exit $code
       - name: Vérification externe (HTTPS public)
         if: steps.cfg.outputs.configured == 'true' && vars.STAGING_PUBLIC_URL != ''
