@@ -120,7 +120,8 @@ check("Suspension : connexion explicite refusée", httpx.post(BASE + "/auth/logi
 check("Suspension : lien de document signé refusé", open_link() == 403)
 time.sleep(12)
 d = delivery()
-check("Suspension : SMS en attente retenu par le worker (non envoyé, non perdu)", d["status"] == "PENDING" and d["attempts"] == 0, dict(d))
+# External messaging (2026-10): canonical states — a waiting delivery is QUEUED (formerly PENDING).
+check("Suspension : SMS en attente retenu par le worker (non envoyé, non perdu)", d["status"] == "QUEUED" and d["attempts"] == 0, dict(d))
 check("Suspension : école exclue des notifications système ciblées", post(mgr, "platform/system-notifications", {"title": "Test", "body": "Test ciblé", "severity": "INFO", "target_scope": "SCHOOL", "target_school_id": school_id}).status_code in (404, 409, 422))
 replay = post(mgr, f"platform/schools/{school_id}/suspend", {"reason": "Recette N1 : suspension"})
 check("Suspension répétée (nouvelle clé) : refusée proprement, pas de 500", replay.status_code in (200, 409), replay.status_code)
@@ -132,10 +133,10 @@ lg2 = httpx.post(BASE + "/auth/login", json={"email": admin["email"], "password"
 check("Réactivation : connexion de nouveau possible", lg2.status_code == 200)
 check("Réactivation : lien signé de nouveau vérifié", open_link() != 403)
 deadline = time.time() + 40
-while time.time() < deadline and delivery()["status"] == "PENDING":
+while time.time() < deadline and delivery()["status"] == "QUEUED":
     time.sleep(2)
 d = delivery()
-check("Réactivation : le SMS retenu est repris par le worker", d["status"] != "PENDING" or d["attempts"] > 0, dict(d))
+check("Réactivation : le SMS retenu est repris par le worker", d["status"] != "QUEUED" or d["attempts"] > 0, dict(d))
 with owner.connect() as c:
     acts = {r[0] for r in c.execute(text("SELECT action FROM audit_events WHERE entity_id=:s"), {"s": school_id})}
 check("Audit : création, admin initial, suspension, réactivation", {"SCHOOL_CREATED", "SCHOOL_SUSPENDED", "SCHOOL_REACTIVATED"} <= acts, sorted(acts))
