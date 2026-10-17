@@ -1,6 +1,12 @@
 {
  "python": [
   {
+   "name": "aiosmtplib",
+   "version": "5.1.3",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "annotated-doc",
    "version": "0.0.5",
    "license": "MIT",
@@ -19,15 +25,21 @@
    "class": "PERMISSIVE"
   },
   {
+   "name": "argon2-cffi",
+   "version": "25.1.0",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "argon2-cffi-bindings",
    "version": "26.1.0",
    "license": "MIT",
    "class": "PERMISSIVE"
   },
   {
-   "name": "argon2-cffi",
-   "version": "25.1.0",
-   "license": "MIT",
+   "name": "CacheControl",
+   "version": "0.14.4",
+   "license": "Apache-2.0",
    "class": "PERMISSIVE"
   },
   {
@@ -40,6 +52,12 @@
    "name": "cffi",
    "version": "2.1.1",
    "license": "MIT-0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "charset-normalizer",
+   "version": "3.5.2",
+   "license": "MIT",
    "class": "PERMISSIVE"
   },
   {
@@ -73,15 +91,93 @@
    "class": "PERMISSIVE"
   },
   {
+   "name": "firebase_admin",
+   "version": "7.7.0",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "google-api-core",
+   "version": "2.42.0",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "google-auth",
+   "version": "2.62.0",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "google-cloud-core",
+   "version": "2.8.0",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "google-cloud-firestore",
+   "version": "2.34.1",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "google-cloud-storage",
+   "version": "3.17.1",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "google-crc32c",
+   "version": "1.9.0",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "google-resumable-media",
+   "version": "2.11.0",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "googleapis-common-protos",
+   "version": "1.75.5",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "greenlet",
    "version": "3.5.6",
    "license": "MIT AND PSF-2.0",
    "class": "PERMISSIVE"
   },
   {
+   "name": "grpcio",
+   "version": "1.84.0",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "grpcio-status",
+   "version": "1.84.0",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "h11",
    "version": "0.16.0",
    "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "h2",
+   "version": "4.4.1",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "hpack",
+   "version": "4.2.0",
+   "license": "MIT",
    "class": "PERMISSIVE"
   },
   {
@@ -103,6 +199,12 @@
    "class": "PERMISSIVE"
   },
   {
+   "name": "hyperframe",
+   "version": "6.1.0",
+   "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "idna",
    "version": "3.19",
    "license": "BSD-3-Clause",
@@ -115,9 +217,21 @@
    "class": "PERMISSIVE"
   },
   {
+   "name": "msgpack",
+   "version": "1.2.3",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "openpyxl",
    "version": "3.1.5",
    "license": "MIT License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "opentelemetry-api",
+   "version": "1.45.1",
+   "license": "Apache-2.0",
    "class": "PERMISSIVE"
   },
   {
@@ -133,10 +247,16 @@
    "class": "PERMISSIVE"
   },
   {
-   "name": "psycopg-binary",
-   "version": "3.3.5",
-   "license": "LGPL-3.0-only",
-   "class": "LGPL_LIAISON_DYNAMIQUE"
+   "name": "proto-plus",
+   "version": "1.29.0",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "protobuf",
+   "version": "7.36.2",
+   "license": "3-Clause BSD License",
+   "class": "PERMISSIVE"
   },
   {
    "name": "psycopg",
@@ -145,15 +265,27 @@
    "class": "LGPL_LIAISON_DYNAMIQUE"
   },
   {
-   "name": "pycparser",
-   "version": "3.0",
-   "license": "BSD-3-Clause",
+   "name": "psycopg-binary",
+   "version": "3.3.5",
+   "license": "LGPL-3.0-only",
+   "class": "LGPL_LIAISON_DYNAMIQUE"
+  },
+  {
+   "name": "pyasn1",
+   "version": "0.6.4",
+   "license": "BSD-2-Clause",
    "class": "PERMISSIVE"
   },
   {
-   "name": "pydantic-settings",
-   "version": "2.15.0",
-   "license": "MIT",
+   "name": "pyasn1_modules",
+   "version": "0.4.2",
+   "license": "BSD License",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pycparser",
+   "version": "3.0",
+   "license": "BSD-3-Clause",
    "class": "PERMISSIVE"
   },
   {
@@ -165,6 +297,12 @@
   {
    "name": "pydantic_core",
    "version": "2.46.5",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "pydantic-settings",
+   "version": "2.15.0",
    "license": "MIT",
    "class": "PERMISSIVE"
   },
@@ -211,6 +349,12 @@
    "class": "PERMISSIVE"
   },
   {
+   "name": "requests",
+   "version": "2.34.2",
+   "license": "Apache Software License",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "segno",
    "version": "1.6.6",
    "license": "BSD License",
@@ -235,21 +379,27 @@
    "class": "PERMISSIVE"
   },
   {
-   "name": "typing-inspection",
-   "version": "0.4.4",
-   "license": "MIT",
-   "class": "PERMISSIVE"
-  },
-  {
    "name": "typing_extensions",
    "version": "4.16.0",
    "license": "PSF-2.0",
    "class": "PERMISSIVE"
   },
   {
+   "name": "typing-inspection",
+   "version": "0.4.4",
+   "license": "MIT",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "tzdata",
    "version": "2026.4",
    "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "urllib3",
+   "version": "2.8.0",
+   "license": "MIT",
    "class": "PERMISSIVE"
   },
   {
@@ -278,6 +428,48 @@
   }
  ],
  "npm": [
+  {
+   "name": "@firebase/app",
+   "version": "0.16.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@firebase/component",
+   "version": "0.7.5",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@firebase/installations",
+   "version": "0.6.24",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@firebase/logger",
+   "version": "0.5.2",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@firebase/messaging",
+   "version": "0.13.3",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@firebase/messaging-interop-types",
+   "version": "0.2.6",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
+  {
+   "name": "@firebase/util",
+   "version": "1.15.3",
+   "license": "Apache-2.0",
+   "class": "PERMISSIVE"
+  },
   {
    "name": "@fontsource-variable/inter",
    "version": "5.3.0",
@@ -555,6 +747,12 @@
    "class": "PERMISSIVE"
   },
   {
+   "name": "idb",
+   "version": "7.1.1",
+   "license": "ISC",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "lightningcss",
    "version": "1.33.0",
    "license": "MPL-2.0",
@@ -699,6 +897,12 @@
    "class": "PERMISSIVE"
   },
   {
+   "name": "tslib",
+   "version": "2.8.1",
+   "license": "0BSD",
+   "class": "PERMISSIVE"
+  },
+  {
    "name": "typescript",
    "version": "7.0.2",
    "license": "Apache-2.0",
@@ -722,17 +926,17 @@
   "frontend/package-lock.json": true
  },
  "summary": {
-  "python": 46,
-  "npm_runtime": 73,
+  "python": 71,
+  "npm_runtime": 82,
   "flagged": [
    {
-    "name": "psycopg-binary",
+    "name": "psycopg",
     "version": "3.3.5",
     "license": "LGPL-3.0-only",
     "class": "LGPL_LIAISON_DYNAMIQUE"
    },
    {
-    "name": "psycopg",
+    "name": "psycopg-binary",
     "version": "3.3.5",
     "license": "LGPL-3.0-only",
     "class": "LGPL_LIAISON_DYNAMIQUE"

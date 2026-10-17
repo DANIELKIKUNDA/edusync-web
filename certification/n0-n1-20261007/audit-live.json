@@ -122,6 +122,6 @@
   {
     "check": "Performance : recherche d'audit < 300 ms en moyenne",
     "pass": true,
-    "detail": "45 ms sur 7343 événements"
+    "detail": "32 ms sur 10131 événements"
   }
 ]

@@ -1,8 +1,8 @@
 [
   {
-    "check": "Manager : menu calculé par le serveur, 7 entrées dont Équipe",
+    "check": "Manager : menu calculé par le serveur, 8 entrées dont Équipe et Messagerie",
     "pass": true,
-    "detail": "['dashboard', 'schools', 'access', 'team', 'notifications', 'audit', 'diagnostics']"
+    "detail": "['dashboard', 'schools', 'access', 'team', 'notifications', 'audit', 'diagnostics', 'messaging']"
   },
   {
     "check": "Manager : rôle MANAGER_SYSTEME actif",
@@ -12,7 +12,7 @@
   {
     "check": "Catalogue plateforme : uniquement des capacités platform.*",
     "pass": true,
-    "detail": "12"
+    "detail": "14"
   },
   {
     "check": "Capacité de gouvernance d'équipe marquée réservée",
@@ -77,7 +77,7 @@
   {
     "check": "Création concurrente du même compte : un seul compte",
     "pass": true,
-    "detail": "[201, 201] users=1"
+    "detail": "[201, 409] users=1"
   },
   {
     "check": "Création de compte auditée",
@@ -142,12 +142,12 @@
   {
     "check": "Fiche compte : rôles, permissions effectives, sessions, audit",
     "pass": true,
-    "detail": "['AUDITEUR_D7B838', 'SUPPORT_D7B838']"
+    "detail": "['AUDITEUR_2D6757', 'SUPPORT_2D6757']"
   },
   {
     "check": "Archivage : nombre de comptes concernés annoncé",
     "pass": true,
-    "detail": "{'id': '090d77ba-4db2-4204-ba56-da6f2b807f39', 'status': 'ARCHIVED', 'users_losing_role': 1}"
+    "detail": "{'id': '559abfe5-f3ff-4028-806b-637d26341e82', 'status': 'ARCHIVED', 'users_losing_role': 1}"
   },
   {
     "check": "Rôle archivé : capacité retirée immédiatement",
@@ -167,7 +167,7 @@
   {
     "check": "Clonage du rôle Manager : la capacité réservée ne suit pas",
     "pass": true,
-    "detail": "['platform.access.manage', 'platform.audit.export', 'platform.audit.read', 'platform.health.read', 'platform.notifications.system.send', 'platform.school_admin.bootstrap', 'platform.schools.activate', 'platform.schools.create', 'platform.schools.read', 'platform.schools.suspend', 'platform.schools.u"
+    "detail": "['platform.access.manage', 'platform.audit.export', 'platform.audit.read', 'platform.health.read', 'platform.messaging.read', 'platform.notifications.system.send', 'platform.school_admin.bootstrap', 'platform.schools.activate', 'platform.schools.create', 'platform.schools.read', 'platform.schools.su"
   },
   {
     "check": "Manager : suspension de soi-même refusée",
@@ -187,7 +187,7 @@
   {
     "check": "Suspension : sessions révoquées",
     "pass": true,
-    "detail": "{'user_id': '5ca5068c-33de-437a-9371-e3be28c8bd42', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
+    "detail": "{'user_id': '856ce025-c5e6-4f2b-ae4f-331f33b62e75', 'platform_status': 'SUSPENDED', 'sessions_revoked': 1}"
   },
   {
     "check": "Suspension : jeton en cours coupé immédiatement",

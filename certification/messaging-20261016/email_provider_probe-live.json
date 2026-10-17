@@ -1,7 +1,7 @@
 {
  "probe": "email_provider_probe",
  "status": "EXTERNAL_REQUIRED",
- "at": "2026-10-17T11:41:26.379333+00:00",
+ "at": "2026-10-17T14:15:29.188896+00:00",
  "checks": [
   {
    "check": "Paramètres SMTP et boîte de test fournis",

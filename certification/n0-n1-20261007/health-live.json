@@ -12,22 +12,22 @@
   {
     "check": "Base : temps de réponse réellement mesuré",
     "pass": true,
-    "detail": "Répond en 1 ms"
+    "detail": "Répond en 0 ms"
   },
   {
     "check": "Cache : PING réellement mesuré",
     "pass": true,
-    "detail": "Répond en 8 ms"
+    "detail": "Répond en 28 ms"
   },
   {
     "check": "Stockage : requête signée réellement mesurée",
     "pass": true,
-    "detail": "Répond en 5 ms"
+    "detail": "Répond en 2 ms"
   },
   {
     "check": "Workers : signal de vie reçu (< 60 s)",
     "pass": true,
-    "detail": "['Dernier signal il y a 5 s · 0 événement(s) en attente · 1 en quarantaine (intervention requise)', 'Dernier signal il y a 9 s · 1 SMS en attente, 25 définitivement non envoyé(s)']"
+    "detail": "['Dernier signal il y a 4 s · 0 événement(s) en attente · 1 en quarantaine (intervention requise)', 'Dernier signal il y a 1 s · 0 SMS en attente, 0 définitivement non envoyé(s)']"
   },
   {
     "check": "Sauvegarde non configurée : annoncée comme telle, jamais « OK »",
@@ -42,7 +42,7 @@
   {
     "check": "Compteur d'erreurs 5xx réellement alimenté (Redis, par heure)",
     "pass": true,
-    "detail": "3 -> 4"
+    "detail": "8 -> 9"
   },
   {
     "check": "Signal de vie stocké sans donnée sensible",

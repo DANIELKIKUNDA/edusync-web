@@ -1,5 +1,5 @@
 {
-  "school": "N3H-C88AF",
+  "school": "N3H-DE7BD",
   "results": [
     {
       "check": "Doublons probables : l'élève existant est proposé avant toute nouvelle fiche",
@@ -14,12 +14,12 @@
     {
       "check": "Arriérés historiques : l'année précédente, jamais mêlée à la nouvelle",
       "pass": true,
-      "detail": "[{'year_id': '5944c082-de8f-4a31-9731-3347ba323c8b', 'year_label': '2025-2026', 'currency': 'CDF', 'balance': '200000.00'}]"
+      "detail": "[{'year_id': 'bc1e2f53-488a-4eed-aae6-d42c638ac330', 'year_label': '2025-2026', 'currency': 'CDF', 'balance': '200000.00'}]"
     },
     {
       "check": "Réinscription de l'élève existant dans la nouvelle année (même matricule)",
       "pass": true,
-      "detail": "{\"count\":1,\"family_id\":\"cab0f8a7-9b46-429a-876f-2f022defd0d1\",\"student_ids\":[\"7c171cf5-77b4-475e-a78b-21e7e2350165\"],\"enrollment_ids\":[\"f487d328-0d23-43a8-9093-"
+      "detail": "{\"count\":1,\"family_id\":\"57dbd17f-8368-4c08-adee-46132a92857d\",\"student_ids\":[\"fa0b8475-e85d-4a5c-bdaa-d963501284e2\"],\"enrollment_ids\":[\"7df0af3a-6e80-4bf8-9b75-"
     },
     {
       "check": "Réinscription : une seconde fois dans la même année refusée",
@@ -44,7 +44,7 @@
     {
       "check": "Suspension par le caissier (même périmètre que l'abandon, Desktop)",
       "pass": true,
-      "detail": "{\"id\":\"7c171cf5-77b4-475e-a78b-21e7e2350165\",\"notes\":null,\"gender\":\"M\",\"status\":\"SUSPENDED\",\"address\":null,\"version\":2,\"family_id\":\"cab0f8a7-9b46-429a-876f-2f02"
+      "detail": "{\"id\":\"fa0b8475-e85d-4a5c-bdaa-d963501284e2\",\"notes\":null,\"gender\":\"M\",\"status\":\"SUSPENDED\",\"address\":null,\"version\":2,\"family_id\":\"57dbd17f-8368-4c08-adee-4613"
     },
     {
       "check": "Suspension : les mensualités futures impayées sont neutralisées (réversible)",
@@ -79,7 +79,7 @@
     {
       "check": "Reprise historique : montant au-delà du mois réparti sur les mois suivants (Desktop)",
       "pass": true,
-      "detail": "[{'charge_id': 'b15860eb-0744-470c-81ad-1db09070ac31', 'label': 'Septembre', 'amount': '20000.00'}, {'charge_id': '1c8c994e-00d2-48df-8834-00bb1f698325', 'label': 'Octobre', 'amount': '10000.00'}]"
+      "detail": "[{'charge_id': '898b87af-5ee6-46d2-ab7e-cea415833f74', 'label': 'Septembre', 'amount': '20000.00'}, {'charge_id': 'c1228787-acc9-4349-9289-634b8c01e76d', 'label': 'Octobre', 'amount': '10000.00'}]"
     },
     {
       "check": "Reprise exécutée hors caisse : 2 régularisations (septembre, octobre), aucun paiement ni reçu",
@@ -94,12 +94,12 @@
     {
       "check": "Suggestions d'élève pour une ligne de reprise (classées, confiance)",
       "pass": true,
-      "detail": "[{'student_id': '7c171cf5-77b4-475e-a78b-21e7e2350165', 'matricule': 'ELV-00001', 'name': 'DUPONTC88AF Recette Jean', 'class_label': 'P1 2026-2027', 'score': 1.0, 'confidence': 'FORTE'}]"
+      "detail": "[{'student_id': 'fa0b8475-e85d-4a5c-bdaa-d963501284e2', 'matricule': 'ELV-00001', 'name': 'DUPONTDE7BD Recette Jean', 'class_label': 'P1 2026-2027', 'score': 1.0, 'confidence': 'FORTE'}]"
     },
     {
       "check": "Contrôle des dates d'inscription : correspondance certaine → correction proposée",
       "pass": true,
-      "detail": "[{'row': 2, 'student_name': 'DUPONTC88AF Recette Jean', 'status': 'MATCH_CERTAIN', 'confidence': 'FORTE', 'candidates': 1, 'student_id': '7c171cf5-77b4-475e-a78b-21e7e2350165', 'enrollment_id': 'f487d328-0d23-43a8-9093-ebea34e8430e', 'matricule': 'ELV-00001', 'current_enrolled_on': '2026-10-16', 'hi"
+      "detail": "[{'row': 2, 'student_name': 'DUPONTDE7BD Recette Jean', 'status': 'MATCH_CERTAIN', 'confidence': 'FORTE', 'candidates': 1, 'student_id': 'fa0b8475-e85d-4a5c-bdaa-d963501284e2', 'enrollment_id': '7df0af3a-6e80-4bf8-9b75-332dc2089445', 'matricule': 'ELV-00001', 'current_enrolled_on': '2026-10-17', 'hi"
     },
     {
       "check": "Contrôle des dates : élève inconnu et date absente signalés, rien n'est modifié",

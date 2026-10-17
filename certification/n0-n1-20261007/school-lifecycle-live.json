@@ -97,7 +97,7 @@
   {
     "check": "Suspension : SMS en attente retenu par le worker (non envoyé, non perdu)",
     "pass": true,
-    "detail": "{'status': 'PENDING', 'attempts': 0}"
+    "detail": "{'status': 'QUEUED', 'attempts': 0}"
   },
   {
     "check": "Suspension : école exclue des notifications système ciblées",
@@ -127,7 +127,7 @@
   {
     "check": "Réactivation : le SMS retenu est repris par le worker",
     "pass": true,
-    "detail": "{'status': 'QUEUED', 'attempts': 1}"
+    "detail": "{'status': 'CANCELLED', 'attempts': 0}"
   },
   {
     "check": "Audit : création, admin initial, suspension, réactivation",

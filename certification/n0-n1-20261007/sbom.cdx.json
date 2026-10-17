@@ -1,10 +1,10 @@
 {
  "bomFormat": "CycloneDX",
  "specVersion": "1.5",
- "serialNumber": "urn:uuid:df48681c-21dd-4b65-b4c6-1527c4346f44",
+ "serialNumber": "urn:uuid:fec33fd3-b3ad-4a8e-b7f7-dc62b652c9f9",
  "version": 1,
  "metadata": {
-  "timestamp": "2026-10-16T15:56:54.227473+00:00",
+  "timestamp": "2026-10-17T14:15:51.149595+00:00",
   "component": {
    "type": "application",
    "name": "edusync-web",
@@ -12,6 +12,17 @@
   }
  },
  "components": [
+  {
+   "type": "library",
+   "name": "aiosmtplib",
+   "version": "5.1.3",
+   "purl": "pkg:pypi/aiosmtplib@5.1.3",
+   "licenses": [
+    {
+     "expression": "MIT"
+    }
+   ]
+  },
   {
    "type": "library",
    "name": "annotated-doc",
@@ -47,6 +58,17 @@
   },
   {
    "type": "library",
+   "name": "argon2-cffi",
+   "version": "25.1.0",
+   "purl": "pkg:pypi/argon2-cffi@25.1.0",
+   "licenses": [
+    {
+     "expression": "MIT"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "argon2-cffi-bindings",
    "version": "26.1.0",
    "purl": "pkg:pypi/argon2-cffi-bindings@26.1.0",
@@ -58,12 +80,12 @@
   },
   {
    "type": "library",
-   "name": "argon2-cffi",
-   "version": "25.1.0",
-   "purl": "pkg:pypi/argon2-cffi@25.1.0",
+   "name": "CacheControl",
+   "version": "0.14.4",
+   "purl": "pkg:pypi/cachecontrol@0.14.4",
    "licenses": [
     {
-     "expression": "MIT"
+     "expression": "Apache-2.0"
     }
    ]
   },
@@ -86,6 +108,17 @@
    "licenses": [
     {
      "expression": "MIT-0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "charset-normalizer",
+   "version": "3.5.2",
+   "purl": "pkg:pypi/charset-normalizer@3.5.2",
+   "licenses": [
+    {
+     "expression": "MIT"
     }
    ]
   },
@@ -146,6 +179,105 @@
   },
   {
    "type": "library",
+   "name": "firebase_admin",
+   "version": "7.7.0",
+   "purl": "pkg:pypi/firebase_admin@7.7.0",
+   "licenses": [
+    {
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "google-api-core",
+   "version": "2.42.0",
+   "purl": "pkg:pypi/google-api-core@2.42.0",
+   "licenses": [
+    {
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "google-auth",
+   "version": "2.62.0",
+   "purl": "pkg:pypi/google-auth@2.62.0",
+   "licenses": [
+    {
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "google-cloud-core",
+   "version": "2.8.0",
+   "purl": "pkg:pypi/google-cloud-core@2.8.0",
+   "licenses": [
+    {
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "google-cloud-firestore",
+   "version": "2.34.1",
+   "purl": "pkg:pypi/google-cloud-firestore@2.34.1",
+   "licenses": [
+    {
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "google-cloud-storage",
+   "version": "3.17.1",
+   "purl": "pkg:pypi/google-cloud-storage@3.17.1",
+   "licenses": [
+    {
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "google-crc32c",
+   "version": "1.9.0",
+   "purl": "pkg:pypi/google-crc32c@1.9.0",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "google-resumable-media",
+   "version": "2.11.0",
+   "purl": "pkg:pypi/google-resumable-media@2.11.0",
+   "licenses": [
+    {
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "googleapis-common-protos",
+   "version": "1.75.5",
+   "purl": "pkg:pypi/googleapis-common-protos@1.75.5",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "greenlet",
    "version": "3.5.6",
    "purl": "pkg:pypi/greenlet@3.5.6",
@@ -157,12 +289,56 @@
   },
   {
    "type": "library",
+   "name": "grpcio",
+   "version": "1.84.0",
+   "purl": "pkg:pypi/grpcio@1.84.0",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "grpcio-status",
+   "version": "1.84.0",
+   "purl": "pkg:pypi/grpcio-status@1.84.0",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "h11",
    "version": "0.16.0",
    "purl": "pkg:pypi/h11@0.16.0",
    "licenses": [
     {
      "expression": "MIT License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "h2",
+   "version": "4.4.1",
+   "purl": "pkg:pypi/h2@4.4.1",
+   "licenses": [
+    {
+     "expression": "MIT"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "hpack",
+   "version": "4.2.0",
+   "purl": "pkg:pypi/hpack@4.2.0",
+   "licenses": [
+    {
+     "expression": "MIT"
     }
    ]
   },
@@ -201,6 +377,17 @@
   },
   {
    "type": "library",
+   "name": "hyperframe",
+   "version": "6.1.0",
+   "purl": "pkg:pypi/hyperframe@6.1.0",
+   "licenses": [
+    {
+     "expression": "MIT License"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "idna",
    "version": "3.19",
    "purl": "pkg:pypi/idna@3.19",
@@ -223,12 +410,34 @@
   },
   {
    "type": "library",
+   "name": "msgpack",
+   "version": "1.2.3",
+   "purl": "pkg:pypi/msgpack@1.2.3",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "openpyxl",
    "version": "3.1.5",
    "purl": "pkg:pypi/openpyxl@3.1.5",
    "licenses": [
     {
      "expression": "MIT License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "opentelemetry-api",
+   "version": "1.45.1",
+   "purl": "pkg:pypi/opentelemetry-api@1.45.1",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
     }
    ]
   },
@@ -256,12 +465,23 @@
   },
   {
    "type": "library",
-   "name": "psycopg-binary",
-   "version": "3.3.5",
-   "purl": "pkg:pypi/psycopg-binary@3.3.5",
+   "name": "proto-plus",
+   "version": "1.29.0",
+   "purl": "pkg:pypi/proto-plus@1.29.0",
    "licenses": [
     {
-     "expression": "LGPL-3.0-only"
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "protobuf",
+   "version": "7.36.2",
+   "purl": "pkg:pypi/protobuf@7.36.2",
+   "licenses": [
+    {
+     "expression": "3-Clause BSD License"
     }
    ]
   },
@@ -278,23 +498,45 @@
   },
   {
    "type": "library",
+   "name": "psycopg-binary",
+   "version": "3.3.5",
+   "purl": "pkg:pypi/psycopg-binary@3.3.5",
+   "licenses": [
+    {
+     "expression": "LGPL-3.0-only"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "pyasn1",
+   "version": "0.6.4",
+   "purl": "pkg:pypi/pyasn1@0.6.4",
+   "licenses": [
+    {
+     "expression": "BSD-2-Clause"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "pyasn1_modules",
+   "version": "0.4.2",
+   "purl": "pkg:pypi/pyasn1_modules@0.4.2",
+   "licenses": [
+    {
+     "expression": "BSD License"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "pycparser",
    "version": "3.0",
    "purl": "pkg:pypi/pycparser@3.0",
    "licenses": [
     {
      "expression": "BSD-3-Clause"
-    }
-   ]
-  },
-  {
-   "type": "library",
-   "name": "pydantic-settings",
-   "version": "2.15.0",
-   "purl": "pkg:pypi/pydantic-settings@2.15.0",
-   "licenses": [
-    {
-     "expression": "MIT"
     }
    ]
   },
@@ -314,6 +556,17 @@
    "name": "pydantic_core",
    "version": "2.46.5",
    "purl": "pkg:pypi/pydantic_core@2.46.5",
+   "licenses": [
+    {
+     "expression": "MIT"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "pydantic-settings",
+   "version": "2.15.0",
+   "purl": "pkg:pypi/pydantic-settings@2.15.0",
    "licenses": [
     {
      "expression": "MIT"
@@ -399,6 +652,17 @@
   },
   {
    "type": "library",
+   "name": "requests",
+   "version": "2.34.2",
+   "purl": "pkg:pypi/requests@2.34.2",
+   "licenses": [
+    {
+     "expression": "Apache Software License"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "segno",
    "version": "1.6.6",
    "purl": "pkg:pypi/segno@1.6.6",
@@ -443,17 +707,6 @@
   },
   {
    "type": "library",
-   "name": "typing-inspection",
-   "version": "0.4.4",
-   "purl": "pkg:pypi/typing-inspection@0.4.4",
-   "licenses": [
-    {
-     "expression": "MIT"
-    }
-   ]
-  },
-  {
-   "type": "library",
    "name": "typing_extensions",
    "version": "4.16.0",
    "purl": "pkg:pypi/typing_extensions@4.16.0",
@@ -465,12 +718,34 @@
   },
   {
    "type": "library",
+   "name": "typing-inspection",
+   "version": "0.4.4",
+   "purl": "pkg:pypi/typing-inspection@0.4.4",
+   "licenses": [
+    {
+     "expression": "MIT"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "tzdata",
    "version": "2026.4",
    "purl": "pkg:pypi/tzdata@2026.4",
    "licenses": [
     {
      "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "urllib3",
+   "version": "2.8.0",
+   "purl": "pkg:pypi/urllib3@2.8.0",
+   "licenses": [
+    {
+     "expression": "MIT"
     }
    ]
   },
@@ -515,6 +790,83 @@
    "licenses": [
     {
      "expression": "BSD License"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@firebase/app",
+   "version": "0.16.2",
+   "purl": "pkg:npm/@firebase/app@0.16.2",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@firebase/component",
+   "version": "0.7.5",
+   "purl": "pkg:npm/@firebase/component@0.7.5",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@firebase/installations",
+   "version": "0.6.24",
+   "purl": "pkg:npm/@firebase/installations@0.6.24",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@firebase/logger",
+   "version": "0.5.2",
+   "purl": "pkg:npm/@firebase/logger@0.5.2",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@firebase/messaging",
+   "version": "0.13.3",
+   "purl": "pkg:npm/@firebase/messaging@0.13.3",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@firebase/messaging-interop-types",
+   "version": "0.2.6",
+   "purl": "pkg:npm/@firebase/messaging-interop-types@0.2.6",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@firebase/util",
+   "version": "1.15.3",
+   "purl": "pkg:npm/@firebase/util@1.15.3",
+   "licenses": [
+    {
+     "expression": "Apache-2.0"
     }
    ]
   },
@@ -1026,6 +1378,17 @@
   },
   {
    "type": "library",
+   "name": "idb",
+   "version": "7.1.1",
+   "purl": "pkg:npm/idb@7.1.1",
+   "licenses": [
+    {
+     "expression": "ISC"
+    }
+   ]
+  },
+  {
+   "type": "library",
    "name": "lightningcss",
    "version": "1.33.0",
    "purl": "pkg:npm/lightningcss@1.33.0",
@@ -1285,6 +1648,17 @@
    "licenses": [
     {
      "expression": "MIT"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "tslib",
+   "version": "2.8.1",
+   "purl": "pkg:npm/tslib@2.8.1",
+   "licenses": [
+    {
+     "expression": "0BSD"
     }
    ]
   },

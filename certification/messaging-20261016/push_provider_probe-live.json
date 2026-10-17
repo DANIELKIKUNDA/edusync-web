@@ -1,7 +1,7 @@
 {
  "probe": "push_provider_probe",
  "status": "EXTERNAL_REQUIRED",
- "at": "2026-10-17T11:41:27.080401+00:00",
+ "at": "2026-10-17T14:15:34.018914+00:00",
  "checks": [
   {
    "check": "Compte de service Firebase, configuration web et jeton d'appareil de test fournis",

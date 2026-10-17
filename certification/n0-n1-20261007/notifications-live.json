@@ -2,7 +2,7 @@
   {
     "check": "Cible : toutes les écoles actives = tous les membres actifs",
     "pass": true,
-    "detail": "624 attendu 624 (215 ms)"
+    "detail": "902 attendu 902 (303 ms)"
   },
   {
     "check": "Cible : école choisie",
@@ -22,7 +22,7 @@
   {
     "check": "Cible : toute l'équipe plateforme",
     "pass": true,
-    "detail": "96"
+    "detail": "116"
   },
   {
     "check": "Cible : un rôle plateforme",
@@ -175,9 +175,9 @@
     "detail": ""
   },
   {
-    "check": "Push : envoyé à l'appareil abonné (fournisseur simulé)",
+    "check": "Push : mis en file par la campagne puis envoyé par le worker à l'appareil abonné (fournisseur simulé)",
     "pass": true,
-    "detail": "{'provider': 'mock', 'devices': 1, 'accepted': 1}"
+    "detail": "({'status': 'QUEUED', 'recipients_with_devices': 1}, 1)"
   },
   {
     "check": "Push : la charge ne contient ni le corps ni de donnée personnelle",

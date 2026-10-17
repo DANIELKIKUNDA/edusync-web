@@ -27,7 +27,7 @@
   {
     "check": "AUTO : aucune session créée avant le choix",
     "pass": true,
-    "detail": "18->18"
+    "detail": "23->23"
   },
   {
     "check": "AUTO : choix explicite d'une école -> session de cette école",
@@ -62,7 +62,7 @@
   {
     "check": "1.1 cookie HttpOnly, SameSite=Lax, chemin /api/v1/auth",
     "pass": true,
-    "detail": "dusync_session=oEe_VXlaMbMivt8gSyW6RbHBpzwu4cVcsBw2uocfacaPl3rsKJERY1-BWUx4WChh; HttpOnly; Max-Age=34560000; Path=/api/v1/auth; SameSite=lax"
+    "detail": "dusync_session=ZBZdEF2kSNQs2YZB_tRmPmyI316GzhZpCdHsHTpgzvqmHHwJhqEuDObYkv5TQTkV; HttpOnly; Max-Age=34560000; Path=/api/v1/auth; SameSite=lax"
   },
   {
     "check": "1.1 jeton tourné rejoué hors grâce : refusé",
@@ -112,7 +112,7 @@
   {
     "check": "1.1 logout-all audité",
     "pass": true,
-    "detail": "30"
+    "detail": "38"
   },
   {
     "check": "1.4 Manager : liste de ses appareils",

@@ -1,5 +1,5 @@
 {
- "sha": "aed2305802c3959cc5c4434bc77d1ec89bf5909f",
+ "sha": "2ad66ef309cf16a614d96ca20307254d2fc5a8b1",
  "clean_tree_at_start": true,
  "modified_at_start": [],
  "steps": [
@@ -7,239 +7,239 @@
    "step": "Arbre Git propre au démarrage",
    "command": "git status --porcelain",
    "result": "PASS",
-   "summary": "propre sur aed2305802c3",
+   "summary": "propre sur 2ad66ef309cf",
    "duration_s": 0
   },
   {
    "step": "Tests backend (pytest)",
    "command": "python.exe -m pytest -q -p no:cacheprovider --basetemp=../.local/pytest-tmp",
    "result": "PASS",
-   "summary": "627 passed, 6 warnings in 18.50s",
-   "duration_s": 22.2
+   "summary": "647 passed, 6 warnings in 19.45s",
+   "duration_s": 22.8
   },
   {
    "step": "Compilation Python (compileall)",
    "command": "python.exe -m compileall -q src",
    "result": "PASS",
    "summary": "OK",
-   "duration_s": 2.4
+   "duration_s": 2.0
   },
   {
    "step": "Typecheck frontend (tsc)",
    "command": "npx.cmd tsc --noEmit -p tsconfig.json",
    "result": "PASS",
    "summary": "0 erreur",
-   "duration_s": 5.1
+   "duration_s": 5.2
   },
   {
    "step": "Build frontend (vite)",
    "command": "npm.cmd run build",
    "result": "PASS",
-   "summary": "built in 736ms\u001b[39m",
-   "duration_s": 3.4
+   "summary": "built in 888ms\u001b[39m",
+   "duration_s": 3.6
   },
   {
    "step": "Migrations sur base vierge (provisionnement)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py backend/scripts/provision_database.py",
    "result": "PASS",
    "summary": "POINT-4A database provisioning: PASS",
-   "duration_s": 4.9
+   "duration_s": 4.6
   },
   {
    "step": "Sonde en conditions réelles : prereq_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/prereq_probe.py",
    "result": "PASS",
    "summary": "== 42/42 PASS",
-   "duration_s": 61.8
+   "duration_s": 45.5
   },
   {
    "step": "Sonde en conditions réelles : team_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/team_probe.py",
    "result": "PASS",
    "summary": "== 58/58 PASS",
-   "duration_s": 88.9
+   "duration_s": 65.1
   },
   {
    "step": "Sonde en conditions réelles : school_lifecycle_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/school_lifecycle_probe.py",
    "result": "PASS",
    "summary": "== 33/33 PASS",
-   "duration_s": 55.7
+   "duration_s": 26.2
   },
   {
    "step": "Sonde en conditions réelles : health_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/health_probe.py",
    "result": "PASS",
    "summary": "== 12/12 PASS",
-   "duration_s": 5.3
+   "duration_s": 8.3
   },
   {
    "step": "Sonde en conditions réelles : audit_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/audit_probe.py",
    "result": "PASS",
    "summary": "== 25/25 PASS",
-   "duration_s": 32.4
+   "duration_s": 20.7
   },
   {
    "step": "Sonde en conditions réelles : notifications_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/notifications_probe.py",
    "result": "PASS",
    "summary": "== 44/44 PASS",
-   "duration_s": 32.5
+   "duration_s": 57.8
   },
   {
    "step": "Sonde en conditions réelles : realtime_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/realtime_probe.py",
    "result": "PASS",
    "summary": "== 8/8 PASS",
-   "duration_s": 32.8
+   "duration_s": 15.2
   },
   {
    "step": "Sonde en conditions réelles : hardening_http_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/hardening_http_probe.py",
    "result": "PASS",
    "summary": "== 17/17 PASS",
-   "duration_s": 67.9
+   "duration_s": 59.5
   },
   {
    "step": "Sonde en conditions réelles : mfa_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/mfa_probe.py",
    "result": "PASS",
    "summary": "== 83/83 PASS",
-   "duration_s": 139.8
+   "duration_s": 143.3
   },
   {
    "step": "Sonde en conditions réelles : resilience_probe.py",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n0-n1-20261007/resilience_probe.py",
    "result": "PASS",
    "summary": "== 16/16 PASS",
-   "duration_s": 181.3
+   "duration_s": 185.4
   },
   {
    "step": "Sonde en conditions réelles : n2_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/n2_probe.py",
    "result": "PASS",
    "summary": "== 50/50 PASS",
-   "duration_s": 30.9
+   "duration_s": 29.9
   },
   {
    "step": "Parcours UI N2 (téléphone + 7 largeurs)",
    "command": "node n2_journey.mjs",
    "result": "PASS",
    "summary": "PARCOURS N2 : PASS",
-   "duration_s": 218.0
+   "duration_s": 219.3
   },
   {
    "step": "Sonde en conditions réelles : admission_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/admission_probe.py",
    "result": "PASS",
    "summary": "== 16/16 PASS",
-   "duration_s": 15.0
+   "duration_s": 13.7
   },
   {
    "step": "Sonde en conditions réelles : anticipation_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/anticipation_probe.py",
    "result": "PASS",
    "summary": "== 32/32 PASS",
-   "duration_s": 22.1
+   "duration_s": 21.7
   },
   {
    "step": "Sonde en conditions réelles : benefits_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/benefits_probe.py",
    "result": "PASS",
    "summary": "== 21/21 PASS",
-   "duration_s": 13.7
+   "duration_s": 13.0
   },
   {
    "step": "Sonde en conditions réelles : class_status_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/class_status_probe.py",
    "result": "PASS",
    "summary": "== 21/21 PASS",
-   "duration_s": 25.5
+   "duration_s": 23.5
   },
   {
    "step": "Sonde en conditions réelles : fee_schedules_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/fee_schedules_probe.py",
    "result": "PASS",
    "summary": "== 18/18 PASS",
-   "duration_s": 34.2
+   "duration_s": 33.6
   },
   {
    "step": "Sonde en conditions réelles : payment_policy_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/payment_policy_probe.py",
    "result": "PASS",
    "summary": "== 18/18 PASS",
-   "duration_s": 29.8
+   "duration_s": 30.4
   },
   {
    "step": "Sonde en conditions réelles : receipt_settings_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/receipt_settings_probe.py",
    "result": "PASS",
    "summary": "== 12/12 PASS",
-   "duration_s": 36.9
+   "duration_s": 35.3
   },
   {
    "step": "Sonde en conditions réelles : tariff_rules_probe.py (N2)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n2-20261014/tariff_rules_probe.py",
    "result": "PASS",
    "summary": "== 36/36 PASS",
-   "duration_s": 23.2
+   "duration_s": 24.2
   },
   {
    "step": "Sonde en conditions réelles : rbac_probe.py (N3-A)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n3-20261015/rbac_probe.py",
    "result": "PASS",
    "summary": "== 14/14 PASS",
-   "duration_s": 39.9
+   "duration_s": 39.4
   },
   {
    "step": "Sonde en conditions réelles : cash_integrity_probe.py (N3-B)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n3-20261015/cash_integrity_probe.py",
    "result": "PASS",
    "summary": "== 37/37 PASS",
-   "duration_s": 27.0
+   "duration_s": 27.6
   },
   {
    "step": "Contrôle UI N3-B (390 px + 1280 px)",
    "command": "node cash_ui_check.mjs",
    "result": "PASS",
    "summary": "UI N3-B : PASS",
-   "duration_s": 26.1
+   "duration_s": 25.4
   },
   {
    "step": "Sonde en conditions réelles : decisions_probe.py (N3-C)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n3-20261015/decisions_probe.py",
    "result": "PASS",
    "summary": "== 28/28 PASS",
-   "duration_s": 17.0
+   "duration_s": 14.8
   },
   {
    "step": "Contrôle UI N3-C (390 px + 1280 px)",
    "command": "node decisions_ui_check.mjs",
    "result": "PASS",
    "summary": "UI N3-C : PASS",
-   "duration_s": 15.4
+   "duration_s": 15.3
   },
   {
    "step": "Sonde en conditions réelles : advance_funds_probe.py (N3-D)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n3-20261015/advance_funds_probe.py",
    "result": "PASS",
    "summary": "== 29/29 PASS",
-   "duration_s": 20.1
+   "duration_s": 17.8
   },
   {
    "step": "Contrôle UI N3-D (390 px + 1280 px)",
    "command": "node funds_ui_check.mjs",
    "result": "PASS",
    "summary": "UI N3-D : PASS",
-   "duration_s": 27.8
+   "duration_s": 27.7
   },
   {
    "step": "Sonde en conditions réelles : checkout_rules_probe.py (N3-E)",
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n3-20261015/checkout_rules_probe.py",
    "result": "PASS",
    "summary": "== 15/15 PASS",
-   "duration_s": 13.0
+   "duration_s": 11.6
   },
   {
    "step": "Contrôle UI N3-E (390 px + 1280 px)",
@@ -253,7 +253,7 @@
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n3-20261015/payroll_probe.py",
    "result": "PASS",
    "summary": "== 17/17 PASS",
-   "duration_s": 19.3
+   "duration_s": 23.3
   },
   {
    "step": "Contrôle UI N3-F (390 px + 1280 px)",
@@ -267,7 +267,7 @@
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n3-20261015/reports_probe.py",
    "result": "PASS",
    "summary": "== 25/25 PASS",
-   "duration_s": 20.4
+   "duration_s": 18.3
   },
   {
    "step": "Contrôle UI N3-G (390 px + 1280 px)",
@@ -281,42 +281,76 @@
    "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/n3-20261015/schooling_parity_probe.py",
    "result": "PASS",
    "summary": "== 21/21 PASS",
-   "duration_s": 24.1
+   "duration_s": 20.7
   },
   {
    "step": "Contrôle UI N3-H (390 px + 1280 px)",
    "command": "node schooling_ui_check.mjs",
    "result": "PASS",
    "summary": "UI N3-H : PASS",
-   "duration_s": 60.2
+   "duration_s": 60.1
+  },
+  {
+   "step": "Sonde messagerie externe locale (fournisseurs simulés)",
+   "command": "python.exe C:\\Users\\cs-ap\\dev\\edusync-web\\.local\\closure\\run.py certification/messaging-20261016/messaging_local_probe.py",
+   "result": "PASS",
+   "summary": "== 53/53 PASS",
+   "duration_s": 57.7
+  },
+  {
+   "step": "Contrôle UI messagerie (390 px + 1280 px)",
+   "command": "node messaging_ui_check.mjs",
+   "result": "PASS",
+   "summary": "UI MESSAGERIE : PASS",
+   "duration_s": 62.3
   },
   {
    "step": "Sauvegarde + restauration vérifiée",
    "command": "python.exe tools/local/backup_restore.py --db edusync_claude_fresh",
    "result": "PASS",
-   "summary": "== 8/8 PASS · 11.2 s · rapport : .local/backups/last.json",
-   "duration_s": 15.1
+   "summary": "== 8/8 PASS · 10.4 s · rapport : .local/backups/last.json",
+   "duration_s": 14.1
   },
   {
    "step": "Chaîne d'approvisionnement (licences, SBOM)",
    "command": "python.exe tools/certification/supply_chain.py",
    "result": "PASS",
-   "summary": "Python : 46 paquets · npm (exécution) : 73 · à examiner : 2",
-   "duration_s": 3.1
+   "summary": "Python : 71 paquets · npm (exécution) : 82 · à examiner : 2",
+   "duration_s": 3.0
   },
   {
    "step": "Vulnérabilités npm (npm audit)",
    "command": "npm.cmd audit --omit=dev",
    "result": "PASS",
    "summary": "found 0 vulnerabilities",
-   "duration_s": 3.6
+   "duration_s": 4.1
   },
   {
    "step": "Scan de secrets",
    "command": "python.exe .local/closure/secret_scan.py",
    "result": "PASS",
-   "summary": "653 secrets checked across 1550 files: 0 leak(s)",
-   "duration_s": 10.3
+   "summary": "913 secrets checked across 1599 files: 0 leak(s)",
+   "duration_s": 12.2
+  }
+ ],
+ "external_providers": [
+  {
+   "provider": "E-mail (SMTP)",
+   "probe": "email_provider_probe.py",
+   "status": "EXTERNAL_REQUIRED",
+   "duration_s": 1.9
+  },
+  {
+   "provider": "SMS (Orange)",
+   "probe": "sms_provider_probe.py",
+   "status": "EXTERNAL_REQUIRED",
+   "duration_s": 2.5
+  },
+  {
+   "provider": "Push (Firebase)",
+   "probe": "push_provider_probe.py",
+   "status": "EXTERNAL_REQUIRED",
+   "duration_s": 2.4
   }
  ],
  "versions": {
