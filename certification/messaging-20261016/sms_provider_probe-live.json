@@ -1,0 +1,12 @@
+{
+ "probe": "sms_provider_probe",
+ "status": "EXTERNAL_REQUIRED",
+ "at": "2026-10-17T11:41:25.659916+00:00",
+ "checks": [
+  {
+   "check": "Secrets Orange et numéro de test fournis",
+   "result": "EXTERNAL_REQUIRED",
+   "detail": "EDUSYNC_SMS_PROVIDER=orange, EDUSYNC_ORANGE_SMS_CLIENT_ID, EDUSYNC_ORANGE_SMS_CLIENT_SECRET, EDUSYNC_ORANGE_SMS_SENDER_ADDRESS, EDUSYNC_PROBE_SMS_TO"
+  }
+ ]
+}

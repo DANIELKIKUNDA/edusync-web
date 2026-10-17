@@ -210,7 +210,7 @@ export default function AccessPage({token,permissions,userName}:Props){
     {assignFor&&<AssignDialog token={token} member={assignFor} roles={activeRoles} scopes={scopes} canScope={canScope}
       onClose={()=>setAssignFor(null)} onSaved={async()=>{setAssignFor(null);await load()}}/>}
     {adding&&<AddMemberDialog token={token} roles={activeRoles} canAssign={canAssign} onClose={()=>setAdding(false)}
-      onDone={async r=>{setAdding(false);if(r.temporary_password)setSecret({title:'Compte créé',name:r.full_name,email:r.email,password:r.temporary_password});else toast.success(r.attached_existing_account?`${r.full_name} a déjà un compte EduSync : il est rattaché à votre école et se connecte avec ses identifiants habituels.`:'Membre ajouté');await load()}}/>}
+      onDone={async r=>{setAdding(false);if(r.temporary_password)setSecret({title:'Compte créé',name:r.full_name,email:r.email,password:r.temporary_password});else if(r.invitation_sent)toast.success(`Invitation envoyée à ${r.email} : lien valable 48 heures, utilisable une seule fois.`);else toast.success(r.attached_existing_account?`${r.full_name} a déjà un compte EduSync : il est rattaché à votre école et se connecte avec ses identifiants habituels.`:'Membre ajouté');await load()}}/>}
     {secret&&<SecretDialog {...secret} onClose={()=>setSecret(null)}/>}
     {confirm&&<ReasonDialog {...confirm} onClose={()=>setConfirm(null)}/>}
     </>,document.body)}
@@ -345,15 +345,16 @@ function MemberSheet({member,canAssign,canUpdate,canActivate,canReset,token,onCl
   </aside></div>;
 }
 
-type CreatedMember={membership_id:string;email:string;full_name:string;created:boolean;attached_existing_account:boolean;temporary_password:string|null};
+type CreatedMember={membership_id:string;email:string;full_name:string;created:boolean;attached_existing_account:boolean;temporary_password:string|null;invitation_sent?:boolean};
 
 function AddMemberDialog({token,roles,canAssign,onClose,onDone}:{token:string;roles:Role[];canAssign:boolean;onClose:()=>void;onDone:(r:CreatedMember)=>Promise<void>}){
   const [email,setEmail]=useState(''),[name,setName]=useState(''),[roleId,setRoleId]=useState(''),[reason,setReason]=useState('Arrivée dans l’équipe'),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [delivery,setDelivery]=useState<'TEMPORARY_PASSWORD'|'INVITATION'>('TEMPORARY_PASSWORD');
   const [touched,setTouched]=useState(false);
   const emailOk=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()),nameOk=name.trim().length>=3,reasonOk=reason.trim().length>=3;
   useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose]);
   async function save(e:React.FormEvent){e.preventDefault();setTouched(true);setError('');if(!emailOk||!nameOk||!reasonOk)return;
-    try{setBusy(true);const r=await send<CreatedMember>(token,'POST','members',{email:email.trim().toLowerCase(),full_name:name.trim(),role_id:roleId||null,reason:reason.trim()});await onDone(r)}
+    try{setBusy(true);const r=await send<CreatedMember>(token,'POST','members',{email:email.trim().toLowerCase(),full_name:name.trim(),role_id:roleId||null,reason:reason.trim(),delivery});await onDone(r)}
     catch(err){setError(err instanceof Error?err.message:friendlyError(err))}finally{setBusy(false)}}
   return <div className="wizardBackdrop" onClick={onClose}><form className="accountSecurityDialog addMemberDialog" role="dialog" aria-modal="true" aria-label="Ajouter un membre" onClick={e=>e.stopPropagation()} onSubmit={save} noValidate>
     <div className="modalHead"><div><h3>Ajouter un membre</h3><p>Un compte est créé avec un mot de passe provisoire, affiché une seule fois. Si l’adresse a déjà un compte EduSync, il est simplement rattaché à votre école.</p></div><button type="button" aria-label="Fermer" onClick={onClose}>×</button></div>
@@ -364,6 +365,10 @@ function AddMemberDialog({token,roles,canAssign,onClose,onDone}:{token:string;ro
       <optgroup label="Rôles standards EduSync">{roles.filter(r=>r.kind==='SCHOOL_STANDARD').map(r=><option key={r.id} value={r.id}>{r.label}</option>)}</optgroup></select>
       <small className="fieldHint">Attribué sur toute l’école. Vous pourrez le limiter à une section ou une classe ensuite.</small></label>}
     <label>Motif *<input value={reason} onChange={e=>setReason(e.target.value)} aria-invalid={touched&&!reasonOk}/></label>
+    <fieldset className="memberDelivery"><legend>Accès du nouveau compte</legend>
+      <label className="toggleLine"><input type="radio" name="delivery" checked={delivery==='TEMPORARY_PASSWORD'} onChange={()=>setDelivery('TEMPORARY_PASSWORD')}/> Mot de passe provisoire, affiché une seule fois</label>
+      <label className="toggleLine"><input type="radio" name="delivery" checked={delivery==='INVITATION'} onChange={()=>setDelivery('INVITATION')}/> Invitation par e-mail (lien valable 48 h, aucun mot de passe envoyé)</label>
+    </fieldset>
     {error&&<div className="error" role="alert">{error}</div>}
     <div className="modalActions"><button type="button" className="ghost" onClick={onClose}>Annuler</button><button disabled={busy}>{busy?'Création…':'Ajouter'}</button></div>
   </form></div>;

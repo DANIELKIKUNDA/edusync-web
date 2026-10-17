@@ -238,6 +238,8 @@ check("SMS désactivé : envoi SMS refusé « Canal externe non activé »", off
 biz = cashA.post("schooling/enrollments/family", headers=k(), json={"primary_guardian": {"full_name": f"Parent HORS SMS {run}", "is_primary": True, "phone": "+243810004444"},
                  "children": [{"last_name": f"HORSSMS{run}", "middle_name": "Recette", "first_name": "Enfant", "gender": "M", "birth_date": f"{sy-8}-02-02", "class_id": clsA["id"]}]})
 check("Inscription (métier) inchangée quand les SMS sont désactivés", biz.status_code in (200, 201), biz.status_code)
+rd2 = ok(admA.get("communications/readiness"))
+ok(admA.put("communications/settings", json={"enabled": True, "sms_enabled": True, "email_enabled": True, "push_enabled": True, "sms_low_balance_threshold": 10, "expected_version": rd2["version"]}))
 
 # ---------------------------------------------------------------- e-mail: password recovery (single use, replay)
 email_user = A["users"]["GES"]

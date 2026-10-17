@@ -213,3 +213,5 @@
   .accessPage .guardrails span{white-space:nowrap;flex:none}
   .accessPage .personTabs{position:sticky;top:var(--es-top,56px);z-index:5;background:var(--es-bg,#f4f6fa)}
 }
+.memberDelivery{border:1px solid var(--line,#e2e8f0);border-radius:12px;padding:10px 12px;display:grid;gap:6px;margin:0}
+.memberDelivery legend{font-weight:600;padding:0 4px}

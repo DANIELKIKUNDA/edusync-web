@@ -43,6 +43,7 @@ MENU = (
     ("notifications", "Notifications", "platform.notifications.system.send"),
     ("audit", "Audit", "platform.audit.read"),
     ("diagnostics", "Santé du système", "platform.health.read"),
+    ("messaging", "Messagerie", "platform.messaging.read"),
 )
 
 

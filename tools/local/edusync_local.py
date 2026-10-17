@@ -225,7 +225,7 @@ def start(profile: str, open_browser: bool) -> None:
         # Same security headers as the production nginx (frontend/nginx.conf).
         headers = {
             "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
-                                       "font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; "
+                                       "font-src 'self' data:; connect-src 'self' https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; "
                                        "base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin",
             "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()", "Cross-Origin-Opener-Policy": "same-origin",

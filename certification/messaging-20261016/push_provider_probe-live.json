@@ -1,0 +1,12 @@
+{
+ "probe": "push_provider_probe",
+ "status": "EXTERNAL_REQUIRED",
+ "at": "2026-10-17T11:41:27.080401+00:00",
+ "checks": [
+  {
+   "check": "Compte de service Firebase, configuration web et jeton d'appareil de test fournis",
+   "result": "EXTERNAL_REQUIRED",
+   "detail": "EDUSYNC_PUSH_PROVIDER=fcm, EDUSYNC_FCM_SERVICE_ACCOUNT_FILE|_JSON, EDUSYNC_FCM_WEB_CONFIG_JSON, EDUSYNC_FCM_VAPID_PUBLIC_KEY, EDUSYNC_PROBE_PUSH_TOKEN"
+  }
+ ]
+}

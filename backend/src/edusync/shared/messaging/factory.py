@@ -67,7 +67,9 @@ def build_push_provider(cfg):
 
 
 def channel_status(cfg) -> dict[str, dict]:
-    """Operational status of each channel for Atelier Pro / school settings: never a credential, never a token."""
+    """Operational status of each channel for Atelier Pro / school settings: never a credential, never a token.
+    Judged on NON-secret identifiers, because provider secrets live only with the communications worker (the API never
+    holds them): a missing worker secret shows up as PROVIDER_NOT_CONFIGURED deliveries, visible in history / Atelier Pro."""
     def state(kind: str, configured: bool) -> str:
         if kind == "disabled":
             return "DISABLED"
@@ -76,9 +78,9 @@ def channel_status(cfg) -> dict[str, dict]:
         return "CONFIGURED" if configured else "INCOMPLETE"
     sms, email, push = _kind(cfg.sms_provider), _kind(cfg.email_provider), _kind(cfg.push_provider)
     return {
-        "sms": {"provider": sms, "state": state(sms, bool(cfg.orange_sms_client_id and cfg.orange_sms_client_secret and cfg.orange_sms_sender_address)),
+        "sms": {"provider": sms, "state": state(sms, bool(cfg.orange_sms_client_id and cfg.orange_sms_sender_address)),
                 "sender_name_configured": bool(cfg.orange_sms_sender_name), "delivery_receipts": bool(cfg.orange_sms_dr_secret)},
         "email": {"provider": email, "state": state(email, bool(cfg.smtp_host and cfg.smtp_from_email)), "from_email": cfg.smtp_from_email or None},
-        "push": {"provider": push, "state": state(push, bool(cfg.fcm_service_account_file or cfg.fcm_service_account_json)),
+        "push": {"provider": push, "state": state(push, bool(cfg.fcm_web_config_json and cfg.fcm_vapid_public_key)),
                  "web_config": bool(cfg.fcm_web_config_json and cfg.fcm_vapid_public_key)},
     }

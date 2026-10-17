@@ -27,6 +27,9 @@ EVID_N2 = ROOT / "certification" / "n2-20261014"
 EVID_N3 = ROOT / "certification" / "n3-20261015"
 # Pre-staging Docker stack evidence (staging_stack_probe.py, run against docker compose -p edusync-smoke): checksummed only.
 EVID_PRE = ROOT / "certification" / "prestaging-20261016"
+# External messaging industrialization: local probe + UI (fake providers) and the REAL provider probes.
+EVID_MSG = ROOT / "certification" / "messaging-20261016"
+REAL_PROVIDER_PROBES = (("E-mail (SMTP)", "email_provider_probe.py"), ("SMS (Orange)", "sms_provider_probe.py"), ("Push (Firebase)", "push_provider_probe.py"))
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
 RUN = [str(PY), str(ROOT / ".local" / "closure" / "run.py")]
 NPX = "npx.cmd" if os.name == "nt" else "npx"
@@ -103,6 +106,22 @@ def main() -> int:
         if ui:
             step(f"Contrôle UI {lot} (390 px + 1280 px)", ["node", ui],
                  lambda c, o, lot=lot: (c == 0 and f"UI {lot} : PASS" in o, (re.findall(rf"UI {lot} : [^\n]+", o) or [o.strip()[-160:]])[-1]), cwd=EVID_N3, timeout=900)
+    # External messaging: the EduSync pipeline with development fakes (counted) ...
+    step("Sonde messagerie externe locale (fournisseurs simulés)", RUN + ["certification/messaging-20261016/messaging_local_probe.py"],
+         tail_match(r"== \d+/\d+ PASS"), env=probe_env, timeout=1800)
+    step("Contrôle UI messagerie (390 px + 1280 px)", ["node", "messaging_ui_check.mjs"],
+         lambda c, o: (c == 0 and "UI MESSAGERIE : PASS" in o, (re.findall(r"UI MESSAGERIE : [^\n]+", o) or [o.strip()[-160:]])[-1]), cwd=EVID_MSG, timeout=900)
+    # ... and the REAL providers: EXTERNAL_REQUIRED (no secret) is reported apart and never counted as PASS; a real
+    # provider refusal (REAL_FAILED) is a failed step.
+    external: list[dict] = []
+    for label, probe in REAL_PROVIDER_PROBES:
+        code, out, dur = run([str(PY), str(EVID_MSG / probe)], cwd=EVID_MSG, env={"PYTHONUTF8": "1"}, timeout=600)
+        found = re.findall(r"== (EXTERNAL_REQUIRED|REAL_ACCEPTED|REAL_FAILED)", out)
+        status = found[-1] if found else "REAL_FAILED"
+        external.append({"provider": label, "probe": probe, "status": status, "duration_s": round(dur, 1)})
+        print(f"{status} Fournisseur réel {label} ({dur:.0f} s)", flush=True)
+        if status == "REAL_FAILED":
+            steps.append({"step": f"Fournisseur réel {label}", "command": probe, "result": "FAIL", "summary": "refus réel du fournisseur", "duration_s": round(dur, 1)})
     step("Sauvegarde + restauration vérifiée", [str(PY), "tools/local/backup_restore.py", "--db", "edusync_claude_fresh"], tail_match(r"== \d+/\d+ PASS[^\n]*"))
     step("Chaîne d'approvisionnement (licences, SBOM)", [str(PY), "tools/certification/supply_chain.py"], lambda c, o: (c == 0, o.strip().splitlines()[0] if o.strip() else "?"))
     step("Vulnérabilités npm (npm audit)", [NPM, "audit", "--omit=dev"], lambda c, o: (c == 0, (re.findall(r"found \d+ vulnerabilit\w+", o) or [o.strip()[-120:]])[-1]), cwd=ROOT / "frontend")
@@ -114,9 +133,9 @@ def main() -> int:
     versions = {"OS": f"{platform.system()} {platform.release()} ({platform.version()})", "Python": platform.python_version(),
                 "Node": run(["node", "--version"])[1].strip(), "PostgreSQL": run([r"C:\Program Files\PostgreSQL\16\bin\postgres.exe", "--version"])[1].strip(),
                 "Redis (WSL)": run(["wsl.exe", "-d", "Ubuntu-22.04", "--", "redis-server", "--version"], timeout=90)[1].strip()[:60]}
-    evid = sorted(p for d in (EVID, EVID_N2, EVID_N3, EVID_PRE) for p in d.iterdir() if p.is_file() and p.suffix in (".json", ".py", ".mjs"))
+    evid = sorted(p for d in (EVID, EVID_N2, EVID_N3, EVID_PRE, EVID_MSG) for p in d.iterdir() if p.is_file() and p.suffix in (".json", ".py", ".mjs"))
     passed = sum(s["result"] == "PASS" for s in steps)
-    lines = ["# Manifeste de preuves — certification N0 / N1 / N2 / N3", "",
+    lines = ["# Manifeste de preuves — certification N0 / N1 / N2 / N3 + messagerie externe", "",
              f"Généré le {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} par `tools/certification/n0_n1_certify.py`.", "",
              f"* Commit : `{sha}`" + (" (arbre propre au démarrage : le code testé est exactement ce commit)" if not start_dirty
                                       else f" (ATTENTION : {len(start_dirty)} fichier(s) modifié(s) au démarrage : " + ", ".join(f"`{x}`" for x in start_dirty[:20]) + ")"),
@@ -126,12 +145,18 @@ def main() -> int:
              "Aucune certification globale n'est prononcée par ce script : il consigne les résultats et les limites.", "",
              "| Étape | Commande | Résultat | Détail | Durée |", "|---|---|---|---|---|",
              *[f"| {s['step']} | `{s['command'][:90]}` | **{s['result']}** | {s['summary'].replace('|', '/')} | {s['duration_s']} s |" for s in steps], "",
+             "## Fournisseurs réels (messagerie externe)", "",
+             "Hors du total ci-dessus : `EXTERNAL_REQUIRED` signifie que les secrets du fournisseur ne sont pas encore fournis —",
+             "ce n'est ni un PASS ni une certification. `REAL_ACCEPTED` = le fournisseur réel a accepté l'envoi ; la réception sur",
+             "l'appareil ou la boîte de test se confirme ensuite à la main (EXTERNAL_MESSAGING_CERTIFICATION.md).", "",
+             "| Fournisseur | Sonde | Statut | Durée |", "|---|---|---|---|",
+             *[f"| {e['provider']} | `{e['probe']}` | **{e['status']}** | {e['duration_s']} s |" for e in external], "",
              "## Fichiers de preuve (SHA-256)", "", "| Fichier | SHA-256 |", "|---|---|",
              *[f"| `{p.relative_to(ROOT).as_posix()}` | `{hashlib.sha256(p.read_bytes()).hexdigest()}` |" for p in evid], "",
              "Les secrets, sauvegardes et bases restent dans `.local/` (non versionné) et ne figurent dans aucun fichier de preuve.", ""]
     (ROOT / "CERTIFICATION_EVIDENCE_MANIFEST.md").write_text("\n".join(lines), encoding="utf-8")
     (EVID / "certify-run.json").write_text(json.dumps({"sha": sha, "clean_tree_at_start": not start_dirty, "modified_at_start": start_dirty,
-                                                       "steps": steps, "versions": versions}, indent=1, ensure_ascii=False), encoding="utf-8")
+                                                       "steps": steps, "external_providers": external, "versions": versions}, indent=1, ensure_ascii=False), encoding="utf-8")
     print(f"== {passed}/{len(steps)} étapes PASS -> CERTIFICATION_EVIDENCE_MANIFEST.md")
     return 0 if passed == len(steps) else 1
 

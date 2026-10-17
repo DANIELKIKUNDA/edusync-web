@@ -62,8 +62,22 @@ services:
       EDUSYNC_SETUP_TOKEN: ${EDUSYNC_SETUP_TOKEN:-}
       # Written by the backup service; shown on the platform health screen.
       EDUSYNC_BACKUP_STATUS_FILE: /backup-status/last.json
-      # Real providers are BLOCKED_EXTERNAL: push stays disabled (simulated providers are refused outside dev).
+      # External messaging: the API only needs to know which channels exist (secrets stay with the worker), the public
+      # Firebase web configuration, the Orange receipt callback secret and the public address used in e-mailed links.
       EDUSYNC_PUSH_PROVIDER: ${EDUSYNC_PUSH_PROVIDER:-disabled}
+      EDUSYNC_SMS_PROVIDER: ${EDUSYNC_SMS_PROVIDER:-disabled}
+      EDUSYNC_EMAIL_PROVIDER: ${EDUSYNC_EMAIL_PROVIDER:-disabled}
+      EDUSYNC_SMTP_HOST: ${EDUSYNC_SMTP_HOST:-}
+      EDUSYNC_SMTP_FROM_EMAIL: ${EDUSYNC_SMTP_FROM_EMAIL:-}
+      EDUSYNC_SMTP_SECURITY: ${EDUSYNC_SMTP_SECURITY:-starttls}
+      EDUSYNC_ORANGE_SMS_CLIENT_ID: ${EDUSYNC_ORANGE_SMS_CLIENT_ID:-}
+      EDUSYNC_ORANGE_SMS_SENDER_ADDRESS: ${EDUSYNC_ORANGE_SMS_SENDER_ADDRESS:-}
+      EDUSYNC_ORANGE_SMS_SENDER_NAME: ${EDUSYNC_ORANGE_SMS_SENDER_NAME:-}
+      EDUSYNC_ORANGE_SMS_DR_SECRET: ${EDUSYNC_ORANGE_SMS_DR_SECRET:-}
+      EDUSYNC_ORANGE_SMS_DR_ALLOWED_IPS: ${EDUSYNC_ORANGE_SMS_DR_ALLOWED_IPS:-}
+      EDUSYNC_FCM_WEB_CONFIG_JSON: ${EDUSYNC_FCM_WEB_CONFIG_JSON:-}
+      EDUSYNC_FCM_VAPID_PUBLIC_KEY: ${EDUSYNC_FCM_VAPID_PUBLIC_KEY:-}
+      EDUSYNC_PUBLIC_APP_URL: ${EDUSYNC_PUBLIC_APP_URL:-http://localhost:8080}
       # Trust X-Forwarded-For only from the reverse proxies (fixed addresses of nginx and of the TLS terminator).
       FORWARDED_ALLOW_IPS: ${EDUSYNC_FORWARDED_ALLOW_IPS:-172.30.57.10,172.30.57.11}
     volumes:
@@ -109,10 +123,28 @@ services:
       EDUSYNC_WORKER_DATABASE_URL: ${EDUSYNC_WORKER_DATABASE_URL:?EDUSYNC_WORKER_DATABASE_URL required}
       EDUSYNC_REDIS_URL: ${EDUSYNC_REDIS_URL:-redis://redis:6379/0}
       EDUSYNC_JWT_SECRET: ${EDUSYNC_JWT_SECRET:?EDUSYNC_JWT_SECRET required}
-      # BLOCKED_EXTERNAL until a real operator is integrated and tested: deliveries fail cleanly, never reported as sent.
+      # Decrypts push tokens and one-shot account links at send time (same key as the API, derived per purpose).
+      EDUSYNC_MFA_ENCRYPTION_KEY: ${EDUSYNC_MFA_ENCRYPTION_KEY:-}
+      EDUSYNC_PUBLIC_APP_URL: ${EDUSYNC_PUBLIC_APP_URL:-http://localhost:8080}
+      # Real providers (EXTERNAL_REQUIRED until their secrets are provided and the real probes pass). Disabled channels
+      # fail cleanly (PROVIDER_NOT_CONFIGURED), never reported as sent.
       EDUSYNC_SMS_PROVIDER: ${EDUSYNC_SMS_PROVIDER:-disabled}
-      EDUSYNC_ORANGE_SMS_ENDPOINT: ${EDUSYNC_ORANGE_SMS_ENDPOINT:-}
-      EDUSYNC_ORANGE_SMS_BEARER_TOKEN: ${EDUSYNC_ORANGE_SMS_BEARER_TOKEN:-}
+      EDUSYNC_ORANGE_SMS_CLIENT_ID: ${EDUSYNC_ORANGE_SMS_CLIENT_ID:-}
+      EDUSYNC_ORANGE_SMS_CLIENT_SECRET: ${EDUSYNC_ORANGE_SMS_CLIENT_SECRET:-}
+      EDUSYNC_ORANGE_SMS_SENDER_ADDRESS: ${EDUSYNC_ORANGE_SMS_SENDER_ADDRESS:-}
+      EDUSYNC_ORANGE_SMS_SENDER_NAME: ${EDUSYNC_ORANGE_SMS_SENDER_NAME:-}
+      EDUSYNC_EMAIL_PROVIDER: ${EDUSYNC_EMAIL_PROVIDER:-disabled}
+      EDUSYNC_SMTP_HOST: ${EDUSYNC_SMTP_HOST:-}
+      EDUSYNC_SMTP_PORT: ${EDUSYNC_SMTP_PORT:-587}
+      EDUSYNC_SMTP_USERNAME: ${EDUSYNC_SMTP_USERNAME:-}
+      EDUSYNC_SMTP_PASSWORD: ${EDUSYNC_SMTP_PASSWORD:-}
+      EDUSYNC_SMTP_FROM_EMAIL: ${EDUSYNC_SMTP_FROM_EMAIL:-}
+      EDUSYNC_SMTP_FROM_NAME: ${EDUSYNC_SMTP_FROM_NAME:-EduSync}
+      EDUSYNC_SMTP_SECURITY: ${EDUSYNC_SMTP_SECURITY:-starttls}
+      EDUSYNC_PUSH_PROVIDER: ${EDUSYNC_PUSH_PROVIDER:-disabled}
+      # Service account: a mounted secret file (preferred) or the JSON injected by the deployment tool.
+      EDUSYNC_FCM_SERVICE_ACCOUNT_FILE: ${EDUSYNC_FCM_SERVICE_ACCOUNT_FILE:-}
+      EDUSYNC_FCM_SERVICE_ACCOUNT_JSON: ${EDUSYNC_FCM_SERVICE_ACCOUNT_JSON:-}
     depends_on:
       migrator:
         condition: service_completed_successfully

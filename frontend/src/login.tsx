@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {AccountLinkCard,ForgotPasswordCard,takeAccountLink,type AccountLink} from './account_links';
 import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
@@ -206,6 +207,8 @@ export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user
  const pending=useRef<{email:string;password:string}|null>(null);
  const [mfa,setMfa]=useState<MfaStep|null>(null);
  const [pwdStep,setPwdStep]=useState<{token:string;email:string}|null>(null);const lastEmail=useRef('');
+ // Account links e-mailed by EduSync: the single-use token is read from the fragment once, then removed from the URL.
+ const [accountLink,setAccountLink]=useState<AccountLink|null>(()=>takeAccountLink());const [forgot,setForgot]=useState(false);
  const {register,handleSubmit,setValue,reset,formState:{errors,isSubmitting}}=useForm<Form>({resolver:zodResolver(schema),defaultValues:{email:'',password:''}});
  useEffect(()=>{let alive=true;setupStatus().then(s=>{if(alive)setSetup(s)}).catch(()=>{/* serveur injoignable : la connexion affichera l’erreur */});return()=>{alive=false}},[]);
  useEffect(()=>()=>{pending.current=null},[]);
@@ -233,16 +236,19 @@ export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user
   <div className="lg-pane" role="main">
    {showSetup&&setup?<FirstRunSetup status={setup} onCreated={email=>{setCreated(email);setValue('email',email)}}/>:
    blockedSetup?<div className="lg-card"><div className="lg-head"><span className="lg-step">Première installation</span><h1>Installation à finaliser</h1><p>Aucun Manager Système n’existe encore. Sur ce serveur, il est créé par l’opérateur (code d’installation ou script d’administration).</p></div></div>:
+   accountLink?<AccountLinkCard link={accountLink} onDone={message=>{setAccountLink(null);if(message)setCreated(message)}}/>:
+   forgot?<ForgotPasswordCard onBack={()=>setForgot(false)}/>:
    pwdStep?<PasswordChangeScreen token={pwdStep.token} email={pwdStep.email} onChanged={afterPasswordChange} onRestart={back}/>:
    mfa?(mfa.mfa_enrollment_required?<MfaEnrollment step={mfa} onDone={finish} onRestart={back}/>:<MfaChallenge step={mfa} onDone={finish} onRestart={back}/>):
    choice?<ContextChooser contexts={choice} busy={busy} error={serverError} onPick={pick} onBack={back}/>:
    <form className="lg-card" onSubmit={submit} noValidate aria-labelledby="lg-title">
     <div className="lg-head"><img className="lg-card-mark" src="/icons/edusync-mark.svg" alt="" width={44} height={44}/>{atelier&&<span className="lg-step">Atelier Pro</span>}<h1 id="lg-title">{atelier?'Accès plateforme':'Connexion'}</h1><p>{atelier?'Réservé à l’administration de la plateforme EduSync.':'Utilisez l’adresse e-mail de votre compte EduSync.'}</p></div>
-    {created&&<div className="lg-ok" role="status"><NavGlyph g="checkCircle" size={16}/>Manager Système créé. Connectez-vous avec {created}.</div>}
+    {created&&<div className="lg-ok" role="status"><NavGlyph g="checkCircle" size={16}/>{created.includes('@')?`Manager Système créé. Connectez-vous avec ${created}.`:created}</div>}
     <Field id="lg-email" label="Adresse e-mail" error={errors.email?.message}><input id="lg-email" type="email" autoComplete="username" inputMode="email" autoFocus aria-invalid={!!errors.email} aria-describedby={errors.email?'lg-email-err':undefined} {...register('email')} placeholder="nom@ecole.cd"/></Field>
     <Field id="lg-pass" label="Mot de passe" error={errors.password?.message}><PasswordInput id="lg-pass" autoComplete="current-password" reg={register('password')} invalid={!!errors.password}/></Field>
     {serverError&&<div className="lg-error" role="alert"><NavGlyph g="alert" size={16}/>{serverError}</div>}
     <button className="lg-submit" disabled={isSubmitting}>{isSubmitting?<><i className="lg-spin"/>Vérification…</>:'Se connecter'}</button>
+    {!atelier&&<button type="button" className="lg-quiet" onClick={()=>{setServerError('');setForgot(true)}}>Mot de passe oublié ?</button>}
     <p className="lg-note"><NavGlyph g="lock" size={14}/>Connexion chiffrée. Votre établissement est reconnu automatiquement.</p>
    </form>}
    <div className="lg-foot"><span>© {new Date().getFullYear()} VolcanoTech · EduSync</span>{setup?.setup_required&&<span className="lg-foot-sep" aria-hidden="true">·</span>}{/* Shown only while no Manager système exists yet: afterwards the Manager signs in like everyone (AUTO). */!mfa&&!pwdStep&&Boolean(setup?.setup_required)&&!choice&&!showSetup&&<button type="button" className="lg-quiet" aria-pressed={atelier} onClick={()=>{setAtelier(x=>!x);setServerError('')}}>{atelier?'Retour à la connexion établissement':'Accès Atelier Pro (Manager système)'}</button>}</div>

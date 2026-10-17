@@ -54,7 +54,7 @@ mgr = platform()
 # ---------- me / menu ----------
 me = mgr.get("platform/team/me").json()
 keys = [m["key"] for m in me["menu"]]
-check("Manager : menu calculé par le serveur, 7 entrées dont Équipe", len(keys) == 7 and "team" in keys, keys)
+check("Manager : menu calculé par le serveur, 8 entrées dont Équipe et Messagerie", len(keys) == 8 and "team" in keys and "messaging" in keys, keys)
 check("Manager : rôle MANAGER_SYSTEME actif", any(r["code"] == "MANAGER_SYSTEME" for r in me["roles"]))
 
 caps = mgr.get("platform/team/capabilities").json()["items"]

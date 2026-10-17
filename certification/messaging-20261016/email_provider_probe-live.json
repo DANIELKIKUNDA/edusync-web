@@ -1,0 +1,12 @@
+{
+ "probe": "email_provider_probe",
+ "status": "EXTERNAL_REQUIRED",
+ "at": "2026-10-17T11:41:26.379333+00:00",
+ "checks": [
+  {
+   "check": "Paramètres SMTP et boîte de test fournis",
+   "result": "EXTERNAL_REQUIRED",
+   "detail": "EDUSYNC_EMAIL_PROVIDER=smtp, EDUSYNC_SMTP_HOST, EDUSYNC_SMTP_FROM_EMAIL, EDUSYNC_PROBE_EMAIL_TO"
+  }
+ ]
+}
