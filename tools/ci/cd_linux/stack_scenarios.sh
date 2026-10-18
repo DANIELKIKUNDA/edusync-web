@@ -104,8 +104,14 @@ set +e; docker exec "$(service_id backup)" sh /usr/local/bin/edusync-backup once
 
 section "MFA — enrôlement TOTP réel du premier Manager Système (HTTP via nginx, cookies réels)"
 SETUP_TOKEN="$(sudo sed -n 's/^EDUSYNC_SETUP_TOKEN=//p' /etc/edusync-deploy/staging.env)"
-set +e; python3 "$ROOT/tools/ci/cd_linux/mfa_probe.py" http://127.0.0.1:18080 staging.edusync.test https://staging.edusync.test "$SETUP_TOKEN" | tee "$WORK/mfa.out"; mfa_code=${PIPESTATUS[0]}; set -e
-unset SETUP_TOKEN
+python3 -m venv "$WORK/pw" && "$WORK/pw/bin/pip" install -q playwright==1.48.0 && "$WORK/pw/bin/python" -m playwright install --with-deps chromium >"$WORK/pw.log" 2>&1   || { tail -20 "$WORK/pw.log"; fail "installation de Chromium (Playwright)"; }
+set +e; "$WORK/pw/bin/python" "$ROOT/tools/ci/cd_linux/mfa_browser_probe.py" staging.edusync.test 18080 "$SETUP_TOKEN" "$WORK/mfa_creds.json"; browser_code=$?; set -e
+check "sonde MFA navigateur (Chromium, interface de production)" test "$browser_code" == 0
+# Reset the factor of that account (disposable harness, direct SQL as owner) so the HTTP probe enrols it again.
+MFA_EMAIL="$(python3 -c "import json;print(json.load(open('$WORK/mfa_creds.json'))['email'])")"
+pg "UPDATE user_mfa_factors SET status='REVOKED', revoked_at=now(), revoked_reason='HARNESS_RESET' WHERE status IN ('ACTIVE','PENDING') AND user_id=(SELECT id FROM users WHERE email='$MFA_EMAIL')" >/dev/null
+set +e; python3 "$ROOT/tools/ci/cd_linux/mfa_probe.py" http://127.0.0.1:18080 staging.edusync.test https://staging.edusync.test "$SETUP_TOKEN" "$WORK/mfa_creds.json" | tee "$WORK/mfa.out"; mfa_code=${PIPESTATUS[0]}; set -e
+unset SETUP_TOKEN; rm -f "$WORK/mfa_creds.json"
 check "sonde MFA" test "$mfa_code" == 0
 docker logs "$(service_id backend)" 2>&1 | grep -E "mfa_(enroll_confirm|verify)_refused" | tail -12 | sed 's/^/      journal API> /' || true
 check "journal API : raisons MFA présentes, aucun secret" bash -c "docker logs $(service_id backend) 2>&1 | grep -q 'reason=' && ! docker logs $(service_id backend) 2>&1 | grep -qiE 'secret=|otpauth'"

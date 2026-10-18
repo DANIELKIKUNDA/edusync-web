@@ -6,7 +6,8 @@
 
 The TOTP is computed here independently of the application code (RFC 6238, SHA-1, 6 digits, 30 s, Unix time).
 The secret, the codes and the tokens are NEVER printed. Standard library only.
-Usage: python3 mfa_probe.py BASE_URL HOST ORIGIN SETUP_TOKEN
+Usage: python3 mfa_probe.py BASE_URL HOST ORIGIN SETUP_TOKEN [CREDS_FILE]
+  CREDS_FILE: reuse an existing Manager whose factor the harness has just reset (setup already done).
 """
 from __future__ import annotations
 
@@ -75,17 +76,23 @@ def wait_next_step_margin() -> None:
         time.sleep(0.5)
 
 
-email = f"manager.mfa.{secrets.token_hex(3)}@staging.edusync.test"
-password = "Mfa-" + secrets.token_urlsafe(18)
+if len(sys.argv) > 5:
+    with open(sys.argv[5], encoding="utf-8") as f:
+        creds = json.load(f)
+    email, password = creds["email"], creds["password"]
+else:
+    email = f"manager.mfa.{secrets.token_hex(3)}@staging.edusync.test"
+    password = "Mfa-" + secrets.token_urlsafe(18)
 c = Client()
 
 with urllib.request.urlopen(urllib.request.Request(BASE + "/health-api", headers={"Host": HOST}), timeout=30) as r:
     skew = parsedate_to_datetime(r.headers["Date"]).timestamp() - time.time()
 print(f"      écart d'horloge serveur/sonde : {skew:+.1f} s (TOTP : temps Unix)")
-code, st = c.get("/api/v1/setup/status")
-result(code == 200 and st.get("setup_required") is True, "installation vierge : création du premier Manager disponible")
-code, body = c.post("/api/v1/setup/first-manager", {"full_name": "Manager MFA", "email": email, "password": password, "setup_token": SETUP_TOKEN})
-result(code == 201, f"premier Manager créé ({code})")
+if len(sys.argv) <= 5:
+    code, st = c.get("/api/v1/setup/status")
+    result(code == 200 and st.get("setup_required") is True, "installation vierge : création du premier Manager disponible")
+    code, body = c.post("/api/v1/setup/first-manager", {"full_name": "Manager MFA", "email": email, "password": password, "setup_token": SETUP_TOKEN})
+    result(code == 201, f"premier Manager créé ({code})")
 
 code, step = c.post("/api/v1/auth/login", {"email": email, "password": password, "scope": "PLATFORM"})
 result(code == 200 and step.get("mfa_enrollment_required") is True and not c.set_cookies, "connexion : étape d'enrôlement, aucune session ni cookie avant le second facteur")
