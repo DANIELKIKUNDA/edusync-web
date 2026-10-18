@@ -10,4 +10,7 @@ def test_point11e_membership_deactivation_revokes_school_sessions():
 def test_point11e_frontend_exposes_role_removal_and_assignment_details():
  a=(ROOT/'frontend/src/api.ts').read_text(); s=(ROOT/'frontend/src/App.tsx').read_text()
  assert 'platformRevokeRole' in a and '/revoke' in a
- assert 'platformRevokeRole' in s and 'role_assignments' in s and 'Retirer ce rôle' in s
+ # Schools module lot 2026-10: the platform governs only the school administrator. Its access is revoked from the
+ # school sheet (membership deactivation, audited) and the generic local-role picker is gone on purpose.
+ sheet=(ROOT/'frontend/src/platform/school_sheet.tsx').read_text(encoding='utf-8')
+ assert 'setMembershipActive(' in sheet and 'Désactiver l’accès' in sheet and 'Retirer ce rôle' not in s

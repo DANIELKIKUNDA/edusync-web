@@ -33,6 +33,10 @@ class CreateSchoolCommand:
     address: str | None = None
     city: str | None = None
     province: str | None = None
+    contact_name: str | None = None
+    contact_function: str | None = None
+    contact_phone: str | None = None
+    contact_email: str | None = None
 
 
 class CreateSchool:
@@ -45,13 +49,17 @@ class CreateSchool:
             raise ValueError("Ce code école existe déjà")
         clean = lambda v: (v or "").strip() or None  # noqa: E731
         school = School(name=cmd.name, code=cmd.code, logo_url=cmd.logo_url, email=clean(cmd.email), phone=clean(cmd.phone),
-                        address=clean(cmd.address), city=clean(cmd.city), province=clean(cmd.province))
+                        address=clean(cmd.address), city=clean(cmd.city), province=clean(cmd.province),
+                        contact_name=clean(cmd.contact_name), contact_function=clean(cmd.contact_function),
+                        contact_phone=clean(cmd.contact_phone), contact_email=clean(cmd.contact_email))
         self.schools.add(school)
         self.audit.append(AuditRecord(
             action="SCHOOL_CREATED", entity_type="School", entity_id=school.id,
             actor_user_id=actor.user_id, school_id=school.id, source=actor.source,
             new_data={"name": school.name, "code": school.code, "status": school.status.value, "email": school.email,
-                      "phone": school.phone, "address": school.address, "city": school.city, "province": school.province},
+                      "phone": school.phone, "address": school.address, "city": school.city, "province": school.province,
+                      "contact_name": school.contact_name, "contact_function": school.contact_function,
+                      "contact_phone": school.contact_phone, "contact_email": school.contact_email},
             correlation_id=actor.correlation_id, idempotency_key=actor.idempotency_key,
         ))
         self.outbox.add(OutboxMessage(

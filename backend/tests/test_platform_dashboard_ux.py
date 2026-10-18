@@ -68,7 +68,9 @@ def test_kpi_and_detail_views_share_one_definition():
     assert "u.active AND EXISTS (SELECT 1 FROM school_memberships m2 WHERE m2.user_id=u.id AND m2.active)" in router
     assert "WHERE u.active\n        AND EXISTS (SELECT 1 FROM school_memberships m WHERE m.user_id=u.id AND m.active)" in dash
     # "sans administrateur": active school without an active ADMIN_SYSTEME_ECOLE, in both places
-    assert "r2.code='ADMIN_SYSTEME_ECOLE'" in router and "SCHOOL_ADMIN_ROLE = \"ADMIN_SYSTEME_ECOLE\"" in dash
+    # the schools directory SQL moved to application/schools_directory.py (schools module lot 2026-10)
+    directory = (SRC / "modules/platform/application/schools_directory.py").read_text(encoding="utf-8")
+    assert "r2.code='ADMIN_SYSTEME_ECOLE'" in directory and "SCHOOL_ADMIN_ROLE = \"ADMIN_SYSTEME_ECOLE\"" in dash
 
 
 def test_frontend_kpi_cards_are_whole_buttons_without_a_view_link():

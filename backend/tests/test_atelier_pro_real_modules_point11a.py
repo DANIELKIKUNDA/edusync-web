@@ -22,5 +22,8 @@ def test_atelier_pro_frontend_no_longer_placeholder_nav():
 def test_atelier_pro_tables_are_query_driven_and_bounded():
     s=(ROOT/'backend/src/edusync/modules/platform/api/router.py').read_text()
     assert "limit=max(1,min(limit,100))" in s
-    assert "s.name ILIKE '%'||:q||'%'" in s
+    # Schools module lot 2026-10 (justified adaptation): the schools screen moved to platform/schools.tsx + school_sheet.tsx
+    # and its SQL to application/schools_directory.py; same intent, new implementation.
+    d=(ROOT/'backend/src/edusync/modules/platform/application/schools_directory.py').read_text(encoding='utf-8')
+    assert 'edusync_search_key(' in d and 'LIMIT :lim' in d
     assert "u.full_name ILIKE '%'||:q||'%'" in s

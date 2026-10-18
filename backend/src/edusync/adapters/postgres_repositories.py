@@ -30,23 +30,29 @@ class PostgresSchoolRepository:
             id=m["id"], name=m["name"], code=m["code"], status=SchoolStatus(m["status"]),
             logo_url=m["logo_url"], email=m["email"], phone=m["phone"],
             address=m.get("address"), city=m.get("city"), province=m.get("province"),
+            contact_name=m.get("contact_name"), contact_function=m.get("contact_function"),
+            contact_phone=m.get("contact_phone"), contact_email=m.get("contact_email"),
             created_at=m["created_at"], updated_at=m["updated_at"], version=int(m["version"]),
         )
 
     def add(self, school: School) -> None:
         self.connection.execute(text("""
-            INSERT INTO schools(id,code,name,status,logo_url,email,phone,address,city,province,created_at,updated_at,version)
-            VALUES (:id,:code,:name,:status,:logo_url,:email,:phone,:address,:city,:province,:created_at,:updated_at,:version)
+            INSERT INTO schools(id,code,name,status,logo_url,email,phone,address,city,province,
+                                contact_name,contact_function,contact_phone,contact_email,created_at,updated_at,version)
+            VALUES (:id,:code,:name,:status,:logo_url,:email,:phone,:address,:city,:province,
+                    :contact_name,:contact_function,:contact_phone,:contact_email,:created_at,:updated_at,:version)
         """), {
             "id": school.id, "code": school.code, "name": school.name, "status": school.status.value,
             "logo_url": school.logo_url, "email": school.email, "phone": school.phone,
             "address": school.address, "city": school.city, "province": school.province,
+            "contact_name": school.contact_name, "contact_function": school.contact_function,
+            "contact_phone": school.contact_phone, "contact_email": school.contact_email,
             "created_at": school.created_at, "updated_at": school.updated_at, "version": school.version,
         })
 
     def get(self, school_id: UUID) -> School | None:
         row = self.connection.execute(text("""
-            SELECT id,code,name,status,logo_url,email,phone,address,city,province,created_at,updated_at,version
+            SELECT id,code,name,status,logo_url,email,phone,address,city,province,contact_name,contact_function,contact_phone,contact_email,created_at,updated_at,version
               FROM schools WHERE id=:id
         """), {"id": school_id}).first()
         return None if row is None else self._school(row)

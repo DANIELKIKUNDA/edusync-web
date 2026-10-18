@@ -16,12 +16,19 @@ def test_atelier_pro_does_not_use_native_confirmation_prompts():
     ui=text('frontend/src/App.tsx')
     block=ui[ui.index('function AtelierPro'):ui.index('const parameterTabs=')]
     assert 'window.confirm' not in block and 'window.prompt' not in block and 'window.alert' not in block
-    assert 'PlatformSchoolActionDialog' in block and 'aria-modal="true"' in block
+    # Schools module lot 2026-10 (justified adaptation): the schools screen moved to platform/schools.tsx + school_sheet.tsx
+    # and its SQL to application/schools_directory.py; same intent, new implementation.
+    assert '<SchoolsModule ' in block and 'aria-modal="true"' in text('frontend/src/platform/account.tsx')   # shared Modal
+    for rel in ('frontend/src/platform/schools.tsx','frontend/src/platform/school_sheet.tsx'):
+        ui2=text(rel); assert 'window.confirm' not in ui2 and 'window.prompt' not in ui2 and 'window.alert' not in ui2
+    assert 'function StatusDialog(' in text('frontend/src/platform/school_sheet.tsx')
 
 def test_atelier_pro_directories_are_searchable_and_paginated():
     ui=text('frontend/src/App.tsx')
-    assert 'searchSchools' in ui and 'searchAccess' in ui
-    assert "schools.offset+schools.limit" in ui
+    # Schools module lot 2026-10 (justified adaptation): the schools screen moved to platform/schools.tsx + school_sheet.tsx
+    # and its SQL to application/schools_directory.py; same intent, new implementation.
+    schools=text('frontend/src/platform/schools.tsx')
+    assert 'searchAccess' in ui and 'setQInput' in schools and 'next_cursor' in schools and 'Charger la suite' in schools
     assert "access.offset+access.limit" in ui
     # N1 certification 2026-10 (justified adaptation): the audit journal moved to platform/audit.tsx on the
     # filtered /platform/audit-log endpoint; it is still keyset-paginated by cursor (same intent).
@@ -32,4 +39,5 @@ def test_bootstrap_password_not_added_to_idempotency_payload():
     router=text('backend/src/edusync/modules/platform/api/router.py')
     section=router[router.index('def bootstrap_admin('):router.index('@router.get("/audit-count")')]
     assert '"password"' not in section.split('payload =',1)[1].split('try:',1)[0]
-    assert 'password is consumed only' in section
+    # the server generates the temporary password; it lives only in this request and is never replayed
+    assert 'new_temporary_password()' in section and 'issued.get("temporary_password")' in section

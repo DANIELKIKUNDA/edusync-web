@@ -269,7 +269,11 @@ def test_sign_in_offers_first_run_setup_only_when_the_server_allows_it():
 def test_technical_codes_are_translated_for_users():
     app = (FRONT / "App.tsx").read_text(encoding="utf-8")
     dash = (FRONT / "platform/dashboard.tsx").read_text(encoding="utf-8")   # recent activity moved there (lot UX 2026-10)
-    assert "auditActionLabel(e.action)" in dash and "resultLabel(e.result)" in dash and "schoolStatusLabel(x.status)" in app
+    # the schools screen moved to platform/schools.tsx + school_sheet.tsx (schools module lot 2026-10)
+    schools = (FRONT / "platform/schools.tsx").read_text(encoding="utf-8")
+    sheet = (FRONT / "platform/school_sheet.tsx").read_text(encoding="utf-8")
+    assert "auditActionLabel(e.action)" in dash and "resultLabel(e.result)" in dash and "STATUS_LABEL[status]" in schools
+    assert "auditActionLabel(e.action)" in sheet and "resultLabel(e.result)" in sheet
     assert "Outbox en attente" not in app and "Verrou global" not in app and "readiness</span>" not in app
 
 

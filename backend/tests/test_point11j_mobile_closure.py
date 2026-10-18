@@ -18,7 +18,8 @@ def test_back_closes_transient_layers_first():
 
 def test_school_and_platform_restore_screen_from_history():
     assert "replaceMobileRoot('school','home')" in APP
-    assert "replaceMobileRoot('platform','dashboard')" in APP
+    # the platform root is the dashboard, or the schools screen for a reloaded/shared schools link (lot 2026-10)
+    assert "replaceMobileRoot('platform',schoolsDeepLink())" in APP and "?'schools':'dashboard'" in APP
     assert "pushMobileScreen('school',next)" in APP
     assert "pushMobileScreen('platform',next)" in APP
 

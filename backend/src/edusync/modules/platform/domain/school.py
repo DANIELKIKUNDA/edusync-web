@@ -26,6 +26,11 @@ class School:
     address: str | None = None
     city: str | None = None
     province: str | None = None
+    # Promoter / main contact (institutional contact of the platform), distinct from the technical school administrator.
+    contact_name: str | None = None
+    contact_function: str | None = None
+    contact_phone: str | None = None
+    contact_email: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     version: int = 1

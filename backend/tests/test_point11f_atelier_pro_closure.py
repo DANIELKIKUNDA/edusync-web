@@ -31,10 +31,12 @@ def test_atelier_pro_sensitive_governance_is_permissioned_locked_and_audited():
 
 
 def test_atelier_pro_readiness_is_progressive_and_no_global_lock():
+    # schools module lot 2026-10: the readiness of the school sheet moved to application/schools_directory.py
+    d=(ROOT/'backend/src/edusync/modules/platform/application/schools_directory.py').read_text(encoding='utf-8')
     for gate in ['school_identity','initial_admin','academic_year','classes','fee_catalog']:
-        assert gate in ROUTER
-    assert "'global_lock':False" in ROUTER
-    assert 'ready_count' in ROUTER and 'total_gates' in ROUTER
+        assert gate in d
+    assert '"global_lock": False' in d
+    assert 'ready_count' in d and 'total_gates' in d
 
 
 def test_atelier_pro_browser_security_no_native_sensitive_dialogs_or_token_persistence():
