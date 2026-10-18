@@ -291,6 +291,14 @@ configuration).
 | 5 | Sauvegarde et registre non obligatoires | Fail closed (§5) ; hôte vierge reconnu séparément |
 | 6 | Rollback sur « pas de nouvelle migration » et `ROLLBACK_SUCCESS` même si le rollback échoue | Égalité exacte du registre ; verdicts distincts, dont `ROLLBACK_FAILED` (§6) |
 
+Défauts réels découverts par la certification Linux elle-même, et corrigés :
+
+| Constat | Correction |
+|---|---|
+| Le `GITHUB_TOKEN` réel fait 377 caractères, dont `-`, `.` et `_` : le format supposé `[A-Za-z0-9_]{20,255}` le refusait (64), donc aucun déploiement n'aurait abouti | Jeu de caractères inerte `[A-Za-z0-9._~+/=-]`, longueur 20 à 4096 contrôlée à part (les bornes de répétition POSIX s'arrêtent à 255) ; refus d'injection conservés |
+| Sur une installation neuve sans document, le bucket n'existe pas : la sauvegarde échouait (`rclone copy` : directory not found), et la sauvegarde obligatoire aurait bloqué chaque mise à jour | `deploy/backup/backup.sh` : `rclone mkdir` idempotent du bucket privé avant la copie (script d'infrastructure, aucun code métier) |
+| Image du runner GitHub : `/etc/sudoers.d/runner` n'est pas en 0440, donc `visudo -c` échoue | L'installateur vérifie `visudo -c` **avant** toute modification et refuse proprement ; le harnais corrige ce fichier sur le runner jetable |
+
 ## 11. Sécurité de la chaîne
 
 - Actions officielles `actions/*` et `docker/*`, permissions minimales.
