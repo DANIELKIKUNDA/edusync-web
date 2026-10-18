@@ -2,10 +2,11 @@ import React, {useEffect, useId, useRef, useState} from 'react';
 import {NavGlyph} from './nav_icons';
 import {connectivityLabel, getConnectivity, subscribeActivity, subscribeConnectivity, type ConnectivityState, type WriteActivity} from './connectivity';
 import './shell.css';
+import './theme.css';
 
 export type ShellNavItem = {key: string; label: string; icon: string; active: boolean; onSelect: () => void; primary?: boolean; shortLabel?: string};
 export type ShellMenuItem = {key: string; label: string; icon: string; onSelect: () => void; danger?: boolean};
-export type ShellAccount = {name: string; email?: string; context?: string; detail?: string; items: ShellMenuItem[]};
+export type ShellAccount = {name: string; email?: string; context?: string; detail?: string; role?: string; avatarUrl?: string; items: ShellMenuItem[]};
 
 const COLLAPSED_KEY = 'edusync.shell.collapsed';
 function readCollapsed() { try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; } }
@@ -13,6 +14,14 @@ function writeCollapsed(v: boolean) { try { localStorage.setItem(COLLAPSED_KEY, 
 
 export function initialsOf(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'U';
+}
+
+/** Profile photo when the account has one, initials otherwise (also while the photo loads or if it fails). */
+export function Avatar({name, url, className = ''}: {name: string; url?: string; className?: string}) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [url]);
+  return <span className={`es-avatar ${className} ${url && !broken ? 'es-avatar-photo' : ''}`} aria-hidden="true">
+    {url && !broken ? <img src={url} alt="" draggable={false} onError={() => setBroken(true)}/> : initialsOf(name)}</span>;
 }
 
 function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLElement | null>) {
@@ -54,13 +63,13 @@ export function AccountMenu({account}: {account: ShellAccount}) {
   const initials = initialsOf(account.name);
   return <div className="es-account" ref={ref}>
     <button className="es-account-btn" aria-haspopup="menu" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen(x => !x)} title={account.name}>
-      <span className="es-avatar" aria-hidden="true">{initials}</span>
+      <Avatar name={account.name} url={account.avatarUrl}/>
       <span className="es-account-name">{account.name.split(/\s+/)[0]}</span>
       <NavGlyph g="chevronDown" size={14}/>
     </button>
     {open && <div className="es-menu" id={menuId} role="menu" aria-label="Compte">
       <div className="es-menu-head">
-        <span className="es-avatar es-avatar-lg" aria-hidden="true">{initials}</span>
+        <Avatar name={account.name} url={account.avatarUrl} className="es-avatar-lg"/>
         <div><b>{account.name}</b>{account.email && <small>{account.email}</small>}{account.context && <em>{account.context}</em>}{account.detail && <small>{account.detail}</small>}</div>
       </div>
       {account.items.map(item => <button key={item.key} role="menuitem" className={item.danger ? 'es-danger' : ''} onClick={() => { setOpen(false); item.onSelect(); }}>
@@ -70,9 +79,60 @@ export function AccountMenu({account}: {account: ShellAccount}) {
   </div>;
 }
 
-export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerTools, account, children, mobileTitle}: {
+/* Compact account block docked at the bottom of the sidebar (platform space): avatar, name, role, chevron.
+   The account menu opens only on demand, upward (or to the right of the collapsed rail). */
+function SideAccount({account}: {account: ShellAccount}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  useDismiss(open, () => setOpen(false), ref);
+  useEffect(() => { if (open) ref.current?.querySelector<HTMLElement>('[role=menuitem]')?.focus(); }, [open]);
+  const onMenuKey = (e: React.KeyboardEvent) => {
+    const items = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role=menuitem]') || []);
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length]?.focus(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length]?.focus(); }
+    if (e.key === 'Escape') { setOpen(false); ref.current?.querySelector<HTMLElement>('.es-side-acct')?.focus(); }
+  };
+  return <div className="es-side-account" ref={ref}>
+    {open && <div className="es-menu es-menu-up" id={menuId} role="menu" aria-label="Compte" onKeyDown={onMenuKey}>
+      <div className="es-menu-head"><Avatar name={account.name} url={account.avatarUrl} className="es-avatar-lg"/>
+        <div><b>{account.name}</b>{account.email && <small>{account.email}</small>}{account.context && <em>{account.context}</em>}</div></div>
+      {account.items.map(item => <button key={item.key} role="menuitem" className={item.danger ? 'es-danger' : ''} onClick={() => { setOpen(false); item.onSelect(); }}>
+        <NavGlyph g={item.icon} size={17}/><span>{item.label}</span></button>)}
+    </div>}
+    <button type="button" className="es-side-acct" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined}
+      aria-label={`Compte : ${account.name}${account.role ? `, ${account.role}` : ''}. Ouvrir le menu du compte`} title={account.name} onClick={() => setOpen(x => !x)}>
+      <Avatar name={account.name} url={account.avatarUrl}/>
+      <span className="es-side-acct-text"><b>{account.name}</b>{account.role && <small>{account.role}</small>}</span>
+      <NavGlyph g="chevronDown" size={16}/>
+    </button>
+  </div>;
+}
+
+/* Phone menu: the same compact block; touching it unfolds the account actions in place (no tiny desktop menu). */
+function DrawerAccount({account, onPick}: {account: ShellAccount; onPick: (item: ShellMenuItem) => void}) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  return <div className="es-drawer-account es-drawer-account-compact">
+    <button type="button" className="es-drawer-acct" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(x => !x)}>
+      <Avatar name={account.name} url={account.avatarUrl} className="es-avatar-lg"/>
+      <span className="es-side-acct-text"><b>{account.name}</b>{account.role && <small>{account.role}</small>}</span>
+      <span className={`es-drawer-acct-chev ${open ? 'es-open' : ''}`} aria-hidden="true"><NavGlyph g="chevronDown" size={18}/></span>
+    </button>
+    <div id={listId} className="es-drawer-acct-list" hidden={!open}>
+      {account.email && <p className="es-drawer-acct-mail">{account.email}</p>}
+      {account.items.map(item => <button key={item.key} type="button" className={item.danger ? 'es-danger' : ''} onClick={() => onPick(item)}>
+        <NavGlyph g={item.icon} size={18}/><span>{item.label}</span></button>)}
+    </div>
+  </div>;
+}
+
+export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerTools, account, children, mobileTitle, accountDock = false}: {
   orgLabel: string; orgCode?: string; nav: ShellNavItem[]; title: string; context?: string; tools?: React.ReactNode; drawerTools?: React.ReactNode;
   account: ShellAccount; children: React.ReactNode; mobileTitle?: string;
+  /** Platform space: compact account block at the bottom of the sidebar / phone menu instead of the top bar. */
+  accountDock?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawer, setDrawer] = useState(false);
@@ -109,7 +169,7 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
   const primary = nav.filter(n => n.primary).slice(0, 4);
   const go = (n: ShellNavItem) => { n.onSelect(); setDrawer(false); };
   const collapseLabel = collapsed ? (peek ? 'Épingler le menu' : 'Déployer le menu') : 'Réduire le menu';
-  return <div className={`es-shell ${collapsed ? 'es-collapsed' : ''}`}>
+  return <div className={`es-shell ${collapsed ? 'es-collapsed' : ''} ${accountDock ? 'es-dock' : ''}`}>
     <a className="es-skip" href="#es-content">Aller au contenu</a>
     <aside className={`es-side ${peek ? 'es-peek' : ''}`} aria-label="Navigation principale" {...sideHandlers}>
       <div className="es-brand">
@@ -127,13 +187,14 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
           <NavGlyph g={n.icon} size={19}/><span className="es-nav-label">{n.label}</span>
         </button>)}
       </nav>
+      {accountDock && <SideAccount account={account}/>}
     </aside>
     {tip && <div className="es-tip" role="tooltip" style={{top: tip.top}}>{tip.label}</div>}
     <div className="es-main">
       <header className="es-top">
         <button className="es-burger" aria-label="Ouvrir le menu" aria-expanded={drawer} onClick={() => setDrawer(true)}><NavGlyph g="menu" size={21}/></button>
         <div className="es-title"><h1>{title}</h1>{context && <p>{context}</p>}</div>
-        <div className="es-tools">{tools}<AccountMenu account={account}/></div>
+        <div className="es-tools">{tools}{!accountDock && <AccountMenu account={account}/>}</div>
       </header>
       <main className="es-content" id="es-content" tabIndex={-1}>{children}</main>
     </div>
@@ -156,13 +217,13 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
             <NavGlyph g={n.icon} size={20}/><span>{n.label}</span>
           </button>)}
         </nav>
-        <div className="es-drawer-account">
-          <div className="es-menu-head"><span className="es-avatar es-avatar-lg" aria-hidden="true">{initialsOf(account.name)}</span>
+        {accountDock ? <DrawerAccount account={account} onPick={item => { setDrawer(false); item.onSelect(); }}/> : <div className="es-drawer-account">
+          <div className="es-menu-head"><Avatar name={account.name} url={account.avatarUrl} className="es-avatar-lg"/>
             <div><b>{account.name}</b>{account.email && <small>{account.email}</small>}{account.context && <em>{account.context}</em>}</div></div>
           {account.items.map(item => <button key={item.key} className={item.danger ? 'es-danger' : ''} onClick={() => { setDrawer(false); item.onSelect(); }}>
             <NavGlyph g={item.icon} size={18}/><span>{item.label}</span>
           </button>)}
-        </div>
+        </div>}
       </aside>
     </div>}
   </div>;

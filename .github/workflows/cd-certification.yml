@@ -42,7 +42,7 @@ jobs:
         with:
           ref: ${{ env.CUR_SHA }}
           fetch-depth: 0
-      - name: Version précédente certifiée (mêmes migrations, images sur GHCR)
+      - name: Version précédente certifiée (migrations incluses dans les nôtres, images sur GHCR)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -50,11 +50,12 @@ jobs:
                        --jq '.workflow_runs[].head_sha' | awk '!seen[$0]++'); do
             [[ "$c" == "$CUR_SHA" ]] && continue
             git cat-file -e "$c^{commit}" 2>/dev/null || continue
-            if git diff --quiet "$c" "$CUR_SHA" -- backend/migrations; then
+            # Rollback target: its migrations must be a subset of ours (only additions since, nothing modified/removed).
+            if git diff --quiet --diff-filter=DMR "$c" "$CUR_SHA" -- backend/migrations; then
               echo "PREV_SHA=$c" >> "$GITHUB_ENV"; echo "Version précédente : $c"; exit 0
             fi
           done
-          echo "Aucune version précédente certifiée avec les mêmes migrations"; exit 1
+          echo "Aucune version précédente certifiée compatible (migrations modifiées ou supprimées)"; exit 1
       - name: Scénarios (tools/ci/cd_linux/stack_scenarios.sh)
         env:
           RUN_TOKEN: ${{ secrets.GITHUB_TOKEN }}

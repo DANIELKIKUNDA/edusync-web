@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -35,7 +36,8 @@ PG_BIN = Path(os.environ.get("EDUSYNC_PG_BIN", r"C:\Program Files\PostgreSQL\16\
 PG_DATA = LOCAL / "postgres-certification"
 WSL_DISTRO = os.environ.get("EDUSYNC_WSL_DISTRO", "Ubuntu-22.04")
 PROFILES = {"demo": "edusync_claude_fresh", "blank": "edusync_closure_blank"}
-PORTS = {"postgres": 55432, "redis": 16379, "s3": 18333, "api": 58100, "app": 5180}
+# Windows (Hyper-V / WinNAT) may reserve a dynamic port range that covers 55432: EDUSYNC_LOCAL_PG_PORT moves the local cluster.
+PORTS = {"postgres": int(os.environ.get("EDUSYNC_LOCAL_PG_PORT", "55432")), "redis": 16379, "s3": 18333, "api": 58100, "app": 5180}
 APP_URL = f"http://localhost:{PORTS['app']}/"
 DETACHED = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
 BREAKAWAY_FROM_JOB = 0x01000000  # CREATE_BREAKAWAY_FROM_JOB
@@ -105,7 +107,7 @@ def load_env(profile: str) -> dict[str, str]:
             env[k] = v
     db = PROFILES[profile]
     for k in ("EDUSYNC_OWNER_DATABASE_URL", "EDUSYNC_TENANT_DATABASE_URL", "EDUSYNC_PLATFORM_DATABASE_URL", "EDUSYNC_WORKER_DATABASE_URL"):
-        env[k] = env[k].rsplit("/", 1)[0] + "/" + db
+        env[k] = re.sub(r"@([^:/@]+):\d+/", lambda m: f"@{m.group(1)}:{PORTS['postgres']}/", env[k].rsplit("/", 1)[0] + "/" + db)
     if env.get("EDUSYNC_REDIS_URL"):
         head, _, tail = env["EDUSYNC_REDIS_URL"].rpartition("@")
         env["EDUSYNC_REDIS_URL"] = f"{head}@{wsl_ip()}:{PORTS['redis']}/" + tail.split("/", 1)[1] if "/" in tail else env["EDUSYNC_REDIS_URL"]

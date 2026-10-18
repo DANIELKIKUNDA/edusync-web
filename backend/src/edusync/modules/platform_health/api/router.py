@@ -45,6 +45,23 @@ def _human_age(seconds: int | None) -> str:
     return f"il y a {seconds // 3600} h"
 
 
+def backup_component(services: AppServices) -> dict:
+    """State of the last automatic backup (status file written by the backup service). Shared with the dashboard."""
+    status_file = services.settings.backup_status_file or os.environ.get("EDUSYNC_BACKUP_STATUS_FILE", "")
+    backup = {"key": "backup", "label": "Dernière sauvegarde", "state": "NOT_CONFIGURED",
+              "detail": "Aucune sauvegarde automatique configurée sur ce serveur", "measured_ms": None}
+    if status_file and Path(status_file).is_file():
+        try:
+            info = json.loads(Path(status_file).read_text(encoding="utf-8"))
+            age = _age(info.get("finished_at"))
+            ok = bool(info.get("ok")) and age is not None
+            backup.update(state="OK" if ok and age < 26 * 3600 else "DEGRADED" if ok else "DOWN",
+                          detail=(f"Réussie {_human_age(age)}" if ok else "Dernière tentative en échec") + (" · restauration vérifiée" if info.get("restore_verified") else ""))
+        except Exception:  # noqa: BLE001
+            backup.update(state="DOWN", detail="Rapport de sauvegarde illisible")
+    return backup
+
+
 @router.get("/health")
 def system_health(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     actor.require("platform.health.read")
@@ -134,19 +151,7 @@ def system_health(actor: ActorContext = Depends(require_platform_actor), service
                        "state": "NOT_CONFIGURED" if errors is None else "OK" if errors == 0 else "DEGRADED" if errors < 20 else "DOWN",
                        "detail": "Compteur indisponible (cache injoignable)" if errors is None else f"{errors} erreur(s) inattendue(s)", "value": errors})
 
-    status_file = services.settings.backup_status_file or os.environ.get("EDUSYNC_BACKUP_STATUS_FILE", "")
-    backup = {"key": "backup", "label": "Dernière sauvegarde", "state": "NOT_CONFIGURED",
-              "detail": "Aucune sauvegarde automatique configurée sur ce serveur", "measured_ms": None}
-    if status_file and Path(status_file).is_file():
-        try:
-            info = json.loads(Path(status_file).read_text(encoding="utf-8"))
-            age = _age(info.get("finished_at"))
-            ok = bool(info.get("ok")) and age is not None
-            backup.update(state="OK" if ok and age < 26 * 3600 else "DEGRADED" if ok else "DOWN",
-                          detail=(f"Réussie {_human_age(age)}" if ok else "Dernière tentative en échec") + (" · restauration vérifiée" if info.get("restore_verified") else ""))
-        except Exception:  # noqa: BLE001
-            backup.update(state="DOWN", detail="Rapport de sauvegarde illisible")
-    components.append(backup)
+    components.append(backup_component(services))
 
     overall = max((c["state"] for c in components if c["state"] != "NOT_CONFIGURED"), key=RANK.get, default="OK")
     return {"checked_at": datetime.now(timezone.utc).isoformat(), "overall": overall, "components": components,

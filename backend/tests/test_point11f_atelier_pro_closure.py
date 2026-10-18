@@ -18,7 +18,8 @@ def test_atelier_pro_real_backend_surfaces_are_wired():
     for route in ["/dashboard","/schools-page","/access","/audit","/diagnostics","/system-notifications","/schools/{school_id}/detail","/rbac/roles"]:
         assert route in ROUTER
     for fn in ['platformDashboard','platformSchoolsPage','platformAccess','platformAudit','platformDiagnostics','platformSystemNotifications','platformSchoolDetail','platformRbacRoles']:
-        assert fn in API and fn in APP
+        # The dashboard moved to its own component (platform/dashboard.tsx, lot UX 2026-10).
+        assert fn in API and (fn in APP or fn in (ROOT / "frontend/src/platform/dashboard.tsx").read_text(encoding="utf-8")), fn
 
 
 def test_atelier_pro_sensitive_governance_is_permissioned_locked_and_audited():

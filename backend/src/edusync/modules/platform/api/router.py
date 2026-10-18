@@ -274,45 +274,57 @@ def audit_count(
 
 @router.get('/dashboard')
 def platform_dashboard(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Capability-aware dashboard: KPIs, watchlist, active-schools trend, last 5 audit events (audit capability only)."""
     actor.require('platform.schools.read')
-    from sqlalchemy import text
+    from edusync.modules.platform.application.dashboard import TEAM_CAP, build_dashboard
+    from edusync.modules.platform_health.api.router import backup_component
+    from edusync.modules.platform_team.api.router import _active_managers
+    perms = set(actor.permissions)
+    backup = backup_component(services) if 'platform.health.read' in perms else None
     with services.platform_db.platform_transaction() as c:
-        schools=c.execute(text("SELECT count(*) total,count(*) FILTER(WHERE status='ACTIVE') active,count(*) FILTER(WHERE status='SUSPENDED') suspended FROM schools")).mappings().one()
-        members=int(c.execute(text("SELECT count(*) FROM school_memberships WHERE active=true")).scalar_one())
-        admins=int(c.execute(text("SELECT count(DISTINCT a.membership_id) FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id WHERE a.active=true AND r.code='ADMIN_SYSTEME_ECOLE'")).scalar_one())
-        outbox=int(c.execute(text("SELECT count(*) FROM outbox_events WHERE published_at IS NULL")).scalar_one())
-        recent=[dict(r._mapping) for r in c.execute(text("SELECT a.id,a.occurred_at,a.action,a.entity_type,a.result,s.code school_code,u.full_name actor FROM audit_events a LEFT JOIN schools s ON s.id=a.school_id LEFT JOIN users u ON u.id=a.actor_user_id ORDER BY a.occurred_at DESC,a.id DESC LIMIT 8"))]
-    return {'schools':dict(schools),'active_memberships':members,'schools_with_admin':admins,'outbox_pending':outbox,'recent_activity':recent}
+        managers = _active_managers(c) if TEAM_CAP in perms else None
+        return build_dashboard(c, perms, backup=backup, active_managers=managers)
 
 @router.get('/schools-page')
-def platform_schools_page(q: str|None=None,status: str|None=None,limit:int=50,offset:int=0,actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+def platform_schools_page(q: str|None=None,status: str|None=None,needs_admin: bool=False,limit:int=50,offset:int=0,actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     actor.require('platform.schools.read'); limit=max(1,min(limit,100)); offset=max(0,offset)
     from sqlalchemy import text
+    # needs_admin: same definition as the dashboard item "écoles actives sans administrateur" (one source of truth).
+    filters="""(CAST(:q AS text) IS NULL OR s.name ILIKE '%'||:q||'%' OR s.code ILIKE '%'||:q||'%') AND (CAST(:status AS text) IS NULL OR s.status=:status)
+          AND (NOT :na OR (s.status='ACTIVE' AND NOT EXISTS (SELECT 1 FROM school_memberships m2 JOIN rbac_assignments a2 ON a2.membership_id=m2.id AND a2.active
+               JOIN rbac_roles r2 ON r2.id=a2.role_id AND r2.code='ADMIN_SYSTEME_ECOLE' WHERE m2.school_id=s.id)))"""
+    args={'q':q.strip() if q else None,'status':status,'na':bool(needs_admin)}
     with services.platform_db.platform_transaction() as c:
+        total=int(c.execute(text(f"SELECT count(*) FROM schools s WHERE {filters}"),args).scalar_one())
         rows=c.execute(text("""SELECT s.id,s.code,s.name,s.status,s.email,s.phone,s.created_at,s.updated_at,s.version,
           count(DISTINCT m.id) FILTER(WHERE m.active=true) active_memberships,
           count(DISTINCT a.membership_id) FILTER(WHERE a.active=true AND r.code='ADMIN_SYSTEME_ECOLE') admin_count
           FROM schools s LEFT JOIN school_memberships m ON m.school_id=s.id LEFT JOIN rbac_assignments a ON a.membership_id=m.id LEFT JOIN rbac_roles r ON r.id=a.role_id
-          WHERE (CAST(:q AS text) IS NULL OR s.name ILIKE '%'||:q||'%' OR s.code ILIKE '%'||:q||'%') AND (CAST(:status AS text) IS NULL OR s.status=:status)
-          GROUP BY s.id ORDER BY lower(s.name),s.code LIMIT :lim OFFSET :off"""),{'q':q.strip() if q else None,'status':status,'lim':limit+1,'off':offset}).mappings().all()
+          WHERE """+filters+"""
+          GROUP BY s.id ORDER BY lower(s.name),s.code LIMIT :lim OFFSET :off"""),{**args,'lim':limit+1,'off':offset}).mappings().all()
     more=len(rows)>limit; rows=rows[:limit]
-    return {'items':[dict(x) for x in rows],'limit':limit,'offset':offset,'has_more':more}
+    return {'items':[dict(x) for x in rows],'limit':limit,'offset':offset,'has_more':more,'total':total}
 
 @router.get('/access')
-def platform_access(q:str|None=None,limit:int=50,offset:int=0,actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+def platform_access(q:str|None=None,active_only:bool=False,limit:int=50,offset:int=0,actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     actor.require('platform.schools.read'); limit=max(1,min(limit,100)); offset=max(0,offset)
     from sqlalchemy import text
+    # active_only: same definition as the dashboard KPI "Accès actifs" (active account with an active school membership).
+    filters="""(CAST(:q AS text) IS NULL OR u.full_name ILIKE '%'||:q||'%' OR u.email::text ILIKE '%'||:q||'%')
+          AND (NOT :ao OR (u.active AND EXISTS (SELECT 1 FROM school_memberships m2 WHERE m2.user_id=u.id AND m2.active)))"""
+    args={'q':q.strip() if q else None,'ao':bool(active_only)}
     with services.platform_db.platform_transaction() as c:
+        total=int(c.execute(text(f"SELECT count(*) FROM users u WHERE {filters}"),args).scalar_one())
         rows=c.execute(text("""SELECT u.id,u.full_name,u.email,u.active,u.is_platform_admin,u.created_at,
           count(DISTINCT m.id) FILTER(WHERE m.active=true) school_memberships,
           bool_or(pr.code='COLLABORATEUR_PLATEFORME' AND pa.active=true) collaborator_platform,
           string_agg(DISTINCT s.code,', ' ORDER BY s.code) FILTER(WHERE m.active=true) schools
           FROM users u LEFT JOIN school_memberships m ON m.user_id=u.id LEFT JOIN schools s ON s.id=m.school_id
           LEFT JOIN rbac_assignments pa ON pa.user_id=u.id AND pa.school_id IS NULL LEFT JOIN rbac_roles pr ON pr.id=pa.role_id
-          WHERE (CAST(:q AS text) IS NULL OR u.full_name ILIKE '%'||:q||'%' OR u.email::text ILIKE '%'||:q||'%')
-          GROUP BY u.id ORDER BY lower(u.full_name),u.id LIMIT :lim OFFSET :off"""),{'q':q.strip() if q else None,'lim':limit+1,'off':offset}).mappings().all()
+          WHERE """+filters+"""
+          GROUP BY u.id ORDER BY lower(u.full_name),u.id LIMIT :lim OFFSET :off"""),{**args,'lim':limit+1,'off':offset}).mappings().all()
     more=len(rows)>limit
-    return {'items':[dict(x) for x in rows[:limit]],'limit':limit,'offset':offset,'has_more':more,'can_manage_collaborators':'platform.collaborators.manage' in actor.permissions}
+    return {'items':[dict(x) for x in rows[:limit]],'limit':limit,'offset':offset,'has_more':more,'total':total,'can_manage_collaborators':'platform.collaborators.manage' in actor.permissions}
 
 @router.get('/audit')
 def platform_audit(limit:int=50,cursor_at:str|None=None,cursor_id:UUID|None=None,actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):

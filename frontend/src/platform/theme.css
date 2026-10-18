@@ -1,0 +1,146 @@
+/* Lot UX 2026-10 — account dock, preferences, phone sheets and the dark theme of the platform space.
+   Light values extend the shell tokens; the dark theme only exists under :root[data-theme=dark], which the platform
+   space sets from the user's preference (platform/theme.ts). The school space never sets it. */
+.es-shell,.es-stepup-layer{--es-focus:#2f6fe4;--es-brand-line:#bcd0f7;--es-shadow:rgba(15,27,51,.10);--es-warn-line:#f0d9a8;--es-skel:#edf0f5;--es-skel-hi:#f7f8fb;--es-overlay:rgba(10,20,40,.45)}
+
+/* ---------------------------------------------------------------- compact account block, bottom of the sidebar */
+.es-shell .es-side-account{position:relative;margin-top:auto;border-top:1px solid var(--es-line);padding-top:8px}
+.es-side-acct{display:grid;grid-template-columns:32px minmax(0,1fr) 16px;align-items:center;gap:9px;width:100%;min-height:52px;padding:6px 8px;border:0;border-radius:10px;
+  background:transparent;color:var(--es-ink);font:inherit;text-align:left;cursor:pointer}
+.es-side-acct:hover{background:var(--es-bg)}
+.es-side-acct[aria-expanded=true]{background:var(--es-brand-soft)}
+.es-side-acct:focus-visible{outline:3px solid var(--es-focus);outline-offset:1px}
+.es-side-acct .es-avatar{width:32px;height:32px;font-size:12px}
+.es-side-acct>svg{color:var(--es-muted);transform:rotate(180deg)}
+.es-side-acct[aria-expanded=true]>svg{transform:none}
+.es-side-acct-text{display:grid;gap:1px;min-width:0}
+.es-side-acct-text b{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.es-side-acct-text small{font-size:12px;color:var(--es-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.es-menu.es-menu-up{top:auto;bottom:calc(100% + 6px);left:0;right:auto;width:288px}
+/* collapsed rail (tablet or collapsed desktop): avatar only, the menu opens to the right of the rail */
+@media (min-width:768px) and (max-width:1100px){.es-shell .es-side:not(.es-peek) .es-side-acct{grid-template-columns:32px;justify-content:center;padding:6px 0}
+  .es-shell .es-side:not(.es-peek) .es-side-acct-text,.es-shell .es-side:not(.es-peek) .es-side-acct>svg{display:none}
+  .es-shell .es-side:not(.es-peek) .es-menu-up{left:calc(100% + 10px);right:auto;bottom:0;width:280px}}
+.es-shell.es-collapsed .es-side:not(.es-peek) .es-side-acct{grid-template-columns:32px;justify-content:center;padding:6px 0}
+.es-shell.es-collapsed .es-side:not(.es-peek) .es-side-acct-text,.es-shell.es-collapsed .es-side:not(.es-peek) .es-side-acct>svg{display:none}
+.es-shell.es-collapsed .es-side:not(.es-peek) .es-menu-up{left:calc(100% + 10px);right:auto;bottom:0;width:280px}
+/* the sidebar may scroll its menu, never hide the account block or the opened menu */
+.es-shell.es-dock .es-side{overflow:visible}
+.es-shell.es-dock .es-nav{min-height:0}
+
+/* phone menu: same compact block, unfolds in place */
+.es-drawer-account-compact{border-top:1px solid var(--es-line);padding:6px 8px 10px}
+.es-drawer-acct{display:grid;grid-template-columns:40px minmax(0,1fr) 22px;align-items:center;gap:10px;width:100%;min-height:58px;padding:8px 6px;border:0;border-radius:12px;
+  background:transparent;color:var(--es-ink);font:inherit;text-align:left;cursor:pointer}
+.es-drawer-acct:focus-visible{outline:3px solid var(--es-focus)}
+.es-drawer-acct[aria-expanded=true]{background:var(--es-bg)}
+.es-drawer-acct .es-avatar{width:40px;height:40px;font-size:14px}
+.es-drawer-acct-chev{display:grid;place-items:center;color:var(--es-muted);transform:rotate(180deg);transition:transform .15s}
+.es-drawer-acct-chev.es-open{transform:none}
+.es-drawer-acct-list{display:grid;gap:2px;padding:4px 0 0}
+.es-drawer-acct-list[hidden]{display:none}
+.es-drawer-acct-mail{margin:0 0 4px 56px;font-size:12.5px;color:var(--es-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.es-drawer-account-compact .es-drawer-acct-list button{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:8px 12px;border:0;border-radius:10px;background:transparent;
+  color:var(--es-ink-2);font:inherit;font-weight:600;font-size:14.5px;text-align:left;cursor:pointer}
+.es-drawer-account-compact .es-drawer-acct-list button:hover{background:var(--es-bg);color:var(--es-ink)}
+.es-drawer-account-compact .es-drawer-acct-list button.es-danger{color:var(--es-bad)}
+@media (prefers-reduced-motion:reduce){.es-drawer-acct-chev{transition:none}}
+
+/* ---------------------------------------------------------------- preferences */
+.es-pref-group{border:0;margin:4px 0 0;padding:0}
+.es-pref-group legend{font-size:13px;font-weight:750;color:var(--es-ink);margin-bottom:8px}
+.es-pref-options{display:grid;gap:8px}
+.es-pref-option{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:12px;min-height:58px;padding:8px 12px;border:1px solid var(--es-line);border-radius:12px;cursor:pointer;color:var(--es-ink)}
+.es-pref-option input{position:absolute;opacity:0;width:1px;height:1px}
+.es-pref-option:has(input:focus-visible){outline:3px solid var(--es-focus);outline-offset:1px}
+.es-pref-option.es-on{border-color:var(--es-brand);background:var(--es-brand-soft)}
+.es-pref-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--es-bg);color:var(--es-ink-2)}
+.es-pref-option.es-on .es-pref-icon{background:var(--es-brand);color:#fff}
+.es-pref-text{display:grid;gap:2px}.es-pref-text b{font-size:14px}.es-pref-text small{font-size:12.5px;color:var(--es-muted)}
+
+/* ---------------------------------------------------------------- phone: account dialogs as bottom sheets */
+@media (max-width:767.98px){
+  .es-shell.es-dock .es-tools .es-account{display:none}
+  .es-modal-backdrop{place-items:end stretch;padding:0}
+  .es-modal{width:100%;max-width:none;max-height:92dvh;border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));animation:es-sheet .2s ease-out}
+  .es-modal.es-modal-wide{max-height:96dvh}
+}
+@keyframes es-sheet{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.es-modal{animation:none}}
+
+/* ================================================================ dark theme (platform space only) */
+:root[data-theme=dark] body{background:#0b1220;color:#e6ebf5}
+:root[data-theme=dark] .es-shell,:root[data-theme=dark] .es-stepup-layer{
+  --es-brand:#6fa1ff;--es-brand-strong:#9cbcff;--es-brand-soft:rgba(111,161,255,.14);--es-brand-line:rgba(111,161,255,.45);
+  --es-ink:#e6ebf5;--es-ink-2:#c3cbdb;--es-muted:#94a0b8;--es-line:#26314a;--es-bg:#0b1220;--es-surface:#121a2c;
+  --es-ok:#5fd39a;--es-ok-soft:rgba(95,211,154,.13);--es-warn:#f2c46b;--es-warn-soft:rgba(242,196,107,.14);--es-warn-line:rgba(242,196,107,.40);
+  --es-bad:#ff8a80;--es-bad-soft:rgba(255,138,128,.13);--es-focus:#8fb6ff;--es-shadow:rgba(0,0,0,.45);--es-skel:#1a2339;--es-skel-hi:#232e48;--es-overlay:rgba(0,0,0,.6);
+  color-scheme:dark}
+:root[data-theme=dark] .es-shell .es-top{background:rgba(18,26,44,.92)}
+:root[data-theme=dark] .es-shell .es-bottom{background:rgba(18,26,44,.97)}
+:root[data-theme=dark] .es-icon-btn,:root[data-theme=dark] .es-account-btn,:root[data-theme=dark] .es-year{background:var(--es-surface);color:var(--es-ink-2)}
+:root[data-theme=dark] .es-badge{border-color:var(--es-surface)}
+:root[data-theme=dark] .es-menu,:root[data-theme=dark] .es-pop,:root[data-theme=dark] .es-drawer{background:var(--es-surface);color:var(--es-ink);box-shadow:0 18px 48px rgba(0,0,0,.55)}
+:root[data-theme=dark] .es-tip{background:#e6ebf5;color:#0b1220}
+:root[data-theme=dark] .es-modal-backdrop,:root[data-theme=dark] .es-drawer-backdrop{background:var(--es-overlay)}
+:root[data-theme=dark] .es-modal{background:var(--es-surface);color:var(--es-ink);box-shadow:0 24px 64px rgba(0,0,0,.6)}
+:root[data-theme=dark] .es-modal h2,:root[data-theme=dark] .es-modal dt,:root[data-theme=dark] .es-modal dd{color:var(--es-ink)}
+:root[data-theme=dark] .es-btn{background:var(--es-surface);border-color:var(--es-line);color:var(--es-ink)}
+:root[data-theme=dark] .es-btn:hover{background:var(--es-bg)}
+:root[data-theme=dark] .es-btn-primary{background:#2f6fe4;border-color:#2f6fe4;color:#fff}
+:root[data-theme=dark] .es-btn-primary:hover{background:#3d7cf0}
+:root[data-theme=dark] .es-btn-danger{background:transparent;border-color:rgba(255,138,128,.5);color:var(--es-bad)}
+:root[data-theme=dark] .es-btn:disabled{opacity:.55}
+:root[data-theme=dark] .es-tabs{background:var(--es-bg)}
+:root[data-theme=dark] .es-tabs button{color:var(--es-muted)}
+:root[data-theme=dark] .es-tabs button.es-on{background:var(--es-surface);color:var(--es-brand);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+:root[data-theme=dark] .es-recovery code{background:var(--es-bg);border-color:var(--es-line);color:var(--es-ink)}
+:root[data-theme=dark] .es-alert{background:var(--es-bg);color:var(--es-ink-2);border-color:var(--es-line)}
+:root[data-theme=dark] .es-alert-warn{background:var(--es-warn-soft);color:var(--es-warn);border-color:var(--es-warn-line)}
+:root[data-theme=dark] .es-alert-bad{background:var(--es-bad-soft);color:var(--es-bad);border-color:rgba(255,138,128,.35)}
+:root[data-theme=dark] .es-hint,:root[data-theme=dark] .es-empty{color:var(--es-muted)}
+:root[data-theme=dark] .es-sessions li{border-color:var(--es-line)}
+:root[data-theme=dark] .es-tag{background:var(--es-brand-soft);color:var(--es-brand)}
+:root[data-theme=dark] .es-skeleton i{background:var(--es-skel)}
+:root[data-theme=dark] .es-shell .es-content input,:root[data-theme=dark] .es-shell .es-content select,:root[data-theme=dark] .es-shell .es-content textarea,
+:root[data-theme=dark] .es-modal input,:root[data-theme=dark] .es-modal select,:root[data-theme=dark] .es-modal textarea{background:#0e1626;color:var(--es-ink);border-color:var(--es-line)}
+:root[data-theme=dark] .es-shell input::placeholder,:root[data-theme=dark] .es-modal input::placeholder{color:#6f7b93}
+/* platform pages built on the shared classes of styles.css (lists, panels, dialogs) */
+:root[data-theme=dark] .es-shell .panel,:root[data-theme=dark] .es-shell .dataTable,:root[data-theme=dark] .es-shell .kpis article{background:var(--es-surface);border-color:var(--es-line);color:var(--es-ink)}
+:root[data-theme=dark] .es-shell .panel h3,:root[data-theme=dark] .es-shell .panel h4,:root[data-theme=dark] .es-shell .row b{color:var(--es-ink)}
+:root[data-theme=dark] .es-shell .panel p,:root[data-theme=dark] .es-shell .row small,:root[data-theme=dark] .es-shell .panelHead p{color:var(--es-muted)}
+:root[data-theme=dark] .es-shell .row{border-color:var(--es-line);color:var(--es-ink-2)}
+:root[data-theme=dark] .es-shell .row.header{background:var(--es-bg);color:var(--es-muted)}
+:root[data-theme=dark] .es-shell .pill{background:var(--es-bg);color:var(--es-ink-2)}
+:root[data-theme=dark] .es-shell .pill.ready{background:var(--es-ok-soft);color:var(--es-ok)}
+:root[data-theme=dark] .es-shell .ghost{background:var(--es-surface);border-color:var(--es-line);color:var(--es-ink-2)}
+:root[data-theme=dark] .es-shell .inlineForm button:not(.ghost),:root[data-theme=dark] .es-shell .sc-new{background:#2f6fe4;border-color:#2f6fe4;color:#fff}
+:root[data-theme=dark] .es-shell .error,:root[data-theme=dark] .es-shell .loginFriendlyError{background:var(--es-bad-soft);color:var(--es-bad);border-color:rgba(255,138,128,.35)}
+:root[data-theme=dark] .es-shell .modalBackdrop,:root[data-theme=dark] .es-shell .wizardBackdrop{background:var(--es-overlay)}
+:root[data-theme=dark] .es-shell .platformActionModal,:root[data-theme=dark] .es-shell .accountSecurityDialog{background:var(--es-surface);color:var(--es-ink);border-color:var(--es-line)}
+:root[data-theme=dark] .es-shell .platformActionModal p,:root[data-theme=dark] .es-shell .accountSecurityDialog p{color:var(--es-muted)}
+:root[data-theme=dark] .es-shell .modalHead button,:root[data-theme=dark] .es-shell .modalFooter button:not(.danger),:root[data-theme=dark] .es-shell .modalActions button.ghost{background:var(--es-surface);color:var(--es-ink-2);border-color:var(--es-line)}
+:root[data-theme=dark] .es-shell .danger{background:transparent;color:var(--es-bad);border-color:rgba(255,138,128,.5)}
+:root[data-theme=dark] .es-shell .summaryStrip,:root[data-theme=dark] .es-shell .diagnosticGrid p{background:var(--es-bg);color:var(--es-ink-2);border-color:var(--es-line)}
+:root[data-theme=dark] .es-shell .moduleLoader,:root[data-theme=dark] .es-shell .collaboratorDoctrine{background:var(--es-surface);color:var(--es-ink-2)}
+:root[data-theme=dark] .es-shell .listCount b{color:var(--es-ink)}
+
+/* ---------------------------------------------------------------- premium layer, platform space (.es-dock) */
+.es-shell,.es-stepup-layer{--es-accent:#7c5cff;--es-accent-soft:#f1edff;--es-hero-a:rgba(15,79,191,.09);--es-hero-b:rgba(124,92,255,.08)}
+:root[data-theme=dark] .es-shell,:root[data-theme=dark] .es-stepup-layer{--es-accent:#a48bff;--es-accent-soft:rgba(164,139,255,.14);--es-hero-a:rgba(111,161,255,.16);--es-hero-b:rgba(164,139,255,.12)}
+.es-avatar{overflow:hidden;position:relative}
+.es-avatar-photo{background:var(--es-bg)}
+.es-avatar-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.es-avatar-busy{position:absolute;inset:0;border-radius:inherit;background:rgba(10,20,40,.45)}
+.es-avatar-busy::after{content:"";position:absolute;inset:35%;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:99px;animation:pd-spin .8s linear infinite}
+.es-profile-photo{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.es-profile-photo .es-avatar-xl{width:88px;height:88px;font-size:28px;box-shadow:0 0 0 4px var(--es-surface),0 0 0 5px var(--es-line)}
+.es-profile-photo-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1;min-width:200px}
+.es-profile-photo-actions .es-hint{flex-basis:100%;margin:2px 0 0}
+.es-shell.es-dock .es-side{background:linear-gradient(180deg,var(--es-surface) 0%,var(--es-surface) 70%,var(--es-side-fade) 100%)}
+.es-shell.es-dock{--es-side-fade:#f6f8fc}
+:root[data-theme=dark] .es-shell.es-dock{--es-side-fade:#0f1626}
+.es-shell.es-dock .es-nav button.es-active{position:relative;background:var(--es-brand-soft);color:var(--es-brand);font-weight:700}
+.es-shell.es-dock .es-nav button.es-active::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--es-brand),var(--es-accent))}
+.es-shell.es-dock .es-side-acct .es-avatar,.es-shell.es-dock .es-account-btn .es-avatar{box-shadow:0 0 0 2px var(--es-surface),0 0 0 3px var(--es-brand-line)}
+.es-shell.es-dock .es-content{max-width:1440px}

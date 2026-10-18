@@ -36,7 +36,7 @@ def main() -> None:
     if mfa:
         from urllib.parse import quote
         uri = (f"otpauth://totp/{quote('EduSync:' + env['EDUSYNC_PLATFORM_ADMIN_EMAIL'], safe='@:')}"
-               f"?secret={mfa['secret']}&issuer=EduSync%20Atelier%20Pro&algorithm=SHA1&digits=6&period=30")
+               f"?secret={mfa['secret']}&issuer=EduSync&algorithm=SHA1&digits=6&period=30")
         out += ["- Validation en deux étapes : obligatoire. Ajoutez ce compte de recette à votre application d’authentification",
                 f"  (Google/Microsoft Authenticator → « Saisir une clé ») : clé **`{mfa['secret']}`**, type « basé sur l’heure ».",
                 f"  Lien direct (téléphone) : `{uri}`",

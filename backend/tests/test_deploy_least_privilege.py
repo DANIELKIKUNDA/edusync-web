@@ -633,7 +633,7 @@ def test_real_linux_certification_runs_in_ci_and_after_ci():
     cert = (ROOT / ".github/workflows/cd-certification.yml").read_text(encoding="utf-8")
     assert "bash tools/ci/cd_linux/privileged_checks.sh" in ci and "runs-on: ubuntu-24.04" in ci.split("cd-privileged:", 1)[1]
     assert "workflows: [CI]" in cert and "bash tools/ci/cd_linux/stack_scenarios.sh" in cert and "packages: read" in cert
-    assert "git diff --quiet \"$c\" \"$CUR_SHA\" -- backend/migrations" in cert
+    assert "git diff --quiet --diff-filter=DMR \"$c\" \"$CUR_SHA\" -- backend/migrations" in cert
     checks = (ROOT / "tools/ci/cd_linux/privileged_checks.sh").read_text(encoding="utf-8")
     for probe in ("renommer ~/.ssh", "remplacer ~/.ssh", "remplacer authorized_keys", "lien symbolique", "clé plantée dans ~/.ssh ignorée",
                   "/usr/bin/python3 -IS /usr/local/libexec/edusync/deploy-controller", "mode isolé (-I)", "sans site (-S)",

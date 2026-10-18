@@ -270,7 +270,7 @@ def test_decision4_managers_count_exposed_and_warned():
     team = _source("modules/platform_team/api/router.py")
     assert '"active_managers": managers, "recommended_managers": 2' in team
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    assert "Un seul Manager système actif." in app and "me.active_managers<(me.recommended_managers||2)" in app
+    assert "Un seul Manager Système actif." in app and "me.active_managers<(me.recommended_managers||2)" in app
 
 
 

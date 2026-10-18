@@ -188,10 +188,11 @@ def team_me(actor: ActorContext = Depends(require_platform_actor), services: App
         # Owner decision 2026-10-13: keep at least two active Managers so a lost access can always be recovered
         # from the console (the operator script stays exceptional). The team governors see the count.
         managers = _active_managers(c) if TEAM_CAP in actor.permissions else None
+        avatar = c.execute(text("SELECT sha256 FROM user_avatars WHERE user_id=:u"), {"u": str(actor.user_id)}).scalar()
     perms = sorted(actor.permissions)
     return {"user": dict(user), "roles": [dict(r) for r in roles], "permissions": perms,
             "menu": [{"key": k, "label": label, "capability": cap} for k, label, cap in MENU if cap in actor.permissions],
-            "active_managers": managers, "recommended_managers": 2}
+            "active_managers": managers, "recommended_managers": 2, "avatar_version": avatar[:16] if avatar else None}
 
 
 # ---------------------------------------------------------------- capabilities & roles

@@ -1,6 +1,20 @@
 /* Plain-French labels for technical codes shown to users (audit journal, statuses). The raw code stays
    available as a tooltip for support; it is never the main text. */
 const ACTIONS: Record<string, string> = {
+  COMMUNICATION_SMS_BULK_REQUESTED: 'Envoi groupé de SMS demandé',
+  COMMUNICATION_REQUESTED: 'Message demandé',
+  COMMUNICATION_SETTINGS_UPDATED: 'Réglages de communication modifiés',
+  ACCESS_MEMBER_CREATED: 'Membre ajouté à l’école',
+  ACCESS_MEMBER_UPDATED: 'Membre de l’école modifié',
+  ACCESS_ROLE_CREATED: 'Rôle d’école créé',
+  ACCESS_ROLE_UPDATED: 'Rôle d’école modifié',
+  PLATFORM_MESSAGING_TEST_SENT: 'Message de test envoyé',
+  SCHOOL_IDENTITY_UPDATED: 'Identité de l’école modifiée',
+  USER_LOGOUT: 'Déconnexion',
+  USER_LOGOUT_ALL: 'Déconnexion de tous les appareils',
+  PASSWORD_RESET: 'Mot de passe réinitialisé',
+  USER_AVATAR_UPDATED: 'Photo de profil modifiée',
+  USER_AVATAR_REMOVED: 'Photo de profil retirée',
   PLATFORM_FIRST_MANAGER_CREATED: 'Premier Manager Système créé',
   PLATFORM_SCHOOL_CREATED: 'École créée',
   SCHOOL_CREATED: 'École créée',

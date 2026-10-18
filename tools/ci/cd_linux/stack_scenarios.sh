@@ -3,7 +3,7 @@
 # API → GHCR → Docker, with the real images of two CI-certified commits (same migrations) and real PostgreSQL, Redis,
 # SeaweedFS, backup. Faults are injected from OUTSIDE the controller (occupied port, stopped backup service, tampered
 # ledger, backend killed by a watcher); the controller itself has no test hook.
-#   CUR_SHA, PREV_SHA : two commits whose CI succeeded on main (images on GHCR), identical backend/migrations
+#   CUR_SHA, PREV_SHA : two commits whose CI succeeded on main (images on GHCR); PREV migrations are a subset of CUR ones
 #   RUN_TOKEN         : GITHUB_TOKEN of the certification run (actions: read, packages: read)
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 : "${CUR_SHA:?}" "${PREV_SHA:?}" "${RUN_TOKEN:?}"

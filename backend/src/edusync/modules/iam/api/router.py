@@ -732,3 +732,67 @@ def platform_revoke_session(session_id: UUID, actor: ActorContext = Depends(requ
         n = conn.execute(text("UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason='USER_REVOKED' WHERE id=:id AND user_id=:u AND revoked_at IS NULL"), {'id': str(session_id), 'u': str(actor.user_id)}).rowcount
         if n:
             _security_audit(conn, user_id=actor.user_id, action='SESSION_REVOKED', detail={'session_id': str(session_id)})
+
+
+# ---------------------------------------------------------------- profile photo (platform accounts, lot UX 2026-10)
+
+_AVATAR_UNAVAILABLE = "Stockage des photos indisponible pour le moment. Réessayez plus tard."
+
+
+@router.get("/platform/avatar")
+def platform_avatar(request: Request, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """The signed-in account's own photo (never another account's): private cache, ETag."""
+    with services.platform_db.platform_transaction() as conn:
+        row = conn.execute(text("SELECT object_key, content_type, sha256 FROM user_avatars WHERE user_id=:u"), {"u": str(actor.user_id)}).mappings().first()
+    if not row or not str(row["object_key"]).startswith(f"users/{actor.user_id}/avatar-"):
+        raise HTTPException(404, "Aucune photo")
+    etag = f'"{row["sha256"]}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers={"ETag": etag, "Cache-Control": "private, max-age=600"})
+    if services.object_storage is None:
+        raise HTTPException(503, _AVATAR_UNAVAILABLE)
+    try:
+        data = services.object_storage.get(row["object_key"])
+    except Exception as exc:  # noqa: BLE001 — storage error: the client falls back to the initials
+        raise HTTPException(503, _AVATAR_UNAVAILABLE) from exc
+    return Response(content=data, media_type=row["content_type"], headers={"Cache-Control": "private, max-age=600", "ETag": etag, "X-Content-Type-Options": "nosniff"})
+
+
+@router.put("/platform/avatar")
+async def platform_avatar_upload(request: Request, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Upload or replace the photo: decoded, cropped to a 256 px square and re-encoded (metadata stripped)."""
+    from edusync.shared.infrastructure.avatars import AVATAR_MAX_UPLOAD, avatar_key, process_avatar
+    if int(request.headers.get("content-length") or 0) > AVATAR_MAX_UPLOAD:
+        raise HTTPException(413, "La photo dépasse 5 Mo.")
+    data = await request.body()
+    try:
+        webp, digest = process_avatar(data)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if services.object_storage is None:
+        raise HTTPException(503, _AVATAR_UNAVAILABLE)
+    key = avatar_key(actor.user_id, digest)
+    try:
+        services.object_storage.put(key, webp, content_type="image/webp", metadata={"user-id": str(actor.user_id), "purpose": "user-avatar"})
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(503, _AVATAR_UNAVAILABLE) from exc
+    with services.platform_db.platform_transaction() as conn:
+        conn.execute(text("""INSERT INTO user_avatars(user_id,object_key,content_type,sha256,byte_size) VALUES(:u,:k,'image/webp',:h,:n)
+            ON CONFLICT(user_id) DO UPDATE SET object_key=EXCLUDED.object_key,sha256=EXCLUDED.sha256,byte_size=EXCLUDED.byte_size,
+            updated_at=now(),version=user_avatars.version+1"""), {"u": str(actor.user_id), "k": key, "h": digest, "n": len(webp)})
+        _security_audit(conn, user_id=actor.user_id, action="USER_AVATAR_UPDATED", detail={"bytes": len(webp), "sha256": digest[:16]})
+    return {"status": "saved", "version": digest[:16]}
+
+
+@router.delete("/platform/avatar")
+def platform_avatar_delete(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    with services.platform_db.platform_transaction() as conn:
+        row = conn.execute(text("DELETE FROM user_avatars WHERE user_id=:u RETURNING object_key"), {"u": str(actor.user_id)}).first()
+        if row:
+            _security_audit(conn, user_id=actor.user_id, action="USER_AVATAR_REMOVED")
+    if row and services.object_storage is not None:
+        try:
+            services.object_storage.delete(row[0])
+        except Exception:  # noqa: BLE001 — the pointer is gone; an orphan object is harmless and private
+            pass
+    return {"status": "removed" if row else "none"}

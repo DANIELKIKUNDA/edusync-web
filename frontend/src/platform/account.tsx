@@ -6,9 +6,10 @@ import {zodResolver} from '@hookform/resolvers/zod';
 import {toast} from 'sonner';
 import {changeMyPassword, changePlatformPassword, dismissNotification, listMySessions, listNotifications, listPlatformSessions, logoutAllDevices, MfaError, platformMfaStatus, platformStepUp, regenerateRecoveryCodes, revokeMySession, revokePlatformSession, type DeviceSession, type InternalNotification, type PlatformMfaStatus} from '../api';
 import {FormField, formDefaults} from './forms';
-import {friendlyError} from './errors';
+import {friendlyError, UserFacingError} from './errors';
 import {NavGlyph} from './nav_icons';
 import {initialsOf} from './shell';
+import {THEME_OPTIONS, type ThemePref} from './theme';
 
 export function Modal({title, subtitle, onClose, children, wide}: {title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; wide?: boolean}) {
   const ref = useRef<HTMLDivElement>(null);
@@ -28,19 +29,73 @@ export function Modal({title, subtitle, onClose, children, wide}: {title: string
   </div>;
 }
 
-export function ProfileDialog({name, email, context, detail, onClose}: {name: string; email?: string; context?: string; detail?: string; onClose: () => void}) {
+export function ProfileDialog({name, email, context, detail, onClose, platform, avatarUrl, onPhotoUpload, onPhotoRemove}: {
+  name: string; email?: string; context?: string; detail?: string; onClose: () => void; platform?: boolean;
+  avatarUrl?: string; onPhotoUpload?: (file: File) => Promise<void>; onPhotoRemove?: () => Promise<void>;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<'' | 'upload' | 'remove'>('');
+  const [error, setError] = useState('');
+  const [preview, setPreview] = useState<string | undefined>();
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  async function pick(file: File | undefined) {
+    if (!file || !onPhotoUpload) return;
+    setError('');
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { setError('Choisissez une photo JPEG, PNG ou WebP.'); return; }
+    if (file.size > 5 * 1024 * 1024) { setError('La photo dépasse 5 Mo.'); return; }
+    setPreview(URL.createObjectURL(file)); setBusy('upload');
+    try { await onPhotoUpload(file); toast.success('Photo de profil mise à jour'); }
+    catch (e) { setError(e instanceof UserFacingError ? e.message : friendlyError(e)); setPreview(undefined); }
+    finally { setBusy(''); if (input.current) input.current.value = ''; }
+  }
+  async function remove() {
+    if (!onPhotoRemove) return;
+    setError(''); setBusy('remove');
+    try { await onPhotoRemove(); setPreview(undefined); toast.success('Photo retirée'); } catch (e) { setError(friendlyError(e)); } finally { setBusy(''); }
+  }
+  const shown = preview || avatarUrl;
   return <Modal title="Mon profil" subtitle="Informations de votre compte EduSync." onClose={onClose}>
     <div className="es-profile">
-      <span className="es-avatar es-avatar-xl" aria-hidden="true">{initialsOf(name)}</span>
+      <div className="es-profile-photo">
+        <span className={`es-avatar es-avatar-xl ${shown ? 'es-avatar-photo' : ''}`} aria-hidden="true">{shown ? <img src={shown} alt=""/> : initialsOf(name)}
+          {busy === 'upload' && <i className="es-avatar-busy"/>}</span>
+        {onPhotoUpload && <div className="es-profile-photo-actions">
+          <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e => void pick(e.target.files?.[0])}/>
+          <button type="button" className="es-btn" disabled={!!busy} onClick={() => input.current?.click()}><NavGlyph g="image" size={16}/>{shown ? 'Changer la photo' : 'Ajouter une photo'}</button>
+          {shown && onPhotoRemove && <button type="button" className="es-btn es-btn-ghost" disabled={!!busy} onClick={() => void remove()}>{busy === 'remove' ? 'Retrait…' : 'Retirer'}</button>}
+          <small className="es-hint">JPEG, PNG ou WebP, 5 Mo maximum. La photo est recadrée en carré ; ses données de localisation sont supprimées.</small>
+        </div>}
+      </div>
+      {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       <dl>
         <dt>Nom</dt><dd>{name}</dd>
         {email && <><dt>Adresse e-mail</dt><dd>{email}</dd></>}
-        {context && <><dt>Espace de travail</dt><dd>{context}</dd></>}
+        {context && <><dt>{platform ? 'Espace et rôle' : 'Espace de travail'}</dt><dd>{context}</dd></>}
         {detail && <><dt>Année consultée</dt><dd>{detail}</dd></>}
       </dl>
-      <p className="es-hint">Le nom et l’adresse e-mail sont gérés par l’administrateur des accès de votre école.</p>
+      <p className="es-hint">{platform
+        ? 'Le nom et l’adresse e-mail des comptes de la plateforme sont gérés par l’équipe plateforme : un Manager Système peut les modifier depuis « Équipe plateforme ».'
+        : 'Le nom et l’adresse e-mail sont gérés par l’administrateur des accès de votre école.'}</p>
     </div>
     <div className="es-modal-foot"><button className="es-btn" onClick={onClose}>Fermer</button></div>
+  </Modal>;
+}
+
+/** Preferences of the account: theme (light / dark / system). Applied immediately, kept on this device. */
+export function PreferencesDialog({theme, onTheme, onClose}: {theme: ThemePref; onTheme: (t: ThemePref) => void; onClose: () => void}) {
+  return <Modal title="Préférences" subtitle="Réglages d’affichage de votre compte." onClose={onClose}>
+    <fieldset className="es-pref-group">
+      <legend>Thème</legend>
+      <div className="es-pref-options" role="radiogroup" aria-label="Thème">
+        {THEME_OPTIONS.map(o => <label key={o.value} className={`es-pref-option ${theme === o.value ? 'es-on' : ''}`}>
+          <input type="radio" name="es-theme" value={o.value} checked={theme === o.value} onChange={() => onTheme(o.value)}/>
+          <span className="es-pref-icon" aria-hidden="true"><NavGlyph g={o.icon} size={20}/></span>
+          <span className="es-pref-text"><b>{o.label}</b><small>{o.hint}</small></span>
+        </label>)}
+      </div>
+    </fieldset>
+    <p className="es-hint">Le choix est appliqué tout de suite et conservé sur cet appareil pour votre compte, même après une déconnexion. Langue : français.</p>
+    <div className="es-modal-foot"><button className="es-btn es-btn-primary" onClick={onClose}>Terminé</button></div>
   </Modal>;
 }
 
@@ -130,7 +185,7 @@ function MfaPanel({token}: {token: string}) {
   const text = () => ['EduSync — codes de secours', 'Chaque code ne fonctionne qu’une seule fois.', '', ...(codes || []), ''].join('\n');
   if (!st) return error ? <div className="es-alert es-alert-bad" role="alert">{error}</div> : <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>;
   return <div className="es-form">
-    <p className="es-hint"><b>{st.enrolled ? 'Activée' : 'Non configurée'}</b>{st.enrolled && st.confirmed_at ? ` depuis le ${new Date(st.confirmed_at).toLocaleDateString('fr-FR')}` : ''} · obligatoire pour les comptes de l’Atelier Pro. Un code de votre application est demandé à chaque nouvelle connexion ; vos appareils déjà approuvés restent connectés.</p>
+    <p className="es-hint"><b>{st.enrolled ? 'Activée' : 'Non configurée'}</b>{st.enrolled && st.confirmed_at ? ` depuis le ${new Date(st.confirmed_at).toLocaleDateString('fr-FR')}` : ''} · obligatoire pour les comptes de la plateforme EduSync. Un code de votre application est demandé à chaque nouvelle connexion ; vos appareils déjà approuvés restent connectés.</p>
     <p className="es-hint">Codes de secours restants : <b>{st.recovery_codes_remaining}</b>{st.recovery_codes_remaining <= 3 ? ' — pensez à en générer de nouveaux.' : ''}</p>
     {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
     {codes ? <>
@@ -142,7 +197,7 @@ function MfaPanel({token}: {token: string}) {
       <FormField label="Code de votre application (6 chiffres) *"><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}/></FormField>
       <div className="es-modal-foot"><button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Génération…' : 'Générer de nouveaux codes de secours'}</button></div>
     </form>}
-    <p className="es-hint">Téléphone perdu ou changé ? Demandez à un autre Manager système de réinitialiser votre validation en deux étapes depuis « Équipe plateforme » : vous la configurerez à nouveau à la connexion suivante. Elle ne peut pas être désactivée.</p>
+    <p className="es-hint">Téléphone perdu ou changé ? Demandez à un autre Manager Système de réinitialiser votre validation en deux étapes depuis « Équipe plateforme » : vous la configurerez à nouveau à la connexion suivante. Elle ne peut pas être désactivée.</p>
   </div>;
 }
 
