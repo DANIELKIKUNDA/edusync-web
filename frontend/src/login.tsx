@@ -105,7 +105,7 @@ function MfaChallenge({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>void
  const change=(v:string)=>{setCode(v);if(v.length===6&&sent.current!==v&&!dead){sent.current=v;void submit(v)}};
  return <form className="lg-card" onSubmit={e=>{e.preventDefault();void submit()}} noValidate aria-labelledby="mfa-title">
   <div className="lg-head"><span className="lg-step">{step.scope==='SCHOOL'?'Sécurité du compte':'Atelier Pro'} · Validation en deux étapes</span><h1 id="mfa-title">{mode==='totp'?'Code de vérification':'Code de secours'}</h1>
-   <p>{mode==='totp'?`Ouvrez votre application d’authentification et saisissez le code à 6 chiffres affiché pour EduSync Atelier Pro.${step.scope==='SCHOOL'?' Votre compte est protégé par un second facteur : il est demandé dans chaque espace.':''}`:'Saisissez l’un des codes de secours que vous avez conservés lors de l’activation. Chaque code ne sert qu’une fois.'}</p></div>
+   <p>{mode==='totp'?`Ouvrez votre application d’authentification et saisissez le code à 6 chiffres affiché pour EduSync.${step.scope==='SCHOOL'?' Votre compte est protégé par un second facteur : il est demandé dans chaque espace.':''}`:'Saisissez l’un des codes de secours que vous avez conservés lors de l’activation. Chaque code ne sert qu’une fois.'}</p></div>
   {mode==='totp'
    ?<div className="lg-field"><label htmlFor="mfa-code">Code à 6 chiffres</label><CodeInput id="mfa-code" value={code} onChange={change} disabled={busy||dead} describedBy="mfa-hint"/>
      <small id="mfa-hint" className="lg-hint">Le code change toutes les 30 secondes. Si un code est refusé, vérifiez que l’heure de votre téléphone est réglée automatiquement.</small></div>
@@ -136,7 +136,7 @@ function MfaEnrollment({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>voi
   catch(e){setError(mfaMessage(e));if(expired(e))setDead(true);setCode('')}
   finally{setBusy(false)}
  }
- const codesText=()=>`EduSync Atelier Pro — codes de secours\nCompte : ${data?.account||''}\nChaque code ne fonctionne qu’une seule fois.\n\n${(result?.recovery_codes||[]).join('\n')}\n`;
+ const codesText=()=>`EduSync — codes de secours\nCompte : ${data?.account||''}\nChaque code ne fonctionne qu’une seule fois.\n\n${(result?.recovery_codes||[]).join('\n')}\n`;
  function download(){const url=URL.createObjectURL(new Blob([codesText()],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='edusync-codes-de-secours.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  const progress=stage==='scan'?1:stage==='confirm'?2:3;
  return <div className="lg-card mfa-card" aria-labelledby="mfa-en-title">
@@ -144,7 +144,7 @@ function MfaEnrollment({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>voi
    <div className="mfa-progress" aria-hidden="true">{[1,2,3].map(i=><i key={i} className={i<=progress?'mfa-on':''}/>)}</div>
    <h1 id="mfa-en-title" ref={heading} tabIndex={-1}>{stage==='scan'?'Activer la validation en deux étapes':stage==='confirm'?'Confirmer avec un premier code':'Conservez vos codes de secours'}</h1>
    <p>{stage==='scan'?'Les comptes de l’Atelier Pro peuvent créer, suspendre et administrer des écoles. Un code de votre téléphone sera désormais demandé à chaque nouvelle connexion, en plus du mot de passe.'
-    :stage==='confirm'?'Saisissez le code à 6 chiffres que votre application affiche maintenant pour EduSync Atelier Pro.'
+    :stage==='confirm'?'Saisissez le code à 6 chiffres que votre application affiche maintenant pour EduSync.'
     :'Si vous perdez votre téléphone, ces codes vous permettront de vous connecter. Ils ne seront plus jamais affichés.'}</p></div>
   {stage==='scan'&&<>
    <ol className="mfa-steps">

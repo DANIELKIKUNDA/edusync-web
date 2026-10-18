@@ -102,6 +102,14 @@ echo "      sauvegarde de démarrage : $(docker exec "$(service_id backup)" cat 
 docker logs --tail 15 "$(service_id backup)" 2>&1 | sed 's/^/      backup> /'
 set +e; docker exec "$(service_id backup)" sh /usr/local/bin/edusync-backup once 2>&1 | tail -15 | sed 's/^/      once> /'; set -e
 
+section "MFA — enrôlement TOTP réel du premier Manager Système (HTTP via nginx, cookies réels)"
+SETUP_TOKEN="$(sudo sed -n 's/^EDUSYNC_SETUP_TOKEN=//p' /etc/edusync-deploy/staging.env)"
+set +e; python3 "$ROOT/tools/ci/cd_linux/mfa_probe.py" http://127.0.0.1:18080 staging.edusync.test https://staging.edusync.test "$SETUP_TOKEN" | tee "$WORK/mfa.out"; mfa_code=${PIPESTATUS[0]}; set -e
+unset SETUP_TOKEN
+check "sonde MFA" test "$mfa_code" == 0
+docker logs "$(service_id backend)" 2>&1 | grep -E "mfa_(enroll_confirm|verify)_refused" | tail -12 | sed 's/^/      journal API> /' || true
+check "journal API : raisons MFA présentes, aucun secret" bash -c "docker logs $(service_id backend) 2>&1 | grep -q 'reason=' && ! docker logs $(service_id backend) 2>&1 | grep -qiE 'secret=|otpauth'"
+
 section "S2 — échec de la nouvelle version, registre identique → rollback par digests précédents"
 start_watcher "$CUR_BACKEND"
 expect_code "déploiement $PREV_SHA cassé (backend tué)" 2 deploy_sha "$PREV_SHA" "$RUN_TOKEN"

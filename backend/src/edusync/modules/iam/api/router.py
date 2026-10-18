@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from typing import Literal
 from uuid import UUID
 
@@ -231,6 +233,13 @@ class MfaReauthInput(BaseModel):
 _MFA_EXPIRED = "Vérification expirée : reconnectez-vous."
 _MFA_WRONG = "Code de vérification incorrect. Vérifiez l’heure de votre téléphone, puis saisissez le nouveau code."
 _MFA_LOCKED = "Trop de codes incorrects. Pour votre sécurité, réessayez dans quelques minutes."
+_MFA_UNAVAILABLE = "Validation en deux étapes momentanément indisponible (configuration du serveur). Contactez l’administrateur."
+_mfa_log = logging.getLogger("edusync.security.mfa")
+
+
+def _log_mfa(event: str, **fields) -> None:
+    """One line per second-factor refusal: reason codes only — never a code, a secret or a token."""
+    _mfa_log.warning("%s %s", event, " ".join(f"{k}={v}" for k, v in fields.items() if v is not None))
 
 
 def _mfa_guard(services: AppServices) -> LoginAttemptGuard:
@@ -265,6 +274,8 @@ def _open_space(conn, services: AppServices, request: Request, response: Respons
 
 def _raise_mfa_outcome(outcome: tuple[str, int]) -> None:
     kind, value = outcome
+    if kind == "unavailable":
+        raise HTTPException(status_code=503, detail=_MFA_UNAVAILABLE)
     if kind == "locked":
         raise HTTPException(status_code=429, detail=_MFA_LOCKED, headers={"Retry-After": str(max(1, value))})
     if kind == "wrong" and value > 0:
@@ -290,13 +301,21 @@ def mfa_verify(body: MfaVerifyInput, request: Request, response: Response, servi
             guard = _mfa_guard(services)
             decision = guard.check(str(challenge.user_id), ip)
             if not decision.allowed:
+                _log_mfa("mfa_verify_refused", reason="rate_limited", user=challenge.user_id)
                 platform_mfa.security_audit(conn, user_id=challenge.user_id, action="MFA_LOCKED", detail={"method": method}, rejected=True)
                 outcome = ("locked", decision.retry_after)
             else:
                 user = PostgresUserRepository(conn).get(challenge.user_id)
                 remaining = None
+                diag: dict = {}
                 if method == "TOTP":
-                    ok = platform_mfa.verify_totp(conn, cipher, user_id=user.id, code=body.code or "")
+                    try:
+                        ok = platform_mfa.verify_totp(conn, cipher, user_id=user.id, code=body.code or "", diag=diag)
+                    except platform_mfa.MfaSecretUnreadable:
+                        _log_mfa("mfa_verify_refused", reason="decrypt_failure", user=user.id)
+                        platform_mfa.security_audit(conn, user_id=user.id, action="MFA_FAILED", detail={"method": method, "reason": "decrypt_failure"}, rejected=True)
+                        outcome = ("unavailable", 0)
+                        ok = None
                 else:
                     remaining = platform_mfa.use_recovery_code(conn, user_id=user.id, code=body.recovery_code or "")
                     ok = remaining is not None
@@ -309,10 +328,17 @@ def mfa_verify(body: MfaVerifyInput, request: Request, response: Response, servi
                     if remaining is not None:
                         result["recovery_codes_remaining"] = remaining
                     return result
-                guard.failure(str(user.id), ip)
-                left = max(0, services.settings.mfa_max_attempts - platform_mfa.record_failed_attempt(conn, challenge))
-                platform_mfa.security_audit(conn, user_id=user.id, action="MFA_FAILED", detail={"method": method, "attempts_left": left}, rejected=True)
-                outcome = ("wrong", left)
+                if ok is not None:
+                    guard.failure(str(user.id), ip)
+                    left = max(0, services.settings.mfa_max_attempts - platform_mfa.record_failed_attempt(conn, challenge))
+                    _log_mfa("mfa_verify_refused", method=method, reason=diag.get("reason", "invalid" if method == "RECOVERY_CODE" else "replay"),
+                             offset_steps=diag.get("offset_steps"), attempts_left=left, user=user.id)
+                    platform_mfa.security_audit(conn, user_id=user.id, action="MFA_FAILED", detail={"method": method, "attempts_left": left,
+                                                "reason": diag.get("reason"), "offset_steps": diag.get("offset_steps")}, rejected=True)
+                    outcome = ("wrong", left)
+        else:
+            _log_mfa("mfa_verify_refused", reason="challenge_" + platform_mfa.challenge_refusal(conn, services.settings, body.mfa_token, "LOGIN")
+                     if challenge is None else "space_closed")
     _raise_mfa_outcome(outcome)
 
 
@@ -349,10 +375,19 @@ def mfa_enroll_confirm(body: MfaConfirmInput, request: Request, response: Respon
             guard = _mfa_guard(services)
             decision = guard.check(str(challenge.user_id), ip)
             if not decision.allowed:
+                _log_mfa("mfa_enroll_confirm_refused", reason="rate_limited", user=challenge.user_id)
                 outcome = ("locked", decision.retry_after)
             else:
                 user = PostgresUserRepository(conn).get(challenge.user_id)
-                codes = platform_mfa.confirm_enrollment(conn, cipher, user_id=user.id, code=body.code)
+                diag: dict = {}
+                try:
+                    codes = platform_mfa.confirm_enrollment(conn, cipher, user_id=user.id, code=body.code, diag=diag)
+                except platform_mfa.MfaSecretUnreadable:
+                    _log_mfa("mfa_enroll_confirm_refused", reason="decrypt_failure", user=user.id)
+                    platform_mfa.security_audit(conn, user_id=user.id, action="MFA_FAILED", detail={"method": "TOTP", "stage": "ENROLMENT", "reason": "decrypt_failure"}, rejected=True)
+                    outcome = ("unavailable", 0)
+                    codes = None
+                    diag = {}
                 if codes:
                     guard.success(str(user.id), ip)
                     platform_mfa.consume_challenge(conn, challenge)
@@ -360,10 +395,16 @@ def mfa_enroll_confirm(body: MfaConfirmInput, request: Request, response: Respon
                     result = _open_space(conn, services, request, response, user, challenge, mfa_method="TOTP")
                     result["recovery_codes"] = codes
                     return result
-                guard.failure(str(user.id), ip)
-                left = max(0, services.settings.mfa_max_attempts - platform_mfa.record_failed_attempt(conn, challenge))
-                platform_mfa.security_audit(conn, user_id=user.id, action="MFA_FAILED", detail={"method": "TOTP", "stage": "ENROLMENT", "attempts_left": left}, rejected=True)
-                outcome = ("wrong", left)
+                if diag:
+                    guard.failure(str(user.id), ip)
+                    left = max(0, services.settings.mfa_max_attempts - platform_mfa.record_failed_attempt(conn, challenge))
+                    _log_mfa("mfa_enroll_confirm_refused", reason=diag.get("reason"), offset_steps=diag.get("offset_steps"), attempts_left=left, user=user.id)
+                    platform_mfa.security_audit(conn, user_id=user.id, action="MFA_FAILED", detail={"method": "TOTP", "stage": "ENROLMENT", "attempts_left": left,
+                                                "reason": diag.get("reason"), "offset_steps": diag.get("offset_steps")}, rejected=True)
+                    outcome = ("wrong", left)
+        else:
+            _log_mfa("mfa_enroll_confirm_refused", reason="challenge_" + platform_mfa.challenge_refusal(conn, services.settings, body.mfa_token, "ENROLL")
+                     if challenge is None else "space_closed")
     _raise_mfa_outcome(outcome)
 
 

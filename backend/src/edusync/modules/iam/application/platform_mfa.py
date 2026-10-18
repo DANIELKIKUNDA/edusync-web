@@ -13,9 +13,20 @@ from uuid import UUID
 from sqlalchemy import text
 
 from edusync.shared.infrastructure.mfa import (
-    MfaCipher, hash_recovery_code, load_mfa_key, match_totp, new_challenge_token, new_recovery_codes,
+    MfaCipher, diagnose_totp, hash_recovery_code, load_mfa_key, match_totp, new_challenge_token, new_recovery_codes,
     new_totp_secret, hash_challenge_token, provisioning_uri, qr_svg, verify_recovery_code,
 )
+
+
+class MfaSecretUnreadable(Exception):
+    """The stored secret cannot be decrypted (EDUSYNC_MFA_ENCRYPTION_KEY changed or differs between processes)."""
+
+
+def _decrypt(cipher: MfaCipher, ciphertext: str, user_id) -> str:
+    try:
+        return cipher.decrypt(ciphertext, owner=str(user_id))
+    except Exception as exc:  # InvalidTag, malformed token, wrong key: never a "wrong code"
+        raise MfaSecretUnreadable() from exc
 
 
 @dataclass(frozen=True)
@@ -90,6 +101,25 @@ def load_challenge(conn, settings, raw: str, purpose: str) -> Challenge | None:
     return Challenge(str(row["id"]), row["user_id"], row["purpose"], int(row["attempts"]), row["scope"], row["school_id"], row["membership_id"]) if row else None
 
 
+def challenge_refusal(conn, settings, raw: str, purpose: str) -> str:
+    """Why a step token is not usable, for the server log only: unknown, wrong_purpose, consumed, expired,
+    attempts_exhausted, account_changed (password / version / deactivation since the password step)."""
+    row = conn.execute(text("""SELECT c.purpose, c.consumed_at IS NOT NULL AS consumed, c.expires_at<=now() AS expired, c.attempts,
+        (u.active AND u.version=c.user_version) AS account_ok FROM mfa_challenges c JOIN users u ON u.id=c.user_id WHERE c.token_hash=:h"""),
+        {"h": hash_challenge_token(raw)}).mappings().first()
+    if row is None:
+        return "unknown"
+    if row["purpose"] != purpose:
+        return "wrong_purpose"
+    if row["consumed"]:
+        return "consumed"
+    if row["expired"]:
+        return "expired"
+    if int(row["attempts"]) >= int(settings.mfa_max_attempts):
+        return "attempts_exhausted"
+    return "ok" if row["account_ok"] else "account_changed"
+
+
 def record_failed_attempt(conn, challenge: Challenge) -> int:
     return int(conn.execute(text("UPDATE mfa_challenges SET attempts=attempts+1 WHERE id=:id RETURNING attempts"), {"id": challenge.id}).scalar_one())
 
@@ -123,14 +153,19 @@ def _store_recovery_codes(conn, *, user_id, factor_id) -> list[str]:
     return codes
 
 
-def confirm_enrollment(conn, cipher: MfaCipher, *, user_id, code: str) -> list[str] | None:
-    """Activates the pending factor when the first code is valid; returns the recovery codes (shown once)."""
+def confirm_enrollment(conn, cipher: MfaCipher, *, user_id, code: str, diag: dict | None = None) -> list[str] | None:
+    """Activates the pending factor when the first code is valid; returns the recovery codes (shown once).
+    `diag` receives the reason of a refusal for the server log (missing_pending, format, clock_skew + offset, invalid)."""
+    diag = {} if diag is None else diag
     pending = conn.execute(text("SELECT id, secret_ciphertext FROM user_mfa_factors WHERE user_id=:u AND status='PENDING' FOR UPDATE"),
                            {"u": str(user_id)}).mappings().first()
     if pending is None:
+        diag["reason"] = "missing_pending"
         return None
-    step = match_totp(cipher.decrypt(pending["secret_ciphertext"], owner=str(user_id)), code, last_used_step=0)
+    secret = _decrypt(cipher, pending["secret_ciphertext"], user_id)
+    step = match_totp(secret, code, last_used_step=0)
     if step is None:
+        diag["reason"], diag["offset_steps"] = diagnose_totp(secret, code, last_used_step=0)
         return None
     conn.execute(text("""UPDATE user_mfa_factors SET status='ACTIVE', confirmed_at=now(), last_used_step=:s WHERE id=:id"""),
                  {"id": pending["id"], "s": step})
@@ -139,12 +174,16 @@ def confirm_enrollment(conn, cipher: MfaCipher, *, user_id, code: str) -> list[s
 
 # ---------------------------------------------------------------- verification
 
-def verify_totp(conn, cipher: MfaCipher, *, user_id, code: str) -> bool:
+def verify_totp(conn, cipher: MfaCipher, *, user_id, code: str, diag: dict | None = None) -> bool:
+    diag = {} if diag is None else diag
     factor = active_factor(conn, user_id, lock=True)
     if factor is None:
+        diag["reason"] = "missing_factor"
         return False
-    step = match_totp(cipher.decrypt(factor["secret_ciphertext"], owner=str(user_id)), code, last_used_step=int(factor["last_used_step"]))
+    secret = _decrypt(cipher, factor["secret_ciphertext"], user_id)
+    step = match_totp(secret, code, last_used_step=int(factor["last_used_step"]))
     if step is None:
+        diag["reason"], diag["offset_steps"] = diagnose_totp(secret, code, last_used_step=int(factor["last_used_step"]))
         return False
     # Compare-and-set: two concurrent requests with the same code cannot both succeed.
     return conn.execute(text("UPDATE user_mfa_factors SET last_used_step=:s WHERE id=:id AND last_used_step<:s"),

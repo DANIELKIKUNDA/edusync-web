@@ -110,8 +110,8 @@ def test_recovery_codes_single_format_hashed_and_tolerant():
 
 def test_provisioning_uri_and_local_qr_code():
     uri = mfa.provisioning_uri("JBSWY3DPEHPK3PXP", "manager@example.cd")
-    assert uri.startswith("otpauth://totp/EduSync%20Atelier%20Pro:manager@example.cd?secret=JBSWY3DPEHPK3PXP")
-    assert "issuer=EduSync%20Atelier%20Pro" in uri and "digits=6" in uri and "period=30" in uri
+    assert uri.startswith("otpauth://totp/EduSync:manager@example.cd?secret=JBSWY3DPEHPK3PXP")
+    assert "issuer=EduSync&" in uri and "digits=6" in uri and "period=30" in uri
     svg = mfa.qr_svg(uri)
     # Rendered by the client as <img src="data:image/svg+xml,…">: an SVG image needs its namespace to display.
     assert svg.lstrip().startswith("<svg") and 'xmlns="http://www.w3.org/2000/svg"' in svg and "<script" not in svg
@@ -272,3 +272,36 @@ def test_decision4_managers_count_exposed_and_warned():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
     assert "Un seul Manager système actif." in app and "me.active_managers<(me.recommended_managers||2)" in app
 
+
+
+# ---------------------------------------------------------------- staging blocker 2026-10-18: diagnosable refusals
+def test_refusal_reasons_distinguish_clock_skew_invalid_replay_and_format_without_the_code():
+    secret, now = mfa.new_totp_secret(), 1_800_000_000.0
+    step = mfa.current_step(now)
+    assert mfa.diagnose_totp(secret, mfa.totp_code(secret, step - 4), last_used_step=0, now=now) == ("clock_skew", -4)
+    assert mfa.diagnose_totp(secret, mfa.totp_code(secret, step + 3), last_used_step=0, now=now) == ("clock_skew", 3)
+    assert mfa.diagnose_totp(secret, mfa.totp_code(secret, step), last_used_step=step, now=now) == ("replay", 0)
+    assert mfa.diagnose_totp(secret, "12a456", last_used_step=0, now=now) == ("format", None)
+    other = mfa.new_totp_secret()
+    reason, _ = mfa.diagnose_totp(other, mfa.totp_code(secret, step), last_used_step=0, now=now)
+    assert reason in ("invalid", "clock_skew")       # another secret: almost always "invalid"
+
+
+def test_issuer_and_label_are_edusync():
+    assert mfa.ISSUER == "EduSync"
+    uri = mfa.provisioning_uri(mfa.new_totp_secret(), "manager@example.cd")
+    assert "Atelier" not in uri and uri.startswith("otpauth://totp/EduSync:manager@example.cd?") and "issuer=EduSync&" in uri
+
+
+def test_unreadable_secret_is_never_reported_as_a_wrong_code():
+    from edusync.modules.iam.application import platform_mfa
+    good, bad = mfa.MfaCipher(b"k" * 32), mfa.MfaCipher(b"x" * 32)
+    token = good.encrypt(mfa.new_totp_secret(), owner="u1")
+    with pytest.raises(platform_mfa.MfaSecretUnreadable):
+        platform_mfa._decrypt(bad, token, "u1")
+    src = (SRC / "modules/iam/api/router.py").read_text(encoding="utf-8")
+    assert 'status_code=503, detail=_MFA_UNAVAILABLE' in src and src.count('reason="decrypt_failure"') == 2
+    for reason in ("rate_limited", "challenge_", "space_closed"):
+        assert reason in src
+    log_lines = [l for l in src.splitlines() if "_log_mfa(" in l]
+    assert log_lines and not any(word in l for l in log_lines for word in ("body.code", "secret", "mfa_token)", "recovery_code"))

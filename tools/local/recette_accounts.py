@@ -35,7 +35,7 @@ def main() -> None:
     mfa = fx.get("MFA_TOTP", {}).get(env["EDUSYNC_PLATFORM_ADMIN_EMAIL"].strip().lower())
     if mfa:
         from urllib.parse import quote
-        uri = (f"otpauth://totp/{quote('EduSync Atelier Pro:' + env['EDUSYNC_PLATFORM_ADMIN_EMAIL'], safe='@:')}"
+        uri = (f"otpauth://totp/{quote('EduSync:' + env['EDUSYNC_PLATFORM_ADMIN_EMAIL'], safe='@:')}"
                f"?secret={mfa['secret']}&issuer=EduSync%20Atelier%20Pro&algorithm=SHA1&digits=6&period=30")
         out += ["- Validation en deux étapes : obligatoire. Ajoutez ce compte de recette à votre application d’authentification",
                 f"  (Google/Microsoft Authenticator → « Saisir une clé ») : clé **`{mfa['secret']}`**, type « basé sur l’heure ».",

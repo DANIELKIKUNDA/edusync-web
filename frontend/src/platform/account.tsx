@@ -127,7 +127,7 @@ function MfaPanel({token}: {token: string}) {
     try { setBusy(true); const r = await regenerateRecoveryCodes(token, code); setCodes(r.recovery_codes); setCode(''); toast.success('Nouveaux codes générés : les précédents ne fonctionnent plus.'); await load(); }
     catch (err) { setError(err instanceof MfaError ? err.message : friendlyError(err)); setCode(''); } finally { setBusy(false); }
   }
-  const text = () => ['EduSync Atelier Pro — codes de secours', 'Chaque code ne fonctionne qu’une seule fois.', '', ...(codes || []), ''].join('\n');
+  const text = () => ['EduSync — codes de secours', 'Chaque code ne fonctionne qu’une seule fois.', '', ...(codes || []), ''].join('\n');
   if (!st) return error ? <div className="es-alert es-alert-bad" role="alert">{error}</div> : <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>;
   return <div className="es-form">
     <p className="es-hint"><b>{st.enrolled ? 'Activée' : 'Non configurée'}</b>{st.enrolled && st.confirmed_at ? ` depuis le ${new Date(st.confirmed_at).toLocaleDateString('fr-FR')}` : ''} · obligatoire pour les comptes de l’Atelier Pro. Un code de votre application est demandé à chaque nouvelle connexion ; vos appareils déjà approuvés restent connectés.</p>

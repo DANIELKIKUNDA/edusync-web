@@ -26,7 +26,7 @@ STEP_SECONDS = 30
 DIGITS = 6
 DRIFT_STEPS = 1
 RECOVERY_CODE_COUNT = 10
-ISSUER = "EduSync Atelier Pro"
+ISSUER = "EduSync"   # what the authenticator app shows: the EduSync school product, for every account
 # Unambiguous alphabet for recovery codes (no 0/O, 1/I/L): read aloud or copied by hand without mistakes.
 _RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 _recovery_hasher = PasswordHasher()
@@ -72,6 +72,22 @@ def match_totp(secret_b32: str, code: str, *, last_used_step: int, now: float | 
         if hmac.compare_digest(totp_code(secret_b32, step), clean) and step > last_used_step:
             matched = step
     return matched
+
+
+def diagnose_totp(secret_b32: str, code: str, *, last_used_step: int, now: float | None = None, horizon: int = 10) -> tuple[str, int | None]:
+    """Why a code is refused, for the SERVER LOG only (never returned to the client, never contains the code):
+    "format", "replay", "clock_skew" (the code belongs to a step outside the +/- 1 window; the offset in 30 s steps
+    tells how far the phone or the server clock is), "invalid" (no step within +/- horizon: wrong secret or typo)."""
+    clean = normalize_totp(code)
+    if clean is None:
+        return "format", None
+    base = current_step(now)
+    for offset in sorted(range(-horizon, horizon + 1), key=abs):
+        if hmac.compare_digest(totp_code(secret_b32, base + offset), clean):
+            if abs(offset) > DRIFT_STEPS:
+                return "clock_skew", offset
+            return ("replay" if base + offset <= last_used_step else "ok"), offset
+    return "invalid", None
 
 
 def provisioning_uri(secret_b32: str, account: str) -> str:
