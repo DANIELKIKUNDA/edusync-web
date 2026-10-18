@@ -174,3 +174,13 @@ button.pd-watch-item:focus-visible{outline:3px solid var(--es-focus);outline-off
   .pd-refresh{position:absolute;top:10px;right:10px;width:44px;height:44px;padding:0;justify-content:center}
   .pd-refresh span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 }
+
+/* Phones: small cards centred (owner feedback 2026-10-18) */
+@media (max-width:767.98px){
+  .pd-kpi{grid-template-columns:minmax(0,1fr);justify-items:center;text-align:center;padding:14px 10px 12px}
+  .pd-kpi .pd-kpi-icon{grid-column:1;grid-row:1;justify-self:center}
+  .pd-kpi .pd-kpi-body{grid-column:1;grid-row:2;justify-items:center}
+  .pd-kpi .pd-kpi-chevron{position:absolute;top:10px;right:8px;grid-column:auto;grid-row:auto}
+  .pd-kpi-hint{text-align:center}
+  .pd-quick-btn{justify-content:center;text-align:center}
+}
