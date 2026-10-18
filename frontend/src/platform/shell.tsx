@@ -3,6 +3,7 @@ import {NavGlyph} from './nav_icons';
 import {connectivityLabel, getConnectivity, subscribeActivity, subscribeConnectivity, type ConnectivityState, type WriteActivity} from './connectivity';
 import './shell.css';
 import './theme.css';
+import {announceIfJustUpdated, applyUpdate, shortBuild, useUpdateNotice} from './updates';
 
 export type ShellNavItem = {key: string; label: string; icon: string; active: boolean; onSelect: () => void; primary?: boolean; shortLabel?: string};
 export type ShellMenuItem = {key: string; label: string; icon: string; onSelect: () => void; danger?: boolean};
@@ -79,6 +80,19 @@ export function AccountMenu({account}: {account: ShellAccount}) {
   </div>;
 }
 
+/* New version available: message + "Mettre à jour" in the top bar (compact on phones). */
+export function UpdateChip({bar = false}: {bar?: boolean}) {
+  const u = useUpdateNotice();
+  if (!u.available) return null;
+  return <div className={bar ? 'es-update es-update-bar' : 'es-update es-update-chip'} role="status" aria-live="polite">
+    <span className="es-update-text"><NavGlyph g="sparkles" size={15}/><span>Nouvelle version disponible</span></span>
+    <button type="button" className="es-update-btn" onClick={() => void applyUpdate()} disabled={u.updating}
+      title={u.build ? `Version ${shortBuild(u.build)}` : undefined} aria-label={u.updating ? 'Mise à jour en cours' : 'Mettre à jour EduSync vers la nouvelle version'}>
+      {u.updating ? <><i className="es-update-spin" aria-hidden="true"/>Mise à jour…</> : <><NavGlyph g="download" size={15}/><span className="es-update-label">Mettre à jour</span></>}
+    </button>
+  </div>;
+}
+
 /* Compact account block docked at the bottom of the sidebar (platform space): avatar, name, role, chevron.
    The account menu opens only on demand, upward (or to the right of the collapsed rail). */
 function SideAccount({account}: {account: ShellAccount}) {
@@ -140,6 +154,7 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
   const drawerRef = useRef<HTMLElement>(null);
   useDismiss(drawer, () => setDrawer(false), drawerRef);
   useEffect(() => { document.title = `${title} · EduSync`; }, [title]);
+  useEffect(() => { announceIfJustUpdated(); }, []);
   function toggle() { setCollapsed(v => { writeCollapsed(!v); return !v; }); setTip(null); setPeek(false); }
   const railOnly = () => collapsed || window.matchMedia('(min-width:768px) and (max-width:1100px)').matches;
   // Rail: the full menu shows temporarily over the content (mouse after a short delay, or keyboard focus); "Épingler" keeps it open.
@@ -194,8 +209,9 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
       <header className="es-top">
         <button className="es-burger" aria-label="Ouvrir le menu" aria-expanded={drawer} onClick={() => setDrawer(true)}><NavGlyph g="menu" size={21}/></button>
         <div className="es-title"><h1>{title}</h1>{context && <p>{context}</p>}</div>
-        <div className="es-tools">{tools}{!accountDock && <AccountMenu account={account}/>}</div>
+        <div className="es-tools"><UpdateChip/>{tools}{!accountDock && <AccountMenu account={account}/>}</div>
       </header>
+      <UpdateChip bar/>
       <main className="es-content" id="es-content" tabIndex={-1}>{children}</main>
     </div>
     <nav className="es-bottom" aria-label="Navigation rapide">

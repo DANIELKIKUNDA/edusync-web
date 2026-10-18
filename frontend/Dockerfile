@@ -4,6 +4,9 @@ WORKDIR /app
 COPY package.json package-lock.json tsconfig.json ./
 RUN npm ci
 COPY . .
+# Build identity shown by the update notice (commit SHA passed by the CI).
+ARG EDUSYNC_BUILD_ID=
+ENV EDUSYNC_BUILD_ID=$EDUSYNC_BUILD_ID
 RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html

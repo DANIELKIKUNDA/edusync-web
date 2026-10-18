@@ -36,8 +36,10 @@ export function pushMobileScreen(scope:'school'|'platform',screen:string):void{
 export function replaceMobileRoot(scope:'school'|'platform',screen:string):void{
   history.replaceState({edusyncScope:scope,edusyncScreen:screen},'');
 }
+const dirty=new WeakSet<HTMLFormElement>();
+/** A form of the page has been edited and not submitted (used by the update notice before reloading). */
+export function hasUnsavedForms():boolean{return Array.from(document.forms).some(f=>dirty.has(f)&&f.isConnected)}
 export function installUnsavedFormGuard():()=>void{
-  const dirty=new WeakSet<HTMLFormElement>();
   const mark=(e:Event)=>{const form=(e.target as HTMLElement|null)?.closest?.('form');if(form)dirty.add(form)};
   const clear=(e:Event)=>{if(e.target instanceof HTMLFormElement)dirty.delete(e.target)};
   const before=(e:BeforeUnloadEvent)=>{const any=Array.from(document.forms).some(f=>dirty.has(f));if(any){e.preventDefault();e.returnValue=''}};

@@ -10,6 +10,7 @@ import {friendlyError, UserFacingError} from './errors';
 import {NavGlyph} from './nav_icons';
 import {initialsOf} from './shell';
 import {THEME_OPTIONS, type ThemePref} from './theme';
+import {CURRENT_BUILD, shortBuild} from './updates';
 
 export function Modal({title, subtitle, onClose, children, wide}: {title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; wide?: boolean}) {
   const ref = useRef<HTMLDivElement>(null);
@@ -95,6 +96,7 @@ export function PreferencesDialog({theme, onTheme, onClose}: {theme: ThemePref; 
       </div>
     </fieldset>
     <p className="es-hint">Le choix est appliqué tout de suite et conservé sur cet appareil pour votre compte, même après une déconnexion. Langue : français.</p>
+    <p className="es-hint es-version">Version d’EduSync : <b>{shortBuild(CURRENT_BUILD)}</b></p>
     <div className="es-modal-foot"><button className="es-btn es-btn-primary" onClick={onClose}>Terminé</button></div>
   </Modal>;
 }

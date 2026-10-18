@@ -145,3 +145,26 @@ def test_photo_routes_are_own_account_only_private_and_audited():
     mig = (ROOT / "backend/migrations/0077_user_avatars.sql").read_text(encoding="utf-8")
     assert "FORCE ROW LEVEL SECURITY" in mig and "REVOKE ALL ON user_avatars FROM edusync_tenant" in mig
     assert '("0077_user_avatars", "0077_user_avatars.sql")' in (ROOT / "backend/scripts/provision_database.py").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- update notice + bell on phones (owner feedback)
+def test_new_version_is_announced_and_applied_safely():
+    vite = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
+    assert "__EDUSYNC_BUILD__" in vite and "fileName: 'version.json'" in vite and "EDUSYNC_BUILD_ID" in vite
+    assert "ARG EDUSYNC_BUILD_ID" in (ROOT / "frontend/Dockerfile").read_text(encoding="utf-8")
+    assert "build-args: EDUSYNC_BUILD_ID=${{ github.sha }}" in (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    assert "location = /version.json" in nginx and 'Cache-Control "no-store"' in nginx
+    sw = (ROOT / "frontend/public/sw.js").read_text(encoding="utf-8")
+    assert "url.pathname==='/version.json'" in sw and "EDUSYNC_SKIP_WAITING" in sw            # never served from the SW cache
+    up = (FRONT / "platform/updates.ts").read_text(encoding="utf-8")
+    assert "POLL_MS = 5 * 60 * 1000" in up and "'visibilitychange'" in up and "'online'" in up
+    assert "hasUnsavedForms()" in up and "activity.pending > 0" in up and "confirmAction(" in up     # never loses work silently
+    assert "window.location.reload()" in up and "EduSync est à jour" in up
+    shell = (FRONT / "platform/shell.tsx").read_text(encoding="utf-8")
+    assert "Nouvelle version disponible" in shell and "Mettre à jour" in shell and "<UpdateChip bar/>" in shell and "<UpdateChip/>{tools}" in shell
+
+
+def test_notification_bell_is_not_hidden_on_phones():
+    css = (FRONT / "platform/theme.css").read_text(encoding="utf-8")
+    assert ".es-dock .es-tools .es-account{display:none}" not in css     # the bell reuses .es-account: never hide it

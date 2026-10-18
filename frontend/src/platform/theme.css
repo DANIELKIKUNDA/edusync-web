@@ -60,7 +60,6 @@
 
 /* ---------------------------------------------------------------- phone: account dialogs as bottom sheets */
 @media (max-width:767.98px){
-  .es-shell.es-dock .es-tools .es-account{display:none}
   .es-modal-backdrop{place-items:end stretch;padding:0}
   .es-modal{width:100%;max-width:none;max-height:92dvh;border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));animation:es-sheet .2s ease-out}
   .es-modal.es-modal-wide{max-height:96dvh}
@@ -144,3 +143,31 @@
 .es-shell.es-dock .es-nav button.es-active::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--es-brand),var(--es-accent))}
 .es-shell.es-dock .es-side-acct .es-avatar,.es-shell.es-dock .es-account-btn .es-avatar{box-shadow:0 0 0 2px var(--es-surface),0 0 0 3px var(--es-brand-line)}
 .es-shell.es-dock .es-content{max-width:1440px}
+
+/* ---------------------------------------------------------------- update notice (top bar, both spaces) */
+.es-update{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 4px 0 12px;border-radius:999px;border:1px solid var(--es-brand-line,#bcd0f7);
+  background:linear-gradient(90deg,var(--es-brand-soft),var(--es-surface));color:var(--es-brand);font-size:12.5px;font-weight:700;white-space:nowrap;animation:es-update-in .25s ease-out}
+.es-update-text{display:inline-flex;align-items:center;gap:6px}
+.es-update-btn{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 11px;border:0;border-radius:999px;background:var(--es-brand);color:#fff;font:inherit;font-size:12.5px;font-weight:750;cursor:pointer}
+.es-update-btn:hover:not(:disabled){filter:brightness(1.08)}
+.es-update-btn:focus-visible{outline:3px solid var(--es-focus,#2f6fe4);outline-offset:2px}
+.es-update-btn:disabled{opacity:.85;cursor:progress}
+.es-update-spin{width:12px;height:12px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:99px;animation:pd-spin .8s linear infinite}
+@keyframes es-update-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+:root[data-theme=dark] .es-update{background:linear-gradient(90deg,rgba(111,161,255,.18),var(--es-surface))}
+:root[data-theme=dark] .es-update-btn{background:#2f6fe4}
+@media (max-width:1100px){.es-update-text>span{display:none}.es-update{padding-left:9px}}
+@media (max-width:767.98px){
+  .es-update{height:40px;padding:0 3px 0 9px;gap:6px}
+  .es-update-btn{height:34px;padding:0 12px;font-size:13px}
+}
+@media (max-width:389.98px){.es-update-label{display:none}.es-update-btn{width:34px;padding:0;justify-content:center}}
+@media (prefers-reduced-motion:reduce){.es-update,.es-update-spin{animation:none}}
+.es-update-bar{display:none}
+@media (max-width:767.98px){
+  .es-update-chip{display:none}
+  .es-update-bar{display:flex;justify-content:space-between;height:auto;min-height:48px;margin:8px 12px 0;padding:6px 6px 6px 12px;border-radius:14px;white-space:normal}
+  .es-update-bar .es-update-text>span{display:inline}
+  .es-update-bar .es-update-label{display:inline}
+  .es-update-bar .es-update-btn{width:auto;padding:0 14px;height:36px}
+}

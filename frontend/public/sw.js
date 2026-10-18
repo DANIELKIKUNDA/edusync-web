@@ -1,4 +1,4 @@
-const CACHE='edusync-shell-2026-10-messaging';
+const CACHE='edusync-shell-2026-10-updates';
 const SHELL=['/','/manifest.webmanifest'];
 
 self.addEventListener('install',event=>{
@@ -19,7 +19,7 @@ self.addEventListener('fetch',event=>{
 
   // SECURITY / MULTI-TENANT: never cache API or authenticated responses in the shared
   // service-worker cache. Business offline data lives in the scoped IndexedDB layer.
-  if(url.origin!==self.location.origin || url.pathname.startsWith('/api/') || request.headers.has('Authorization')) return;
+  if(url.origin!==self.location.origin || url.pathname.startsWith('/api/') || url.pathname==='/version.json' || request.headers.has('Authorization')) return;
 
   if(request.mode==='navigate'){
     event.respondWith(fetch(request).catch(()=>caches.match('/')));
@@ -66,3 +66,6 @@ self.addEventListener('notificationclick',event=>{
     await self.clients.openWindow(target.href);
   })());
 });
+
+// Update notice (lot 2026-10): the page asks the waiting worker to take over before it reloads on the new version.
+self.addEventListener('message',event=>{if(event.data&&event.data.type==='EDUSYNC_SKIP_WAITING')self.skipWaiting();});
