@@ -38,8 +38,7 @@ setup_host() {
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openssh-server >/dev/null
   # GitHub runner image: its own /etc/sudoers.d/runner is not 0440, which makes `visudo -c` fail (the installer
   # refuses an invalid sudo configuration, by design). Fix it on this disposable runner only.
-  sudo chown root:root /etc/sudoers /etc/sudoers.d/* 2>/dev/null || true
-  sudo chmod 0440 /etc/sudoers /etc/sudoers.d/* 2>/dev/null || true
+  sudo sh -c 'chown root:root /etc/sudoers.d/*; chmod 0440 /etc/sudoers.d/*'   # glob expanded as root (directory 0750)
   sudo visudo -c 2>&1 | sed 's/^/      visudo : /' || true
   sudo systemctl start ssh.socket 2>/dev/null || true
   sudo systemctl start ssh.service 2>/dev/null || true
