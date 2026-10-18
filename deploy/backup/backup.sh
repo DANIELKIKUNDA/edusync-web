@@ -35,7 +35,8 @@ run_once() {
   counts "$PGDATABASE" > "$dir/counts.before"
   if ! pg_dump -Fc -f "$dir/db.dump" "$PGDATABASE"; then status false false false "pg_dump en échec"; log "FAIL pg_dump"; return 1; fi
   counts "$PGDATABASE" > "$dir/counts.after"
-  if ! rclone copy --quiet "src:$BUCKET" "$dir/objects"; then status false false false "copie des documents en échec"; log "FAIL objets"; return 1; fi
+  # A fresh installation has no document yet, hence no bucket: create the (private) bucket, idempotent, then copy.
+  if ! rclone mkdir "src:$BUCKET" || ! rclone copy --quiet "src:$BUCKET" "$dir/objects"; then status false false false "copie des documents en échec"; log "FAIL objets"; return 1; fi
   (cd "$dir" && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS)
 
   verified=false
