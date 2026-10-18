@@ -452,6 +452,8 @@ class Controller:
     def backup(self, env: dict[str, str]) -> None:
         code, out = self.compose(env, "exec", "-T", "backup", "sh", "/usr/local/bin/edusync-backup", "once", timeout=3600)
         if code != 0 or "PASS sauvegarde" not in out:
+            for line in out.strip().splitlines()[-6:]:              # the backup script never prints a secret
+                self.log(f"  sauvegarde : {line[:300]}")
             raise Refused("sauvegarde d'avant mise à jour en échec : déploiement annulé, rien n'a changé", EXIT_BACKUP)
         code, out = self.compose(env, "exec", "-T", "backup", "cat", "/backup-status/last.json")
         try:

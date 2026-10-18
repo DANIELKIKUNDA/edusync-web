@@ -98,6 +98,9 @@ check "seul port publié : 127.0.0.1:18080 (rien pour API, PostgreSQL, Redis, Se
 check "aucune écoute générique 5432/6379/8333/8000 par EduSync" bash -c "! ss -ltnH | grep -E '(0\.0\.0\.0|\[::\]|\*):(5432|6379|8333|18080)\b'"
 CUR_BACKEND="$(state current "d['digests']['edusync-backend']")"
 sleep 20   # let the backup service finish its start-up run before the next verified backup
+echo "      sauvegarde de démarrage : $(docker exec "$(service_id backup)" cat /backup-status/last.json 2>&1 || true)"
+docker logs --tail 15 "$(service_id backup)" 2>&1 | sed 's/^/      backup> /'
+set +e; docker exec "$(service_id backup)" sh /usr/local/bin/edusync-backup once 2>&1 | tail -15 | sed 's/^/      once> /'; set -e
 
 section "S2 — échec de la nouvelle version, registre identique → rollback par digests précédents"
 start_watcher "$CUR_BACKEND"
