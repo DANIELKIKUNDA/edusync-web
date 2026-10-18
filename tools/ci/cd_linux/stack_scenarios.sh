@@ -116,6 +116,22 @@ check "sonde MFA" test "$mfa_code" == 0
 docker logs "$(service_id backend)" 2>&1 | grep -E "mfa_(enroll_confirm|verify)_refused" | tail -12 | sed 's/^/      journal API> /' || true
 check "journal API : raisons MFA présentes, aucun secret" bash -c "docker logs $(service_id backend) 2>&1 | grep -q 'reason=' && ! docker logs $(service_id backend) 2>&1 | grep -qiE 'secret=|otpauth'"
 
+section "MFA — image backend linux/arm64 (celle du VPS) : TOTP et chiffrement identiques à amd64"
+docker run --privileged --rm docker.io/tonistiigi/binfmt:qemu-v9.2.2 --install arm64 >/dev/null 2>&1 || true
+printf '%s\n' "$RUN_TOKEN" | docker login ghcr.io -u edusync-ci --password-stdin >/dev/null 2>&1
+ARM_OUT="$(docker run --rm --platform linux/arm64 -e PYTHONPATH=/app/src ghcr.io/danielkikunda/edusync-backend:"$CUR_SHA" python -c '
+import base64, os, platform, time
+from edusync.shared.infrastructure import mfa
+s = base64.b32encode(b"12345678901234567890").decode()
+c = mfa.MfaCipher(bytes(range(32)))
+t = c.encrypt("JBSWY3DPEHPK3PXP", owner="u")
+print(platform.machine(), mfa.totp_code(s, 59 // 30), mfa.totp_code(s, 1111111109 // 30), mfa.totp_code(s, 2000000000 // 30),
+      c.decrypt(t, owner="u") == "JBSWY3DPEHPK3PXP", int(time.time()))' 2>&1)"
+docker logout ghcr.io >/dev/null 2>&1 || true
+echo "      arm64 : ${ARM_OUT}"
+check "arm64 : vecteurs RFC 6238 identiques (287082 081804 279037), chiffrement aller-retour" bash -c "grep -qE '^aarch64 287082 081804 279037 True ' <<<\"\$0\"" "$ARM_OUT"
+check "arm64 : horloge du conteneur = horloge de l'hôte (±5 s)" bash -c "t=\$(awk '{print \$NF}' <<<\"\$0\"); (( t - \$(date +%s) < 5 && \$(date +%s) - t < 30 ))" "$ARM_OUT"
+
 section "S2 — échec de la nouvelle version, registre identique → rollback par digests précédents"
 start_watcher "$CUR_BACKEND"
 expect_code "déploiement $PREV_SHA cassé (backend tué)" 2 deploy_sha "$PREV_SHA" "$RUN_TOKEN"
