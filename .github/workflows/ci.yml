@@ -96,6 +96,15 @@ jobs:
       - name: Secrets (formats sans ambiguïté)
         run: python tools/ci/secret_patterns.py
 
+  cd-privileged:
+    name: CD privilégiée — installation Linux réelle (sshd, sudo, shebang, refus, verrou)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Harnais Linux jetable (tools/ci/cd_linux/privileged_checks.sh)
+        run: bash tools/ci/cd_linux/privileged_checks.sh
+
   images:
     name: Images Docker (amd64 + arm64) → GHCR
     needs: [backend, frontend, security]

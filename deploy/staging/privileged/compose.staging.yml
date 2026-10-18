@@ -1,0 +1,44 @@
+# Staging override, installed root-owned in /etc/edusync-deploy/compose/ (never taken from an application commit).
+# Images: every service runs an image chosen by the deploy controller — application images pinned by digest
+# (ghcr.io/danielkikunda/<image>@sha256:...) after verification, infrastructure images from the controller's fixed list
+# (version + digest). The controller pulls them itself: compose never pulls, never builds.
+# Ports (single owner of public HTTPS = the edge "tls-proxy", profile tls, bound to EDUSYNC_PUBLIC_BIND_ADDRESS only —
+# never 0.0.0.0, so Tailscale (100.x:443) and Coolify (127.0.0.1:8000) are untouched); the API, PostgreSQL, Redis and
+# SeaweedFS publish nothing; nginx is reachable on loopback 127.0.0.1:18080 only, for the controller's smoke tests.
+services:
+  postgres:
+    image: ${EDUSYNC_POSTGRES_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  redis:
+    image: ${EDUSYNC_REDIS_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  object-storage:
+    image: ${EDUSYNC_OBJECT_STORAGE_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  migrator:
+    image: ${EDUSYNC_BACKEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  backend:
+    image: ${EDUSYNC_BACKEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+    ports: !reset []
+  outbox-worker:
+    image: ${EDUSYNC_BACKEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  communications-worker:
+    image: ${EDUSYNC_BACKEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  frontend:
+    image: ${EDUSYNC_FRONTEND_IMAGE:?set by the deploy controller}
+    pull_policy: never
+    ports: !override
+      - "127.0.0.1:18080:80"
+  backup:
+    image: ${EDUSYNC_BACKUP_IMAGE:?set by the deploy controller}
+    pull_policy: never
+  tls-proxy:
+    image: ${EDUSYNC_TLS_PROXY_IMAGE:?set by the deploy controller}
+    pull_policy: never
+    ports: !override
+      - "${EDUSYNC_PUBLIC_BIND_ADDRESS:?set by the deploy controller}:80:80"
+      - "${EDUSYNC_PUBLIC_BIND_ADDRESS:?set by the deploy controller}:443:443"

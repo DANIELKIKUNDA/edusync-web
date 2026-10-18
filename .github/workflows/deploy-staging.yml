@@ -81,14 +81,19 @@ jobs:
           code=$?
           set -e
           case $code in
-            0)  msg="déployé et vérifié (smoke tests PASS)" ;;
-            2)  msg="refusé — rollback automatique vers les digests précédents" ;;
-            3)  msg="refusé — arrêt sûr (migration nouvelle), restauration supervisée (CICD.md §6)" ;;
-            64) msg="requête refusée par la commande forcée" ;;
-            65) msg="vérification refusée (CI, dépôt ou images)" ;;
-            70) msg="échec avant tout changement (sauvegarde, registre) — version précédente intacte" ;;
-            75) msg="un autre déploiement est en cours" ;;
-            78) msg="installation serveur non sûre — réinstallation administrative requise" ;;
+            0)  msg="DEPLOY_SUCCESS — déployé et vérifié (smoke tests PASS)" ;;
+            2)  msg="ROLLBACK_SUCCESS — échec, retour vérifié aux digests précédents" ;;
+            3)  msg="SAFE_STOP_MIGRATION_CHANGED — arrêt sûr, restauration supervisée (CICD.md §7)" ;;
+            4)  msg="ROLLBACK_FAILED — rollback effectué mais smoke tests en échec : application arrêtée (CICD.md §7)" ;;
+            5)  msg="SAFE_STOP_NO_ROLLBACK_TARGET — échec sans version précédente : arrêt sûr" ;;
+            64) msg="REQUEST_REFUSED — requête refusée par la commande forcée ou le contrôleur" ;;
+            65) msg="VERIFICATION_REFUSED — dépôt, CI ou images refusés" ;;
+            70) msg="PRE_CHANGE_FAILED — échec avant tout changement (téléchargement) — version précédente intacte" ;;
+            71) msg="BACKUP_REQUIRED_FAILED — sauvegarde vérifiée impossible : rien n'a changé" ;;
+            72) msg="LEDGER_REQUIRED_FAILED — registre des migrations absent, illisible ou divergent : rien n'a changé" ;;
+            73) msg="PORT_CONFLICT — port ou réseau occupé par un service hors EduSync : rien n'a changé" ;;
+            75) msg="DEPLOY_IN_PROGRESS — un autre déploiement est en cours" ;;
+            78) msg="UNSAFE_INSTALLATION — installation serveur non sûre ou configuration refusée" ;;
             *)  msg="échec SSH ou inattendu (code $code)" ;;
           esac
           echo "### Staging $SHA : $msg" >> "$GITHUB_STEP_SUMMARY"

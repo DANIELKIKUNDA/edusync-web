@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CI = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 CD = (ROOT / ".github/workflows/deploy-staging.yml").read_text(encoding="utf-8")
 CONTROLLER = (ROOT / "deploy/staging/privileged/deploy_controller.py").read_text(encoding="utf-8")
-IMAGES = (ROOT / "deploy/staging/privileged/compose.digests.yml").read_text(encoding="utf-8")
+IMAGES = (ROOT / "deploy/staging/privileged/compose.staging.yml").read_text(encoding="utf-8")
 
 
 def test_ci_runs_tests_typecheck_build_and_security_on_every_push_and_pr():
@@ -30,7 +30,7 @@ def test_images_are_built_only_after_ci_and_tagged_by_commit_sha():
     assert ":latest" not in CI
     for name in ("edusync-backend", "edusync-frontend", "edusync-backup"):
         assert name in images and name in CONTROLLER
-    assert IMAGES.count("pull_policy: never") == 6           # the controller pulls by digest, compose never pulls
+    assert IMAGES.count("pull_policy: never") == 10           # the controller pulls by digest, compose never pulls
 
 
 def test_deployment_is_staging_only_after_successful_ci():
@@ -50,11 +50,11 @@ def test_secrets_are_referenced_by_name_and_never_echoed():
 
 def test_deploy_takes_backup_runs_migrations_smoke_tests_and_rolls_back_or_stops_safely():
     body = CONTROLLER.split("def deploy(self", 1)[1]
-    order = [body.index(x) for x in ("docker, \"pull\"", "self.backup(old_env)", "\"up\", \"--detach\", \"--no-build\"", "self.smoke(new_env")]
+    order = [body.index(x) for x in ("self.preflight_config(", "self.pull_all(", "self.backup(old_env or new_env)", "\"up\", \"--detach\", \"--no-build\"", "self.smoke(new_env")]
     assert order == sorted(order)
     assert "SELECT version FROM schema_migrations" in CONTROLLER and "new_migrations" in body       # exact ledger, not a count
-    assert "not new_migrations" in body and "return EXIT_ROLLED_BACK" in body                     # automatic rollback
-    assert '"stop", *APP_SERVICES' in body and "return EXIT_SAFE_STOP" in body                    # safe stop
+    assert "ledger_after != ledger_before" in body and "self.finish(EXIT_ROLLED_BACK" in body     # rollback only on an identical ledger
+    assert '"stop", *APP_SERVICES' in body and "EXIT_SAFE_STOP," in body and "self.finish(EXIT_ROLLBACK_FAILED" in body
     for check in ("healthy", "migrateur en erreur", "assert_runtime_safe", "/health-api", "/api/v1/setup/status", "boucle de redémarrage"):
         assert check in CONTROLLER, check
 
