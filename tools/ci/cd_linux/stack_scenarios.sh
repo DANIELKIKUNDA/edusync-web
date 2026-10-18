@@ -62,6 +62,8 @@ PY
   rm -f "$WORK/staging.env"
 }
 
+section "Jeton du run (diagnostic sans la valeur)"
+echo "      longueur ${#RUN_TOKEN}, caractères hors [A-Za-z0-9] : $(tr -d 'A-Za-z0-9' <<<"$RUN_TOKEN" | fold -w1 | sort -u | tr -d '\n')"
 setup_host
 install_controller
 write_staging_env

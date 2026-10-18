@@ -4,7 +4,8 @@
 #   restrict,command="/usr/local/libexec/edusync/deploy-gate" ssh-ed25519 AAAA... github-actions-edusync-staging
 # The requested command ($SSH_ORIGINAL_COMMAND) is only PARSED, never executed. The only accepted form is
 #   deploy <40-hex-lowercase-SHA>
-# The ephemeral registry / API token arrives as one bounded line on stdin. Both are handed to the root controller
+# The ephemeral registry / API token (GITHUB_TOKEN: opaque, possibly long, base64url / JWT characters) arrives as one
+# bounded line on stdin; it is never interpreted by the shell. Both are handed to the root controller
 # through stdin; sudo is called with an absolute path and no argument (sudoers allows exactly that, nothing else).
 set -euo pipefail
 umask 077
@@ -21,8 +22,9 @@ fi
 sha="${BASH_REMATCH[1]}"
 
 token=""
-IFS= read -r -t 15 -n 300 token || true
-if [[ ! "$token" =~ ^[A-Za-z0-9_]{20,255}$ ]]; then
+IFS= read -r -t 15 -n 4200 token || true
+# Length checked apart: POSIX regex repetition bounds stop at RE_DUP_MAX (255).
+if (( ${#token} < 20 || ${#token} > 4096 )) || [[ ! "$token" =~ ^[A-Za-z0-9._~+/=-]+$ ]]; then
   echo "Refusé : jeton éphémère absent ou invalide sur l'entrée standard." >&2
   exit 64
 fi

@@ -7,7 +7,7 @@ configuration, staging.env, state, logs) lives under root-owned paths and is rei
 The shebang flags are ONE argument ("-IS" = isolated mode + no site): Linux passes everything after the interpreter
 path as a single argument, so "-I -S" would not work.
 
-Input  : stdin only, at most 1 KiB, exactly two lines — the full 40-hex commit SHA, then the ephemeral GitHub token of
+Input  : stdin only, at most 4200 bytes, exactly two lines — the full 40-hex commit SHA, then the ephemeral GitHub token of
          the deployment run (read the CI result, pull the images). No argument is accepted.
 Checks : SHA syntax; commit of DANIELKIKUNDA/edusync-web; workflow .github/workflows/ci.yml run on a push of main or a
          tag edusync-* concluded success for that exact SHA; application images only from the three allowed GHCR
@@ -71,11 +71,11 @@ COMPOSE_SUBNET = ipaddress.ip_network("172.30.57.0/24")
 FORBIDDEN_PUBLIC_NETS = tuple(ipaddress.ip_network(n) for n in ("0.0.0.0/8", "127.0.0.0/8", "100.64.0.0/10", "169.254.0.0/16", "224.0.0.0/4", "255.255.255.255/32"))
 SAFE_PATH = "/usr/sbin:/usr/bin:/sbin:/bin"
 SHA_RE = re.compile(r"\A[0-9a-f]{40}\Z")
-TOKEN_RE = re.compile(r"\A[A-Za-z0-9_]{20,255}\Z")
+TOKEN_RE = re.compile(r"\A[A-Za-z0-9._~+/=-]{20,4096}\Z")    # GITHUB_TOKEN: opaque, base64url / JWT characters
 DIGEST_RE = re.compile(r"\Asha256:[0-9a-f]{64}\Z")
 INFRA_REF_RE = re.compile(r"\Adocker\.io/[a-z0-9]+(?:[._/-][a-z0-9]+)*:[A-Za-z0-9][A-Za-z0-9._-]{0,127}@sha256:[0-9a-f]{64}\Z")
 VERSION_RE = re.compile(r"\A[0-9A-Za-z_]{1,128}\Z")
-MAX_STDIN = 1024
+MAX_STDIN = 4200
 INDEX_TYPES = ("application/vnd.oci.image.index.v1+json", "application/vnd.docker.distribution.manifest.list.v2+json")
 
 EXIT_OK, EXIT_ROLLED_BACK, EXIT_SAFE_STOP, EXIT_ROLLBACK_FAILED, EXIT_SAFE_STOP_NO_TARGET = 0, 2, 3, 4, 5

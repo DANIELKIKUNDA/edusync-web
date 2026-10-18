@@ -51,6 +51,13 @@ def run_gate(tmp_path, command, stdin=TOKEN + "\n", extra_env=None):
 
 
 @pytest.mark.skipif(BASH is None, reason="bash absent")
+@pytest.mark.parametrize("token", [TOKEN, "ghs_" + "Ab9-_." * 60, "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJyZXBvIn0.c2lnbmF0dXJl-_x"])
+def test_gate_accepts_long_github_token_formats(tmp_path, token):
+    r, args, fed = run_gate(tmp_path, f"deploy {SHA}", stdin=token + "\n")
+    assert r.returncode == 0 and fed == f"{SHA}\n{token}\n", r.stderr
+    assert dc.parse_request(fed.encode()) == (SHA, token)
+
+
 def test_gate_accepts_exactly_deploy_full_sha_and_calls_only_the_controller(tmp_path):
     r, args, fed = run_gate(tmp_path, f"deploy {SHA}")
     assert r.returncode == 0, (r.returncode, r.stderr, args, fed)
@@ -72,7 +79,8 @@ def test_gate_refuses_everything_else(tmp_path, command):
 
 
 @pytest.mark.skipif(BASH is None, reason="bash absent")
-@pytest.mark.parametrize("stdin", ["", "court\n", "tok en avec espaces " + "A" * 30 + "\n", "$(id)" + "A" * 30 + "\n", "A" * 400 + "\n"])
+@pytest.mark.parametrize("stdin", ["", "court\n", "tok en avec espaces " + "A" * 30 + "\n", "$(id)" + "A" * 30 + "\n", "A" * 5000 + "\n",
+                                   "jeton;id" + "A" * 30 + "\n", "jeton`id`" + "A" * 30 + "\n", "jeton|sh" + "A" * 30 + "\n"])
 def test_gate_refuses_missing_or_malformed_token(tmp_path, stdin):
     r, args, _ = run_gate(tmp_path, f"deploy {SHA}", stdin=stdin)
     assert r.returncode == 64 and args is None
@@ -97,7 +105,7 @@ def test_gate_never_executes_the_original_command():
 
 # =============================================================== controller: request parsing and policy
 @pytest.mark.parametrize("raw", [b"", SHA.encode(), f"{SHA}\n".encode(), f"{SHA[:7]}\n{TOKEN}\n".encode(), f"{SHA}\n{TOKEN}\nextra\n".encode(),
-                                 f"{SHA};id\n{TOKEN}\n".encode(), f"{SHA}\nbad token\n".encode(), b"x" * 2000, "é\n".encode()])
+                                 f"{SHA};id\n{TOKEN}\n".encode(), f"{SHA}\nbad token\n".encode(), b"x" * 5000, "é\n".encode()])
 def test_controller_refuses_malformed_requests(raw):
     with pytest.raises(dc.Refused) as e:
         dc.parse_request(raw)
