@@ -11,6 +11,7 @@ Usage: python3 mfa_probe.py BASE_URL HOST ORIGIN SETUP_TOKEN
 from __future__ import annotations
 
 import base64
+from email.utils import parsedate_to_datetime
 import hashlib
 import hmac
 import http.cookiejar
@@ -79,8 +80,7 @@ password = "Mfa-" + secrets.token_urlsafe(18)
 c = Client()
 
 with urllib.request.urlopen(urllib.request.Request(BASE + "/health-api", headers={"Host": HOST}), timeout=30) as r:
-    import email.utils
-    skew = email.utils.parsedate_to_datetime(r.headers["Date"]).timestamp() - time.time()
+    skew = parsedate_to_datetime(r.headers["Date"]).timestamp() - time.time()
 print(f"      écart d'horloge serveur/sonde : {skew:+.1f} s (TOTP : temps Unix)")
 code, st = c.get("/api/v1/setup/status")
 result(code == 200 and st.get("setup_required") is True, "installation vierge : création du premier Manager disponible")
