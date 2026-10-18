@@ -92,7 +92,8 @@ check "verdict DEPLOY_SUCCESS" verdict_is DEPLOY_SUCCESS
 check "hôte vierge reconnu explicitement" sudo grep -q "hôte vierge reconnu" /var/log/edusync-deploy/deploy.log
 for ref in $INFRA_REFS; do check "préparée par digest : ${ref%@*}" docker image inspect "$ref" -f '{{.Id}}'; done
 check "PWA, santé et API servies (127.0.0.1:18080)" health_ok
-PUBLISHED="$(docker ps "${PROJECT_FILTER[@]}" --format '{{.Ports}}' | grep -oE '[0-9a-f.:\[\]]+:[0-9]+->[0-9]+/tcp' | sort -u | tr '\n' ' ')"
+PUBLISHED="$(docker ps "${PROJECT_FILTER[@]}" --format '{{.Ports}}' | tr ',' '\n' | sed 's/^ *//' | { grep -F -- '->' || true; } | sort -u | tr '\n' ' ')"
+echo "      ports publiés par edusync-staging : $PUBLISHED"
 check "seul port publié : 127.0.0.1:18080 (rien pour API, PostgreSQL, Redis, SeaweedFS)" test "$PUBLISHED" == "127.0.0.1:18080->80/tcp "
 check "aucune écoute générique 5432/6379/8333/8000 par EduSync" bash -c "! ss -ltnH | grep -E '(0\.0\.0\.0|\[::\]|\*):(5432|6379|8333|18080)\b'"
 CUR_BACKEND="$(state current "d['digests']['edusync-backend']")"
