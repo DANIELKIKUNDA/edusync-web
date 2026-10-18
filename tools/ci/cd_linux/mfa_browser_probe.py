@@ -53,7 +53,12 @@ with sync_playwright() as p:
             (confirms.append(r.url) if r.url.endswith("/auth/mfa/enroll/confirm") else None))
     page.on("console", lambda m: console_errors.append(m.text[:160]) if m.type == "error" else None)
 
-    page.goto(f"http://{HOST}/", wait_until="networkidle")
+    page.goto(f"http://{HOST}/", wait_until="domcontentloaded", timeout=60000)
+    try:
+        page.wait_for_selector("#su-name", timeout=60000)
+    except Exception:
+        print(f"      page : {page.url} — {(page.text_content('body') or '')[:300]}")
+        raise
     page.fill("#su-name", "Manager Navigateur")
     page.fill("#su-email", email)
     page.fill("#su-pass", password)
