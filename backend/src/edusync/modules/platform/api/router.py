@@ -295,7 +295,7 @@ def platform_schools_page(q: str|None=None,status: str|None=None,needs_admin: bo
                JOIN rbac_roles r2 ON r2.id=a2.role_id AND r2.code='ADMIN_SYSTEME_ECOLE' WHERE m2.school_id=s.id)))"""
     args={'q':q.strip() if q else None,'status':status,'na':bool(needs_admin)}
     with services.platform_db.platform_transaction() as c:
-        total=int(c.execute(text(f"SELECT count(*) FROM schools s WHERE {filters}"),args).scalar_one())
+        total=int(c.execute(text("SELECT count(*) FROM schools s WHERE "+filters),args).scalar_one())
         rows=c.execute(text("""SELECT s.id,s.code,s.name,s.status,s.email,s.phone,s.created_at,s.updated_at,s.version,
           count(DISTINCT m.id) FILTER(WHERE m.active=true) active_memberships,
           count(DISTINCT a.membership_id) FILTER(WHERE a.active=true AND r.code='ADMIN_SYSTEME_ECOLE') admin_count
@@ -314,7 +314,7 @@ def platform_access(q:str|None=None,active_only:bool=False,limit:int=50,offset:i
           AND (NOT :ao OR (u.active AND EXISTS (SELECT 1 FROM school_memberships m2 WHERE m2.user_id=u.id AND m2.active)))"""
     args={'q':q.strip() if q else None,'ao':bool(active_only)}
     with services.platform_db.platform_transaction() as c:
-        total=int(c.execute(text(f"SELECT count(*) FROM users u WHERE {filters}"),args).scalar_one())
+        total=int(c.execute(text("SELECT count(*) FROM users u WHERE "+filters),args).scalar_one())
         rows=c.execute(text("""SELECT u.id,u.full_name,u.email,u.active,u.is_platform_admin,u.created_at,
           count(DISTINCT m.id) FILTER(WHERE m.active=true) school_memberships,
           bool_or(pr.code='COLLABORATEUR_PLATEFORME' AND pa.active=true) collaborator_platform,
