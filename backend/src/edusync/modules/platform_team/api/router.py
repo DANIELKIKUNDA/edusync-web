@@ -38,7 +38,7 @@ CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,63}$")
 MENU = (
     ("dashboard", "Tableau de bord", "platform.schools.read"),
     ("schools", "Écoles", "platform.schools.read"),
-    ("access", "Accès écoles", "platform.schools.read"),
+    ("access", "Utilisateurs & accès", "platform.schools.read"),
     ("team", "Équipe plateforme", TEAM_CAP),
     ("notifications", "Notifications", "platform.notifications.system.send"),
     ("audit", "Audit", "platform.audit.read"),

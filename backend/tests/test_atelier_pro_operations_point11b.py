@@ -28,8 +28,10 @@ def test_atelier_pro_directories_are_searchable_and_paginated():
     # Schools module lot 2026-10 (justified adaptation): the schools screen moved to platform/schools.tsx + school_sheet.tsx
     # and its SQL to application/schools_directory.py; same intent, new implementation.
     schools=text('frontend/src/platform/schools.tsx')
-    assert 'searchAccess' in ui and 'setQInput' in schools and 'next_cursor' in schools and 'Charger la suite' in schools
-    assert "access.offset+access.limit" in ui
+    assert 'setQInput' in schools and 'next_cursor' in schools and 'Charger la suite' in schools
+    # lot « Utilisateurs & accès » 2026-10: the accounts directory is platform/identities.tsx (instant search, keyset cursor)
+    accounts=text('frontend/src/platform/identities.tsx')
+    assert '<AccessDirectory ' in ui and 'setQInput' in accounts and 'next_cursor' in accounts and 'Charger la suite' in accounts
     # N1 certification 2026-10 (justified adaptation): the audit journal moved to platform/audit.tsx on the
     # filtered /platform/audit-log endpoint; it is still keyset-paginated by cursor (same intent).
     audit=text('frontend/src/platform/audit.tsx')

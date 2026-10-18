@@ -73,7 +73,8 @@ export function SchoolsModule({token, has, preset, active, onChanged}: Props) {
   // Dashboard → filtered list (one source of truth with the indicator that was clicked).
   useEffect(() => {
     if (!preset) return;
-    if (preset.openId) { setOpenSchool(preset.openId); writeUrl(f, page, preset.openId, true); return; }
+    // the caller has just pushed the schools screen: the sheet takes that history entry (one Back returns to the caller)
+    if (preset.openId) { setOpenSchool(preset.openId); writeUrl(f, page, preset.openId); return; }
     const next: SchoolFilters = {q: '', status: (preset.status || '') as SchoolFilters['status'], config: '', sort: 'name', needsAdmin: preset.filter === 'needs_admin'};
     setQInput(''); setF(next); setCursors([null]); setPage(1); setOpenSchool(null); setExtra([]);
   }, [preset?.nonce]);

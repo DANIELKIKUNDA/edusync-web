@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from uuid import UUID, uuid4
 
@@ -495,6 +496,45 @@ def platform_access(q:str|None=None,active_only:bool=False,limit:int=50,offset:i
           GROUP BY u.id ORDER BY lower(u.full_name),u.id LIMIT :lim OFFSET :off"""),{**args,'lim':limit+1,'off':offset}).mappings().all()
     more=len(rows)>limit
     return {'items':[dict(x) for x in rows[:limit]],'limit':limit,'offset':offset,'has_more':more,'total':total,'can_manage_collaborators':'platform.collaborators.manage' in actor.permissions}
+
+@router.get('/identities')
+def platform_identities(q: str|None=None, scope: str|None=None, status: str|None=None, school_id: UUID|None=None, role: str|None=None,
+                        active_only: bool=False, cursor: str|None=None, limit: int=25,
+                        actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Annuaire « Utilisateurs & accès » (read only): platform and school identities, keyset-paginated, searched server side."""
+    actor.require('platform.schools.read')
+    from edusync.modules.platform.application.identities_directory import SCOPES, STATUSES, list_identities
+    if (scope and scope not in SCOPES) or (status and status not in STATUSES) or (role and not re.fullmatch(r"[A-Z0-9_]{2,64}", role)):
+        raise HTTPException(422, 'Filtre inconnu')
+    if q and len(q) > 80:
+        raise HTTPException(422, 'Recherche trop longue')
+    with services.platform_db.platform_transaction() as c:
+        try:
+            return list_identities(c, q=q, scope=scope, status=status, school_id=school_id, role=role, active_only=active_only,
+                                   cursor=cursor, limit=max(1, min(limit, 100)))
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+
+@router.get('/identities/filters')
+def platform_identity_filters(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    actor.require('platform.schools.read')
+    from edusync.modules.platform.application.identities_directory import filter_roles
+    with services.platform_db.platform_transaction() as c:
+        return {'roles': filter_roles(c)}
+
+
+@router.get('/identities/{user_id}')
+def platform_identity_detail(user_id: UUID, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Read-only detail. Security signals (second factor, open sessions) only for those who already see them in Équipe plateforme."""
+    actor.require('platform.schools.read')
+    from edusync.modules.platform.application.identities_directory import identity_detail
+    with services.platform_db.platform_transaction() as c:
+        d = identity_detail(c, user_id, can_security='platform.collaborators.manage' in actor.permissions)
+    if d is None:
+        raise HTTPException(404, 'Compte introuvable')
+    return {**d, 'can_manage_collaborators': 'platform.collaborators.manage' in actor.permissions}
+
 
 @router.get('/audit')
 def platform_audit(limit:int=50,cursor_at:str|None=None,cursor_id:UUID|None=None,actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):

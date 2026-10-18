@@ -33,7 +33,9 @@ def test_mobile_metrics_are_compact_two_by_two():
     assert '@media(max-width:360px)' in css
 
 def test_platform_access_ui_exposes_manager_controlled_collaboration():
-    app=read('frontend/src/App.tsx')
-    assert 'Collaborateur plateforme' in app
-    assert 'Donner accès plateforme' in app
-    assert 'platformGrantCollaborator' in app and 'platformRevokeCollaborator' in app
+    # Lot « Utilisateurs & accès » 2026-10: the existing collaborator action moved, unchanged, from the access table row
+    # to the read-only account detail (platform/identities.tsx); same capability, same step-up, same audit.
+    ui=read('frontend/src/platform/identities.tsx')
+    assert 'Collaborateur plateforme' in ui
+    assert 'Donner un accès collaborateur plateforme' in ui and 'can_manage_collaborators' in ui
+    assert 'platformGrantCollaborator' in ui and 'platformRevokeCollaborator' in ui

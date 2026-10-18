@@ -29,6 +29,7 @@ import {AppShell,StatusChip,type ShellAccount,type ShellNavItem} from './platfor
 import {NotificationBell,PreferencesDialog,ProfileDialog,SecurityDialog,StepUpDialog} from './platform/account';
 import {PlatformDashboard,type DashboardTarget} from './platform/dashboard';
 import {SchoolsModule,type SchoolsPreset} from './platform/schools';
+import {AccessDirectory,ACCESS_URL_KEYS,type AccessPreset} from './platform/identities';
 import {SchoolFormDialog} from './platform/school_sheet';
 import {usePlatformTheme,type ThemePref} from './platform/theme';
 import {setStepUpHandler} from './platform/connectivity';
@@ -54,8 +55,8 @@ const SCHOOL_SESSION='edusync.school.session';
 
 type SavedSchoolSession={token:string;school:SchoolLoginResult['school'];user:SchoolLoginResult['user'];permissions:string[]};
 
-/** A reloaded or shared link to the schools screen (?school=<id>, filters) opens that screen, not the dashboard. */
-const schoolsDeepLink=():'dashboard'|'schools'=>/[?&](school|q|status|config|sort|page|needs_admin)=/.test(window.location.search)?'schools':'dashboard';
+/** A reloaded or shared link to the schools or accounts screen (?school=<id>, ?user=<id>, filters) opens that screen, not the dashboard. */
+const schoolsDeepLink=():'dashboard'|'schools'|'access'=>ACCESS_URL_KEYS.test(window.location.search)?'access':/[?&](school|q|status|config|sort|page|needs_admin)=/.test(window.location.search)?'schools':'dashboard';
 function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogout:()=>void}){
   const [tab,setTab]=useState<'dashboard'|'schools'|'access'|'team'|'notifications'|'audit'|'diagnostics'|'messaging'>(schoolsDeepLink);
   // Server-computed identity and menu: a PLATFORM_CUSTOM account only sees (and only loads) what its roles open.
@@ -63,28 +64,26 @@ function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogo
   const can=(key:string)=>!!me?.menu.some(m=>m.key===key);
   const has=(cap:string)=>!!me?.permissions.includes(cap);
   useEffect(()=>{replaceMobileRoot('platform',schoolsDeepLink());const h=(e:Event)=>{const d=(e as CustomEvent).detail;if(d?.edusyncScope==='platform'&&d.edusyncScreen)setTab(d.edusyncScreen)};window.addEventListener('edusync:android-back',h);return()=>window.removeEventListener('edusync:android-back',h)},[]);
-  const goTab=(next:typeof tab)=>{if(tab==='dashboard'&&next!=='dashboard')dashScroll.current=window.scrollY;if(tab==='schools'&&next!=='schools'&&window.location.search)history.replaceState(history.state,'',window.location.pathname);if(next!==tab)pushMobileScreen('platform',next);setTab(next)};
-  const [access,setAccess]=useState<any>({items:[]}),[systemNotifications,setSystemNotifications]=useState<any>({items:[]});
-  const [accessQ,setAccessQ]=useState(''),[accessActive,setAccessActive]=useState(false),[error,setError]=useState('');
-  const [dashKey,setDashKey]=useState(0);const loaded=useRef({access:false});const dashScroll=useRef(0);
+  const goTab=(next:typeof tab)=>{if(tab==='dashboard'&&next!=='dashboard')dashScroll.current=window.scrollY;if(next!==tab){pushMobileScreen('platform',next);/* the new screen starts with a clean URL; the left one keeps its own (back restores it) */if(window.location.search)history.replaceState(history.state,'',window.location.pathname)}setTab(next)};
+  const [systemNotifications,setSystemNotifications]=useState<any>({items:[]});
+  const [error,setError]=useState('');
+  const [dashKey,setDashKey]=useState(0);const dashScroll=useRef(0);
   const [notificationOpen,setNotificationOpen]=useState(false);
   const [schoolsPreset,setSchoolsPreset]=useState<SchoolsPreset|null>(null);const [schoolsVisited,setSchoolsVisited]=useState(false);
   const [creatingSchool,setCreatingSchool]=useState(false);
-  const [collaboratorAction,setCollaboratorAction]=useState<any|null>(null);
+  const [accessPreset,setAccessPreset]=useState<AccessPreset|null>(null);const [accessVisited,setAccessVisited]=useState(false);
   // Step-up (decision 2026-10-13): sensitive actions ask for a fresh code through this dialog, then resume by themselves.
   const [stepUp,setStepUp]=useState<((ok:boolean)=>void)|null>(null);
   useEffect(()=>{setStepUpHandler(()=>new Promise<boolean>(resolve=>setStepUp(()=>resolve)));return()=>setStepUpHandler(null)},[]);
   const schoolSchema=z.object({name:z.string().trim().min(2,'Le nom de l’école est obligatoire.'),code:z.string().trim().min(2,'Le code établissement est obligatoire.').max(24,'Le code est trop long.')});type SchoolCreateForm=z.infer<typeof schoolSchema>;const schoolForm=useForm<SchoolCreateForm>({resolver:zodResolver(schoolSchema),defaultValues:{name:'',code:''},...formDefaults});
   // Lists load when their screen opens (the dashboard has its own single request): no request burst at start-up.
-  async function loadAccess(f={q:accessQ,activeOnly:accessActive}){try{setError('');setAccess(await platformAccess(token,f.q,0,f.activeOnly));loaded.current.access=true}catch(e){setError(friendlyError(e))}}
-  async function refresh(){setDashKey(k=>k+1);if(loaded.current.access)await loadAccess()}
+  async function refresh(){setDashKey(k=>k+1)}
   useEffect(()=>{let alive=true;platformMe(token).then(m=>{if(!alive)return;setMe(m);if(!m.menu.some(x=>x.key==='dashboard')&&m.menu[0])setTab(m.menu[0].key as typeof tab);else if(!m.menu.some(x=>x.key==='schools'))setTab(t=>t==='schools'?'dashboard':t)}).catch(e=>alive&&setError(friendlyError(e)));return()=>{alive=false}},[token]);
-  useEffect(()=>{if(!me)return;if(tab==='schools')setSchoolsVisited(true);if(tab==='access'&&!loaded.current.access&&can('access'))void loadAccess()},[tab,me]);
-  const searchAccess=()=>loadAccess();
+  useEffect(()=>{if(!me)return;if(tab==='schools')setSchoolsVisited(true);if(tab==='access')setAccessVisited(true)},[tab,me]);
   // Dashboard -> filtered view -> back: the dashboard stays mounted (data and scroll position kept).
   function openTarget(t:DashboardTarget){
     if(t.tab==='schools')setSchoolsPreset({status:t.status,filter:t.filter,nonce:Date.now()});
-    if(t.tab==='access'){const f={q:'',activeOnly:Boolean(t.activeOnly)};setAccessQ('');setAccessActive(f.activeOnly);loaded.current.access=true;void loadAccess(f)}
+    if(t.tab==='access')setAccessPreset({activeOnly:Boolean(t.activeOnly),nonce:Date.now()});
     goTab(t.tab);window.scrollTo(0,0)}
   useLayoutEffect(()=>{if(tab==='dashboard')window.scrollTo(0,dashScroll.current)},[tab]);
   const [theme,setTheme]=usePlatformTheme(user.email);
@@ -94,7 +93,7 @@ function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogo
   useEffect(()=>{if(me?.avatar_version)void loadAvatar()},[me?.avatar_version]);
   useEffect(()=>()=>{if(avatarUrl)URL.revokeObjectURL(avatarUrl)},[avatarUrl]);
   const photo={url:avatarUrl,upload:async(f:File)=>{await uploadPlatformAvatar(token,f);await loadAvatar()},remove:async()=>{await deletePlatformAvatar(token);setAvatarUrl(undefined)}};
-  const NAV_DEF:[typeof tab,string,string][]=[['dashboard','cockpit','Tableau de bord'],['schools','school','Écoles'],['access','lock','Accès écoles'],['team','users','Équipe plateforme'],['notifications','bell','Notifications système'],['audit','audit','Journal d’audit'],['diagnostics','pulse','État du service'],['messaging','bell','Messagerie']];
+  const NAV_DEF:[typeof tab,string,string][]=[['dashboard','cockpit','Tableau de bord'],['schools','school','Écoles'],['access','lock','Utilisateurs & accès'],['team','users','Équipe plateforme'],['notifications','bell','Notifications système'],['audit','audit','Journal d’audit'],['diagnostics','pulse','État du service'],['messaging','bell','Messagerie']];
   const roleLabel=me?.roles.map(r=>r.label.replace(/^Manager syst[eè]me$/i,'Manager Système')).join(' · ');
   const nav:any[]=NAV_DEF.filter(([k])=>can(k)).map(([k,icon,label])=>[icon,label,tab===k,()=>goTab(k),k]);
   return <Shell title="Plateforme EduSync" subtitle="Pilotage et administration de la plateforme EduSync" onLogout={onLogout} nav={nav} user={user} token={token} roleLabel={roleLabel} theme={theme} onTheme={setTheme} photo={photo}>
@@ -106,14 +105,12 @@ function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogo
     {tab==='team'&&can('team')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><TeamPage token={token}/></Suspense>}
     {me&&can('dashboard')&&<div hidden={tab!=='dashboard'}><PlatformDashboard key={dashKey} token={token} userName={me?.user.full_name||user.full_name} can={can} has={has} onOpen={openTarget} onCreateSchool={()=>setCreatingSchool(true)}/></div>}
     {can('schools')&&(schoolsVisited||tab==='schools')&&<div hidden={tab!=='schools'}><SchoolsModule token={token} has={has} preset={schoolsPreset} active={tab==='schools'} onChanged={()=>setDashKey(k=>k+1)}/></div>}
-    {tab==='access'&&<Panel title="Accès et identités" subtitle="Comptes et rattachements aux écoles. Les droits métier sont gérés par rôle dans chaque école."><form className="inlineForm" onSubmit={e=>{e.preventDefault();void searchAccess()}}><input value={accessQ} onChange={e=>setAccessQ(e.target.value)} placeholder="Nom ou adresse e-mail"/><button>Rechercher</button></form>
-    <p className="listCount" role="status">{typeof access.total==='number'?<><b>{access.total}</b> compte(s){accessActive?' avec un accès actif':''}</>:'\u00a0'}{accessActive&&<button type="button" className="chipClear" onClick={()=>{setAccessActive(false);void loadAccess({q:accessQ,activeOnly:false})}} aria-label="Retirer le filtre accès actifs">Accès actifs ×</button>}</p><div className="dataTable"><div className="row platformAccessRow header"><span>Utilisateur</span><span>Type</span><span>Écoles</span><span>Statut</span></div>{access.items.map((x:any)=><div className="row platformAccessRow" key={x.id}><span><b>{x.full_name}</b><small>{x.email}</small></span><span>{x.collaborator_platform?'Collaborateur plateforme':x.is_platform_admin?'Manager système':'Compte école'}</span><span>{x.schools||'—'}</span><span><em className={x.active?'pill ready':'pill'}>{x.active?'Actif':'Désactivé'}</em>{access.can_manage_collaborators&&x.active&&<button className="ghost compactAction" onClick={()=>setCollaboratorAction(x)}>{x.collaborator_platform?'Retirer collaboration':'Donner accès plateforme'}</button>}</span></div>)}</div>{access.has_more&&<button className="ghost" onClick={async()=>{const n=await platformAccess(token,accessQ,access.offset+access.limit,accessActive);setAccess({...n,items:[...access.items,...n.items]})}}>Charger plus</button>}</Panel>}
+    {can('access')&&(accessVisited||tab==='access')&&<div hidden={tab!=='access'}><AccessDirectory token={token} has={has} preset={accessPreset} active={tab==='access'} onOpenSchool={id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')}} onOpenTeam={()=>goTab('team')}/></div>}
     {tab==='notifications'&&<Panel title="Notifications" subtitle="Messages internes ciblés vers les écoles ou l’équipe plateforme. Chaque envoi est audité ; aucun SMS n’est envoyé."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><CampaignsPanel token={token} canTeam={has('platform.collaborators.manage')}/></Suspense></Panel>}
     {tab==='audit'&&<Panel title="Journal d’audit" subtitle="Toutes les actions tracées de la plateforme et des écoles. Rien ne peut y être modifié ni supprimé."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><AuditPanel token={token} canExport={has('platform.audit.export')}/></Suspense></Panel>}
     {tab==='messaging'&&<Panel title="Messagerie" subtitle="Fournisseurs SMS, e-mail et push, file d’envoi, portefeuilles SMS des écoles. Jamais le contenu des messages des écoles."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformMessaging token={token} canCredit={Boolean(me?.permissions.includes('platform.sms_wallet.credit'))}/></Suspense></Panel>}
     {tab==='diagnostics'&&<Panel title="Santé du système" subtitle="Mesures réelles prises à l’instant : temps de réponse, signaux des tâches de fond, erreurs, sauvegardes."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><HealthPanel token={token}/></Suspense></Panel>}
     {notificationOpen&&<PlatformNotificationDialog token={token} schools={[]} onClose={()=>setNotificationOpen(false)} onDone={async()=>{setNotificationOpen(false);setSystemNotifications(await platformSystemNotifications(token,0));await refresh()}}/>}
-  {collaboratorAction&&<PlatformCollaboratorDialog user={collaboratorAction} onClose={()=>setCollaboratorAction(null)} onConfirm={async(reason)=>{try{if(collaboratorAction.collaborator_platform)await platformRevokeCollaborator(token,collaboratorAction.id,reason);else await platformGrantCollaborator(token,collaboratorAction.id,reason);toast.success(collaboratorAction.collaborator_platform?'Collaboration retirée':'Collaborateur plateforme activé');setCollaboratorAction(null);await searchAccess()}catch(e){setError(friendlyError(e))}}}/>}
   </Shell>
 }
 
@@ -232,7 +229,6 @@ function ModuleLoader(){return <div className="moduleLoader"><div className="loa
 function Loading(){return <ModuleLoader/>}
 function Kpi({icon,value,label}:{icon:string;value:React.ReactNode;label:string}){return <article><span aria-hidden="true"><NavGlyph g={icon} size={20}/></span><b>{value}</b><small>{label}</small></article>}
 function Panel({title,subtitle,children}:{title:string;subtitle?:string;children:React.ReactNode}){return <section className="panel"><div className="panelHead"><div><h3>{title}</h3>{subtitle&&<p>{subtitle}</p>}</div></div>{children}</section>}
-function PlatformCollaboratorDialog({user,onClose,onConfirm}:{user:any;onClose:()=>void;onConfirm:(reason:string)=>Promise<void>}){const [reason,setReason]=useState('');const [busy,setBusy]=useState(false);const revoke=Boolean(user.collaborator_platform);return <div className="modalBackdrop" onMouseDown={e=>e.currentTarget===e.target&&onClose()}><section className="platformActionModal" role="dialog" aria-modal="true" aria-label="Collaboration plateforme"><div className="modalHead"><div><h3>{revoke?'Retirer la collaboration':'Donner un accès collaborateur'}</h3><p>{user.full_name} · {user.email}</p></div><button className="ghost" onClick={onClose}>×</button></div><p className="collaboratorDoctrine">Le Collaborateur plateforme peut consulter les écoles, l’audit et les diagnostics. Il ne peut ni créer/suspendre une école, ni créer un administrateur, ni gérer d’autres collaborateurs.</p><label>Motif *<textarea value={reason} onChange={e=>setReason(e.target.value)} rows={3}/></label><div className="modalActions"><button className="ghost" onClick={onClose}>Annuler</button><button disabled={busy||reason.trim().length<5} onClick={async()=>{setBusy(true);try{await onConfirm(reason.trim())}finally{setBusy(false)}}}>{revoke?'Retirer':'Accorder'}</button></div></section></div>}
 
 type PlatformUser={full_name:string;email:string};
 function Shell({title,subtitle,onLogout,nav,children,user,token,roleLabel,theme,onTheme,photo}:{title:string;subtitle:string;token?:string;roleLabel?:string;theme:ThemePref;onTheme:(t:ThemePref)=>void;photo:{url?:string;upload:(f:File)=>Promise<void>;remove:()=>Promise<void>};onLogout:()=>void;nav:[string,string,boolean,(()=>void)?,string?][];children:React.ReactNode;user:PlatformUser}){const [dialog,setDialog]=useState<''|'profile'|'security'|'preferences'>('');const shellNav:ShellNavItem[]=nav.map(([icon,label,active,go,key],i)=>({key:key||label,label,icon,active,onSelect:()=>go?.(),primary:i<3,shortLabel:label.split(' ')[0]}));const role=roleLabel||'Équipe plateforme';const context=`Plateforme EduSync · ${role}`;const account:ShellAccount={name:user.full_name||'Membre de l’équipe',email:user.email,context,role,avatarUrl:photo.url,items:[{key:'profile',label:'Mon profil',icon:'user',onSelect:()=>setDialog('profile')},{key:'security',label:'Sécurité et appareils',icon:'shield',onSelect:()=>setDialog('security')},{key:'preferences',label:'Préférences',icon:'sliders',onSelect:()=>setDialog('preferences')},{key:'logout',label:'Se déconnecter',icon:'logout',onSelect:onLogout,danger:true}]};return <AppShell accountDock orgLabel="Plateforme" orgCode="Administration de la plateforme" mobileTitle="Plateforme EduSync" nav={shellNav} title={nav.find(n=>n[2])?.[1]||title} context={subtitle} tools={<>{token&&<NotificationBell token={token} canDismiss scope="platform"/>}<StatusChip/></>} account={account}>{children}{dialog==='profile'&&<ProfileDialog platform name={account.name} email={user.email} context={context} avatarUrl={photo.url} onPhotoUpload={photo.upload} onPhotoRemove={photo.remove} onClose={()=>setDialog('')}/>}{dialog==='security'&&token&&<SecurityDialog platform token={token} onClose={()=>setDialog('')} onPasswordChanged={onLogout}/>}{dialog==='preferences'&&<PreferencesDialog theme={theme} onTheme={onTheme} onClose={()=>setDialog('')}/>}</AppShell>}
