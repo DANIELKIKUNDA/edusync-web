@@ -21,7 +21,8 @@ function when(iso: string) {
 /** Internal links only (validated server-side and in the database); never an external URL. */
 function safeLink(path: string | null) { return path && /^\/[A-Za-z0-9/_?=&.-]*$/.test(path) && !path.startsWith('//') ? path : null; }
 
-function Item({n, onRead, canRead}: {n: InboxItem; onRead: (n: InboxItem) => void; canRead: boolean}) {
+/** Also used as the recipient preview of the composer (same component as the real bell). */
+export function Item({n, onRead, canRead}: {n: InboxItem; onRead: (n: InboxItem) => void; canRead: boolean}) {
   const sev = SEV[n.severity] || SEV.INFO; const link = safeLink(n.link_path);
   return <li className={`nc-item ${n.read_at ? '' : 'nc-unread'} ${sev.cls}`}>
     <span className="nc-sev" aria-hidden="true"><NavGlyph g={sev.icon} size={16}/></span>

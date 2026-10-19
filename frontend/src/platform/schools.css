@@ -97,7 +97,7 @@
 
 /* sheets / dialogs (mobile filters) */
 .sc-fsheet-backdrop{position:fixed;inset:0;z-index:160;display:grid;place-items:end stretch;background:var(--es-overlay)}
-.sc-fsheet{display:grid;gap:14px;padding:16px 16px calc(16px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;background:var(--es-surface);color:var(--es-ink);animation:es-sheet .2s ease-out}
+.sc-fsheet{width:100%;box-sizing:border-box;display:grid;gap:14px;padding:16px 16px calc(16px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;background:var(--es-surface);color:var(--es-ink);animation:es-sheet .2s ease-out}
 .sc-fsheet-head{display:flex;align-items:center;justify-content:space-between}
 .sc-fsheet-head button{display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:99px;background:var(--es-bg);color:var(--es-ink-2)}
 .sc-fsheet fieldset{border:0;margin:0;padding:0;display:grid;gap:8px}

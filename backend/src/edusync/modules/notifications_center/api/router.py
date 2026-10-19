@@ -19,7 +19,9 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+import base64
+
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
@@ -288,6 +290,40 @@ class CampaignInput(BaseModel):
     target: Target
     link_path: str | None = Field(default=None, max_length=200)
     expires_at: datetime | None = None
+    # Audience confirmed by the sender after the server-side preview. The send recomputes the audience (the server's
+    # current truth) and refuses to reach MORE deliveries than confirmed: the sender reconfirms the new figure.
+    confirmed_recipients: int | None = Field(default=None, ge=0)
+
+    @field_validator("title", "body")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        # trimmed at the ends only (line breaks inside the message are kept); never truncated silently
+        v = v.strip()
+        if len(v) < 2:
+            raise ValueError("Texte obligatoire (2 caractères minimum, hors espaces).")
+        return v
+
+
+class PreviewInput(BaseModel):
+    target: Target
+
+
+NO_RECIPIENT = "Aucun destinataire ne correspond actuellement à cette cible."
+INDIVIDUAL = ("SCHOOL_USER", "PLATFORM_USER")
+
+
+def _check_target(t: Target) -> None:
+    if t.type in ("SCHOOL_ROLE", "PLATFORM_ROLE") and not t.role_code:
+        raise HTTPException(422, "Rôle cible obligatoire")
+    if t.type == "PLATFORM_USER" and not t.user_id:
+        raise HTTPException(422, "Compte cible obligatoire")
+
+
+def _audience(recipients: list[dict]) -> dict:
+    """Deliveries = (account, space) pairs: a member of several schools reads it in each school space.
+    People = distinct accounts. Never twice in the same space (unique index on notifications)."""
+    return {"deliveries": len(recipients), "people": len({r["user_id"] for r in recipients}),
+            "schools": len({r["school_id"] for r in recipients if r["school_id"]})}
 
 
 def _recipients(c, t: Target) -> list[dict]:
@@ -328,10 +364,31 @@ def _recipients(c, t: Target) -> list[dict]:
         rows = c.execute(text(school_base + " AND m.school_id=:s AND m.user_id=:u"), {"s": str(t.school_ids[0]), "u": str(t.user_id)})
     out = [dict(r._mapping) for r in rows]
     if not out:
-        raise HTTPException(422, "Aucun destinataire actif ne correspond à cette cible")
+        raise HTTPException(422, NO_RECIPIENT)
     if len(out) > MAX_RECIPIENTS:
         raise HTTPException(422, f"Trop de destinataires ({len(out)}) : {MAX_RECIPIENTS} au maximum par campagne")
     return out
+
+
+class AudienceChanged(Exception):
+    def __init__(self, audience: dict):
+        super().__init__("audience changed")
+        self.audience = audience
+
+
+@router.post("/platform/notification-campaigns/preview")
+def preview_campaign(body: PreviewInput, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Server-side audience estimate (nothing is created): deliveries, distinct people, schools. The send recomputes it."""
+    actor.require(SEND_CAP)
+    _check_target(body.target)
+    with services.platform_db.platform_transaction() as c:
+        try:
+            aud = _audience(_recipients(c, body.target))
+        except HTTPException as exc:
+            if exc.detail == NO_RECIPIENT:
+                return {"deliveries": 0, "people": 0, "schools": 0, "message": NO_RECIPIENT}
+            raise
+    return {**aud, "message": None, "mass": body.target.type not in INDIVIDUAL}
 
 
 @router.post("/platform/notification-campaigns", status_code=201)
@@ -346,10 +403,9 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
     if body.expires_at and body.expires_at <= datetime.now(timezone.utc):
         raise HTTPException(422, "La date d’expiration doit être dans le futur")
     t = body.target
-    if t.type in ("SCHOOL_ROLE", "PLATFORM_ROLE") and not t.role_code:
-        raise HTTPException(422, "Rôle cible obligatoire")
-    if t.type == "PLATFORM_USER" and not t.user_id:
-        raise HTTPException(422, "Compte cible obligatoire")
+    _check_target(t)
+    if t.type not in INDIVIDUAL and body.confirmed_recipients is None:
+        raise HTTPException(422, "Aperçu obligatoire avant une diffusion : confirmez le nombre de destinataires.")
     if t.type == "ALL_ACTIVE_SCHOOLS":
         require_recent_mfa(services, actor)  # step-up: message to every school
     request_actor = replace(actor, correlation_id=uuid4(), idempotency_key=key)
@@ -360,13 +416,17 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
             idem = IdempotentExecutor(PostgresIdempotencyRepository(c))
 
             def action():
-                recipients = _recipients(c, t)
+                recipients = _recipients(c, t)   # the audience is decided now (snapshot at send time)
+                aud = _audience(recipients)
+                if body.confirmed_recipients is not None and aud["deliveries"] > body.confirmed_recipients:
+                    raise AudienceChanged(aud)
                 cid = uuid4()
                 legacy_school = t.school_ids[0] if t.type == "SCHOOL_USER" else None
-                c.execute(text("""INSERT INTO platform_system_notifications(id,title,body,severity,target_scope,target_school_id,created_by,recipient_count,target_json,link_path,expires_at)
-                    VALUES(:id,:t,:b,:sev,:scope,:sid,:u,:n,CAST(:tj AS jsonb),:link,:exp)"""),
+                c.execute(text("""INSERT INTO platform_system_notifications(id,title,body,severity,target_scope,target_school_id,created_by,recipient_count,target_json,link_path,expires_at,people_count)
+                    VALUES(:id,:t,:b,:sev,:scope,:sid,:u,:n,CAST(:tj AS jsonb),:link,:exp,:people)"""),
                     {"id": cid, "t": body.title.strip(), "b": body.body.strip(), "sev": body.severity, "scope": t.type, "sid": legacy_school,
-                     "u": str(actor.user_id), "n": len(recipients), "tj": t.model_dump_json(), "link": body.link_path, "exp": body.expires_at})
+                     "u": str(actor.user_id), "n": len(recipients), "tj": t.model_dump_json(), "link": body.link_path, "exp": body.expires_at,
+                     "people": aud["people"]})
                 c.execute(text("""INSERT INTO notifications(school_id,user_id,category,severity,title,body,campaign_id,link_path,expires_at)
                     SELECT CAST(x->>'school_id' AS uuid), CAST(x->>'user_id' AS uuid), :cat, :sev, :t, :b, :cid, :link, :exp
                     FROM jsonb_array_elements(CAST(:rec AS jsonb)) x ON CONFLICT DO NOTHING"""),
@@ -376,7 +436,8 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
                 PostgresAuditRepository(c).append(AuditRecord(
                     action="PLATFORM_NOTIFICATION_CAMPAIGN_SENT", entity_type="PlatformSystemNotification", entity_id=cid, actor_user_id=actor.user_id,
                     school_id=None, source=actor.source, correlation_id=request_actor.correlation_id, idempotency_key=key,
-                    new_data={"target": t.model_dump(mode="json"), "severity": body.severity, "recipient_count": len(recipients), "title": body.title.strip(),
+                    new_data={"target": t.model_dump(mode="json"), "severity": body.severity, "recipient_count": len(recipients), "people_count": aud["people"],
+                              "confirmed_recipients": body.confirmed_recipients, "title": body.title.strip(),
                               "link_path": body.link_path, "expires_at": body.expires_at.isoformat() if body.expires_at else None}))
                 subs = c.execute(text("""SELECT DISTINCT p.user_id, p.school_id FROM push_subscriptions p WHERE p.revoked_at IS NULL
                     AND p.token_ciphertext IS NOT NULL
@@ -392,10 +453,13 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
                                                           target_school_id=s["school_id"]) for s in subs])
                 pushed.extend(dict(s) for s in subs)
                 notified.extend((str(r["user_id"]), str(r["school_id"]) if r["school_id"] else None) for r in recipients)
-                return 201, {"id": str(cid), "recipient_count": len(recipients), "target": t.type, "severity": body.severity}
+                return 201, {"id": str(cid), "recipient_count": len(recipients), "people_count": aud["people"], "target": t.type, "severity": body.severity}
 
             result = idem.execute(scope_key="platform", idempotency_key=key, operation="PLATFORM_NOTIFICATION_CAMPAIGN",
                                   payload=body.model_dump(mode="json"), school_id=None, actor_user_id=str(actor.user_id), action=action)
+    except AudienceChanged as exc:
+        raise HTTPException(409, {"code": "AUDIENCE_CHANGED", **exc.audience,
+                                  "message": f"L’audience a changé : {exc.audience['deliveries']} destinataire(s) au lieu de {body.confirmed_recipients} confirmé(s). Vérifiez puis confirmez à nouveau."}) from exc
     except (IdempotencyConflict, IdempotencyInProgress) as exc:
         raise HTTPException(409, str(exc)) from exc
     response.status_code = result.status_code
@@ -407,17 +471,102 @@ def create_campaign(body: CampaignInput, response: Response, idempotency_key: st
     return result.body
 
 
+_HISTORY = """SELECT p.id, p.title, p.severity, p.target_scope, p.target_json, p.link_path, p.expires_at, p.created_at,
+      p.recipient_count, p.people_count, u.full_name AS author, s.code AS target_school_code,
+      CASE WHEN p.expires_at IS NOT NULL AND p.expires_at<=now() THEN 'EXPIRED' ELSE 'ACTIVE' END AS status,
+      (SELECT count(*) FROM notifications n WHERE n.campaign_id=p.id AND n.read_at IS NOT NULL) AS read_count
+    FROM platform_system_notifications p LEFT JOIN users u ON u.id=p.created_by LEFT JOIN schools s ON s.id=p.target_school_id"""
+
+
+def _history_filters(q, severity, target, status, author, date_from, date_to) -> tuple[list[str], dict]:
+    where, params = [], {}
+    words = [w for w in re.split(r"[\s\-'’.,;:/]+", (q or "").strip()) if w][:5]
+    for i, w in enumerate(words):   # title or author, accents and case ignored (trigram index on the title)
+        where.append(f"(edusync_search_key(p.title) LIKE '%' || edusync_search_key(CAST(:w{i} AS text)) || '%'"
+                     f" OR edusync_search_key(coalesce(u.full_name,'')) LIKE '%' || edusync_search_key(CAST(:w{i} AS text)) || '%')")
+        params[f"w{i}"] = w
+    if severity:
+        where.append("p.severity=:sev"); params["sev"] = severity
+    if target:
+        where.append("p.target_scope=:scope"); params["scope"] = target
+    if status == "ACTIVE":
+        where.append("(p.expires_at IS NULL OR p.expires_at>now())")
+    elif status == "EXPIRED":
+        where.append("p.expires_at IS NOT NULL AND p.expires_at<=now()")
+    if author:
+        where.append("p.created_by=CAST(:author AS uuid)"); params["author"] = str(author)
+    if date_from:
+        where.append("p.created_at>=CAST(:df AS timestamptz)"); params["df"] = date_from
+    if date_to:
+        where.append("p.created_at<CAST(:dt AS timestamptz)"); params["dt"] = date_to
+    return where, params
+
+
 @router.get("/platform/notification-campaigns")
-def list_campaigns(limit: int = 30, offset: int = 0, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+def list_campaigns(q: str | None = None, severity: str | None = None, target: str | None = None, status: str | None = None,
+                   author: UUID | None = None, date_from: datetime | None = None, date_to: datetime | None = None,
+                   cursor: str | None = None, limit: int = 25, offset: int = 0,
+                   actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """History, most recent first, keyset-paginated (created_at, id); search on title and author; filters."""
     actor.require(SEND_CAP)
-    limit, offset = max(1, min(limit, 100)), max(0, offset)
+    if (severity and severity not in ("INFO", "WARNING", "CRITICAL")) or (status and status not in ("ACTIVE", "EXPIRED")) \
+            or (target and not re.fullmatch(r"[A-Z_]{3,24}", target)) or (q and len(q) > 80):
+        raise HTTPException(422, "Filtre inconnu")
+    limit = max(1, min(limit, 100))
+    where, params = _history_filters(q, severity, target, status, author, date_from, date_to)
+    key = None
+    if cursor:
+        try:
+            at, cid = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
+            key = {"ca": datetime.fromisoformat(at), "cid": str(UUID(str(cid)))}
+        except Exception as exc:  # noqa: BLE001 — forged cursor
+            raise HTTPException(422, "Curseur de pagination invalide") from exc
     with services.platform_db.platform_transaction() as c:
-        rows = c.execute(text("""SELECT p.id, p.title, p.severity, p.target_scope, p.target_json, p.link_path, p.expires_at, p.created_at,
-              p.recipient_count, u.full_name AS author, s.code AS target_school_code,
-              (SELECT count(*) FROM notifications n WHERE n.campaign_id=p.id AND n.read_at IS NOT NULL) AS read_count
-            FROM platform_system_notifications p LEFT JOIN users u ON u.id=p.created_by LEFT JOIN schools s ON s.id=p.target_school_id
-            ORDER BY p.created_at DESC, p.id DESC LIMIT :lim OFFSET :off"""), {"lim": limit + 1, "off": offset}).mappings().all()
-    return {"items": [dict(r) for r in rows[:limit]], "has_more": len(rows) > limit, "offset": offset, "limit": limit}
+        total = int(c.execute(text("SELECT count(*) FROM platform_system_notifications p LEFT JOIN users u ON u.id=p.created_by"
+                                   + (" WHERE " + " AND ".join(where) if where else "")), params).scalar_one())
+        page_where = list(where) + (["(p.created_at, p.id) < (CAST(:ca AS timestamptz), CAST(:cid AS uuid))"] if key else [])
+        rows = c.execute(text(_HISTORY + (" WHERE " + " AND ".join(page_where) if page_where else "")
+                              + " ORDER BY p.created_at DESC, p.id DESC LIMIT :lim" + ("" if key else " OFFSET :off")),
+                         params | (key or {}) | {"lim": limit + 1, "off": max(0, offset)}).mappings().all()
+    more = len(rows) > limit
+    items = [dict(r) for r in rows[:limit]]
+    nxt = base64.urlsafe_b64encode(json.dumps([items[-1]["created_at"].isoformat(), str(items[-1]["id"])]).encode()).decode().rstrip("=") if more and items else None
+    return {"items": items, "total": total, "has_more": more, "next_cursor": nxt, "limit": limit, "offset": offset}
+
+
+@router.get("/platform/notification-campaigns/authors")
+def campaign_authors(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    actor.require(SEND_CAP)
+    with services.platform_db.platform_transaction() as c:
+        rows = c.execute(text("""SELECT u.id, u.full_name, count(*) AS sent FROM platform_system_notifications p JOIN users u ON u.id=p.created_by
+            GROUP BY u.id, u.full_name ORDER BY lower(u.full_name) LIMIT 200""")).mappings().all()
+    return {"items": [dict(r) for r in rows]}
+
+
+@router.get("/platform/notification-campaigns/{campaign_id}")
+def campaign_detail(campaign_id: UUID, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Read-only detail: content, target described (names of the targeted schools / role / account, never the full
+    recipient list), author, dates, status, audience figures and read count. A sent notification is immutable."""
+    actor.require(SEND_CAP)
+    with services.platform_db.platform_transaction() as c:
+        row = c.execute(text(_HISTORY.replace("p.link_path, p.expires_at", "p.body, p.link_path, p.expires_at") + " WHERE p.id=:id"),
+                        {"id": str(campaign_id)}).mappings().first()
+        if not row:
+            raise HTTPException(404, "Notification introuvable")
+        tj = row["target_json"] or {}
+        described: dict = {"type": row["target_scope"]}
+        ids = [str(x) for x in (tj.get("school_ids") or [])]
+        if ids:
+            described["schools"] = [dict(r) for r in c.execute(text("SELECT id, code, name FROM schools WHERE id = ANY(CAST(:ids AS uuid[])) ORDER BY lower(name) LIMIT 50"),
+                                                                {"ids": ids}).mappings()]
+            described["schools_total"] = len(ids)
+        if tj.get("role_code"):
+            described["role"] = c.execute(text("SELECT label FROM rbac_roles WHERE code=:c ORDER BY level LIMIT 1"), {"c": tj["role_code"]}).scalar() or tj["role_code"]
+        if tj.get("user_id"):
+            described["user"] = c.execute(text("SELECT full_name FROM users WHERE id=:u"), {"u": str(tj["user_id"])}).scalar()
+        audit_id = c.execute(text("SELECT id FROM audit_events WHERE action='PLATFORM_NOTIFICATION_CAMPAIGN_SENT' AND entity_id=:id ORDER BY occurred_at LIMIT 1"),
+                             {"id": str(campaign_id)}).scalar()
+    return {**dict(row), "target": described, "audit_event_id": str(audit_id) if audit_id else None}
 
 
 # ------------------------------------------------------------------ real-time streams (SSE)
