@@ -57,7 +57,7 @@ const SCHOOL_SESSION='edusync.school.session';
 type SavedSchoolSession={token:string;school:SchoolLoginResult['school'];user:SchoolLoginResult['user'];permissions:string[]};
 
 /** A reloaded or shared link to the schools or accounts screen (?school=<id>, ?user=<id>, filters) opens that screen, not the dashboard. */
-const schoolsDeepLink=():'dashboard'|'schools'|'access'|'team'|'notifications'|'audit'=>/[?&](aevent|aq|acat|aact|asch|aactor|ares|afrom|ato|asort)=/.test(window.location.search)?'audit':/[?&]campaign=/.test(window.location.search)?'notifications':/[?&]member=/.test(window.location.search)?'team':ACCESS_URL_KEYS.test(window.location.search)?'access':/[?&](school|q|status|config|sort|page|needs_admin)=/.test(window.location.search)?'schools':'dashboard';
+const schoolsDeepLink=():'dashboard'|'schools'|'access'|'team'|'notifications'|'audit'|'diagnostics'=>/[?&]service=/.test(window.location.search)?'diagnostics':/[?&](aevent|aq|acat|aact|asch|aactor|ares|afrom|ato|asort)=/.test(window.location.search)?'audit':/[?&]campaign=/.test(window.location.search)?'notifications':/[?&]member=/.test(window.location.search)?'team':ACCESS_URL_KEYS.test(window.location.search)?'access':/[?&](school|q|status|config|sort|page|needs_admin)=/.test(window.location.search)?'schools':'dashboard';
 function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogout:()=>void}){
   const [tab,setTab]=useState<'dashboard'|'schools'|'access'|'team'|'notifications'|'audit'|'diagnostics'|'messaging'>(schoolsDeepLink);
   // Server-computed identity and menu: a PLATFORM_CUSTOM account only sees (and only loads) what its roles open.
@@ -112,7 +112,7 @@ function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogo
       onOpenSchool:id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')},onOpenMember:id=>{setTeamPreset({openMember:id,nonce:Date.now()});goTab('team')},
       onOpenUser:id=>{setAccessPreset({openUser:id,nonce:Date.now()});goTab('access')},onOpenCampaign:id=>{goTab('notifications');history.replaceState(history.state,'',`${window.location.pathname}?campaign=${id}`)}}}/></Suspense>}
     {tab==='messaging'&&<Panel title="Messagerie" subtitle="Fournisseurs SMS, e-mail et push, file d’envoi, portefeuilles SMS des écoles. Jamais le contenu des messages des écoles."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformMessaging token={token} canCredit={Boolean(me?.permissions.includes('platform.sms_wallet.credit'))}/></Suspense></Panel>}
-    {tab==='diagnostics'&&<Panel title="Santé du système" subtitle="Mesures réelles prises à l’instant : temps de réponse, signaux des tâches de fond, erreurs, sauvegardes."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><HealthPanel token={token}/></Suspense></Panel>}
+    {tab==='diagnostics'&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><HealthPanel token={token} canMessaging={can('messaging')} onOpenMessaging={()=>goTab('messaging')}/></Suspense>}
     {notificationOpen&&<PlatformNotificationDialog token={token} schools={[]} onClose={()=>setNotificationOpen(false)} onDone={async()=>{setNotificationOpen(false);setSystemNotifications(await platformSystemNotifications(token,0));await refresh()}}/>}
   </Shell>
 }
