@@ -33,9 +33,10 @@ def test_mobile_metrics_are_compact_two_by_two():
     assert '@media(max-width:360px)' in css
 
 def test_platform_access_ui_exposes_manager_controlled_collaboration():
-    # Lot « Utilisateurs & accès » 2026-10: the existing collaborator action moved, unchanged, from the access table row
-    # to the read-only account detail (platform/identities.tsx); same capability, same step-up, same audit.
+    # Lot « Équipe plateforme » 2026-10: giving / removing a platform access is done in Équipe plateforme (« Utilisateur
+    # existant »: same identity, no duplicate; « Retirer l’accès plateforme »). « Utilisateurs & accès » is read-only and
+    # only links there.
+    team=read('frontend/src/platform/team.tsx')
+    assert 'Utilisateur existant' in team and 'addExisting(token' in team and 'removeAccess(token' in team
     ui=read('frontend/src/platform/identities.tsx')
-    assert 'Collaborateur plateforme' in ui
-    assert 'Donner un accès collaborateur plateforme' in ui and 'can_manage_collaborators' in ui
-    assert 'platformGrantCollaborator' in ui and 'platformRevokeCollaborator' in ui
+    assert 'Ajouter à l’équipe plateforme' in ui and 'platformGrantCollaborator' not in ui and 'platformRevokeCollaborator' not in ui

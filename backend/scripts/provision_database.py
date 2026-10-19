@@ -203,6 +203,7 @@ def main() -> None:
             ("0077_user_avatars", "0077_user_avatars.sql"),
             ("0078_schools_directory", "0078_schools_directory.sql"),
             ("0079_identities_directory", "0079_identities_directory.sql"),
+            ("0080_platform_capability_grants", "0080_platform_capability_grants.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):

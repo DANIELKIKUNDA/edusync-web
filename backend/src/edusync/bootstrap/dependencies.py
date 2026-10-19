@@ -62,14 +62,22 @@ def _assert_device_session_live(conn, claims: dict, user_id: UUID, *, require_mf
 
 
 def platform_permissions(conn, user_id: UUID) -> frozenset[str]:
-    """Effective platform capabilities: only ACTIVE roles of level PLATFORM count (a DRAFT or ARCHIVED role,
-    standard or custom, grants nothing), and only platform-scoped assignments (school_id NULL)."""
+    """Effective platform capabilities, recomputed on every request (no cache: a revocation counts at the next call).
+
+    UNION(capabilities of the ACTIVE platform roles) ∪ (active, currently valid individual grants). Only ACTIVE roles of
+    level PLATFORM count (a DRAFT or ARCHIVED role, standard or custom, grants nothing), only platform-scoped
+    assignments (school_id NULL). An individual grant only supplements a role: without an active platform role the
+    account has no platform capability at all. A set: the order of the roles never changes the result."""
     authz = PostgresAuthorizationRepository(conn)
     assignments = authz.effective_role_assignments(user_id, None)
-    roles = authz.roles({a.role_id for a in assignments})
-    return frozenset(code for role in roles.values()
-                     if role.level.value == "PLATFORM" and role.status.value == "ACTIVE"
-                     for code in role.capability_codes)
+    roles = [role for role in authz.roles({a.role_id for a in assignments}).values()
+             if role.level.value == "PLATFORM" and role.status.value == "ACTIVE"]
+    if not roles:
+        return frozenset()
+    from sqlalchemy import text as _text
+    grants = conn.execute(_text("""SELECT capability_code FROM platform_capability_grants
+        WHERE user_id=:u AND active AND valid_from<=now() AND (valid_until IS NULL OR valid_until>now())"""), {"u": str(user_id)}).scalars()
+    return frozenset({code for role in roles for code in role.capability_codes} | set(grants))
 
 
 def platform_account_suspended(conn, user_id: UUID) -> bool:
@@ -83,7 +91,7 @@ def require_platform_actor(
 ) -> ActorContext:
     claims = _claims(credentials, services)
     if claims.get("scope") != "platform":
-        raise HTTPException(status_code=403, detail="Jeton Atelier Pro requis")
+        raise HTTPException(status_code=403, detail="Jeton de la plateforme EduSync requis")
     try:
         user_id = UUID(str(claims["sub"]))
     except (KeyError, ValueError) as exc:
@@ -91,16 +99,16 @@ def require_platform_actor(
     with services.platform_db.platform_transaction() as conn:
         user = PostgresUserRepository(conn).get(user_id)
         if user is None or not user.active:
-            raise HTTPException(status_code=403, detail="Accès Atelier Pro révoqué")
+            raise HTTPException(status_code=403, detail="Accès à la plateforme EduSync révoqué")
         if int(claims.get("user_version", 0)) != user.version:
-            raise HTTPException(status_code=401, detail="Jeton Atelier Pro obsolète; reconnectez-vous")
+            raise HTTPException(status_code=401, detail="Jeton de la plateforme EduSync obsolète ; reconnectez-vous")
         from edusync.modules.iam.application.platform_mfa import mfa_needed
         _assert_device_session_live(conn, claims, user_id, require_mfa=mfa_needed(conn, services.settings, user_id))
         if platform_account_suspended(conn, user_id):
-            raise HTTPException(status_code=403, detail="Accès Atelier Pro suspendu")
+            raise HTTPException(status_code=403, detail="Accès à la plateforme EduSync suspendu")
         permissions = platform_permissions(conn, user_id)
         if not permissions:
-            raise HTTPException(status_code=403, detail="Aucun rôle Atelier Pro actif")
+            raise HTTPException(status_code=403, detail="Aucun rôle actif sur la plateforme EduSync")
     return ActorContext(
         user_id=user_id,
         school_id=None,

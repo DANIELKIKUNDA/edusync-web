@@ -1,7 +1,4 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {toast} from 'sonner';
-import {platformGrantCollaborator, platformRevokeCollaborator} from '../api';
-import {Modal} from './account';
 import {friendlyError, UserFacingError} from './errors';
 import {fetchIdentities, fetchIdentity, fetchIdentityFilters, IDENTITY_STATUS_LABEL, SCOPE_LABEL, type FilterRole, type IdentitiesPage,
   type IdentityDetail, type IdentityFilters, type IdentityRow, type IdentityScope, type IdentityStatus} from './identities_api';
@@ -18,7 +15,9 @@ import './identities.css';
 
 export type AccessPreset = {activeOnly?: boolean; nonce: number};
 type Props = {token: string; has: (cap: string) => boolean; preset?: AccessPreset | null; active: boolean;
-  onOpenSchool: (schoolId: string) => void; onOpenTeam: () => void};
+  onOpenSchool: (schoolId: string) => void; onOpenTeam: (target: TeamTarget) => void};
+/** Navigation only: every change of platform access is made in Équipe plateforme. */
+export type TeamTarget = {openMember?: string; addExisting?: {id: string; full_name: string; email: string}};
 
 const LIMIT = 25;
 const EMPTY: IdentityFilters = {q: '', scope: '', status: '', schoolId: '', schoolName: '', role: '', activeOnly: false};
@@ -277,11 +276,10 @@ function Empty({f, filtered}: {f: IdentityFilters; filtered: boolean}) {
 
 /* ---------------------------------------------------------------- read-only detail */
 function IdentityView({token, id, has, onBack, onOpenSchool, onOpenTeam}: {token: string; id: string; has: (c: string) => boolean; onBack: () => void;
-  onOpenSchool: (schoolId: string) => void; onOpenTeam: () => void}) {
+  onOpenSchool: (schoolId: string) => void; onOpenTeam: (target: TeamTarget) => void}) {
   const [d, setD] = useState<IdentityDetail | null>(null);
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
-  const [collab, setCollab] = useState(false);
   const title = useRef<HTMLHeadingElement>(null); const focusedFor = useRef('');
   useEffect(() => {
     const ctl = new AbortController(); setError('');
@@ -294,7 +292,6 @@ function IdentityView({token, id, has, onBack, onOpenSchool, onOpenTeam}: {token
     <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setNonce(n => n + 1)}>Réessayer</button></div></div>;
   if (!d) return <div className="sc-sheet-page" aria-busy="true">{backBtn}<div className="sc-card"><i className="sc-skel" style={{width: '50%', height: 22}}/><i className="sc-skel" style={{width: '30%'}}/></div></div>;
   const activeSchools = d.memberships.filter(m => m.active);
-  const collaborator = d.platform_roles.some(r => r.code === 'COLLABORATEUR_PLATEFORME');
   const platformMember = d.platform_roles.length > 0;
   return <div className="sc-sheet-page">
     {backBtn}
@@ -319,11 +316,11 @@ function IdentityView({token, id, has, onBack, onOpenSchool, onOpenTeam}: {token
         <dl className="sc-dl"><dt>Nom</dt><dd>{d.full_name}</dd><dt>E-mail</dt><dd>{d.email}</dd><dt>Compte créé le</dt><dd>{fullDate(d.created_at)}</dd>
           <dt>Dernière activité</dt><dd>{fullDate(d.last_activity_at) || 'Jamais connecté'}</dd></dl></section>
       <section className="sc-card"><div className="sc-card-head"><h3>Accès plateforme</h3>
-          {platformMember && has('platform.collaborators.manage') && <button type="button" className="sc-link" onClick={onOpenTeam}>Gérer dans Équipe plateforme</button>}</div>
+          {platformMember && has('platform.collaborators.manage') && <button type="button" className="sc-link" onClick={() => onOpenTeam({openMember: d.id})}>Gérer dans Équipe plateforme</button>}</div>
         {platformMember ? <ul className="id-roles">{d.platform_roles.map(r => <li key={r.code}><b>{r.label}</b>{r.since && <small>depuis le {new Date(r.since).toLocaleDateString('fr-FR')}</small>}</li>)}</ul>
           : <p className="sc-muted">Aucun rôle plateforme : ce compte n’accède qu’aux espaces école.</p>}
-        {d.can_manage_collaborators && d.active && (collaborator || !platformMember) && <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setCollab(true)}>
-          <NavGlyph g="key" size={16}/>{collaborator ? 'Retirer la collaboration plateforme' : 'Donner un accès collaborateur plateforme'}</button>}
+        {!platformMember && d.active && has('platform.collaborators.manage') && <button type="button" className="sc-btn sc-btn-ghost"
+          onClick={() => onOpenTeam({addExisting: {id: d.id, full_name: d.full_name, email: d.email}})}><NavGlyph g="users" size={16}/>Ajouter à l’équipe plateforme</button>}
       </section>
     </div>
 
@@ -342,28 +339,5 @@ function IdentityView({token, id, has, onBack, onOpenSchool, onOpenTeam}: {token
         <dt>Sessions ouvertes</dt><dd>{d.security.open_sessions}</dd>
         <dt>Première connexion</dt><dd>{d.must_change_password ? 'Mot de passe provisoire à remplacer' : 'Effectuée'}</dd></dl></section>}
 
-    {collab && <CollaboratorDialog token={token} user={d} revoke={collaborator} onClose={() => setCollab(false)} onDone={() => { setCollab(false); setNonce(n => n + 1); }}/>}
   </div>;
-}
-
-/** Existing platform action kept as it was (grant / revoke the Collaborateur plateforme role, step-up, audited). */
-function CollaboratorDialog({token, user, revoke, onClose, onDone}: {token: string; user: IdentityDetail; revoke: boolean; onClose: () => void; onDone: () => void}) {
-  const [reason, setReason] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  async function submit(e: React.FormEvent) {
-    e.preventDefault(); if (reason.trim().length < 3) { setError('Indiquez un motif (3 caractères minimum).'); return; }
-    setBusy(true); setError('');
-    try {
-      if (revoke) await platformRevokeCollaborator(token, user.id, reason.trim()); else await platformGrantCollaborator(token, user.id, reason.trim());
-      toast.success(revoke ? 'Collaboration retirée' : 'Collaborateur plateforme activé'); onDone();
-    } catch (err) { setError(err instanceof Error ? err.message : friendlyError(err)); } finally { setBusy(false); }
-  }
-  return <Modal title={revoke ? 'Retirer la collaboration' : 'Donner un accès collaborateur'} subtitle={`${user.full_name} · ${user.email}`} onClose={onClose}>
-    <form className="sc-form" onSubmit={submit}>
-      <p className="sc-hint">Le Collaborateur plateforme peut consulter les écoles, l’audit et les diagnostics. Il ne peut ni créer ou suspendre une école, ni créer un administrateur, ni gérer d’autres collaborateurs. Un code de confirmation peut vous être demandé.</p>
-      <div className={`sc-field ${error ? 'sc-invalid' : ''}`}><label htmlFor="cl-reason">Motif *</label>
-        <textarea id="cl-reason" rows={2} value={reason} onChange={e => setReason(e.target.value)} maxLength={500}/>{error && <small role="alert">{error}</small>}</div>
-      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button type="submit" className={`es-btn ${revoke ? 'es-btn-danger' : 'es-btn-primary'}`} disabled={busy}>{busy ? 'Traitement…' : revoke ? 'Retirer' : 'Donner l’accès'}</button></div>
-    </form>
-  </Modal>;
 }

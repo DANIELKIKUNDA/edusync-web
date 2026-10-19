@@ -89,8 +89,8 @@ def test_screen_is_named_and_read_only():
               "Dernière activité", "Rattachements école", "Gérer dans Équipe plateforme", "Fiche école"):
         assert x in UI, x
     assert "Rechercher</button>" not in UI
-    # no new mutation: the only write is the existing collaborator action, unchanged (same API functions)
-    assert UI.count("await platform") == 2 and "platformGrantCollaborator" in UI and "platformRevokeCollaborator" in UI
+    # read-only since the Équipe plateforme lot: no mutation at all, only navigation to Équipe plateforme
+    assert "await platform" not in UI and "method: 'POST'" not in UI and "onOpenTeam({addExisting" in UI
 
 
 def test_url_keys_do_not_collide_with_the_schools_screen():

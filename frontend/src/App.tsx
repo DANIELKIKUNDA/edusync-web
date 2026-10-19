@@ -34,6 +34,7 @@ import {SchoolFormDialog} from './platform/school_sheet';
 import {usePlatformTheme,type ThemePref} from './platform/theme';
 import {setStepUpHandler} from './platform/connectivity';
 const TeamPage=lazy(()=>import('./platform/team').then(m=>({default:m.TeamPage})));
+type TeamPreset={openMember?:string;addExisting?:{id:string;full_name:string;email:string};nonce:number};
 const HealthPanel=lazy(()=>import('./platform/health').then(m=>({default:m.HealthPanel})));
 const AuditPanel=lazy(()=>import('./platform/audit').then(m=>({default:m.AuditPanel})));
 const CampaignsPanel=lazy(()=>import('./platform/campaigns').then(m=>({default:m.CampaignsPanel})));
@@ -56,7 +57,7 @@ const SCHOOL_SESSION='edusync.school.session';
 type SavedSchoolSession={token:string;school:SchoolLoginResult['school'];user:SchoolLoginResult['user'];permissions:string[]};
 
 /** A reloaded or shared link to the schools or accounts screen (?school=<id>, ?user=<id>, filters) opens that screen, not the dashboard. */
-const schoolsDeepLink=():'dashboard'|'schools'|'access'=>ACCESS_URL_KEYS.test(window.location.search)?'access':/[?&](school|q|status|config|sort|page|needs_admin)=/.test(window.location.search)?'schools':'dashboard';
+const schoolsDeepLink=():'dashboard'|'schools'|'access'|'team'=>/[?&]member=/.test(window.location.search)?'team':ACCESS_URL_KEYS.test(window.location.search)?'access':/[?&](school|q|status|config|sort|page|needs_admin)=/.test(window.location.search)?'schools':'dashboard';
 function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogout:()=>void}){
   const [tab,setTab]=useState<'dashboard'|'schools'|'access'|'team'|'notifications'|'audit'|'diagnostics'|'messaging'>(schoolsDeepLink);
   // Server-computed identity and menu: a PLATFORM_CUSTOM account only sees (and only loads) what its roles open.
@@ -71,7 +72,7 @@ function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogo
   const [notificationOpen,setNotificationOpen]=useState(false);
   const [schoolsPreset,setSchoolsPreset]=useState<SchoolsPreset|null>(null);const [schoolsVisited,setSchoolsVisited]=useState(false);
   const [creatingSchool,setCreatingSchool]=useState(false);
-  const [accessPreset,setAccessPreset]=useState<AccessPreset|null>(null);const [accessVisited,setAccessVisited]=useState(false);
+  const [accessPreset,setAccessPreset]=useState<AccessPreset|null>(null);const [teamPreset,setTeamPreset]=useState<TeamPreset|null>(null);const [accessVisited,setAccessVisited]=useState(false);
   // Step-up (decision 2026-10-13): sensitive actions ask for a fresh code through this dialog, then resume by themselves.
   const [stepUp,setStepUp]=useState<((ok:boolean)=>void)|null>(null);
   useEffect(()=>{setStepUpHandler(()=>new Promise<boolean>(resolve=>setStepUp(()=>resolve)));return()=>setStepUpHandler(null)},[]);
@@ -102,10 +103,10 @@ function AtelierPro({token,user,onLogout}:{token:string;user:PlatformUser;onLogo
     {stepUp&&<StepUpDialog token={token} onDone={ok=>{stepUp(ok);setStepUp(null)}}/>}
     {!me&&!error&&<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}
     {creatingSchool&&<SchoolFormDialog token={token} has={has} onClose={()=>setCreatingSchool(false)} onCreated={id=>{setCreatingSchool(false);void refresh();setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')}}/>}
-    {tab==='team'&&can('team')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><TeamPage token={token}/></Suspense>}
+    {tab==='team'&&can('team')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><TeamPage token={token} preset={teamPreset} onChanged={()=>{void platformMe(token).then(setMe).catch(()=>undefined)}}/></Suspense>}
     {me&&can('dashboard')&&<div hidden={tab!=='dashboard'}><PlatformDashboard key={dashKey} token={token} userName={me?.user.full_name||user.full_name} can={can} has={has} onOpen={openTarget} onCreateSchool={()=>setCreatingSchool(true)}/></div>}
     {can('schools')&&(schoolsVisited||tab==='schools')&&<div hidden={tab!=='schools'}><SchoolsModule token={token} has={has} preset={schoolsPreset} active={tab==='schools'} onChanged={()=>setDashKey(k=>k+1)}/></div>}
-    {can('access')&&(accessVisited||tab==='access')&&<div hidden={tab!=='access'}><AccessDirectory token={token} has={has} preset={accessPreset} active={tab==='access'} onOpenSchool={id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')}} onOpenTeam={()=>goTab('team')}/></div>}
+    {can('access')&&(accessVisited||tab==='access')&&<div hidden={tab!=='access'}><AccessDirectory token={token} has={has} preset={accessPreset} active={tab==='access'} onOpenSchool={id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')}} onOpenTeam={t=>{setTeamPreset({...t,nonce:Date.now()});goTab('team')}}/></div>}
     {tab==='notifications'&&<Panel title="Notifications" subtitle="Messages internes ciblés vers les écoles ou l’équipe plateforme. Chaque envoi est audité ; aucun SMS n’est envoyé."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><CampaignsPanel token={token} canTeam={has('platform.collaborators.manage')}/></Suspense></Panel>}
     {tab==='audit'&&<Panel title="Journal d’audit" subtitle="Toutes les actions tracées de la plateforme et des écoles. Rien ne peut y être modifié ni supprimé."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><AuditPanel token={token} canExport={has('platform.audit.export')}/></Suspense></Panel>}
     {tab==='messaging'&&<Panel title="Messagerie" subtitle="Fournisseurs SMS, e-mail et push, file d’envoi, portefeuilles SMS des écoles. Jamais le contenu des messages des écoles."><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformMessaging token={token} canCredit={Boolean(me?.permissions.includes('platform.sms_wallet.credit'))}/></Suspense></Panel>}
