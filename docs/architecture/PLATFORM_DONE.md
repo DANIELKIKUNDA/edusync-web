@@ -4,7 +4,7 @@ Chaque ligne a une **preuve**. « À FAIRE (propriétaire) » = action qui ne pe
 
 | # | Exigence | Statut | Preuve |
 |---|---|---|---|
-| 1 | Surveillance extérieure au serveur | FAIT | `.github/workflows/uptime.yml` : toutes les 5 min, accueil + API + base ; ticket GitHub après 2 échecs, fermé au retour |
+| 1 | Surveillance extérieure au serveur | FAIT | `.github/workflows/uptime.yml` : toutes les 30 min (minutes GitHub facturées sur dépôt privé), accueil + API + base ; ticket GitHub après 2 échecs, fermé au retour |
 | 2 | Alertes qui préviennent quelqu'un | FAIT | `alerts.py` : e-mail après 5 min « Hors service » + e-mail de résolution, Managers Système + adresses d'astreinte ; `tools/local/alerts_probe.py` 21/21 PASS (un seul envoi, verrou multi-processus, remise réelle par le worker, confirmation par code pour ajouter une adresse) |
 | 2b | Votre adresse d'astreinte | À FAIRE (propriétaire) | État du service → Incidents et alertes → « Ajouter une adresse d'astreinte » → « Envoyer un e-mail de test » (2 minutes, confirmation par code) |
 | 3 | Restauration de sauvegarde prouvée | FAIT | restauration d'essai complète **chaque nuit** sur le serveur (deploy/backup/backup.sh), durée mesurée affichée ; exercice local 19/10/2026 : 18,5 s, 8/8 contrôles |

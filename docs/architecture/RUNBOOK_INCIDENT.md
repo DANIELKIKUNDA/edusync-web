@@ -9,7 +9,7 @@ les déploiements et retours arrière passent **uniquement** par le pipeline off
 |---|---|---|
 | E-mail « [EduSync] Incident : … hors service » | Managers Système actifs + adresses d'astreinte (État du service → Incidents et alertes) | après 5 min de panne |
 | E-mail « [EduSync] Résolu : … » | les mêmes | au retour à la normale |
-| Ticket GitHub « [Disponibilité] Staging injoignable » | propriétaire du dépôt (e-mail GitHub) | 2 sondes externes ratées (≈ 5 à 10 min) ; fermé automatiquement au retour |
+| Ticket GitHub « [Disponibilité] Staging injoignable » | propriétaire du dépôt (e-mail GitHub) | 2 sondes externes ratées (≈ 30 à 60 min) ; fermé automatiquement au retour |
 
 Les alertes de l'application ne peuvent pas partir si la base de données est elle-même arrêtée : c'est la sonde
 externe GitHub (`.github/workflows/uptime.yml`) qui couvre ce cas, ainsi que le serveur injoignable.

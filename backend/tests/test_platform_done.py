@@ -38,7 +38,7 @@ def test_recipient_management_is_manager_only_with_step_up_and_audited():
 
 def test_external_probe_e2e_production_and_scan_workflows():
     up = (WF / "uptime.yml").read_text(encoding="utf-8")
-    assert 'cron: "*/5 * * * *"' in up and "/api/v1/setup/status" in up and "gh issue create" in up and "gh issue close" in up
+    assert 'cron: "*/30 * * * *"' in up and "/api/v1/setup/status" in up and "gh issue create" in up and "gh issue close" in up
     e2e = (WF / "e2e-staging.yml").read_text(encoding="utf-8")
     assert "workflows: [Deploy staging]" in e2e and "secrets.E2E_PLATFORM_TOTP_SECRET" in e2e
     prod = (WF / "deploy-production.yml").read_text(encoding="utf-8")

@@ -1,13 +1,14 @@
 # EduSync — sonde de disponibilité EXTERNE (lot 2026-10). Elle tourne chez GitHub, hors du VPS : si le serveur, Caddy,
 # l'API ou PostgreSQL tombent, l'écran « État du service » tombe avec eux ; cette sonde, elle, le voit.
-# Toutes les 5 minutes : page d'accueil (Caddy + front), /health-api (API), /api/v1/setup/status (API + PostgreSQL).
-# Deux échecs consécutifs (≈ 5 à 10 min) → ouverture d'un ticket « [Disponibilité] » (e-mail GitHub au propriétaire du
+# Toutes les 30 minutes (dépôt privé : minutes GitHub Actions facturées ; les e-mails de l'application couvrent
+# déjà les pannes de plus de 5 min) : page d'accueil (Caddy + front), /health-api (API), /api/v1/setup/status (API + PostgreSQL).
+# Deux échecs consécutifs (≈ 30 à 60 min) → ouverture d'un ticket « [Disponibilité] » (e-mail GitHub au propriétaire du
 # dépôt) ; retour à la normale → commentaire de résolution et fermeture du ticket. Lecture seule, aucun secret.
 name: Uptime staging
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:

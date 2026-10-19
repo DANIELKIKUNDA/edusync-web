@@ -18,7 +18,7 @@ comment diagnostiquer un incident depuis l'écran « État du service ».
 | Saturation : connexions base utilisées / capacité du pool de l'API | SQLAlchemy | temps réel | État du service → Serveur d'application |
 | Alertes dérivées (chaque composant non opérationnel, avec sa raison) | `platform_health/api/router.py` | temps réel | bandeau « Incident en cours / À surveiller » |
 | Incidents « Hors service » + e-mail après 5 min et à la résolution (Managers Système + adresses d'astreinte) | `platform_health/application/alerts.py`, table `platform_incidents` | 2 ans (proposé) | État du service → Incidents et alertes |
-| Sonde de disponibilité externe (toutes les 5 min, hors VPS) + ticket automatique | `.github/workflows/uptime.yml` | historique GitHub Actions | onglet Actions, tickets « Disponibilité » |
+| Sonde de disponibilité externe (toutes les 30 min, hors VPS) + ticket automatique | `.github/workflows/uptime.yml` | historique GitHub Actions | onglet Actions, tickets « Disponibilité » |
 
 ### Règles techniques (documentées, non métier)
 
