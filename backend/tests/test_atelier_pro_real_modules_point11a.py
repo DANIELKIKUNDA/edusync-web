@@ -17,7 +17,8 @@ def test_atelier_pro_frontend_no_longer_placeholder_nav():
     # N1 certification 2026-10 (justified adaptation): the audit journal moved to platform/audit.tsx on the
     # filtered /platform/audit-log endpoint; it is still keyset-paginated by cursor (same intent).
     audit=(ROOT/'frontend/src/platform/audit.tsx').read_text(encoding='utf-8')
-    assert 'setCursor(r.next_cursor)' in audit and '<AuditPanel token={token}' in s
+    # Journal d'audit lot 2026-10: cursor stack (pages) and « Charger la suite »
+    assert 'r.next_cursor' in audit and '<AuditPanel token={token}' in s
 
 def test_atelier_pro_tables_are_query_driven_and_bounded():
     s=(ROOT/'backend/src/edusync/modules/platform/api/router.py').read_text()

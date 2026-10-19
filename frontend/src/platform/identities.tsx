@@ -13,7 +13,7 @@ import './identities.css';
    (local business roles). Server-side instant search (debounced, stale answers ignored), keyset pagination (pages on
    desktop, "Charger la suite" on phones), state in the URL (?iq=&scope=&istatus=&ischool=&role=&ipage= ; ?user=<id>). */
 
-export type AccessPreset = {activeOnly?: boolean; nonce: number};
+export type AccessPreset = {activeOnly?: boolean; openUser?: string; nonce: number};
 type Props = {token: string; has: (cap: string) => boolean; preset?: AccessPreset | null; active: boolean;
   onOpenSchool: (schoolId: string) => void; onOpenTeam: (target: TeamTarget) => void};
 /** Navigation only: every change of platform access is made in Équipe plateforme. */
@@ -92,6 +92,7 @@ export function AccessDirectory({token, has, preset, active, onOpenSchool, onOpe
   // Dashboard « Accès actifs » → the same definition, applied as a removable filter.
   useEffect(() => {
     if (!preset) return;
+    if (preset.openUser) { setOpenUser(preset.openUser); writeUrl(f, preset.openUser); return; }   // e.g. from the audit log
     setQInput(''); setF({...EMPTY, activeOnly: Boolean(preset.activeOnly)}); setCursors([null]); setPage(1); setOpenUser(null);
   }, [preset?.nonce]);
   // Debounced instant search: 300 ms after the last key; an older answer is ignored.

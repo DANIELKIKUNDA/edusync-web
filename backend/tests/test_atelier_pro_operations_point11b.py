@@ -35,7 +35,8 @@ def test_atelier_pro_directories_are_searchable_and_paginated():
     # N1 certification 2026-10 (justified adaptation): the audit journal moved to platform/audit.tsx on the
     # filtered /platform/audit-log endpoint; it is still keyset-paginated by cursor (same intent).
     audit=text('frontend/src/platform/audit.tsx')
-    assert 'setCursor(r.next_cursor)' in audit and 'auditLog(token, filters, more ? cursor : null)' in audit
+    # Journal d'audit lot 2026-10: still keyset-paginated by cursor (cursor stack per page, « Charger la suite » on phones)
+    assert 'r.next_cursor' in audit and 'fetchAudit(token, f, cursors[page - 1] ?? null, LIMIT' in audit
 
 def test_bootstrap_password_not_added_to_idempotency_payload():
     router=text('backend/src/edusync/modules/platform/api/router.py')
