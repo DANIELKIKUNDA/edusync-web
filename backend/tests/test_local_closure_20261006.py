@@ -263,7 +263,7 @@ def test_form_fields_are_explicitly_labelled():
 def test_sign_in_offers_first_run_setup_only_when_the_server_allows_it():
     login = (FRONT / "login.tsx").read_text(encoding="utf-8")
     assert "setupStatus()" in login and "setup?.setup_required&&setup.setup_available" in login and "createFirstManager(" in login
-    assert "Accès Atelier Pro (Manager système)" in login
+    assert "Accès plateforme (Manager Système)" in login
 
 
 def test_technical_codes_are_translated_for_users():

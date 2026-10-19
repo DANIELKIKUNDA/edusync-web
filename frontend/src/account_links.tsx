@@ -47,7 +47,7 @@ export function ForgotPasswordCard({onBack}: {onBack: () => void}) {
           {err && <small role="alert">{err}</small>}</div>
         <button className="lg-submit" disabled={busy}>{busy ? <><i className="lg-spin"/>Envoi…</> : 'Envoyer le lien'}</button>
       </form>}
-    <p className="lg-note">Comptes plateforme (Atelier Pro) : la réinitialisation passe par un Manager Système.</p>
+    <p className="lg-note">Comptes de la plateforme EduSync : la réinitialisation passe par un Manager Système.</p>
     <button type="button" className="lg-quiet" onClick={onBack}>Retour à la connexion</button>
   </div>;
 }

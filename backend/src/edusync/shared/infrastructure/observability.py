@@ -1,8 +1,9 @@
 from __future__ import annotations
-import json, logging
+import asyncio, json, logging, time
 from datetime import datetime, timezone
 from uuid import uuid4
 from fastapi import Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 try:
     import structlog  # production structured logger
@@ -23,29 +24,48 @@ def _log(event:str,**fields):
 class CorrelationLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         correlation_id=request.headers.get('X-Correlation-ID') or str(uuid4())
+        request.state.correlation_id=correlation_id
+        t0=time.perf_counter()
         try:
             response=await call_next(request)
             response.headers['X-Correlation-ID']=correlation_id
             _log('http_request',correlation_id=correlation_id,path=request.url.path,method=request.method,status=response.status_code)
-            if response.status_code>=500:
-                _count_server_error(request)
+            _record(request,response.status_code,t0,correlation_id,getattr(request.state,'error_type',None),getattr(request.state,'error_message',''))
             return response
         except Exception as exc:
             logging.getLogger('edusync').exception(json.dumps({'event':'http_unhandled_error','correlation_id':correlation_id,'path':request.url.path,'method':request.method,'error_type':type(exc).__name__}))
-            _count_server_error(request)
-            raise
+            _record(request,500,t0,correlation_id,type(exc).__name__,str(exc))
+            # A clean answer carrying the reference (support can find the group and the log line), never a trace.
+            return JSONResponse(status_code=500,headers={'X-Correlation-ID':correlation_id},
+                                content={'detail':f'Une erreur inattendue est survenue. Référence : {correlation_id[:8]}','correlation_id':correlation_id})
 
 
-def _count_server_error(request: Request) -> None:
-    """Hourly 5xx counter for the health screen (no path parameters, no user, no payload)."""
+def _route_template(request: Request) -> str:
+    """The matched route template (/platform/schools/{school_id}), never the concrete path: no identifier is kept."""
+    route=request.scope.get('route')
+    path=getattr(route,'path',None)
+    return path if isinstance(path,str) else 'route inconnue'
+
+
+def _redis(request: Request):
+    state=request.app.state
+    r=getattr(state,'_signals_redis',None)
+    if r is None:
+        import redis
+        r=redis.Redis.from_url(state.services.settings.redis_url,socket_connect_timeout=.5,socket_timeout=.5)
+        state._signals_redis=r
+    return r
+
+
+def _record(request: Request, status: int, t0: float, correlation_id: str, error_type: str | None, message: str) -> None:
+    """Golden signals + grouped 5xx (signals.py), handed to a thread: never delays nor breaks the response."""
+    if not request.url.path.startswith('/api/'):
+        return
     try:
-        state=request.app.state
-        r=getattr(state,'_errors_redis',None)
-        if r is None:
-            import redis
-            r=redis.Redis.from_url(state.services.settings.redis_url,socket_connect_timeout=.5,socket_timeout=.5)
-            state._errors_redis=r
-        from edusync.shared.infrastructure.heartbeat import record_server_error
-        record_server_error(r)
+        from edusync.shared.infrastructure.signals import record_request
+        r=_redis(request)
+        kwargs=dict(method=request.method,route=_route_template(request),status=int(status),duration_ms=int((time.perf_counter()-t0)*1000),
+                    correlation_id=correlation_id,error_type=error_type,message=message or '')
+        asyncio.get_running_loop().run_in_executor(None,lambda:record_request(r,**kwargs))
     except Exception:  # noqa: BLE001 — observability never breaks a response
         pass

@@ -5,8 +5,13 @@ A component that is not configured is reported as such (never as healthy). State
 OK / DEGRADED / DOWN / NOT_CONFIGURED; the overall state is the worst configured component.
 Freshness: each component carries measured_at (the instant of its own measurement) and, for the workers, the age of
 their last heartbeat. Concurrent or repeated requests within MEASURE_TTL seconds share one measurement (no storm of
-checks: 50 clicks or tabs cost one round of checks). Not available (no history is stored): uptime, short history,
-incidents, planned maintenance, backup size.
+checks: 50 clicks or tabs cost one round of checks).
+Diagnosable cockpit (lot 2026-10, signals.py): golden signals of the API (traffic, errors, latency, saturation), server
+errors grouped by route template / status / type with first and last occurrence, CURRENT health (errors active within
+the last 5 minutes) separated from HISTORY (1 h / 24 h / 7 d, which never degrades the current state), messaging
+providers (state, last success, last failure), alerts derived from the components. Expected refusals (4xx: validation,
+wrong password, 403, 404, bad file format) are counted apart and never degrade. Not available: uptime history,
+planned maintenance, backup size, alert delivery to an on-call channel (DEFERRED_BY_DESIGN, docs/OBSERVABILITY.md).
 """
 from __future__ import annotations
 
@@ -17,13 +22,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 
 from edusync.bootstrap.dependencies import get_services, require_platform_actor
 from edusync.bootstrap.services import AppServices
 from edusync.shared.application.context import ActorContext
-from edusync.shared.infrastructure.heartbeat import HEARTBEAT_PREFIX, server_errors_last_24h
+from edusync.shared.infrastructure import signals
+from edusync.shared.infrastructure.heartbeat import HEARTBEAT_PREFIX
 
 router = APIRouter(tags=["Plateforme EduSync — santé"])
 STARTED_AT = datetime.now(timezone.utc)
@@ -34,7 +40,29 @@ _cache: dict = {"at": 0.0, "body": None}
 _lock = threading.Lock()
 # What each component relies on (known architecture, not a guess about business impact).
 DEPENDS = {"api": ["database", "redis"], "worker_outbox": ["database", "redis"], "worker_communications": ["database", "redis"],
-           "storage": [], "errors": ["redis"], "backup": ["database", "storage"], "database": [], "redis": []}
+           "storage": [], "errors": ["redis"], "backup": ["database", "storage"], "database": [], "redis": [], "messaging": ["worker_communications"]}
+P95_SLOW_MS = 2500        # p95 beyond the last latency bucket over 5 minutes: the API is slow (technical threshold, documented)
+CHANNELS = (("SMS", "sms", "SMS"), ("EMAIL", "email", "E-mail"), ("PUSH", "push", "Notifications push"))
+PROVIDER_LABEL = {"CONFIGURED": "Configuré", "SIMULATED": "Simulé (jamais certifié)", "DISABLED": "Désactivé", "INCOMPLETE": "Configuration incomplète",
+                  "REFUSED": "Refusé (simulation interdite en production)"}
+
+
+def _redis(services: AppServices):
+    import redis
+    return redis.Redis.from_url(services.settings.redis_url, decode_responses=True, socket_connect_timeout=1, socket_timeout=1)
+
+
+def _saturation(services: AppServices) -> dict | None:
+    """Database connection pool of this API process (in use / capacity): the saturation signal."""
+    try:
+        eng = services.platform_db.engine
+        eng = eng() if callable(eng) else eng
+        pool = eng.pool
+        size, used = int(pool.size()), int(pool.checkedout())
+        cap = size + max(0, int(getattr(pool, "_max_overflow", 0) or 0))
+        return {"db_pool_in_use": used, "db_pool_capacity": cap, "db_pool_ratio": round(used / cap, 2) if cap else None}
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _now() -> str:
@@ -99,8 +127,9 @@ def system_health(actor: ActorContext = Depends(require_platform_actor), service
 def measure(services: AppServices) -> dict:
     components: list[dict] = []
     uptime = int((datetime.now(timezone.utc) - STARTED_AT).total_seconds())
-    components.append({"key": "api", "label": "Serveur d’application", "state": "OK",
-                       "detail": f"En service depuis {_human_age(uptime).replace('il y a ', '')}", "measured_ms": 0, "started_at": STARTED_AT.isoformat()})
+    api = {"key": "api", "label": "Serveur d’application", "state": "OK",
+           "detail": f"En service depuis {_human_age(uptime).replace('il y a ', '')}", "measured_ms": 0, "started_at": STARTED_AT.isoformat()}
+    components.append(api)
 
     # PostgreSQL: real round trip + a few real figures.
     queue = {}
@@ -183,15 +212,40 @@ def measure(services: AppServices) -> dict:
         except Exception:  # noqa: BLE001
             components.append({"key": "storage", "label": "Stockage des documents", "state": "DOWN", "detail": "Injoignable", "measured_ms": None})
 
-    errors = None
+    # Golden signals and grouped errors (signals.py). CURRENT health = errors active within the last 5 minutes;
+    # the 24 h history informs and never degrades the current state.
+    golden = groups = None
     if r is not None:
         try:
-            errors = server_errors_last_24h(r)
+            golden = {"last_5m": signals.window(r, 5), "last_1h": signals.window(r, 60), "last_24h": signals.window(r, 60 * 24)}
+            groups = signals.error_groups(r, since_hours=24)
         except Exception:  # noqa: BLE001
-            errors = None
-    components.append({"key": "errors", "label": "Erreurs serveur (24 h)",
-                       "state": "NOT_CONFIGURED" if errors is None else "OK" if errors == 0 else "DEGRADED" if errors < 20 else "DOWN",
-                       "detail": "Compteur indisponible (cache injoignable)" if errors is None else f"{errors} erreur(s) inattendue(s)", "value": errors})
+            golden = groups = None
+    if golden is not None:
+        w5 = golden["last_5m"]
+        api["signals"] = {**golden, "saturation": _saturation(services)}
+        if w5["latency_p95_over"]:
+            api.update(state="DEGRADED", detail=api["detail"] + f" · lent : 95 % des requêtes au-delà de {P95_SLOW_MS / 1000:g} s sur 5 min")
+        elif w5["requests"]:
+            api["detail"] += f" · {w5['per_minute']:g} req/min · p95 ≤ {w5['latency_p95_ms']} ms"
+    if groups is None:
+        components.append({"key": "errors", "label": "Erreurs serveur", "state": "NOT_CONFIGURED",
+                           "detail": "Compteur indisponible (cache injoignable)", "value": None})
+    else:
+        cur = signals.errors_state(groups, golden["last_1h"], golden["last_24h"])
+        active = [g for g in groups if g["active"]]
+        components.append({"key": "errors", "label": "Erreurs serveur", "state": cur["state"], "detail": cur["explain"],
+                           "value": golden["last_24h"]["server_errors"],
+                           "errors": {"current_state": cur["state"], "active_groups": cur["active_groups"],
+                                      "last_hour": golden["last_1h"]["server_errors"], "last_24h": golden["last_24h"]["server_errors"],
+                                      "refusals_24h": golden["last_24h"]["client_refusals"],
+                                      "first_active_at": min((g["first_at"] for g in active), default=None),
+                                      "last_at": max((g["last_at"] for g in groups), default=None),
+                                      "active_window_seconds": signals.ACTIVE_WINDOW_S,
+                                      "groups": [{k: g[k] for k in ("id", "method", "route", "status", "type", "active", "count_1h", "count_24h", "last_at")}
+                                                 for g in groups[:8]]}})
+
+    components.append(messaging_component(services))
 
     components.append(backup_component(services))
 
@@ -201,8 +255,97 @@ def measure(services: AppServices) -> dict:
         c["depends_on"] = DEPENDS.get(c["key"], [])
     configured = [c for c in components if c["state"] != "NOT_CONFIGURED"]
     overall = max((c["state"] for c in configured), key=RANK.get, default="OK")
+    # A degraded state is always explainable: every non-OK configured component becomes an alert with its reason.
+    alerts = [{"key": c["key"], "severity": "critical" if c["state"] == "DOWN" else "warning", "title": c["label"], "explain": c["detail"],
+               "since": (c.get("errors") or {}).get("first_active_at")} for c in configured if c["state"] != "OK"]
     return {"checked_at": checked, "overall": overall, "components": components, "refresh_seconds": 30, "measure_ttl_seconds": MEASURE_TTL,
+            "alerts": alerts, "alert_delivery": "DEFERRED_BY_DESIGN",
             "summary": {"operational": sum(1 for c in configured if c["state"] == "OK"), "configured": len(configured),
                         "degraded": sum(1 for c in configured if c["state"] == "DEGRADED"), "down": sum(1 for c in configured if c["state"] == "DOWN"),
                         "not_configured": len(components) - len(configured)},
             "figures": {k: queue.get(k) for k in ("schools_active", "sessions_open")} if queue else {}}
+
+
+def messaging_component(services: AppServices) -> dict:
+    """Messaging providers: configuration state (never a credential), last real success and last failure per channel.
+    A simulated provider is never shown as certified nor as operational: it is "not configured" for real sending."""
+    from edusync.shared.messaging.factory import channel_status
+    status = channel_status(services.settings)
+    comp = {"key": "messaging", "label": "Fournisseurs de messagerie", "measured_ms": None, "providers": []}
+    try:
+        with services.platform_db.platform_transaction() as c:
+            rows = {r["channel"]: dict(r) for r in c.execute(text("""SELECT channel,
+                    max(coalesce(delivered_at, sent_at)) FILTER (WHERE status IN ('SENT','DELIVERED')) AS last_success,
+                    max(failed_at) FILTER (WHERE status LIKE 'FAILED%') AS last_failure,
+                    count(*) FILTER (WHERE status LIKE 'FAILED%' AND failed_at > now()-interval '15 minutes') AS failed_15m,
+                    count(*) FILTER (WHERE status IN ('SENT','DELIVERED') AND coalesce(delivered_at, sent_at) > now()-interval '15 minutes') AS ok_15m,
+                    (array_agg(last_error_code ORDER BY failed_at DESC) FILTER (WHERE status LIKE 'FAILED%'))[1] AS last_error_code
+                FROM communication_deliveries WHERE created_at > now()-interval '7 days' GROUP BY channel""")).mappings()}
+    except Exception:  # noqa: BLE001
+        rows = None
+    states = []
+    for code, key, label in CHANNELS:
+        st = status[key]["state"]
+        row = (rows or {}).get(code, {})
+        failing = bool(row.get("failed_15m")) and not row.get("ok_15m")
+        state = "DOWN" if st == "REFUSED" else "DEGRADED" if st == "INCOMPLETE" or (st == "CONFIGURED" and failing) else \
+            "OK" if st == "CONFIGURED" else "NOT_CONFIGURED"
+        states.append(state)
+        comp["providers"].append({"channel": code, "label": label, "config_state": st, "config_label": PROVIDER_LABEL.get(st, st), "state": state,
+                                  "certified": False if st != "CONFIGURED" else None,
+                                  "last_success_at": row["last_success"].isoformat() if row.get("last_success") else None,
+                                  "last_failure_at": row["last_failure"].isoformat() if row.get("last_failure") else None,
+                                  "last_error_code": row.get("last_error_code"), "failures_15m": int(row.get("failed_15m") or 0)})
+    configured = [x for x in states if x != "NOT_CONFIGURED"]
+    comp["state"] = max(configured, key=RANK.get) if configured else "NOT_CONFIGURED"
+    if rows is None:
+        comp["detail"] = "Historique des envois illisible (base injoignable)"
+    elif not configured:
+        comp["detail"] = "Aucun fournisseur réel configuré (simulation ou désactivé) : aucun envoi réel"
+    else:
+        bad = [p["label"] for p in comp["providers"] if p["state"] in ("DEGRADED", "DOWN")]
+        comp["detail"] = ("En difficulté : " + ", ".join(bad)) if bad else "Fournisseurs configurés, aucun échec récent"
+    return comp
+
+
+def _signals_or_503(services: AppServices):
+    try:
+        r = _redis(services)
+        r.ping()
+        return r
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail="Signaux indisponibles (cache injoignable). Réessayez dans un instant.")
+
+
+@router.get("/health/errors")
+def health_errors(window: str = Query("24h", pattern="^(1h|24h|7d)$"), actor: ActorContext = Depends(require_platform_actor),
+                  services: AppServices = Depends(get_services)):
+    """Error groups of the window (active first), with the 1 h / 24 h / 7 d counts. Redacted: no value, no identifier."""
+    actor.require("platform.health.read")
+    r = _signals_or_503(services)
+    groups = signals.error_groups(r, since_hours={"1h": 1, "24h": 24, "7d": 24 * 7}[window])
+    groups = [g for g in groups if g["active"]] + sorted([g for g in groups if not g["active"]], key=lambda g: g["last_at"] or "", reverse=True)
+    return {"window": window, "groups": groups, "active_window_seconds": signals.ACTIVE_WINDOW_S, "measured_at": _now()}
+
+
+@router.get("/health/errors/{group_id}")
+def health_error_detail(group_id: str, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    actor.require("platform.health.read")
+    r = _signals_or_503(services)
+    g = signals.error_group(r, group_id)
+    if g is None:
+        raise HTTPException(status_code=404, detail="Groupe d’erreurs introuvable ou expiré (conservation : 7 jours)")
+    day = signals.window(r, 60 * 24)
+    g["impact"] = {"share_of_errors_24h": round(g["count_24h"] / day["server_errors"], 2) if day["server_errors"] else None,
+                   "requests_24h": day["requests"]}
+    g["audit_link"] = "NOT_AVAILABLE"      # a server error is not an audited business action: no audit entry to open
+    return {**g, "measured_at": _now()}
+
+
+@router.get("/health/history")
+def health_history(span: str = Query("1h", pattern="^(1h|24h|7d)$"), actor: ActorContext = Depends(require_platform_actor),
+                   services: AppServices = Depends(get_services)):
+    """Short history of the golden signals: 1 h per minute, 24 h / 7 d per hour (kept 26 h / 8 days)."""
+    actor.require("platform.health.read")
+    r = _signals_or_503(services)
+    return {"span": span, "points": signals.history(r, span), "measured_at": _now()}

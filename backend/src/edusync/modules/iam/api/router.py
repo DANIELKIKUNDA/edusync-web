@@ -44,22 +44,35 @@ def _set_session_cookie(response: Response, services: AppServices, raw: str, exp
 
 
 def _new_device_session(conn, settings, *, user, school=None, membership=None, user_agent: str = "", mfa_method: str | None = None,
-                        mfa_required: bool = False) -> tuple[str, str, datetime]:
+                        mfa_required: bool = False, mfa_verified_at: datetime | None = None) -> tuple[str, str, datetime]:
     raw_session, session_hash = new_session_token()
     # A sign-in that has just passed the second factor also counts as a fresh confirmation (step-up) for a few minutes.
     row = conn.execute(text("""INSERT INTO user_device_sessions(user_id,school_id,membership_id,token_hash,label,user_agent_hash,user_version,membership_version,expires_at,mfa_verified_at,mfa_method,mfa_stepup_at,mfa_required)
         VALUES(:uid,:sid,:mid,:th,:label,:uah,:uv,:mv,CASE WHEN :days>0 THEN now()+make_interval(days=>:days) END,
-               CASE WHEN CAST(:mfa AS text) IS NOT NULL THEN now() END,:mfa,CASE WHEN CAST(:mfa AS text) IS NOT NULL THEN now() END,:req) RETURNING id,expires_at"""), {
+               coalesce(CAST(:mva AS timestamptz), CASE WHEN CAST(:mfa AS text) IS NOT NULL THEN now() END),:mfa,
+               CASE WHEN CAST(:mva AS timestamptz) IS NULL AND CAST(:mfa AS text) IS NOT NULL THEN now() END,:req) RETURNING id,expires_at"""), {
         "uid": str(user.id), "sid": str(school.id) if school else None, "mid": str(membership.id) if membership else None,
         "th": session_hash, "label": describe_user_agent(user_agent), "uah": hash_user_agent(user_agent), "uv": user.version,
-        "mv": membership.version if membership else None, "days": settings.session_absolute_days, "mfa": mfa_method, "req": bool(mfa_required)}).one()
+        "mv": membership.version if membership else None, "days": settings.session_absolute_days, "mfa": mfa_method, "req": bool(mfa_required),
+        "mva": mfa_verified_at}).one()
     return raw_session, str(row[0]), row[1]
 
 
-def _issue_platform_session(conn, services: AppServices, request: Request, response: Response, user, *, mfa_method: str | None) -> dict:
+def _retire_browser_session(conn, request: Request, services: AppServices, user_id) -> None:
+    """A new space opened in this browser replaces the session this browser already holds for the same account
+    (change of space, sign-in again): sessions never pile up for one browser."""
+    raw = request.cookies.get(services.settings.persistent_session_cookie)
+    if raw:
+        conn.execute(text("""UPDATE user_device_sessions SET revoked_at=now(), revoked_reason='REPLACED_IN_BROWSER'
+            WHERE user_id=:u AND revoked_at IS NULL AND token_hash=:th"""), {"u": str(user_id), "th": hash_token(raw)})
+
+
+def _issue_platform_session(conn, services: AppServices, request: Request, response: Response, user, *, mfa_method: str | None,
+                            mfa_verified_at: datetime | None = None) -> dict:
     """Platform device session + access token. Reached only after the password and, under option B, the second factor."""
+    _retire_browser_session(conn, request, services, user.id)
     raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, user_agent=request.headers.get("user-agent", ""), mfa_method=mfa_method,
-                                                                   mfa_required=platform_mfa.mfa_needed(conn, services.settings, user.id))
+                                                                   mfa_required=platform_mfa.mfa_needed(conn, services.settings, user.id), mfa_verified_at=mfa_verified_at)
     # The access token is bound to its device session ("sid"), so logout/revocation is immediate.
     token = create_access_token(
         subject=str(user.id), secret=services.settings.jwt_secret,
@@ -77,10 +90,11 @@ def _issue_platform_session(conn, services: AppServices, request: Request, respo
 
 
 def _issue_school_session(conn, services: AppServices, request: Request, response: Response, user, school, membership, *,
-                          mfa_method: str | None, mfa_required: bool = False) -> dict:
+                          mfa_method: str | None, mfa_required: bool = False, mfa_verified_at: datetime | None = None) -> dict:
     permissions = PostgresMembershipRepository(conn).permissions(membership.id)
+    _retire_browser_session(conn, request, services, user.id)
     raw_session, session_id, session_expires = _new_device_session(conn, services.settings, user=user, school=school, membership=membership, user_agent=request.headers.get("user-agent", ""),
-                                                                   mfa_method=mfa_method, mfa_required=mfa_required)
+                                                                   mfa_method=mfa_method, mfa_required=mfa_required, mfa_verified_at=mfa_verified_at)
     token = create_access_token(
         subject=str(user.id), secret=services.settings.jwt_secret,
         issuer=services.settings.jwt_issuer, audience=services.settings.jwt_audience,
@@ -122,7 +136,7 @@ def _login_contexts(conn, user_id) -> list[dict]:
         WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM' AND r.status='ACTIVE'
           AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) LIMIT 1"""), {"u": str(user_id)}).first()
     if platform and not platform_account_suspended(conn, user_id):
-        out.append({"scope": "PLATFORM", "school_code": None, "label": "Atelier Pro — administration de la plateforme"})
+        out.append({"scope": "PLATFORM", "school_code": None, "label": "Plateforme EduSync — administration"})
     return out
 
 
@@ -720,7 +734,7 @@ def platform_sessions(request: Request, actor: ActorContext = Depends(require_pl
     th = hash_token(raw) if raw else ''
     with services.platform_db.platform_transaction() as conn:
         rows = conn.execute(text("""SELECT s.id,s.label,s.created_at,s.last_seen_at,s.revoked_at,(s.token_hash=:th OR s.previous_token_hash=:th) AS current,
-              coalesce(sc.name,'Atelier Pro') AS context
+              coalesce(sc.name,'Plateforme EduSync') AS context
             FROM user_device_sessions s LEFT JOIN schools sc ON sc.id=s.school_id
             WHERE s.user_id=:u AND s.revoked_at IS NULL ORDER BY s.last_seen_at DESC LIMIT 100"""), {'u': str(actor.user_id), 'th': th}).mappings()
         return {'items': [dict(r) for r in rows]}
@@ -796,3 +810,109 @@ def platform_avatar_delete(actor: ActorContext = Depends(require_platform_actor)
         except Exception:  # noqa: BLE001 — the pointer is gone; an orphan object is harmless and private
             pass
     return {"status": "removed" if row else "none"}
+
+
+# ---------------------------------------------------------------- change of space without signing out (lot 2026-10)
+#
+# One identity, N memberships, N spaces, one persistent session. The persistent session (HttpOnly cookie, same origin)
+# proves the identity; the target space is checked again by the server (platform role and status, or active school
+# and active membership); a new device session bound to that space replaces the current one (the current one is
+# revoked: no pile of sessions). The second-factor proof of the session is carried over (no new code to type for a
+# switch), the step-up never is (a sensitive action still asks for a fresh code). Permissions are recomputed by the
+# server for the new space: a platform role never leaks into a school, a school role never leaks into the platform.
+
+class SwitchInput(BaseModel):
+    scope: Literal["PLATFORM", "SCHOOL"]
+    school_code: str | None = Field(default=None, max_length=32)
+
+
+def _live_session(conn, request: Request, services: AppServices, *, lock: bool = False):
+    raw = request.cookies.get(services.settings.persistent_session_cookie)
+    if not raw:
+        raise HTTPException(401, "Session à renouveler")
+    th = hash_token(raw)
+    row = conn.execute(text("""SELECT s.*, u.active, u.version current_user_version FROM user_device_sessions s JOIN users u ON u.id=s.user_id
+        WHERE s.revoked_at IS NULL AND (s.expires_at IS NULL OR s.expires_at>now())
+          AND (s.token_hash=:th OR (s.previous_token_hash=:th AND s.previous_valid_until>now()))""" + (" FOR UPDATE OF s" if lock else "")),
+        {"th": th}).mappings().first()
+    if not row or not row["active"] or int(row["user_version"]) != int(row["current_user_version"]):
+        raise HTTPException(401, "Session à renouveler")
+    return row
+
+
+def _space_roles(conn, user_id) -> tuple[list[str], dict[str, list[str]]]:
+    platform = [r[0] for r in conn.execute(text("""SELECT DISTINCT r.label FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
+        WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM' AND r.status='ACTIVE'
+          AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now()) ORDER BY 1"""), {"u": str(user_id)})]
+    schools: dict[str, list[str]] = {}
+    for code, label in conn.execute(text("""SELECT s.code, r.label FROM school_memberships m JOIN schools s ON s.id=m.school_id
+          JOIN rbac_assignments a ON a.user_id=m.user_id AND a.school_id=s.id AND a.active
+            AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())
+          JOIN rbac_roles r ON r.id=a.role_id AND r.status='ACTIVE'
+        WHERE m.user_id=:u AND m.active AND s.status='ACTIVE' GROUP BY s.code, r.label ORDER BY 1, 2"""), {"u": str(user_id)}):
+        schools.setdefault(code, []).append(label)
+    return platform, schools
+
+
+@router.get("/contexts")
+def my_contexts(request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """The spaces this identity may open now (server truth) and the one the current session is bound to."""
+    response.headers["Cache-Control"] = "no-store"
+    with services.platform_db.platform_transaction() as conn:
+        row = _live_session(conn, request, services)
+        contexts = _login_contexts(conn, row["user_id"])
+        platform_roles, school_roles = _space_roles(conn, row["user_id"])
+        current_code = conn.execute(text("SELECT code FROM schools WHERE id=:s"), {"s": str(row["school_id"])}).scalar() if row["school_id"] else None
+    current = {"scope": "SCHOOL" if row["school_id"] else "PLATFORM", "school_code": current_code}
+    items = [{**c, "roles": platform_roles if c["scope"] == "PLATFORM" else school_roles.get(c["school_code"], []),
+              "current": c["scope"] == current["scope"] and c["school_code"] == current["school_code"]} for c in contexts]
+    return {"contexts": items, "current": current, "current_valid": any(i["current"] for i in items)}
+
+
+@router.post("/switch")
+def switch_space(body: SwitchInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    with services.platform_db.platform_transaction() as conn:
+        row = _live_session(conn, request, services, lock=True)
+        user = PostgresUserRepository(conn).get(row["user_id"])
+        school = membership = None
+        if body.scope == "PLATFORM":
+            allowed = _platform_access_ok(conn, user.id)
+            needs_mfa = platform_mfa.mfa_needed(conn, services.settings, user.id)
+        else:
+            school = PostgresSchoolRepository(conn).get_by_code((body.school_code or "").strip().upper())
+            membership = PostgresMembershipRepository(conn).get_for_user_school(user.id, school.id) if school else None
+            allowed = bool(school and school.status == SchoolStatus.ACTIVE and membership and membership.active)
+            needs_mfa = platform_mfa.mfa_required_everywhere(conn, services.settings, user.id)
+        target = {"scope": body.scope, "school_code": school.code if school else None}
+        if allowed:
+            return _switch_to(conn, services, request, response, row, user, body, school, membership, needs_mfa, target)
+    # the refusal is written in its own transaction (the one above is rolled back by the error)
+    with services.platform_db.platform_transaction() as conn:
+        platform_mfa.security_audit(conn, user_id=row["user_id"], action="CONTEXT_SWITCH_REFUSED",
+                                    detail={**target, "requested": (body.school_code or "")[:32] or None}, rejected=True)
+    raise HTTPException(403, "Cet espace ne vous est pas (ou plus) ouvert.")
+
+
+def _switch_to(conn, services, request, response, row, user, body, school, membership, needs_mfa, target) -> dict:
+    """Opens the checked target space (the caller verified that it is open to this identity)."""
+    if needs_mfa and row["mfa_verified_at"] is None:
+        # the current session was opened without a second factor (school account): the target space asks for it
+        purpose = "LOGIN" if platform_mfa.active_factor(conn, user.id) else "ENROLL"
+        step = platform_mfa.create_challenge(conn, services.settings, user_id=user.id, user_version=user.version, purpose=purpose, scope=body.scope,
+                                             school_id=school.id if school else None, membership_id=membership.id if membership else None)
+        return {"mfa_required": purpose == "LOGIN", "mfa_enrollment_required": purpose == "ENROLL", "mfa_token": step,
+                "expires_in": services.settings.mfa_challenge_seconds, "scope": body.scope,
+                "methods": ["TOTP", "RECOVERY_CODE"] if purpose == "LOGIN" else ["TOTP"]}
+    carried = row["mfa_verified_at"] if needs_mfa else None
+    if body.scope == "PLATFORM":
+        result = _issue_platform_session(conn, services, request, response, user, mfa_method=row["mfa_method"] if carried else None, mfa_verified_at=carried)
+    else:
+        result = _issue_school_session(conn, services, request, response, user, school, membership, mfa_method=row["mfa_method"] if carried else None,
+                                       mfa_required=needs_mfa, mfa_verified_at=carried)
+    conn.execute(text("UPDATE user_device_sessions SET revoked_at=now(), revoked_reason='CONTEXT_SWITCH' WHERE id=:id"), {"id": str(row["id"])})
+    frm = {"scope": "SCHOOL" if row["school_id"] else "PLATFORM"}
+    platform_mfa.security_audit(conn, user_id=user.id, action="CONTEXT_SWITCHED", detail={"from": frm["scope"], "to": body.scope,
+                                                                                        "school_code": target["school_code"]})
+    return result

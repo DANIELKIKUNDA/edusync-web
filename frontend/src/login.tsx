@@ -7,6 +7,7 @@ import {createFirstManager,firstPasswordChange,HttpLoginError,isMfaStep,isPasswo
 import {toast} from 'sonner';
 import {friendlyError,UserFacingError} from './platform/errors';
 import {NavGlyph} from './platform/nav_icons';
+import {lastSpace,spaceKey} from './platform/spaces';
 import './login.css';
 
 const schema=z.object({email:z.string().trim().email('Saisissez une adresse e-mail valide.'),password:z.string().min(1,'Le mot de passe est obligatoire.')});
@@ -57,13 +58,15 @@ function loginMessage(e:unknown){
 /** After authentication, an account that opens several spaces picks one. Nothing is stored before the choice. */
 function ContextChooser({contexts,busy,error,onPick,onBack}:{contexts:LoginContext[];busy:string;error:string;onPick:(c:LoginContext)=>void;onBack:()=>void}){
  const first=useRef<HTMLButtonElement>(null);
+ // The last space used on this device comes first (a hint only: the server checks the space again).
+ const last=lastSpace();const ordered=[...contexts].sort((a,b)=>Number(spaceKey(b)===last)-Number(spaceKey(a)===last));
  useEffect(()=>{first.current?.focus()},[]);
  return <div className="lg-card" role="group" aria-labelledby="ctx-title">
-  <div className="lg-head"><h1 id="ctx-title">Choisir un espace</h1><p>Votre compte donne accès à plusieurs espaces. Lequel voulez-vous ouvrir ?</p></div>
-  <ul className="lg-ctx">{contexts.map((c,i)=>{const key=c.scope+(c.school_code||'');return <li key={key}>
+  <div className="lg-head"><h1 id="ctx-title">Choisissez votre espace de travail</h1><p>Votre compte donne accès à plusieurs espaces. Vous pourrez en changer à tout moment sans vous reconnecter.</p></div>
+  <ul className="lg-ctx">{ordered.map((c,i)=>{const key=c.scope+(c.school_code||'');const recent=spaceKey(c)===last;return <li key={key}>
    <button ref={i===0?first:undefined} type="button" disabled={!!busy} onClick={()=>onPick(c)}>
     <span className={`lg-ctx-ico ${c.scope==='PLATFORM'?'lg-ctx-pf':''}`}><NavGlyph g={c.scope==='PLATFORM'?'shield':'school'} size={18}/></span>
-    <span className="lg-ctx-txt"><b>{c.scope==='PLATFORM'?'Atelier Pro':c.label}</b><small>{c.scope==='PLATFORM'?'Administration de la plateforme':`Établissement · ${c.school_code}`}</small></span>
+    <span className="lg-ctx-txt"><b>{c.scope==='PLATFORM'?'Plateforme EduSync':c.label}</b><small>{c.scope==='PLATFORM'?'Administration de la plateforme':`Établissement · ${c.school_code}`}{recent?' · Dernier espace utilisé':''}</small></span>
     {busy===key?<i className="lg-spin lg-spin-dark"/>:<NavGlyph g="chevronRight" size={18}/>}
    </button></li>})}</ul>
   {error&&<div className="lg-error" role="alert"><NavGlyph g="alert" size={16}/>{error}</div>}
@@ -104,7 +107,7 @@ function MfaChallenge({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>void
  // The code is sent as soon as the sixth digit is typed or pasted (once per value).
  const change=(v:string)=>{setCode(v);if(v.length===6&&sent.current!==v&&!dead){sent.current=v;void submit(v)}};
  return <form className="lg-card" onSubmit={e=>{e.preventDefault();void submit()}} noValidate aria-labelledby="mfa-title">
-  <div className="lg-head"><span className="lg-step">{step.scope==='SCHOOL'?'Sécurité du compte':'Atelier Pro'} · Validation en deux étapes</span><h1 id="mfa-title">{mode==='totp'?'Code de vérification':'Code de secours'}</h1>
+  <div className="lg-head"><span className="lg-step">{step.scope==='SCHOOL'?'Sécurité du compte':'Plateforme EduSync'} · Validation en deux étapes</span><h1 id="mfa-title">{mode==='totp'?'Code de vérification':'Code de secours'}</h1>
    <p>{mode==='totp'?`Ouvrez votre application d’authentification et saisissez le code à 6 chiffres affiché pour EduSync.${step.scope==='SCHOOL'?' Votre compte est protégé par un second facteur : il est demandé dans chaque espace.':''}`:'Saisissez l’un des codes de secours que vous avez conservés lors de l’activation. Chaque code ne sert qu’une fois.'}</p></div>
   {mode==='totp'
    ?<div className="lg-field"><label htmlFor="mfa-code">Code à 6 chiffres</label><CodeInput id="mfa-code" value={code} onChange={change} disabled={busy||dead} describedBy="mfa-hint"/>
@@ -143,7 +146,7 @@ function MfaEnrollment({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>voi
   <div className="lg-head"><span className="lg-step">Sécurité du compte · Étape {progress} sur 3</span>
    <div className="mfa-progress" aria-hidden="true">{[1,2,3].map(i=><i key={i} className={i<=progress?'mfa-on':''}/>)}</div>
    <h1 id="mfa-en-title" ref={heading} tabIndex={-1}>{stage==='scan'?'Activer la validation en deux étapes':stage==='confirm'?'Confirmer avec un premier code':'Conservez vos codes de secours'}</h1>
-   <p>{stage==='scan'?'Les comptes de l’Atelier Pro peuvent créer, suspendre et administrer des écoles. Un code de votre téléphone sera désormais demandé à chaque nouvelle connexion, en plus du mot de passe.'
+   <p>{stage==='scan'?'Les comptes de la plateforme EduSync peuvent créer, suspendre et administrer des écoles. Un code de votre téléphone sera désormais demandé à chaque nouvelle connexion, en plus du mot de passe.'
     :stage==='confirm'?'Saisissez le code à 6 chiffres que votre application affiche maintenant pour EduSync.'
     :'Si vous perdez votre téléphone, ces codes vous permettront de vous connecter. Ils ne seront plus jamais affichés.'}</p></div>
   {stage==='scan'&&<>
@@ -174,7 +177,7 @@ function MfaEnrollment({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>voi
   {dead?<button type="button" className="lg-submit" onClick={onRestart}>Revenir à la connexion</button>
    :stage==='scan'?<button type="button" className="lg-submit" disabled={!data} onClick={()=>{setError('');setStage('confirm')}}>J’ai ajouté le compte, continuer</button>
    :stage==='confirm'?<><button type="button" className="lg-submit" disabled={busy} onClick={()=>void confirm()}>{busy?<><i className="lg-spin"/>Vérification…</>:'Activer'}</button><button type="button" className="lg-link" disabled={busy} onClick={()=>{setStage('scan');setError('');setCode('')}}>Revenir au QR code</button></>
-   :<button type="button" className="lg-submit" disabled={!kept} onClick={()=>onDone(result)}>Accéder à l’Atelier Pro</button>}
+   :<button type="button" className="lg-submit" disabled={!kept} onClick={()=>onDone(result)}>Accéder à la plateforme</button>}
   {stage==='scan'&&!dead&&<button type="button" className="lg-link" onClick={onRestart}>Annuler et revenir à la connexion</button>}
  </div>
 }
@@ -242,7 +245,7 @@ export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user
    mfa?(mfa.mfa_enrollment_required?<MfaEnrollment step={mfa} onDone={finish} onRestart={back}/>:<MfaChallenge step={mfa} onDone={finish} onRestart={back}/>):
    choice?<ContextChooser contexts={choice} busy={busy} error={serverError} onPick={pick} onBack={back}/>:
    <form className="lg-card" onSubmit={submit} noValidate aria-labelledby="lg-title">
-    <div className="lg-head"><img className="lg-card-mark" src="/icons/edusync-mark.svg" alt="" width={44} height={44}/>{atelier&&<span className="lg-step">Atelier Pro</span>}<h1 id="lg-title">{atelier?'Accès plateforme':'Connexion'}</h1><p>{atelier?'Réservé à l’administration de la plateforme EduSync.':'Utilisez l’adresse e-mail de votre compte EduSync.'}</p></div>
+    <div className="lg-head"><img className="lg-card-mark" src="/icons/edusync-mark.svg" alt="" width={44} height={44}/>{atelier&&<span className="lg-step">Plateforme EduSync</span>}<h1 id="lg-title">{atelier?'Accès plateforme':'Connexion'}</h1><p>{atelier?'Réservé à l’administration de la plateforme EduSync.':'Utilisez l’adresse e-mail de votre compte EduSync.'}</p></div>
     {created&&<div className="lg-ok" role="status"><NavGlyph g="checkCircle" size={16}/>{created.includes('@')?`Manager Système créé. Connectez-vous avec ${created}.`:created}</div>}
     <Field id="lg-email" label="Adresse e-mail" error={errors.email?.message}><input id="lg-email" type="email" autoComplete="username" inputMode="email" autoFocus aria-invalid={!!errors.email} aria-describedby={errors.email?'lg-email-err':undefined} {...register('email')} placeholder="nom@ecole.cd"/></Field>
     <Field id="lg-pass" label="Mot de passe" error={errors.password?.message}><PasswordInput id="lg-pass" autoComplete="current-password" reg={register('password')} invalid={!!errors.password}/></Field>
@@ -251,7 +254,7 @@ export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user
     {!atelier&&<button type="button" className="lg-quiet" onClick={()=>{setServerError('');setForgot(true)}}>Mot de passe oublié ?</button>}
     <p className="lg-note"><NavGlyph g="lock" size={14}/>Connexion chiffrée. Votre établissement est reconnu automatiquement.</p>
    </form>}
-   <div className="lg-foot"><span>© {new Date().getFullYear()} VolcanoTech · EduSync</span>{setup?.setup_required&&<span className="lg-foot-sep" aria-hidden="true">·</span>}{/* Shown only while no Manager système exists yet: afterwards the Manager signs in like everyone (AUTO). */!mfa&&!pwdStep&&Boolean(setup?.setup_required)&&!choice&&!showSetup&&<button type="button" className="lg-quiet" aria-pressed={atelier} onClick={()=>{setAtelier(x=>!x);setServerError('')}}>{atelier?'Retour à la connexion établissement':'Accès Atelier Pro (Manager système)'}</button>}</div>
+   <div className="lg-foot"><span>© {new Date().getFullYear()} VolcanoTech · EduSync</span>{setup?.setup_required&&<span className="lg-foot-sep" aria-hidden="true">·</span>}{/* Shown only while no Manager système exists yet: afterwards the Manager signs in like everyone (AUTO). */!mfa&&!pwdStep&&Boolean(setup?.setup_required)&&!choice&&!showSetup&&<button type="button" className="lg-quiet" aria-pressed={atelier} onClick={()=>{setAtelier(x=>!x);setServerError('')}}>{atelier?'Retour à la connexion établissement':'Accès plateforme (Manager Système)'}</button>}</div>
   </div>
   <small className="lg-credit">Photo : Sangga Rima Roman Selia / Unsplash</small>
  </div>

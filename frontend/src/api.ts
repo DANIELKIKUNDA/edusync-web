@@ -375,7 +375,7 @@ export type PlatformTeamUser={id:string;email:string;full_name:string;account_ac
 export type PlatformTeamUserDetail=Omit<PlatformTeamUser,'roles'|'last_activity'|'open_sessions'>&{status_reason:string|null;status_changed_at:string|null;roles:{code:string;label:string;kind:string;status:string;active:boolean;created_at:string;reason:string|null}[];effective_permissions:string[];sessions:{id:string;label:string|null;created_at:string;last_seen_at:string}[];audit:{occurred_at:string;action:string;reason:string|null;actor:string|null}[];mfa?:{enrolled:boolean;confirmed_at:string|null;recovery_codes_remaining:number}};
 const T=`${API}/platform/team`;
 async function teamPost<R=any>(token:string,path:string,body:unknown,fallback:string):Promise<R>{return json<R>(await fetch(`${T}${path}`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(body)}),fallback)}
-export async function platformMe(token:string){return json<PlatformMe>(await fetch(`${T}/me`,{headers:auth(token)}),'Profil Atelier Pro indisponible')}
+export async function platformMe(token:string){return json<PlatformMe>(await fetch(`${T}/me`,{headers:auth(token)}),'Profil plateforme indisponible')}
 export async function teamCapabilities(token:string){return json<{items:PlatformCapability[]}>(await fetch(`${T}/capabilities`,{headers:auth(token)}),'Capacités indisponibles')}
 export async function teamRoles(token:string){return json<{items:PlatformRole[]}>(await fetch(`${T}/roles`,{headers:auth(token)}),'Rôles indisponibles')}
 export async function teamUsers(token:string,q=''){return json<{items:PlatformTeamUser[]}>(await fetch(`${T}/users${qp({q:q||undefined})}`,{headers:auth(token)}),'Équipe indisponible')}

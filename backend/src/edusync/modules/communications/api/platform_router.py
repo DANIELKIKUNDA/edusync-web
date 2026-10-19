@@ -185,7 +185,7 @@ def test_send(body: TestSendBody, actor: ActorContext = Depends(require_platform
     with services.platform_db.platform_transaction() as c:
         user = c.execute(text("SELECT id, email, full_name FROM users WHERE id=:u"), {'u': str(actor.user_id)}).mappings().one()
         out = request_message(c, school_id=None, kind='PLATFORM', channels=[body.channel],
-                              subject='Test EduSync', body=f'Message de test {body.channel} envoyé depuis l’Atelier Pro.',
+                              subject='Test EduSync', body=f'Message de test {body.channel} envoyé depuis la plateforme EduSync.',
                               recipients=[Recipient('USER', user['id'], user['full_name'], email=user['email'], user_id=user['id'])],
                               idempotency_key=f'provider-test:{uuid4()}', created_by=actor.user_id, template_code=None, link_path='/')
         PostgresAuditRepository(c).append(AuditRecord(action='PLATFORM_MESSAGING_TEST_SENT', entity_type='CommunicationMessage', entity_id=UUID(out['id']),

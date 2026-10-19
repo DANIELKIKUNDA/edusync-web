@@ -171,3 +171,10 @@
   .es-update-bar .es-update-label{display:inline}
   .es-update-bar .es-update-btn{width:auto;padding:0 14px;height:36px}
 }
+/* Confirmation dialogs (dialogs.ts) live at the end of <body>, outside the shell: their own dark palette (lot 2026-10). */
+:root[data-theme=dark] .eduDialog{background:#161e30;color:#e7ecf5;border-color:#2a3550}
+:root[data-theme=dark] .eduDialogHead h3{color:#e7ecf5}:root[data-theme=dark] .eduDialogHead p{color:#a3aec4}
+:root[data-theme=dark] .eduDialogClose{color:#e7ecf5}
+:root[data-theme=dark] .eduDialogActions button.ghost{background:transparent;color:#e7ecf5;border:1px solid #3a4766}
+:root[data-theme=dark] .eduDialogActions button[type=submit]:not(.danger){background:#6fa1ff;color:#0d1526}
+:root[data-theme=dark] .eduDialog textarea,:root[data-theme=dark] .eduDialog input{background:#0f1626;color:#e7ecf5;border-color:#2a3550}

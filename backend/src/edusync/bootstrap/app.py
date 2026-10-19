@@ -63,11 +63,13 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     @app.exception_handler(_DbOperationalError)
     @app.exception_handler(_DbInterfaceError)
     async def database_unavailable_handler(request, exc):
+        request.state.error_type, request.state.error_message = f"Base de données indisponible ({type(exc).__name__})", str(exc)
         return JSONResponse(status_code=503, headers={"Retry-After": "5"},
                             content={"detail": "Service momentanément indisponible (base de données). Réessayez dans un instant."})
 
     @app.exception_handler(ObjectStorageError)
     async def storage_unavailable_handler(request, exc):
+        request.state.error_type, request.state.error_message = "Stockage indisponible", str(exc)
         return JSONResponse(status_code=503, headers={"Retry-After": "10"},
                             content={"detail": "Stockage des documents momentanément indisponible. Réessayez dans un instant."})
 
@@ -86,7 +88,7 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "If-Match", "X-Device-Id"],
-        expose_headers=["Idempotent-Replayed", "ETag", "X-Correlation-ID"],
+        expose_headers=["Idempotent-Replayed", "ETag", "X-Correlation-ID", "X-EduSync-Space"],
     )
 
     @app.on_event("startup")

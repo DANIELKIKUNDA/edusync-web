@@ -1,0 +1,38 @@
+/* Change of space (lot 2026-10). Theme tokens only; the current space = badge + label, never colour alone. */
+.sp-body{display:grid;gap:12px}
+.sp-list{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-height:min(56vh,520px);overflow:auto;overscroll-behavior:contain}
+.sp-row{width:100%;display:flex;align-items:center;gap:12px;padding:11px 12px;min-height:60px;border:1px solid var(--es-line,#d5dbe6);border-radius:13px;
+  background:var(--es-surface,#fff);color:var(--es-ink,#14213d);font:inherit;text-align:left;cursor:pointer}
+.sp-row:hover:not(:disabled){border-color:var(--es-brand,#1557d6)}
+.sp-row:focus-visible{outline:3px solid var(--es-focus,#2f6fe4);outline-offset:2px}
+.sp-row:disabled{cursor:default}.sp-row:disabled:not(.sp-current){opacity:.6}
+.sp-row>svg{flex:none;color:var(--es-muted,#5b6578)}
+.sp-current{border-color:var(--es-brand-line,#bcd0f7);background:var(--es-brand-soft,#eef4ff)}
+.sp-ico{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:11px;background:var(--es-bg,#f3f5f9);color:var(--es-brand,#1557d6)}
+.sp-ico.sp-pf{color:var(--es-ink-2,#3b4660)}
+.sp-txt{display:grid;gap:2px;min-width:0;flex:1}
+.sp-txt b{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-txt small{font-size:12.5px;color:var(--es-muted,#5b6578);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-txt .sp-roles{color:var(--es-ink-2,#3b4660);white-space:normal}
+.sp-badge{flex:none;font-style:normal;font-size:11.5px;font-weight:750;padding:2px 9px;border-radius:99px;background:var(--es-brand,#1557d6);color:#fff}
+.sp-badge-soft{background:var(--es-bg,#f3f5f9);color:var(--es-ink-2,#3b4660);border:1px solid var(--es-line,#d5dbe6)}
+.sp-spin{width:18px;height:18px;flex:none;border-radius:50%;border:2px solid var(--es-line,#d5dbe6);border-top-color:var(--es-brand,#1557d6);animation:sp-rot .8s linear infinite}
+@keyframes sp-rot{to{transform:rotate(360deg)}}
+.sp-search{display:flex;align-items:center;gap:8px;padding:0 12px;min-height:44px;border:1px solid var(--es-line,#d5dbe6);border-radius:11px;background:var(--es-surface,#fff);color:var(--es-muted,#5b6578)}
+.sp-search input{flex:1;min-width:0;min-height:42px;border:0!important;outline:0;background:transparent!important;box-shadow:none!important;padding:0!important;font:inherit;font-size:16px;color:var(--es-ink,#14213d)}
+.sp-search:focus-within{border-color:var(--es-brand,#1557d6)}
+.sp-empty,.sp-note,.sp-foot{margin:0;font-size:13px;color:var(--es-muted,#5b6578);display:flex;gap:7px;align-items:flex-start;line-height:1.45}
+.sp-foot svg,.sp-note svg{flex:none;margin-top:2px}
+.sp-code{display:grid;gap:6px;font-size:13.5px;font-weight:650}
+.sp-code input{min-height:48px;font-size:22px;letter-spacing:.3em;text-align:center;border:1px solid var(--es-line,#d5dbe6);border-radius:11px;background:var(--es-surface,#fff);color:var(--es-ink,#14213d)}
+.sp-offline{margin:0 0 12px}
+/* Withdrawn space: full page, the identity stays signed in */
+.sp-recovery{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 16px;background:var(--es-bg,#f3f5f9)}
+.sp-card{width:min(520px,100%);display:grid;gap:12px;padding:24px 20px;border:1px solid var(--es-line,#d5dbe6);border-radius:18px;background:var(--es-surface,#fff);color:var(--es-ink,#14213d)}
+.sp-card h1{margin:0;font-size:21px}.sp-card>p{margin:0;color:var(--es-ink-2,#3b4660);line-height:1.5}
+.sp-recovery-ico{width:46px;height:46px;display:grid;place-items:center;border-radius:13px;background:var(--es-warn-soft,#fff3d6);color:var(--es-warn,#9a5b00)}
+.sp-logout{justify-self:start}
+@media (max-width:767.98px){.sp-list{max-height:none}.sp-row{min-height:64px}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .sp-recovery{background:#0e1422}:root:not([data-theme=light]) .sp-card{background:#161e30;border-color:#2a3550;color:#e7ecf5}}
+:root[data-theme=dark] .sp-recovery{background:#0e1422}:root[data-theme=dark] .sp-card{background:#161e30;border-color:#2a3550;color:#e7ecf5}
+@media (prefers-reduced-motion:reduce){.sp-spin{animation:none}}

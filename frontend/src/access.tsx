@@ -324,7 +324,7 @@ function MemberSheet({member,canAssign,canUpdate,canActivate,canReset,token,onCl
       <div className="memberFacts">
         <span className={`statePill ${member.active?'ok':'off'}`}>{member.active?'Actif':'Désactivé'}</span>
         {member.must_change_password&&<span className="statePill wait">Mot de passe provisoire à remplacer</span>}
-        {member.shared_account&&<span className="statePill info" title="Ce compte sert aussi dans une autre école ou dans l’Atelier Pro">Compte partagé</span>}
+        {member.shared_account&&<span className="statePill info" title="Ce compte sert aussi dans une autre école ou sur la plateforme EduSync">Compte partagé</span>}
       </div>
       {locked&&<p className="sheetNote"><Icon name="lock" size={14}/> C’est votre compte : vos droits ne se modifient pas ici, et votre mot de passe se change dans « Sécurité et appareils ».</p>}
       <section className="sheetSection"><div className="sheetSectionHead"><h4>Rôles</h4>{canAssign&&!locked&&member.active&&<button className="softBtn" onClick={onAssign}><Icon name="plus" size={15}/> Attribuer un rôle</button>}</div>

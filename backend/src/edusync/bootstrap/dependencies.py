@@ -99,16 +99,16 @@ def require_platform_actor(
     with services.platform_db.platform_transaction() as conn:
         user = PostgresUserRepository(conn).get(user_id)
         if user is None or not user.active:
-            raise HTTPException(status_code=403, detail="Accès à la plateforme EduSync révoqué")
+            raise HTTPException(status_code=403, detail="Accès à la plateforme EduSync révoqué", headers=SPACE_WITHDRAWN)
         if int(claims.get("user_version", 0)) != user.version:
             raise HTTPException(status_code=401, detail="Jeton de la plateforme EduSync obsolète ; reconnectez-vous")
         from edusync.modules.iam.application.platform_mfa import mfa_needed
         _assert_device_session_live(conn, claims, user_id, require_mfa=mfa_needed(conn, services.settings, user_id))
         if platform_account_suspended(conn, user_id):
-            raise HTTPException(status_code=403, detail="Accès à la plateforme EduSync suspendu")
+            raise HTTPException(status_code=403, detail="Accès à la plateforme EduSync suspendu", headers=SPACE_WITHDRAWN)
         permissions = platform_permissions(conn, user_id)
         if not permissions:
-            raise HTTPException(status_code=403, detail="Aucun rôle actif sur la plateforme EduSync")
+            raise HTTPException(status_code=403, detail="Aucun rôle actif sur la plateforme EduSync", headers=SPACE_WITHDRAWN)
     return ActorContext(
         user_id=user_id,
         school_id=None,
@@ -120,6 +120,10 @@ def require_platform_actor(
         session_id=UUID(str(claims["sid"])),
     )
 
+
+# The space of the token was withdrawn (role, suspension, membership, school): the client offers the other spaces of
+# the identity instead of a generic error (change of space without signing out, lot 2026-10).
+SPACE_WITHDRAWN = {"X-EduSync-Space": "WITHDRAWN"}
 
 STEP_UP_DETAIL = {"code": "MFA_STEP_UP_REQUIRED", "message": "Confirmez avec votre code de vérification pour effectuer cette action."}
 
@@ -167,9 +171,9 @@ def require_school_actor(
             raise HTTPException(status_code=401, detail="Jeton utilisateur obsolète; reconnectez-vous")
         _assert_device_session_live(conn, claims, user_id)
         if school is None or school.status != SchoolStatus.ACTIVE:
-            raise HTTPException(status_code=403, detail="École inactive ou inaccessible")
+            raise HTTPException(status_code=403, detail="École inactive ou inaccessible", headers=SPACE_WITHDRAWN)
         if membership is None or not membership.active:
-            raise HTTPException(status_code=403, detail="Appartenance école révoquée")
+            raise HTTPException(status_code=403, detail="Appartenance école révoquée", headers=SPACE_WITHDRAWN)
         if membership.user_id != user_id or membership.school_id != school_id:
             raise HTTPException(status_code=403, detail="Contexte d'appartenance incohérent")
         if int(claims.get("membership_version", 0)) != membership.version:

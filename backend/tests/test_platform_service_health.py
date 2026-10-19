@@ -34,7 +34,9 @@ def test_frontend_freshness_cooldown_stale_protection_and_order():
     for x in ("Tous les services fonctionnent normalement", "Certains services sont dégradés", "Incident en cours", "Donnée périmée",
               "Mesure en cours…", "Mesurer maintenant", "Actualisation automatique", "document.visibilityState === 'visible'",
               "if (id !== reqId.current) return;", "COOLDOWN_MS", "Dépendances", "File d’attente", "restauration",
-              "Non disponibles (aucun historique conservé)"):
+              "Historique conservé : 26 h par minute, 7 jours par heure", "Erreurs regroupées", "Signaux clés", "Incident en cours",
+              "ne dégrade pas l’état actuel", "Journal d’audit</dt><dd>Non disponible"):
         assert x in UI, x
-    assert "const ORDER = ['api', 'database', 'worker_outbox', 'backup', 'storage', 'worker_communications', 'redis', 'errors'];" in UI
+    # phone priority (after the incident list): server, database, workers, backup, storage, messaging, errors, cache
+    assert "const ORDER = ['api', 'database', 'worker_outbox', 'worker_communications', 'backup', 'storage', 'messaging', 'errors', 'redis'];" in UI
     assert "Traceback" not in UI and "stack" not in UI.lower()
