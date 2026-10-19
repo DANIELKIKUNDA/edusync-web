@@ -59,6 +59,6 @@ def test_middleware_records_route_template_off_the_request_path_and_answers_with
 def test_health_exposes_diagnostics_with_rbac():
     for route in ('@router.get("/health/errors")', '@router.get("/health/errors/{group_id}")', '@router.get("/health/history")'):
         assert route in HEALTH
-    assert HEALTH.count('actor.require("platform.health.read")') == 4
-    assert '"alert_delivery": "DEFERRED_BY_DESIGN"' in HEALTH and 'g["audit_link"] = "NOT_AVAILABLE"' in HEALTH
+    assert HEALTH.count('actor.require("platform.health.read")') == 5     # health, errors, error detail, history, incidents
+    assert '"alert_delivery": "EMAIL"' in HEALTH and 'g["audit_link"] = "NOT_AVAILABLE"' in HEALTH
     assert '"SIMULATED": "Simulé (jamais certifié)"' in HEALTH and '"certified": False if st != "CONFIGURED" else None' in HEALTH

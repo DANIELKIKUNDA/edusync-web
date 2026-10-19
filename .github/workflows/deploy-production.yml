@@ -1,0 +1,107 @@
+# EduSync — mise en production MANUELLE uniquement (lot 2026-10). Jamais déclenchée automatiquement.
+# Conditions, toutes vérifiées avant le moindre changement :
+#   1. déclenchement à la main (workflow_dispatch) avec le SHA complet ET la confirmation « PRODUCTION <8 premiers caractères> » ;
+#   2. pour ce SHA : CI réussie, Deploy staging réussi, E2E staging réussi (une version jamais testée ne part pas) ;
+#   3. environnement GitHub « production » : relecteur obligatoire (règle à activer par le propriétaire, PRODUCTION.md §2) ;
+#   4. secrets PRODUCTION_SSH_* présents (sinon : « Production non configurée », aucun changement).
+# Même modèle à moindre privilège que staging : une seule commande forcée `deploy <SHA>` ; le contrôleur sauvegarde,
+# migre, teste, et revient automatiquement en arrière en cas d'échec. Retour arrière manuel : relancer ce workflow
+# avec le SHA précédent (même migrations, sinon arrêt sûr — CICD.md §7).
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "SHA complet (40 caractères) déjà validé sur staging (CI + déploiement + E2E)"
+        required: true
+      confirm:
+        description: "Tapez exactement : PRODUCTION <8 premiers caractères du SHA>"
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  gates:
+    name: Contrôles avant production (aucun changement)
+    runs-on: ubuntu-24.04
+    env:
+      SHA: ${{ inputs.sha }}
+      CONFIRM: ${{ inputs.confirm }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: SHA et confirmation
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "SHA invalide"; exit 1; }
+          [[ "$CONFIRM" == "PRODUCTION ${SHA:0:8}" ]] || { echo "Confirmation incorrecte : tapez « PRODUCTION ${SHA:0:8} »"; exit 1; }
+      - name: Version validée sur staging (CI, déploiement, E2E)
+        run: |
+          repo="${{ github.repository }}"
+          for wf in ci.yml deploy-staging.yml e2e-staging.yml; do
+            ok=$(gh api "repos/$repo/actions/workflows/$wf/runs?head_sha=$SHA&status=success&per_page=1" --jq '.total_count')
+            if [[ "$ok" == "0" ]]; then
+              # deploy-staging / e2e-staging dispatched by hand run on the default branch: also accept a run whose inputs carry the SHA
+              ok=$(gh api "repos/$repo/actions/workflows/$wf/runs?status=success&per_page=50" --jq "[.workflow_runs[] | select(.head_sha==\"$SHA\" or (.display_title|contains(\"$SHA\")))] | length")
+            fi
+            [[ "$ok" != "0" ]] || { echo "Refusé : $wf n'a pas réussi pour $SHA"; exit 1; }
+            echo "$wf : réussi pour $SHA"
+          done
+          echo "### Contrôles avant production réussis pour $SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Production — deploy <SHA> (relecteur obligatoire)
+    needs: gates
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      SHA: ${{ inputs.sha }}
+    steps:
+      - name: Production configurée ?
+        id: cfg
+        env:
+          HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          KNOWN: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+          USER_: ${{ secrets.PRODUCTION_SSH_USER }}
+        run: |
+          if [[ -z "$HOST" || -z "$KEY" || -z "$KNOWN" || -z "$USER_" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "### Production non configurée (secrets PRODUCTION_SSH_* absents) — aucun changement" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Clé SSH (jamais affichée)
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          KNOWN: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/prod_key && chmod 600 ~/.ssh/prod_key
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+      - name: deploy <SHA>
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          USER_: ${{ secrets.PRODUCTION_SSH_USER }}
+          PORT: ${{ vars.PRODUCTION_SSH_PORT || '22' }}
+          RUN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          printf '%s\n' "$RUN_TOKEN" | ssh -i ~/.ssh/prod_key -p "$PORT" -T \
+            -o StrictHostKeyChecking=yes -o BatchMode=yes -o IdentitiesOnly=yes -o ClearAllForwardings=yes \
+            "$USER_@$HOST" "deploy $SHA"
+          code=$?
+          set -e
+          echo "### Production $SHA : code de sortie $code (signification : CICD.md §6)" >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - name: Nettoyage de la clé
+        if: always()
+        run: rm -f ~/.ssh/prod_key

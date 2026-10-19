@@ -1,0 +1,40 @@
+# EduSync — parcours de bout en bout contre STAGING après chaque déploiement réussi (lot 2026-10).
+# Lecture seule, compte plateforme de test dédié (jamais un Manager). Sans les secrets E2E_PLATFORM_*, seule
+# l'interface est vérifiée et le résumé indique comment créer le compte (docs/architecture/RUNBOOK_INCIDENT.md §6).
+# Un échec rend le run rouge : la version déployée ne doit pas être promue (procédure production, PRODUCTION.md).
+name: E2E staging
+
+on:
+  workflow_run:
+    workflows: [Deploy staging]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-staging
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: Parcours plateforme (connexion, écrans, changement d'espace, session)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Parcours de bout en bout
+        env:
+          E2E_BASE_URL: ${{ vars.STAGING_PUBLIC_URL || 'https://staging.myeducsync.com' }}
+          E2E_PLATFORM_EMAIL: ${{ secrets.E2E_PLATFORM_EMAIL }}
+          E2E_PLATFORM_PASSWORD: ${{ secrets.E2E_PLATFORM_PASSWORD }}
+          E2E_PLATFORM_TOTP_SECRET: ${{ secrets.E2E_PLATFORM_TOTP_SECRET }}
+        run: python tools/ci/e2e_staging.py

@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     worker_database_url: str = ""
     # JSON report written by the backup job ({"finished_at", "ok", "restore_verified"}); empty = not configured.
     backup_status_file: str = ""
+    # Platform alerts (lot 2026-10): a component « Hors service » longer than the delay opens an incident and e-mails
+    # the Managers Système and the extra recipients; evaluated every interval by the API (advisory lock, one sender).
+    platform_alerts_enabled: bool = True
+    platform_alert_delay_seconds: int = 300
+    platform_alert_interval_seconds: int = 60
     # Push notifications: "disabled" (default) or "mock" (local certification). Real providers: BLOCKED_EXTERNAL.
     push_provider: str = "disabled"
     # Multiplies every sensitive-operation rate limit (1 in production; raised only for local certification runs).

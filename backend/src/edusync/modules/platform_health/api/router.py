@@ -11,7 +11,7 @@ errors grouped by route template / status / type with first and last occurrence,
 the last 5 minutes) separated from HISTORY (1 h / 24 h / 7 d, which never degrades the current state), messaging
 providers (state, last success, last failure), alerts derived from the components. Expected refusals (4xx: validation,
 wrong password, 403, 404, bad file format) are counted apart and never degrade. Not available: uptime history,
-planned maintenance, backup size, alert delivery to an on-call channel (DEFERRED_BY_DESIGN, docs/OBSERVABILITY.md).
+planned maintenance, backup size. Alert e-mails: application/alerts.py.
 """
 from __future__ import annotations
 
@@ -25,7 +25,11 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 
-from edusync.bootstrap.dependencies import get_services, require_platform_actor
+import uuid
+
+from pydantic import BaseModel, Field
+
+from edusync.bootstrap.dependencies import get_services, require_platform_actor, require_recent_mfa
 from edusync.bootstrap.services import AppServices
 from edusync.shared.application.context import ActorContext
 from edusync.shared.infrastructure import signals
@@ -107,7 +111,9 @@ def backup_component(services: AppServices) -> dict:
                           + (" · restauration vérifiée" if info.get("restore_verified") else ""),
                           backup={"finished_at": info.get("finished_at"), "ok": bool(info.get("ok")), "late": bool(late),
                                   "restore_verified": bool(info.get("restore_verified")), "offsite": bool(info.get("offsite")),
-                                  "message": str(info.get("detail") or "")[:160]})
+                                  "message": str(info.get("detail") or "")[:160],
+                                  "duration_seconds": info.get("duration_seconds") if isinstance(info.get("duration_seconds"), int) else None,
+                                  "restore_seconds": info.get("restore_seconds") if isinstance(info.get("restore_seconds"), int) else None})
         except Exception:  # noqa: BLE001
             backup.update(state="DOWN", detail="Rapport de sauvegarde illisible")
     return backup
@@ -259,7 +265,7 @@ def measure(services: AppServices) -> dict:
     alerts = [{"key": c["key"], "severity": "critical" if c["state"] == "DOWN" else "warning", "title": c["label"], "explain": c["detail"],
                "since": (c.get("errors") or {}).get("first_active_at")} for c in configured if c["state"] != "OK"]
     return {"checked_at": checked, "overall": overall, "components": components, "refresh_seconds": 30, "measure_ttl_seconds": MEASURE_TTL,
-            "alerts": alerts, "alert_delivery": "DEFERRED_BY_DESIGN",
+            "alerts": alerts, "alert_delivery": "EMAIL",
             "summary": {"operational": sum(1 for c in configured if c["state"] == "OK"), "configured": len(configured),
                         "degraded": sum(1 for c in configured if c["state"] == "DEGRADED"), "down": sum(1 for c in configured if c["state"] == "DOWN"),
                         "not_configured": len(components) - len(configured)},
@@ -340,6 +346,98 @@ def health_error_detail(group_id: str, actor: ActorContext = Depends(require_pla
                    "requests_24h": day["requests"]}
     g["audit_link"] = "NOT_AVAILABLE"      # a server error is not an audited business action: no audit entry to open
     return {**g, "measured_at": _now()}
+
+
+class RecipientInput(BaseModel):
+    email: str = Field(min_length=6, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    label: str | None = Field(default=None, max_length=120)
+
+
+@router.get("/health/incidents")
+def health_incidents(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Incidents (components « Hors service »), open first, then the 50 latest; and who receives the alerts."""
+    actor.require("platform.health.read")
+    with services.platform_db.platform_transaction() as conn:
+        rows = conn.execute(text("""SELECT id, component_key, component_label, explain, opened_at, notified_at, resolved_at, resolution_notified_at
+            FROM platform_incidents ORDER BY (resolved_at IS NULL) DESC, opened_at DESC LIMIT 50""")).mappings().all()
+        extra = conn.execute(text("SELECT id, email, label, created_at FROM platform_alert_recipients WHERE active ORDER BY created_at")).mappings().all()
+        managers = conn.execute(text("""SELECT count(DISTINCT u.id) FROM users u JOIN rbac_assignments a ON a.user_id=u.id AND a.school_id IS NULL AND a.active
+            JOIN rbac_roles r ON r.id=a.role_id AND r.code='MANAGER_SYSTEME' AND r.status='ACTIVE' WHERE u.active AND u.email IS NOT NULL""")).scalar()
+    can_manage = "platform.collaborators.manage" in actor.permissions
+    iso = lambda v: v.isoformat() if v else None  # noqa: E731
+    return {"incidents": [{**{k: str(r[k]) if k == "id" else r[k] for k in ("id", "component_key", "component_label", "explain")},
+                           **{k: iso(r[k]) for k in ("opened_at", "notified_at", "resolved_at", "resolution_notified_at")},
+                           "duration_seconds": int(((r["resolved_at"] or datetime.now(timezone.utc)) - r["opened_at"]).total_seconds())} for r in rows],
+            "recipients": {"managers": int(managers or 0), "can_manage": can_manage,
+                           "extra": [{"id": str(r["id"]), "email": r["email"] if can_manage else _mask(r["email"]), "label": r["label"],
+                                      "created_at": iso(r["created_at"])} for r in extra]},
+            "delay_seconds": services.settings.platform_alert_delay_seconds, "enabled": services.settings.platform_alerts_enabled,
+            "measured_at": _now()}
+
+
+def _mask(email: str) -> str:
+    name, _, domain = email.partition("@")
+    return (name[:2] + "…@" + domain) if domain else "…"
+
+
+@router.post("/health/alert-recipients", status_code=201)
+def add_alert_recipient(body: RecipientInput, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """A Manager adds an on-call address (step-up: it receives incident details)."""
+    actor.require("platform.collaborators.manage")
+    require_recent_mfa(services, actor, "platform.collaborators.manage")
+    email = body.email.strip().lower()
+    with services.platform_db.platform_transaction() as conn:
+        if conn.execute(text("SELECT count(*) FROM platform_alert_recipients WHERE active")).scalar() >= 10:
+            raise HTTPException(status_code=409, detail="10 adresses au maximum.")
+        row = conn.execute(text("""INSERT INTO platform_alert_recipients(email, label, added_by_user_id) VALUES (:e, :l, :u)
+            ON CONFLICT (lower(email)) WHERE active DO NOTHING RETURNING id"""), {"e": email, "l": (body.label or "").strip() or None, "u": str(actor.user_id)}).first()
+        if row is None:
+            raise HTTPException(status_code=409, detail="Cette adresse reçoit déjà les alertes.")
+        _audit(conn, actor, "PLATFORM_ALERT_RECIPIENT_ADDED", row[0], {"email": _mask(email)})
+    return {"id": str(row[0])}
+
+
+@router.post("/health/alert-recipients/{recipient_id}/remove")
+def remove_alert_recipient(recipient_id: str, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    actor.require("platform.collaborators.manage")
+    require_recent_mfa(services, actor, "platform.collaborators.manage")
+    try:
+        rid = str(uuid.UUID(recipient_id))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Adresse introuvable")
+    with services.platform_db.platform_transaction() as conn:
+        row = conn.execute(text("""UPDATE platform_alert_recipients SET active=false, removed_at=now(), removed_by_user_id=:u
+            WHERE id=:id AND active RETURNING email"""), {"id": rid, "u": str(actor.user_id)}).first()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Adresse introuvable")
+        _audit(conn, actor, "PLATFORM_ALERT_RECIPIENT_REMOVED", rid, {"email": _mask(row[0])})
+    return {"status": "removed"}
+
+
+@router.post("/health/alerts/test")
+def test_alert(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    """Sends a test e-mail to every recipient: proves the alert chain end to end (outbox → worker → provider)."""
+    actor.require("platform.collaborators.manage")
+    from edusync.modules.platform_health.application.alerts import recipients
+    from edusync.modules.communications.application.messaging import Recipient, request_message
+    with services.platform_db.platform_transaction() as conn:
+        people = recipients(conn)
+        if not people:
+            raise HTTPException(status_code=409, detail="Aucun destinataire d’alerte.")
+        request_message(conn, school_id=None, kind="PLATFORM", channels=["EMAIL"], template_code="PLATFORM_ALERT",
+                        subject="[EduSync] Test des alertes", created_by=actor.user_id,
+                        body="Ceci est un test : si vous lisez ce message, les alertes de la plateforme EduSync vous parviennent.",
+                        recipients=[Recipient("USER", p["user_id"] or uuid.uuid5(uuid.NAMESPACE_URL, "alert:" + p["email"]), p["name"],
+                                              email=p["email"], user_id=p["user_id"]) for p in people],
+                        idempotency_key=f"platform-alert-test:{uuid.uuid4()}")
+        _audit(conn, actor, "PLATFORM_ALERT_TEST_SENT", actor.user_id, {"recipients": len(people)})
+    return {"recipients": len(people)}
+
+
+def _audit(conn, actor, action: str, entity_id, detail: dict) -> None:
+    conn.execute(text("""INSERT INTO audit_events(school_id, actor_user_id, action, entity_type, entity_id, source, result, new_json)
+        VALUES (NULL, :a, :act, 'PlatformAlerts', :e, 'WEB', 'SUCCESS', CAST(:d AS jsonb))"""),
+        {"a": str(actor.user_id), "act": action, "e": str(entity_id), "d": json.dumps(detail)})
 
 
 @router.get("/health/history")

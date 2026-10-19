@@ -8,7 +8,8 @@
 #      restored count must lie between the count read just before and just after the dump (live writes continue);
 #   4. optional off-site copy (rclone remote named in BACKUP_OFFSITE, for example offsite:edusync-backups/staging);
 #   5. retention: local backups older than BACKUP_KEEP_DAYS are deleted;
-#   6. /backup-status/last.json {"finished_at","ok","restore_verified","offsite"} for the platform health screen.
+#   6. /backup-status/last.json {"finished_at","ok","restore_verified","offsite","duration_seconds","restore_seconds"}
+#      for the platform health screen (the restore is timed on every run: a recovery time measured, not assumed).
 # The production database is only read. No secret is written to the logs or to the status file.
 set -u
 : "${PGHOST:=postgres}" "${PGDATABASE:=edusync}" "${PGUSER:?PGUSER required}" "${PGPASSWORD:?PGPASSWORD required}"
@@ -26,11 +27,12 @@ log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 counts() { for t in $TABLES; do printf '%s=%s\n' "$t" "$(psql -d "$1" -tAXc "SELECT count(*) FROM $t" 2>/dev/null || echo NA)"; done; }
 status() { # ok restore_verified offsite detail
   tmp="$STATUS.tmp"
-  printf '{"finished_at":"%s","ok":%s,"restore_verified":%s,"offsite":%s,"detail":"%s"}\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" "$3" "$4" > "$tmp" && mv "$tmp" "$STATUS"
+  printf '{"finished_at":"%s","ok":%s,"restore_verified":%s,"offsite":%s,"detail":"%s","duration_seconds":%s,"restore_seconds":%s}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" "$3" "$4" "$(( $(date +%s) - ${RUN_START:-$(date +%s)} ))" "${RESTORE_SECONDS:-null}" > "$tmp" && mv "$tmp" "$STATUS"
 }
 
 run_once() {
+  RUN_START=$(date +%s); RESTORE_SECONDS=null
   ts=$(date -u +%Y%m%dT%H%M%SZ); dir="$OUT/$ts"; mkdir -p "$dir/objects"
   counts "$PGDATABASE" > "$dir/counts.before"
   if ! pg_dump -Fc -f "$dir/db.dump" "$PGDATABASE"; then status false false false "pg_dump en échec"; log "FAIL pg_dump"; return 1; fi
@@ -40,9 +42,11 @@ run_once() {
   (cd "$dir" && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS)
 
   verified=false
+  restore_start=$(date +%s)
   dropdb --if-exists "$CHECK_DB" && createdb "$CHECK_DB" \
     && pg_restore --exit-on-error --no-owner --no-acl -d "$CHECK_DB" "$dir/db.dump" >/dev/null 2>"$dir/restore.err" \
     && counts "$CHECK_DB" > "$dir/counts.restored" && verified=true
+  RESTORE_SECONDS=$(( $(date +%s) - restore_start ))
   if [ "$verified" = true ]; then
     for t in $TABLES; do
       b=$(grep "^$t=" "$dir/counts.before" | cut -d= -f2); a=$(grep "^$t=" "$dir/counts.after" | cut -d= -f2)

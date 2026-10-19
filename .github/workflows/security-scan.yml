@@ -1,0 +1,56 @@
+# EduSync — scan de sécurité automatisé de STAGING (lot 2026-10) : OWASP ZAP « baseline ».
+# Scan PASSIF (il observe les réponses : en-têtes de sécurité, cookies, fuites d'information, contenus mixtes…), sans
+# attaque active, sans authentification, sans charge notable : adapté à un environnement partagé. Chaque semaine et à
+# la demande. Une alerte de risque élevé (FAIL) rend le run rouge ; le rapport HTML est conservé 30 jours.
+# Ne remplace pas un audit de sécurité externe (pentest) : voir PRODUCTION.md §5.
+name: Security scan staging
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    name: OWASP ZAP baseline (passif)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      URL: ${{ vars.STAGING_PUBLIC_URL || 'https://staging.myeducsync.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan
+        run: |
+          mkdir -p zap && chmod 777 zap
+          set +e
+          docker run --rm -v "$PWD/zap:/zap/wrk:rw" -v "$PWD/tools/ci/zap-rules.tsv:/zap/wrk/rules.tsv:ro" \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t "$URL" -c rules.tsv -r report.html -J report.json -m 3 -I
+          code=$?
+          set -e
+          python3 - <<'PY'
+          import json, os
+          data = json.load(open("zap/report.json"))
+          rows = []
+          for site in data.get("site", []):
+              for a in site.get("alerts", []):
+                  rows.append((int(a.get("riskcode", 0)), a.get("name", ""), len(a.get("instances", []))))
+          rows.sort(reverse=True)
+          label = {3: "Élevé", 2: "Moyen", 1: "Faible", 0: "Info"}
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write(f"### OWASP ZAP baseline — {os.environ['URL']}\n| Risque | Alerte | Occurrences |\n|---|---|---|\n")
+              for r, n, c in rows:
+                  f.write(f"| {label.get(r, r)} | {n} | {c} |\n")
+          high = [n for r, n, _ in rows if r >= 3]
+          open("zap/high.txt", "w").write("\n".join(high))
+          PY
+          if [[ -s zap/high.txt ]]; then echo "Alertes de risque élevé :"; cat zap/high.txt; exit 1; fi
+          echo "Aucune alerte de risque élevé (code ZAP $code)."
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-report
+          path: zap/report.html
+          retention-days: 30

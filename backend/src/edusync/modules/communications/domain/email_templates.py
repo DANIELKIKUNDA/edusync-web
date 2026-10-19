@@ -48,6 +48,11 @@ def render(template_code: str | None, *, recipient_name: str | None, school_name
         html = _WRAP.format(body=f"<p>{escape(hello)}</p><p>{escape(body)}</p><p>Si vous n’êtes pas à l’origine de cette action, "
                                  "contactez immédiatement l’administrateur de votre école ou le support EduSync.</p>")
         return EmailContent(subject or "Alerte de sécurité EduSync", text, html)
+    if template_code == "PLATFORM_ALERT":
+        text = f"{hello}\n\n{body}\n\n— Plateforme EduSync (alerte automatique)"
+        paragraphs = "".join(f"<p>{escape(p)}</p>" for p in body.split("\n") if p.strip())
+        html = _WRAP.format(body=f"<p>{escape(hello)}</p>{paragraphs}<p>— Plateforme EduSync (alerte automatique)</p>")
+        return EmailContent((subject or "[EduSync] Alerte plateforme")[:180], text, html)
     # School communication (communiqué): the text written by the school, escaped.
     title = subject or (f"Message de {school_name}" if school_name else "Message de votre école")
     text = f"{hello}\n\n{body}\n\n— {school_name or 'Votre école'} (via EduSync)"

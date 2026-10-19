@@ -29,7 +29,7 @@ type Component = {key: string; label: string; state: State; detail: string; meas
   signals?: {last_5m: Signals; last_1h: Signals; last_24h: Signals; saturation: {db_pool_in_use: number; db_pool_capacity: number; db_pool_ratio: number | null} | null};
   errors?: ErrorsInfo; providers?: Provider[];
   queue?: {pending: number; failed: number; oldest_seconds: number | null}; provider?: {state: string}; value?: number | null; started_at?: string;
-  backup?: {finished_at: string | null; ok: boolean; late: boolean; restore_verified: boolean; offsite: boolean; message: string}; depends_on: string[]};
+  backup?: {finished_at: string | null; ok: boolean; late: boolean; restore_verified: boolean; offsite: boolean; message: string; duration_seconds?: number | null; restore_seconds?: number | null}; depends_on: string[]};
 type Health = {checked_at: string; overall: State; components: Component[]; refresh_seconds: number; shared: boolean; alerts?: Alert[];
   summary: {operational: number; configured: number; degraded: number; down: number; not_configured: number}; figures: Record<string, number | null>};
 
@@ -126,7 +126,8 @@ export function HealthPanel({token, canMessaging, onOpenMessaging}: {token: stri
       </section>}
       <ul className="hl-grid">{comps.map(c => <li key={c.key}><ServiceCard c={c} now={now} stale={stale} onOpen={() => openService(c.key)}/></li>)}</ul>
       {data.figures && Object.keys(data.figures).length > 0 && <p className="hl-foot">{data.figures.schools_active ?? '—'} école(s) active(s) · {data.figures.sessions_open ?? '—'} session(s) ouverte(s)</p>}
-      <p className="sc-hint hl-na"><NavGlyph g="info" size={12}/> Historique conservé : 26 h par minute, 7 jours par heure. Non disponibles : disponibilité sur la durée, maintenances planifiées, envoi des alertes vers une astreinte.</p>
+      <Incidents token={token} now={now}/>
+      <p className="sc-hint hl-na"><NavGlyph g="info" size={12}/> Historique conservé : 26 h par minute, 7 jours par heure. Non disponibles : disponibilité sur la durée, maintenances planifiées.</p>
     </>}
   </div>;
 }
@@ -193,6 +194,7 @@ function ServiceDetail({token, c, all, now, stale, onBack, canMessaging, onOpenM
         <dt>Dernière exécution</dt><dd>{c.backup.finished_at ? new Date(c.backup.finished_at).toLocaleString('fr-FR', {dateStyle: 'medium', timeStyle: 'short'}) : '—'}</dd>
         <dt>Résultat</dt><dd>{c.backup.ok ? 'Réussie' : 'En échec'}{c.backup.late ? ' · en retard (plus de 26 h)' : ''}</dd>
         <dt>Intégrité et restauration testée</dt><dd>{c.backup.restore_verified ? 'Vérifiées (empreintes et restauration d’essai)' : 'Non vérifiées'}</dd>
+        {c.backup.restore_seconds != null && <><dt>Durée de restauration mesurée</dt><dd>{dur(c.backup.restore_seconds)} (restauration d’essai complète de cette sauvegarde)</dd></>}
         <dt>Copie hors site</dt><dd>{c.backup.offsite ? 'Oui' : 'Non'}</dd>{c.backup.message && <><dt>Détail</dt><dd>{c.backup.message}</dd></>}</dl></section>}
       {c.errors && <section className="sc-card"><h3>État actuel et historique</h3><dl className="sc-dl">
         <dt>Mesuré</dt><dd>{ago(since(c.measured_at, now))}</dd><dt>État actuel</dt><dd>{STATE[c.errors.current_state].label}{c.errors.active_groups ? ` · ${c.errors.active_groups} erreur(s) en cours` : ' · aucune erreur en cours'}</dd>
@@ -304,4 +306,57 @@ function GoldenSignals({token, s}: {token: string; s: NonNullable<Component['sig
         <p className="hl-legend"><i className="hl-k-ok"/>Requêtes <i className="hl-k-err"/>Période avec erreur(s) inattendue(s) · {points.reduce((a, p) => a + p.requests, 0)} requête(s), {points.reduce((a, p) => a + p.server_errors, 0)} erreur(s)</p></>}
     </section>
   </>;
+}
+
+type IncidentsData = {incidents: {id: string; component_key: string; component_label: string; explain: string; opened_at: string; notified_at: string | null;
+  resolved_at: string | null; resolution_notified_at: string | null; duration_seconds: number}[];
+  recipients: {managers: number; can_manage: boolean; extra: {id: string; email: string; label: string | null; created_at: string}[]}; delay_seconds: number; enabled: boolean};
+
+const dur = (s: number) => s < 90 ? `${s} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${Math.round(s / 360) / 10} h`;
+
+/** Incidents (components « Hors service ») and who receives the alert e-mails; a Manager adds on-call addresses and sends a test. */
+function Incidents({token, now}: {token: string; now: number}) {
+  const [d, setD] = useState<IncidentsData | null>(null);
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  const load = useCallback(() => getJson<IncidentsData>('/platform/system/health/incidents', token).then(x => { setD(x); setError(''); })
+    .catch(e => setError(e instanceof UserFacingError ? e.message : friendlyError(e))), [token]);
+  useEffect(() => { void load(); }, [load, now - now % 60000]);
+  async function post(url: string, body?: unknown, ok?: string) {
+    setBusy(true); setNote(''); setError('');
+    try {
+      const r = await fetch(`${API}${url}`, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : undefined});
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new UserFacingError(typeof j.detail === 'string' ? j.detail : friendlyHttpMessage(r.status), String(r.status)); }
+      if (ok) setNote(ok);
+      await load(); return true;
+    } catch (e) { setError(e instanceof UserFacingError ? e.message : friendlyError(e)); return false; }
+    finally { setBusy(false); }
+  }
+  const open = d?.incidents.filter(i => !i.resolved_at) || [];
+  return <section className="sc-card hl-incidents" aria-label="Incidents et alertes">
+    <div className="hl-groups-head"><h3>Incidents et alertes</h3>{d && <span className={`sc-badge hl-badge ${open.length ? 'hl-bad' : 'hl-ok'}`}><NavGlyph g={open.length ? 'alert' : 'checkCircle'} size={12}/>{open.length ? `${open.length} en cours` : 'Aucun incident en cours'}</span>}</div>
+    {error && <p className="sc-hint" role="alert">{error}</p>}
+    {!d && !error && <div className="es-skeleton" aria-busy="true"><i/><i/></div>}
+    {d && <>
+      <p className="sc-hint">Un service « Hors service » plus de {Math.round(d.delay_seconds / 60)} minutes déclenche un e-mail aux destinataires ci-dessous, puis un second à la résolution.{d.enabled ? '' : ' Les alertes sont désactivées sur ce serveur.'}</p>
+      {d.incidents.length === 0 ? <p className="hl-empty"><NavGlyph g="checkCircle" size={16}/>Aucun incident enregistré.</p> :
+        <ul className="hl-inc">{d.incidents.slice(0, 10).map(i => <li key={i.id}>
+          <span className={`sc-badge hl-badge ${i.resolved_at ? 'hl-off' : 'hl-bad'}`}>{i.resolved_at ? 'Résolu' : 'En cours'}</span>
+          <span className="hl-gtxt"><b>{i.component_label}</b><small>{when(i.opened_at)} · durée {dur(i.duration_seconds)}{i.notified_at ? ' · alerte envoyée' : ' · sans alerte (moins de 5 min)'}</small>
+            {!i.resolved_at && <small>{i.explain}</small>}</span></li>)}</ul>}
+      <h4>Destinataires des alertes</h4>
+      <ul className="hl-recip"><li><NavGlyph g="users" size={14}/>{d.recipients.managers} Manager(s) Système actif(s) (toujours prévenus)</li>
+        {d.recipients.extra.map(x => <li key={x.id}><NavGlyph g="message" size={14}/><span>{x.email}{x.label ? ` · ${x.label}` : ''}</span>
+          {d.recipients.can_manage && <button type="button" className="sc-btn sc-btn-ghost hl-sm" disabled={busy} onClick={() => void post(`/platform/system/health/alert-recipients/${x.id}/remove`, undefined, 'Adresse retirée.')}>Retirer</button>}</li>)}</ul>
+      {d.recipients.can_manage && <form className="hl-addr" onSubmit={async e => { e.preventDefault(); if (await post('/platform/system/health/alert-recipients', {email: email.trim()}, 'Adresse ajoutée : elle recevra les prochaines alertes.')) setEmail(''); }}>
+        <label htmlFor="hl-addr">Ajouter une adresse d’astreinte</label>
+        <div><input id="hl-addr" type="email" inputMode="email" autoComplete="email" placeholder="nom@exemple.com" value={email} onChange={e => setEmail(e.target.value)} required/>
+          <button className="sc-btn" disabled={busy || !email.includes('@')}>Ajouter</button></div>
+        <button type="button" className="sc-btn sc-btn-ghost" disabled={busy} onClick={() => void post('/platform/system/health/alerts/test', undefined, 'E-mail de test envoyé à tous les destinataires.')}>Envoyer un e-mail de test</button>
+      </form>}
+      {note && <p className="hl-empty" role="status"><NavGlyph g="checkCircle" size={16}/>{note}</p>}
+    </>}
+  </section>;
 }

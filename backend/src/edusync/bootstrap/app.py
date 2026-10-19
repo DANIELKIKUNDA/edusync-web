@@ -103,6 +103,15 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
             except Exception:  # noqa: BLE001 — warm-up must never prevent startup
                 pass
 
+    @app.on_event("startup")
+    def start_platform_alerts() -> None:
+        """Alert evaluator (lot 2026-10): one evaluation per minute, one sender across API processes."""
+        from edusync.modules.platform_health.application.alerts import start_alert_loop
+        try:
+            start_alert_loop(app.state.services)
+        except Exception:  # noqa: BLE001 — alerts must never prevent startup
+            pass
+
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
         # POINT-5-DOCUMENTS-EXPORTS extends the certified Point 4D baseline without invalidating its health contract.

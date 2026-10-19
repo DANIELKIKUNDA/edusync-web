@@ -17,6 +17,8 @@ comment diagnostiquer un incident depuis l'écran « État du service ».
 | Fournisseurs de messagerie : état de configuration, dernier succès, dernier échec, dernier code d'erreur | `channel_status` + `communication_deliveries` | 7 jours | État du service → Fournisseurs |
 | Saturation : connexions base utilisées / capacité du pool de l'API | SQLAlchemy | temps réel | État du service → Serveur d'application |
 | Alertes dérivées (chaque composant non opérationnel, avec sa raison) | `platform_health/api/router.py` | temps réel | bandeau « Incident en cours / À surveiller » |
+| Incidents « Hors service » + e-mail après 5 min et à la résolution (Managers Système + adresses d'astreinte) | `platform_health/application/alerts.py`, table `platform_incidents` | 2 ans (proposé) | État du service → Incidents et alertes |
+| Sonde de disponibilité externe (toutes les 5 min, hors VPS) + ticket automatique | `.github/workflows/uptime.yml` | historique GitHub Actions | onglet Actions, tickets « Disponibilité » |
 
 ### Règles techniques (documentées, non métier)
 
@@ -54,7 +56,7 @@ comment diagnostiquer un incident depuis l'écran « État du service ».
 | Prometheus (métriques) | DEFERRED_BY_DESIGN | les signaux d'or sont déjà mesurés (Redis) et visibles dans l'application | serveur Prometheus, endpoint `/metrics` protégé |
 | Grafana (tableaux) | DEFERRED_BY_DESIGN | l'écran « État du service » couvre le besoin d'exploitation actuel | Prometheus/Loki en place |
 | Loki (journaux centralisés) | DEFERRED_BY_DESIGN | un seul VPS : `docker compose logs` + `correlation_id` | stockage des journaux, rétention décidée par le propriétaire |
-| Envoi des alertes vers une astreinte (e-mail, SMS, chat) | DEFERRED_BY_DESIGN (`alert_delivery`) | les alertes sont calculées et affichées ; le canal et les destinataires d'astreinte sont une décision du propriétaire | BUSINESS_DECISION_REQUIRED : canal, destinataires, horaires |
+| Alertes par SMS ou messagerie instantanée | DEFERRED_BY_DESIGN | l'e-mail (application) et le ticket GitHub (sonde externe) couvrent l'astreinte actuelle | fournisseur et coût à décider |
 | Disponibilité sur la durée (SLA), maintenances planifiées | NOT_AVAILABLE | aucune donnée conservée à ce jour | — |
 
 ## 4. Changement d'espace (lien avec l'observabilité)
