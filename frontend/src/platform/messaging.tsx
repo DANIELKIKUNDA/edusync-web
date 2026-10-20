@@ -176,6 +176,12 @@ function ChannelPage({token, c, now, online, onBack, onDeliveries, onMeasure, bu
           {c.channel !== 'SMS' && <button type="button" className="sc-btn" onClick={() => void test()} disabled={testing || !online}>{testing ? 'Test en cours…' : c.channel === 'EMAIL' ? 'M’envoyer un e-mail de test' : 'Envoyer un push à mes appareils'}</button>}
         </div></section>
       {c.channel === 'PUSH' && <ThisDevice token={token} online={online}/>}
+      {c.diagnostics && (c.diagnostics.api.length > 0 || c.diagnostics.worker.length > 0) && <section className="sc-card ms-wide"><h3>Diagnostic de configuration</h3>
+        <div className="ms-diag">{([['Serveur API', c.diagnostics.api], ['Worker d’envoi', c.diagnostics.worker]] as const).map(([side, list]) => <div key={side}>
+          <h4>{side}</h4>{list.length === 0 ? <p className="sc-hint">Aucun contrôle publié (worker arrêté ou ancienne version).</p> :
+          <ul>{list.map(x => <li key={x.name} className={x.ok ? 'ms-dok' : x.ok === false ? 'ms-dko' : ''}><NavGlyph g={x.ok ? 'checkCircle' : x.ok === false ? 'alert' : 'info'} size={14}/>
+            <span><code>{x.name}</code><small>{x.detail}</small></span></li>)}</ul>}</div>)}</div>
+        <p className="sc-hint">Noms de variables et résultats seulement : aucune valeur n’est jamais transmise. Les deux processus doivent recevoir la configuration.</p></section>}
       <section className="sc-card"><h3>Configuration (sans secret)</h3><dl className="sc-dl">
         <dt>Fournisseur</dt><dd>{c.provider_label}</dd>{cfgRows.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl>
         <p className="sc-hint">Les secrets restent sur le serveur, avec le worker d’envoi ; ils ne sont jamais affichés ni modifiables ici.</p></section>

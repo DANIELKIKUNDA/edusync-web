@@ -22,16 +22,13 @@ class FcmConfigurationError(RuntimeError):
 
 
 def _credentials(service_account_file: str, service_account_json: str):
+    """Service account from JSON, base64 JSON (one line, safe in an env file) or a file mounted in the container."""
     from firebase_admin import credentials
-    if service_account_json.strip():
-        try:
-            info = json.loads(service_account_json)
-        except json.JSONDecodeError as exc:
-            raise FcmConfigurationError("FCM : compte de service JSON illisible") from exc
-        return credentials.Certificate(info)
-    if service_account_file.strip():
-        return credentials.Certificate(service_account_file)
-    raise FcmConfigurationError("FCM : compte de service absent (fichier monté ou secret JSON)")
+    from edusync.shared.messaging.diagnose import CredentialError, load_service_account
+    try:
+        return credentials.Certificate(load_service_account(service_account_file, service_account_json))
+    except CredentialError as exc:
+        raise FcmConfigurationError(exc.code) from None
 
 
 class FcmPushProvider:

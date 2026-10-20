@@ -94,7 +94,9 @@ for _ in range(20):
 check(st.get("health_checked_at") != before and all(c["health"] and c["health"]["fresh"] for c in st["channels"]),
       "le worker a mesuré les fournisseurs (sans envoyer de message)")
 low = raw.lower()
-check(not any(x in low for x in ("password\":\"", "private_key", "client_secret", "smtp_password", "begin private")), "aucun secret dans l’état des fournisseurs")
+# variable NAMES (EDUSYNC_SMTP_PASSWORD…) are expected in the diagnosis; VALUES never are
+check(not any(x in low for x in ("password\":\"", "\"private_key\"", "client_secret\":", "begin private", ENV.get("EDUSYNC_SMTP_PASSWORD", "§§").lower() or "§§")),
+      "aucun secret dans l’état des fournisseurs (noms de variables seulement)")
 check(st["queue"]["worker_state"] in ("OK", "LATE", "DOWN") and "oldest_due" in st["queue"], f"file : worker {st['queue']['worker_state']}, attente, relances, quarantaine")
 
 # ---------------------------------------------------------------- a real failure (simulated provider refuses « bounce… »)

@@ -5,10 +5,12 @@ import {UserFacingError, friendlyHttpMessage} from './errors';
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const B = `${API}/platform/messaging`;
 
+export type Check = {name: string; ok: boolean | null; detail: string};
 export type ProviderState = 'NOT_CONFIGURED' | 'CONFIGURED' | 'OPERATIONAL' | 'DEGRADED' | 'UNAVAILABLE';
 export type Channel = {
   key: 'push' | 'email' | 'sms'; channel: 'PUSH' | 'EMAIL' | 'SMS'; provider: string; provider_label: string; config_state: string; state: ProviderState;
   reasons: string[]; simulated: boolean;
+  diagnostics?: {api: Check[]; worker: Check[]};
   health: null | {checked_at: string; fresh: boolean; ok: boolean | null; latency_ms: number | null; error_code: string | null; project_id: string | null;
     config: Record<string, string | number | boolean | null>};
   last_success_at: string | null; last_failure_at: string | null; last_failure_code: string | null; backlog: number; retrying: number; dead_7d: number;

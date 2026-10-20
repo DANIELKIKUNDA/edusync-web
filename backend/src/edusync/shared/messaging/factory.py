@@ -8,6 +8,7 @@ import logging
 from edusync.bootstrap.settings import is_protected_env
 
 log = logging.getLogger("edusync.messaging")
+BUILD_ERRORS: dict[str, str] = {}     # last configuration error per channel (code only, never a value) — for the diagnosis
 
 
 def _kind(value: str | None) -> str:
@@ -46,6 +47,7 @@ def build_email_provider(cfg):
                                      from_email=cfg.smtp_from_email, from_name=cfg.smtp_from_name, security=cfg.smtp_security,
                                      timeout_seconds=cfg.smtp_timeout_seconds, allow_plaintext=not is_protected_env(cfg.env))
         except SmtpConfigurationError as exc:
+            BUILD_ERRORS["email"] = "SMTP_CONFIGURATION"
             log.warning("email provider not configured: %s", exc)
     return None
 
@@ -62,7 +64,8 @@ def build_push_provider(cfg):
         try:
             return FcmPushProvider(service_account_file=cfg.fcm_service_account_file, service_account_json=cfg.fcm_service_account_json)
         except (FcmConfigurationError, ValueError, OSError) as exc:
-            log.warning("push provider not configured: %s", type(exc).__name__)
+            BUILD_ERRORS["push"] = str(exc) if isinstance(exc, FcmConfigurationError) and str(exc).startswith("PUSH_") else type(exc).__name__
+            log.warning("push provider not configured: %s", BUILD_ERRORS["push"])
     return None
 
 

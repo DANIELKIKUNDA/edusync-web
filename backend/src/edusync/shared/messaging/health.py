@@ -58,11 +58,14 @@ async def _timed(coro) -> tuple[bool, int, str | None, dict]:
 
 
 async def check_all(cfg) -> dict:
-    from edusync.shared.messaging.factory import build_email_provider, build_push_provider, build_sms_provider
+    from edusync.shared.messaging import diagnose
+    from edusync.shared.messaging.factory import BUILD_ERRORS, build_email_provider, build_push_provider, build_sms_provider
     desc = describe(cfg)
+    checks = diagnose.all_checks(cfg, "worker")
     out = {"checked_at": _now(), "env": cfg.env, "channels": {}}
     for channel, builder in (("email", build_email_provider), ("push", build_push_provider), ("sms", build_sms_provider)):
-        info = {"provider": desc[channel]["provider"], "config": desc[channel], "checked_at": _now()}
+        info = {"provider": desc[channel]["provider"], "config": desc[channel], "checked_at": _now(), "checks": checks.get(channel, [])}
+        BUILD_ERRORS.pop(channel, None)
         if info["provider"] == "disabled":
             info.update(state="NOT_CONFIGURED", ok=None, error_code="CHANNEL_DISABLED")
         else:
@@ -72,7 +75,9 @@ async def check_all(cfg) -> dict:
                 provider = None
                 info["error_code"] = safe_error(type(exc).__name__)
             if provider is None:
-                info.update(state="NOT_CONFIGURED", ok=False, error_code=info.get("error_code") or "PROVIDER_NOT_CONFIGURED")
+                failing = next((c["name"] for c in info["checks"] if c["ok"] is False), None)
+                info.update(state="NOT_CONFIGURED", ok=False,
+                            error_code=info.get("error_code") or BUILD_ERRORS.get(channel) or (f"MISSING:{failing}" if failing else "PROVIDER_NOT_CONFIGURED"))
             elif not hasattr(provider, "health_check"):
                 info.update(state="CONFIGURED", ok=None, error_code="NO_HEALTH_CHECK")
             else:

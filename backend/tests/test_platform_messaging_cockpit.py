@@ -19,15 +19,15 @@ NOW = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)
 CFG = {"provider": "smtp", "state": "CONFIGURED"}
 
 
-def snap(ok, minutes_ago=1, state=None):
-    return {"channels": {"email": {"checked_at": (NOW - timedelta(minutes=minutes_ago)).isoformat(), "ok": ok, "latency_ms": 120,
+def snap(ok, minutes_ago=1, state=None, key="email", provider="smtp", **extra):
+    return {"env": "staging", "channels": {key: {"provider": provider, "checked_at": (NOW - timedelta(minutes=minutes_ago)).isoformat(), "ok": ok, "latency_ms": 120, **extra,
                                    "error_code": None if ok else "SMTP_AUTHENTICATION", "config": {"host": "smtp-relay.brevo.com"}, **({"state": state} if state else {})}}}
 
 
 def test_operational_only_with_a_real_proof():
     assert channel_state("email", CFG, None, {}, NOW)["state"] == "CONFIGURED"                         # a secret alone proves nothing
     assert channel_state("email", CFG, snap(True), {}, NOW)["state"] == "OPERATIONAL"                  # fresh real check
-    assert channel_state("email", CFG, None, {"last_success": NOW - timedelta(hours=2)}, NOW)["state"] == "OPERATIONAL"
+    assert channel_state("email", CFG, snap(None, minutes_ago=60), {"last_success": NOW - timedelta(hours=2)}, NOW)["state"] == "OPERATIONAL"
     assert channel_state("email", CFG, snap(True, minutes_ago=40), {}, NOW)["state"] == "CONFIGURED"   # stale check
     assert channel_state("email", {"provider": "fake", "state": "SIMULATED"}, snap(True), {}, NOW)["state"] == "NOT_CONFIGURED"
 
@@ -43,7 +43,53 @@ def test_current_failure_vs_history():
     assert channel_state("email", CFG, snap(False), {}, NOW)["state"] == "UNAVAILABLE"
     assert channel_state("email", CFG, snap(False, minutes_ago=40), {}, NOW)["state"] == "CONFIGURED"  # stale failure = history
     assert channel_state("email", {"provider": "fake", "state": "REFUSED"}, None, {}, NOW)["state"] == "UNAVAILABLE"
-    assert channel_state("email", CFG, snap(None, state="NOT_CONFIGURED"), {}, NOW)["state"] == "NOT_CONFIGURED"
+    st = channel_state("email", CFG, snap(False, state="NOT_CONFIGURED", checks=[{"name": "EDUSYNC_SMTP_PASSWORD", "ok": False, "detail": "absent dans ce processus"}]), {}, NOW)
+    assert st["state"] == "NOT_CONFIGURED" and "EDUSYNC_SMTP_PASSWORD" in st["reasons"][0]          # the failing variable is named
+
+
+def test_push_operational_only_after_a_real_accepted_push_and_api_worker_consistency():
+    cfg = {"provider": "fcm", "state": "CONFIGURED"}
+    ok = snap(True, key="push", provider="fcm", project_id="edusync-staging")
+    st = channel_state("push", cfg, ok, {}, NOW)
+    assert st["state"] == "CONFIGURED" and "push de test" in st["reasons"][0]                       # credentials alone are not enough
+    assert channel_state("push", cfg, ok, {"last_success": NOW - timedelta(days=3)}, NOW)["state"] == "OPERATIONAL"
+    st = channel_state("push", cfg, ok, {"last_success": NOW - timedelta(days=3)}, NOW, None, "autre-projet")
+    assert st["state"] == "DEGRADED" and "Projet Firebase différent" in st["reasons"][-1]
+    api = [{"name": "EDUSYNC_FCM_WEB_CONFIG_JSON", "ok": False, "detail": "absente"}]
+    st = channel_state("push", {"provider": "disabled", "state": "DISABLED"}, None, {}, NOW, api)
+    assert st["state"] == "NOT_CONFIGURED" and any("EDUSYNC_FCM_WEB_CONFIG_JSON" in r for r in st["reasons"])
+
+
+def test_service_account_json_base64_file_and_codes(tmp_path):
+    import base64, json as _j
+    from edusync.shared.messaging.diagnose import CredentialError, load_service_account
+    pem = "-" * 5 + "BEGIN " + "PRIVATE KEY" + "-" * 5 + "x"        # built at run time: no key-shaped literal in the repository
+    sa = {"type": "service_account", "project_id": "p", "private" + "_key": pem, "client_email": "a@p.iam.gserviceaccount.com"}
+    assert load_service_account("", _j.dumps(sa))["project_id"] == "p"
+    assert load_service_account("", base64.b64encode(_j.dumps(sa).encode()).decode())["project_id"] == "p"   # one line, env-file safe
+    f = tmp_path / "sa.json"; f.write_text(_j.dumps(sa), encoding="utf-8")
+    assert load_service_account(str(f), "")["client_email"].endswith("gserviceaccount.com")
+    for args, code in ((("", ""), "PUSH_CREDENTIAL_MISSING"), (("/nope/sa.json", ""), "PUSH_CREDENTIAL_FILE_MISSING"),
+                       (("", "{pas du json"), "PUSH_CREDENTIAL_JSON_INVALID"), (("", _j.dumps({"type": "user"})), "PUSH_CREDENTIAL_NOT_SERVICE_ACCOUNT")):
+        try:
+            load_service_account(*args); raise AssertionError(code)
+        except CredentialError as exc:
+            assert exc.code == code and "BEGIN" not in exc.detail
+
+
+def test_diagnosis_names_variables_never_values():
+    from types import SimpleNamespace
+    from edusync.shared.messaging.diagnose import all_checks
+    cfg = SimpleNamespace(env="staging", email_provider="disabled", smtp_host="smtp-relay.brevo.com", smtp_port=587, smtp_security="starttls",
+                          smtp_from_email="ops@example.test", smtp_username="u", smtp_password="tres-secret", public_app_url="http://x",
+                          push_provider="fcm", fcm_service_account_file="", fcm_service_account_json="", fcm_web_config_json="", fcm_vapid_public_key="")
+    w = all_checks(cfg, "worker"); a = all_checks(cfg, "api")
+    names = {c["name"]: c for c in w["email"]}
+    assert names["EDUSYNC_EMAIL_PROVIDER"]["ok"] is False and "smtp" in names["EDUSYNC_EMAIL_PROVIDER"]["detail"]
+    assert names["EDUSYNC_PUBLIC_APP_URL"]["ok"] is False and names["EDUSYNC_SMTP_PASSWORD"]["ok"] is True
+    assert "tres-secret" not in str(w) + str(a)
+    assert any(c["name"] == "Compte de service Firebase" and "PUSH_CREDENTIAL_MISSING" in c["detail"] for c in w["push"])
+    assert {c["name"] for c in a["push"]} >= {"EDUSYNC_FCM_WEB_CONFIG_JSON", "EDUSYNC_FCM_VAPID_PUBLIC_KEY"}
 
 
 def test_destination_masking():

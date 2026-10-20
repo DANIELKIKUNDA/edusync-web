@@ -44,7 +44,7 @@ de relance limités aux lignes e-mail / push). Registre : 282 capacités.
 | `EDUSYNC_SMTP_USERNAME`, `EDUSYNC_SMTP_PASSWORD` (secret) | worker uniquement | identifiants SMTP Brevo |
 | `EDUSYNC_SMTP_FROM_EMAIL`, `EDUSYNC_SMTP_FROM_NAME` | worker + API | expéditeur vérifié chez Brevo |
 | `EDUSYNC_PUSH_PROVIDER=fcm` | API + worker | canal push réel |
-| `EDUSYNC_FCM_SERVICE_ACCOUNT_JSON` (secret, recommandé) **ou** `EDUSYNC_FCM_SERVICE_ACCOUNT_FILE` | worker uniquement | compte de service Firebase |
+| `EDUSYNC_FCM_SERVICE_ACCOUNT_JSON` (secret, recommandé : le JSON **encodé en base64**, sur une seule ligne) **ou** `EDUSYNC_FCM_SERVICE_ACCOUNT_FILE` (fichier qui doit être visible **dans le conteneur**) | worker uniquement | compte de service Firebase |
 | `EDUSYNC_FCM_WEB_CONFIG_JSON`, `EDUSYNC_FCM_VAPID_PUBLIC_KEY` (publics) | API | jeton push côté navigateur |
 | `EDUSYNC_PUBLIC_APP_URL` | worker | liens d'invitation / récupération |
 
@@ -77,3 +77,29 @@ variable `…_JSON` évite ce point.
 5. Messagerie → **Rechercher dans tous les envois** : les envois ci-dessus apparaissent en « Envoyé » avec une
    référence fournisseur ; le Journal d'audit contient les tests et l'invitation.
 6. Me transmettre (sans secret) : le SHA déployé (pied de page / Actions), les captures des étapes 1 à 5.
+
+## 6. Diagnostic sur le serveur (lecture seule, aucune valeur affichée)
+
+La page Messagerie → canal → « Diagnostic de configuration » liste, pour l'API et pour le worker, chaque variable
+attendue avec son résultat (présente / absente / mauvais format), jamais sa valeur. La même vérification se lance dans
+les conteneurs de staging, sans rien modifier :
+
+```bash
+cd /etc/edusync-deploy/compose
+sudo docker compose -p edusync-staging --env-file /etc/edusync-deploy/staging.env -f docker-compose.yml -f compose.staging.yml   exec -T communications-worker python -m edusync.shared.messaging.diagnose worker
+sudo docker compose -p edusync-staging --env-file /etc/edusync-deploy/staging.env -f docker-compose.yml -f compose.staging.yml   exec -T backend python -m edusync.shared.messaging.diagnose api
+```
+
+Causes « Non configuré » trouvées dans le code et l'installation (19-21/10/2026) :
+
+| Cause | Symptôme dans le diagnostic | Correction (staging.env, puis redéploiement par le pipeline) |
+|---|---|---|
+| `staging.env` créé depuis `.env.example` : fournisseurs restés `disabled` | `EDUSYNC_EMAIL_PROVIDER vaut « disabled »`, `EDUSYNC_PUSH_PROVIDER vaut « disabled »` | `EDUSYNC_EMAIL_PROVIDER=smtp`, `EDUSYNC_PUSH_PROVIDER=fcm` |
+| clé Brevo sous un autre nom | `EDUSYNC_SMTP_PASSWORD : absent dans ce processus` | la renommer `EDUSYNC_SMTP_PASSWORD` (et `EDUSYNC_SMTP_USERNAME` = login SMTP Brevo) |
+| URL publique non HTTPS : démarrage refusé si l'e-mail est actif | `EDUSYNC_PUBLIC_APP_URL doit commencer par https://` | `EDUSYNC_PUBLIC_APP_URL=https://staging.myeducsync.com` |
+| compte de service en fichier sur l'hôte, jamais monté dans le worker | `PUSH_CREDENTIAL_FILE_MISSING : fichier absent dans le conteneur (non monté)` | mettre le JSON **en base64** dans `EDUSYNC_FCM_SERVICE_ACCOUNT_JSON` : `base64 -w0 fichier.json` (aucun montage nécessaire) |
+| configuration Web Firebase absente côté API | `EDUSYNC_FCM_WEB_CONFIG_JSON absente ou incomplète` | JSON public de l'application Web Firebase, sur une seule ligne |
+| projets Firebase différents | « Projet Firebase différent entre l'API et le worker » | même projet pour la configuration Web et le compte de service |
+
+Aucun redémarrage manuel : après modification de `staging.env`, relancer *Deploy staging* (Actions → Run workflow,
+SHA courant) ; le contrôleur recrée l'API et le worker avec la nouvelle configuration.

@@ -93,40 +93,70 @@ def _sanitize(detail: str | None) -> str | None:
     return redact(detail) or None
 
 
-def channel_state(key: str, cfg_state: dict, snap: dict | None, facts: dict, now: datetime) -> dict:
-    """CURRENT state of one channel from configuration, the worker's real check and the real sends (pure)."""
+def channel_state(key: str, cfg_state: dict, snap: dict | None, facts: dict, now: datetime, api_checks: list[dict] | None = None,
+                  web_project: str | None = None) -> dict:
+    """CURRENT state of one channel from the configuration seen by the API AND by the worker (which sends), the worker's
+    real check and the real sends (pure). Every non-operational state names the failing variable or check (no value).
+
+    E-mail: OPERATIONAL after a real runtime check (SMTP connect + STARTTLS + AUTH) or a real send.
+    Push:   OPERATIONAL only after a real push accepted by FCM (provider message id) — valid credentials alone = CONFIGURED;
+            reception on a device cannot be observed by the server (it is the human proof of the certification)."""
     provider = cfg_state['provider']
     h = ((snap or {}).get('channels') or {}).get(key)
     checked = datetime.fromisoformat(h['checked_at']) if h and h.get('checked_at') else None
     fresh = bool(checked and now - checked <= HEALTH_FRESH)
     last_success = facts.get('last_success')
-    recent_success = bool(last_success and now - last_success <= timedelta(hours=24))
+    recent_success = bool(last_success and now - last_success <= (timedelta(days=30) if key == 'push' else timedelta(hours=24)))
     failing_now = facts.get('failed_15m', 0) > 0 and facts.get('sent_15m', 0) == 0
     late = (facts.get('oldest_due_seconds') or 0) > LATE_QUEUE_SECONDS
+    api_failing = [c for c in (api_checks or []) if c['ok'] is False]
+    worker_checks = (h or {}).get('checks') or []
+    worker_failing = [c for c in worker_checks if c['ok'] is False]
+    worker_configured = bool(h) and h.get('state') != 'NOT_CONFIGURED' and h.get('provider') not in (None, 'disabled')
     reasons: list[str] = []
-    if cfg_state['state'] == 'REFUSED':
+    fix = lambda side, cs: [f"{side} — {c['name']} : {c['detail']}" for c in cs]  # noqa: E731
+    if cfg_state['state'] == 'REFUSED' or (h and h.get('provider') in ('fake', 'mock', 'sandbox') and snap and snap.get('env') in ('staging', 'production')):
         state = 'UNAVAILABLE'; reasons.append('Simulation interdite dans cet environnement')
-    elif cfg_state['state'] in ('DISABLED', 'INCOMPLETE') or (h and h.get('state') == 'NOT_CONFIGURED'):
-        state = 'NOT_CONFIGURED'
-        reasons.append('Canal désactivé' if cfg_state['state'] == 'DISABLED' else
-                       'Configuration incomplète' if cfg_state['state'] == 'INCOMPLETE' else 'Le worker n’a pas les identifiants du fournisseur')
     elif cfg_state['state'] == 'SIMULATED':
         state = 'NOT_CONFIGURED'; reasons.append('Simulation de développement : aucun envoi réel, jamais une certification')
+    elif not h:
+        state = 'NOT_CONFIGURED' if cfg_state['state'] in ('DISABLED', 'INCOMPLETE') else 'CONFIGURED'
+        reasons.append('Le worker d’envoi n’a encore publié aucun contrôle (worker arrêté ou ancienne version)')
+        reasons += fix('API', api_failing)
+    elif not worker_configured:
+        state = 'NOT_CONFIGURED'
+        reasons += fix('Worker', worker_failing) or [f"Worker — {h.get('error_code') or 'fournisseur non configuré'}"]
+        reasons += fix('API', api_failing)
     elif fresh and h.get('ok') is False:
-        state = 'UNAVAILABLE'; reasons.append(f"Dernier contrôle réel en échec ({h.get('error_code') or 'erreur'})")
+        state = 'UNAVAILABLE'; reasons.append(f"Contrôle réel en échec : {h.get('error_code') or 'erreur'}")
     elif failing_now or late:
         state = 'DEGRADED'
         if failing_now:
             reasons.append(f"{facts['failed_15m']} échec(s) sur les 15 dernières minutes, aucun envoi réussi")
         if late:
             reasons.append(f"Envoi le plus ancien en attente depuis {int(facts['oldest_due_seconds'] // 60)} min")
+    elif key == 'push':
+        if recent_success and (not fresh or h.get('ok') is not False):
+            state = 'OPERATIONAL'; reasons.append('Push réel accepté par Firebase (référence fournisseur) ces 30 derniers jours')
+        else:
+            state = 'CONFIGURED'
+            reasons.append('Identifiants Firebase valides (contrôle réel réussi) ; aucun push réel accepté encore : envoyez un push de test'
+                           if fresh and h.get('ok') else 'Configuré, pas encore prouvé par un contrôle réel')
     elif (fresh and h.get('ok') is True) or recent_success:
         state = 'OPERATIONAL'
-        reasons.append('Contrôle réel réussi' if fresh and h.get('ok') else 'Envoi réel réussi dans les dernières 24 h')
+        reasons.append('Contrôle réel réussi (connexion, chiffrement, authentification)' if fresh and h.get('ok') else 'Envoi réel réussi dans les dernières 24 h')
     else:
         state = 'CONFIGURED'; reasons.append('Configuré, pas encore prouvé par un contrôle ou un envoi réel')
-    return {'key': key, 'channel': key.upper(), 'provider': provider, 'provider_label': PROVIDER_NAME.get(key, {}).get(provider, provider),
+    if state not in ('NOT_CONFIGURED',) and api_failing:
+        reasons += fix('API', api_failing)          # e.g. the worker sends but the browser cannot register (web config)
+    if key == 'push' and web_project and h and h.get('project_id') and web_project != h.get('project_id'):
+        reasons.append(f"Projet Firebase différent entre l’API ({web_project}) et le worker ({h.get('project_id')}) : les jetons seront refusés")
+        if state == 'OPERATIONAL':
+            state = 'DEGRADED'
+    return {'key': key, 'channel': key.upper(), 'provider': (h or {}).get('provider') or provider,
+            'provider_label': PROVIDER_NAME.get(key, {}).get((h or {}).get('provider') or provider, (h or {}).get('provider') or provider),
             'config_state': cfg_state['state'], 'state': state, 'reasons': reasons, 'simulated': cfg_state['state'] == 'SIMULATED',
+            'diagnostics': {'api': api_checks or [], 'worker': worker_checks},
             'health': None if not h else {'checked_at': h.get('checked_at'), 'fresh': fresh, 'ok': h.get('ok'), 'latency_ms': h.get('latency_ms'),
                                           'error_code': h.get('error_code'), 'project_id': h.get('project_id'),
                                           'config': {k: v for k, v in (h.get('config') or {}).items() if k != 'provider'}},
@@ -188,7 +218,10 @@ def status(actor: ActorContext = Depends(require_platform_actor), services: AppS
             AND created_at >= now() - interval '7 days'""")).scalar_one()
         receipts = c.execute(text("SELECT count(*) FROM provider_receipts WHERE applied_at IS NULL")).scalar_one()
     cfg = channel_status(services.settings)
-    channels = [channel_state(k, cfg[k], snap, facts.get(k.upper(), {}), now) for k in ('push', 'email', 'sms')]
+    from edusync.shared.messaging import diagnose
+    api_checks = diagnose.all_checks(services.settings, 'api')
+    channels = [channel_state(k, cfg[k], snap, facts.get(k.upper(), {}), now, api_checks.get(k), diagnose.web_project_id(services.settings))
+                for k in ('push', 'email', 'sms')]
     hb_age = int((now - datetime.fromisoformat(heartbeat)).total_seconds()) if heartbeat else None
     return {'channels': channels, 'providers': cfg,
             'queue': {**{k: _iso(v) for k, v in dict(q).items()}, 'waiting_dispatch': undispatched, 'receipts_waiting': receipts,
