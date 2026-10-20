@@ -7,7 +7,9 @@ docs/architecture/RETENTION.md). Aucune donnée métier (élèves, paiements, do
   * étapes de connexion à usage unique (codes, MFA) expirées depuis plus de 30 jours ;
   * liens de compte (invitation, mot de passe) utilisés, révoqués ou expirés depuis plus de 90 jours ;
   * accusés de réception des fournisseurs appliqués depuis plus de 180 jours ;
-  * incidents de la plateforme résolus depuis plus de 2 ans.
+  * incidents de la plateforme résolus depuis plus de 2 ans ;
+  * messagerie : envois / destinataires / messages techniques plateforme et compte terminés depuis plus de 180 jours,
+    appareils push révoqués depuis plus de 90 jours (l'historique des communications d'une école n'est jamais purgé).
 Le journal d'audit est en ajout seul (trigger trg_audit_no_update) : sa purge (proposition 5 ans) n'est JAMAIS faite
 par ce script tant que la durée légale n'est pas décidée ; --audit-years affiche seulement le volume concerné.
 
@@ -32,6 +34,15 @@ RULES = (
      "coalesce(used_at, revoked_at, expires_at) < now() - interval '90 days'"),
     ("Accusés de réception appliqués", "provider_receipts", "applied_at < now() - interval '180 days'"),
     ("Incidents de la plateforme résolus", "platform_incidents", "resolved_at < now() - interval '2 years'"),
+    # Messagerie (lot 2026-10) : uniquement les messages techniques plateforme / compte, jamais l'historique d'une école.
+    ("Envois plateforme et compte terminés", "communication_deliveries",
+     "school_id IS NULL AND status IN ('SENT','DELIVERED','FAILED_PERMANENT','CANCELLED') AND created_at < now() - interval '180 days'"),
+    ("Destinataires des messages plateforme et compte", "communication_recipients",
+     "school_id IS NULL AND created_at < now() - interval '180 days' AND NOT EXISTS (SELECT 1 FROM communication_deliveries d WHERE d.recipient_id=communication_recipients.id)"),
+    ("Messages plateforme et compte", "communication_messages",
+     "school_id IS NULL AND created_at < now() - interval '180 days' AND NOT EXISTS (SELECT 1 FROM communication_deliveries d WHERE d.message_id=communication_messages.id)"
+     " AND NOT EXISTS (SELECT 1 FROM communication_recipients x WHERE x.message_id=communication_messages.id)"),
+    ("Appareils push révoqués", "push_subscriptions", "revoked_at < now() - interval '90 days'"),
 )
 
 

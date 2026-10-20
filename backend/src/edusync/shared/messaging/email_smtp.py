@@ -49,6 +49,29 @@ class SmtpEmailProvider:
             msg.add_alternative(content.html, subtype="html")
         return msg
 
+    async def health_check(self) -> dict:
+        """Connect + STARTTLS/TLS + AUTH, then QUIT: proves host, port, encryption and credentials without sending."""
+        client = aiosmtplib.SMTP(hostname=self.host, port=self.port, use_tls=self.security == "tls",
+                                 start_tls=True if self.security == "starttls" else False if self.security == "none" else None,
+                                 tls_context=ssl.create_default_context(), timeout=self.timeout)
+        try:
+            await client.connect()
+            if self.username:
+                try:
+                    await client.login(self.username, self._password)
+                except aiosmtplib.SMTPAuthenticationError as exc:
+                    exc.health_code = "SMTP_AUTHENTICATION"
+                    raise
+        except (aiosmtplib.SMTPConnectError, aiosmtplib.SMTPServerDisconnected, OSError) as exc:
+            exc.health_code = "SMTP_UNAVAILABLE"
+            raise
+        finally:
+            try:
+                await client.quit()
+            except Exception:  # noqa: BLE001
+                pass
+        return {"tls": self.security, "authenticated": bool(self.username)}
+
     async def send_email(self, *, to: str, content: EmailContent) -> SendResult:
         if "@" not in to or len(to) > 320 or any(ch in to for ch in "\r\n,;<>"):
             return SendResult(INVALID_DESTINATION, error_code="INVALID_DESTINATION")

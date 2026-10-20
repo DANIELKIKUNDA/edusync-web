@@ -136,9 +136,9 @@ check("SMS sans crédit : envoi refusé (409), aucune réservation, aucun messag
 # ---------------------------------------------------------------- platform credit (idempotent, audited)
 key = str(uuid4())
 c1 = ok(mgr.post(f"platform/messaging/wallets/{A['school_id']}/credit", json={"quantity": 100, "reference": f"FACT-{run}", "reason": "Achat pack 100 SMS",
-        "commercial_price": 25, "commercial_currency": "USD"}, headers={"Idempotency-Key": key}))
+        "commercial_price": 25, "commercial_currency": "USD", "paid_on": date.today().isoformat()}, headers={"Idempotency-Key": key}))
 c1b = ok(mgr.post(f"platform/messaging/wallets/{A['school_id']}/credit", json={"quantity": 100, "reference": f"FACT-{run}", "reason": "Achat pack 100 SMS",
-        "commercial_price": 25, "commercial_currency": "USD"}, headers={"Idempotency-Key": key}))
+        "commercial_price": 25, "commercial_currency": "USD", "paid_on": date.today().isoformat()}, headers={"Idempotency-Key": key}))
 check("Crédit manuel : solde 100, rejeu de la même clé sans double crédit", c1["balance"] == 100 and c1b["ledger_id"] == c1["ledger_id"] and c1b["replayed"], (c1, c1b))
 nocap = prefA.post(f"platform/messaging/wallets/{A['school_id']}/credit", json={"quantity": 5, "reference": "x1", "reason": "tentative école"}, headers=k())
 check("RBAC : un compte école ne peut pas créditer un portefeuille", nocap.status_code in (401, 403), nocap.status_code)
@@ -151,7 +151,7 @@ check("Ajustement : jamais de solde négatif", neg.status_code == 409, neg.statu
 # Concurrent credits: 5 parallel distinct keys + 5 parallel identical keys.
 def credit_parallel(key_, out):
     r = httpx.post(BASE + f"/platform/messaging/wallets/{A['school_id']}/credit", headers={**mgr.headers, "Idempotency-Key": key_},
-                   json={"quantity": 10, "reference": f"PAR-{run}", "reason": "Crédit concurrent"}, timeout=60)
+                   json={"quantity": 10, "reference": f"PAR-{run}", "reason": "Crédit concurrent", "paid_on": date.today().isoformat(), "commercial_price": 2.5, "commercial_currency": "USD"}, timeout=60)
     out.append(r.status_code)
 
 

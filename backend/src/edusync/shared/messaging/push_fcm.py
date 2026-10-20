@@ -76,5 +76,19 @@ class FcmPushProvider:
             return SendResult(RETRYABLE, error_code="PUSH_NETWORK")
         return SendResult(SENT, provider_message_id=str(message_id)[:180])
 
+    def _health_blocking(self) -> dict:
+        info = self._app.credential.get_access_token()          # OAuth2 with the service account key (no message sent)
+        if not getattr(info, "access_token", None):
+            raise RuntimeError("no access token")
+        return {"project_id": getattr(self._app, "project_id", None)}
+
+    async def health_check(self) -> dict:
+        try:
+            return await asyncio.to_thread(self._health_blocking)
+        except Exception as exc:  # noqa: BLE001 — google-auth errors may echo the account e-mail: only a code leaves here
+            err = RuntimeError("fcm health")
+            err.health_code = "PUSH_CREDENTIALS" if "RefreshError" in type(exc).__name__ else "PUSH_PROVIDER_UNAVAILABLE"
+            raise err from None
+
     async def send_push(self, *, token: str, title: str, body: str, link: str | None, data: dict[str, str]) -> SendResult:
         return await asyncio.to_thread(self._send_blocking, token, title, body, link, data)

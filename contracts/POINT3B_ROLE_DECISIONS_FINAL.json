@@ -24,9 +24,11 @@
         "platform.schools.suspend",
         "platform.schools.update",
         "platform.messaging.read",
-        "platform.sms_wallet.credit"
+        "platform.sms_wallet.credit",
+        "platform.messaging.retry",
+        "platform.sms_wallet.adjust"
       ],
-      "capability_count": 12,
+      "capability_count": 14,
       "decision_note": "Plateforme uniquement; notifications système incluses.",
       "decision_date": "2026-09-12",
       "amendments": [
@@ -39,6 +41,16 @@
           ],
           "removed": [],
           "note": "Messagerie externe : supervision des fournisseurs et portefeuilles SMS des écoles (sans lecture des messages)."
+        },
+        {
+          "date": "2026-10-20",
+          "gap": "PLATFORM_MESSAGING_COCKPIT",
+          "added": [
+            "platform.messaging.retry",
+            "platform.sms_wallet.adjust"
+          ],
+          "removed": [],
+          "note": "Messagerie plateforme : relance manuelle e-mail / push et ajustement de portefeuille séparés de la lecture et de la recharge (mandat : aucune capacité implicite)."
         }
       ]
     },

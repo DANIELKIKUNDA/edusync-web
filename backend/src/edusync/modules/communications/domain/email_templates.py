@@ -13,6 +13,7 @@ _WRAP = """<!doctype html><html lang="fr"><body style="margin:0;background:#f4f6
 <tr><td style="font-size:20px;font-weight:bold;padding-bottom:12px">EduSync</td></tr>
 <tr><td style="font-size:15px;line-height:1.6">{body}</td></tr>
 <tr><td style="font-size:12px;color:#5b6b82;padding-top:24px">Message automatique d’EduSync : ne répondez pas à cet e-mail.</td></tr>
+<tr><td style="font-size:11px;color:#8a97ab;padding-top:6px">From Volcano Tech</td></tr>
 </table></td></tr></table></body></html>"""
 
 
@@ -21,8 +22,18 @@ def _button(url: str, label: str) -> str:
             f'padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block">{escape(label)}</a></p>')
 
 
+SIGNATURE_TEXT = "\n\n—\nMessage automatique d’EduSync : ne répondez pas à cet e-mail.\nFrom Volcano Tech"
+
+
 def render(template_code: str | None, *, recipient_name: str | None, school_name: str | None, subject: str | None,
            body: str, link: str | None, ttl_label: str | None = None) -> EmailContent:
+    """Every template: subject, HTML (escaped values) and plain text, with the discreet EduSync / Volcano Tech signature."""
+    c = _render(template_code, recipient_name=recipient_name, school_name=school_name, subject=subject, body=body, link=link, ttl_label=ttl_label)
+    return EmailContent(c.subject, c.text + SIGNATURE_TEXT, c.html, c.headers)
+
+
+def _render(template_code: str | None, *, recipient_name: str | None, school_name: str | None, subject: str | None,
+            body: str, link: str | None, ttl_label: str | None = None) -> EmailContent:
     name = (recipient_name or "").strip() or "Bonjour"
     hello = f"Bonjour {name}," if recipient_name else "Bonjour,"
     if template_code == "ACCOUNT_INVITATION":

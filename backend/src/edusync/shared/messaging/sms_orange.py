@@ -115,6 +115,12 @@ class OrangeSmsProvider:
         return token
 
     # ------------------------------------------------------------------ send
+    async def health_check(self) -> dict:
+        """Obtains an OAuth2 token with the client credentials (no SMS sent)."""
+        async with httpx.AsyncClient(timeout=20) as client:
+            await self._token(client, force=True)
+        return {}
+
     async def send_sms(self, *, to_e164: str, body: str) -> SendResult:
         if not (to_e164.startswith("+") and to_e164[1:].isdigit() and 9 <= len(to_e164) <= 16):
             return SendResult(INVALID_DESTINATION, error_code="INVALID_DESTINATION")

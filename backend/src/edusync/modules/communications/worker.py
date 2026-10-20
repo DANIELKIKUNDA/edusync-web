@@ -29,6 +29,7 @@ from edusync.modules.communications.application.wallet import wallet_apply
 from edusync.modules.communications.domain.email_templates import render as render_email
 from edusync.modules.communications.domain.policy import decide
 from edusync.shared.infrastructure.heartbeat import beat
+from edusync.shared.messaging import health as provider_health
 from edusync.shared.messaging import ports
 from edusync.shared.messaging.factory import build_email_provider, build_push_provider, build_sms_provider
 from edusync.shared.messaging.sealing import DELIVERY_SECRET, PUSH_TOKEN, cipher
@@ -125,7 +126,8 @@ def _claim(engine, delivery_id=None):
         if not row:
             return None
         c.execute(text("""UPDATE communication_deliveries SET processing_token=:token, locked_until=now()+(:lease||' seconds')::interval,
-            status='PROCESSING', last_attempt_at=now() WHERE id=:id"""), {'token': token, 'lease': LEASE_SECONDS, 'id': row['id']})
+            status='PROCESSING', last_attempt_at=now(), first_attempt_at=coalesce(first_attempt_at, now()) WHERE id=:id"""),
+            {'token': token, 'lease': LEASE_SECONDS, 'id': row['id']})
         school = None
         school_ref = row['school_id'] or row.get('target_school_id')
         if school_ref:
@@ -325,9 +327,18 @@ def run():
     engine = create_engine(worker_url(cfg), pool_pre_ping=True, pool_recycle=1800)
     throttle = SmsThrottle(cfg.orange_sms_max_tps)
     last_receipts = 0.0
+    last_health = -1e9
     while True:
         try:
             beat(r, 'communications')
+            if provider_health.due(r, last_health):
+                # Real provider checks (no message sent), every 5 min or on request from the cockpit. A failing check
+                # never blocks the deliveries: it is logged and retried at the next interval.
+                last_health = time.monotonic()
+                try:
+                    provider_health.run_and_store(cfg, r)
+                except Exception:  # noqa: BLE001
+                    log.exception('provider health check failed')
             if time.monotonic() - last_receipts >= 10:
                 process_receipts(engine)
                 last_receipts = time.monotonic()

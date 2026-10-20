@@ -3,7 +3,7 @@
   "status": "POINT4B_PERSONNEL_PORTED",
   "role_assignments_finalized": true,
   "owner_decides_roles_and_assignments": true,
-  "capability_count": 280,
+  "capability_count": 282,
   "capabilities": [
     {
       "code": "access.grants.exception",
@@ -5430,7 +5430,7 @@
       "code": "platform.sms_wallet.credit",
       "domain": "Atelier Pro",
       "group": "Messagerie",
-      "label": "Créditer ou ajuster le portefeuille SMS d’une école",
+      "label": "Recharger le portefeuille SMS d’une école après paiement",
       "action": "credit",
       "risk": "HIGH",
       "offline_policy": "SERVER_ONLY",
@@ -5443,6 +5443,44 @@
       "outputs": [],
       "sensitive": true,
       "notes": "Messagerie externe (2026-10) : crédit manuel audité après paiement de l’école à EduSync, second facteur récent",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.messaging.retry",
+      "domain": "Atelier Pro",
+      "group": "Messagerie",
+      "label": "Relancer un envoi e-mail ou push en échec définitif (motif obligatoire)",
+      "action": "retry",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "Messagerie plateforme (2026-10) : relance manuelle auditée, idempotente, motif obligatoire ; jamais un SMS (portefeuille de l’école)",
+      "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
+    },
+    {
+      "code": "platform.sms_wallet.adjust",
+      "domain": "Atelier Pro",
+      "group": "Messagerie",
+      "label": "Ajuster le portefeuille SMS d’une école (crédit ou débit motivé)",
+      "action": "adjust",
+      "risk": "HIGH",
+      "offline_policy": "SERVER_ONLY",
+      "audit_required": true,
+      "scope_types": [
+        "PLATFORM"
+      ],
+      "source_status": "NEW_APPROVED",
+      "prerequisites": [],
+      "outputs": [],
+      "sensitive": true,
+      "notes": "Messagerie plateforme (2026-10) : ajustement séparé de la recharge payée, motif obligatoire, second facteur récent",
       "role_assignment": "MANAGER_SYSTEME_OWNER_APPROVED"
     }
   ],

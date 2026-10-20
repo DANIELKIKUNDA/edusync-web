@@ -40,6 +40,11 @@ def _id(prefix: str, *parts: str) -> str:
 
 
 class FakeSmsProvider:
+    simulated = True
+
+    async def health_check(self) -> dict:      # development only: refused in staging / production by the factory
+        return {"simulated": True}
+
     code = "fake"
 
     def __init__(self, redis_url: str | None = None):
@@ -61,6 +66,11 @@ class FakeSmsProvider:
 
 
 class FakeEmailProvider:
+    simulated = True
+
+    async def health_check(self) -> dict:      # development only: refused in staging / production by the factory
+        return {"simulated": True}
+
     code = "fake"
 
     def __init__(self, redis_url: str | None = None):
@@ -80,6 +90,11 @@ class FakeEmailProvider:
 
 
 class FakePushProvider:
+    simulated = True
+
+    async def health_check(self) -> dict:      # development only: refused in staging / production by the factory
+        return {"simulated": True}
+
     code = "fake"
 
     def __init__(self, redis_url: str | None = None):

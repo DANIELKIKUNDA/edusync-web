@@ -207,6 +207,7 @@ def main() -> None:
             ("0081_notification_campaigns_history", "0081_notification_campaigns_history.sql"),
             ("0082_audit_log_search", "0082_audit_log_search.sql"),
             ("0083_platform_alerts", "0083_platform_alerts.sql"),
+            ("0084_platform_messaging_cockpit", "0084_platform_messaging_cockpit.sql"),
         ]
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):
