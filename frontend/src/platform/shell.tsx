@@ -1,5 +1,6 @@
 import React, {useEffect, useId, useRef, useState} from 'react';
 import {NavGlyph} from './nav_icons';
+import {pageTitle, VerticalNavigation} from './navigation';
 import {connectivityLabel, getConnectivity, subscribeActivity, subscribeConnectivity, type ConnectivityState, type WriteActivity} from './connectivity';
 import './shell.css';
 import './theme.css';
@@ -153,7 +154,17 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
   const [tip, setTip] = useState<{label: string; top: number} | null>(null);
   const drawerRef = useRef<HTMLElement>(null);
   useDismiss(drawer, () => setDrawer(false), drawerRef);
-  useEffect(() => { document.title = `${title} · EduSync`; }, [title]);
+  useEffect(() => {
+    const updateTitle=()=>{
+      const trails=Array.from(document.querySelectorAll<HTMLElement>('#es-content .pf-trail[data-page-title]'));
+      const current=trails.filter(el=>!el.closest('[hidden]')).at(-1)?.dataset.pageTitle;
+      document.title=pageTitle(current||title);
+    };
+    const content=document.getElementById('es-content');
+    const observer=new MutationObserver(updateTitle);
+    if(content)observer.observe(content,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','data-page-title']});
+    updateTitle();return()=>observer.disconnect();
+  }, [title]);
   useEffect(() => { announceIfJustUpdated(); }, []);
   function toggle() { setCollapsed(v => { writeCollapsed(!v); return !v; }); setTip(null); setPeek(false); }
   const railOnly = () => collapsed || window.matchMedia('(min-width:768px) and (max-width:1100px)').matches;
@@ -213,6 +224,7 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
       </header>
       <UpdateChip bar/>
       <main className="es-content" id="es-content" tabIndex={-1}>{children}</main>
+      {accountDock && <VerticalNavigation/>}
     </div>
     <nav className="es-bottom" aria-label="Navigation rapide">
       {primary.map(n => <button key={n.key} className={n.active ? 'es-active' : ''} aria-current={n.active ? 'page' : undefined} onClick={n.onSelect}>

@@ -1,3 +1,5 @@
+import {OnlineActionButton} from './online_action';
+import {PageTrail} from './navigation';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {friendlyError, UserFacingError} from './errors';
 import {fetchIdentities, fetchIdentity, fetchIdentityFilters, IDENTITY_STATUS_LABEL, SCOPE_LABEL, type FilterRole, type IdentitiesPage,
@@ -288,7 +290,7 @@ function IdentityView({token, id, has, onBack, onOpenSchool, onOpenTeam}: {token
     return () => ctl.abort();
   }, [token, id, nonce]);
   useEffect(() => { if (d && focusedFor.current !== id) { focusedFor.current = id; title.current?.focus({preventScroll: true}); } }, [d, id]);
-  const backBtn = <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Utilisateurs & accès</button>;
+  const backBtn = <PageTrail parents={[{label: 'Utilisateurs & accès', onSelect: onBack}]} current={d?.full_name || 'Fiche utilisateur'}/>;
   if (error) return <div className="sc-sheet-page">{backBtn}<div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Détail indisponible.</b><small>{error}</small></div>
     <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setNonce(n => n + 1)}>Réessayer</button></div></div>;
   if (!d) return <div className="sc-sheet-page" aria-busy="true">{backBtn}<div className="sc-card"><i className="sc-skel" style={{width: '50%', height: 22}}/><i className="sc-skel" style={{width: '30%'}}/></div></div>;
@@ -320,8 +322,8 @@ function IdentityView({token, id, has, onBack, onOpenSchool, onOpenTeam}: {token
           {platformMember && has('platform.collaborators.manage') && <button type="button" className="sc-link" onClick={() => onOpenTeam({openMember: d.id})}>Gérer dans Équipe plateforme</button>}</div>
         {platformMember ? <ul className="id-roles">{d.platform_roles.map(r => <li key={r.code}><b>{r.label}</b>{r.since && <small>depuis le {new Date(r.since).toLocaleDateString('fr-FR')}</small>}</li>)}</ul>
           : <p className="sc-muted">Aucun rôle plateforme : ce compte n’accède qu’aux espaces école.</p>}
-        {!platformMember && d.active && has('platform.collaborators.manage') && <button type="button" className="sc-btn sc-btn-ghost"
-          onClick={() => onOpenTeam({addExisting: {id: d.id, full_name: d.full_name, email: d.email}})}><NavGlyph g="users" size={16}/>Ajouter à l’équipe plateforme</button>}
+        {!platformMember && d.active && has('platform.collaborators.manage') && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost"
+          onClick={() => onOpenTeam({addExisting: {id: d.id, full_name: d.full_name, email: d.email}})}><NavGlyph g="users" size={16}/>Ajouter à l’équipe plateforme</OnlineActionButton>}
       </section>
     </div>
 

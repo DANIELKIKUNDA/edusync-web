@@ -1,3 +1,4 @@
+import {OnlineActionButton} from './online_action';
 import React, {useState} from 'react';
 import {toast} from 'sonner';
 import {createSchoolFull} from '../api';
@@ -53,7 +54,7 @@ export function SchoolCreateDialog({token, onClose, onCreated}: {token: string; 
         {field('province', 'Province', {maxLength: 120, autoComplete: 'address-level1'})}
       </div></fieldset>
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
-      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Création…' : 'Créer l’école'}</button></div>
+      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Création…' : 'Créer l’école'}</OnlineActionButton></div>
     </form>
   </Modal>;
 }

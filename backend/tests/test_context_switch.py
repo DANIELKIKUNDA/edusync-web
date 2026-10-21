@@ -45,7 +45,7 @@ def test_withdrawn_space_is_signalled_to_the_client():
 
 def test_frontend_switcher_contract():
     for x in ("Changer d’espace", "Rechercher un espace", "Espace actuel", "Modifications non enregistrées", "hasUnsavedForms()",
-              "Hors connexion — actions d’administration indisponibles", "Accès à cet espace retiré", "un rôle plateforme n’ouvre aucune école"):
+              "Hors connexion — lecture seule", "Accès à cet espace retiré", "un rôle plateforme n’ouvre aucune école"):
         assert x in SPACES, x
     assert "const many=(state?.contexts.length||0)>6;" in SPACES
     # the previous space is unmounted entirely; each space keeps its own page and filters

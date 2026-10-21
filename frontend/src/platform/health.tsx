@@ -1,3 +1,5 @@
+import {OnlineActionButton} from './online_action';
+import {PageTrail} from './navigation';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {friendlyError, UserFacingError, friendlyHttpMessage} from './errors';
 import {NavGlyph} from './nav_icons';
@@ -174,7 +176,7 @@ function ServiceDetail({token, c, all, now, stale, onBack, canMessaging, onOpenM
   const title = useRef<HTMLHeadingElement>(null);
   useEffect(() => { title.current?.focus({preventScroll: true}); }, [c.key]);
   return <div className="sc-sheet-page">
-    <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>État du service</button>
+    <PageTrail parents={[{label: 'État du service', onSelect: onBack}]} current={c.label}/>
     <header className="sc-card sc-sheet-head"><div className="sc-sheet-id"><span className={`sc-sheet-logo hl-logo ${st.cls}`} aria-hidden="true"><NavGlyph g={ICON[c.key] || 'pulse'} size={24}/></span>
       <div><h2 ref={title} tabIndex={-1}>{c.label}</h2><p>{c.detail}</p><div className="sc-badges"><span className={`sc-badge hl-badge ${st.cls}`}><NavGlyph g={st.icon} size={12}/>{st.label}</span>
         {stale && <span className="sc-badge hl-badge hl-warn"><NavGlyph g="clock" size={12}/>Donnée périmée</span>}</div></div></div></header>
@@ -255,7 +257,7 @@ function ErrorGroupDetail({token, id, now, onBack}: {token: string; id: string; 
     .catch(e => setError(e instanceof UserFacingError ? e.message : friendlyError(e))); }, [id, token, now - now % 30000]);   // follows the 30 s refresh: « En cours » becomes « Résolue » by itself
   async function copy(v: string) { try { await navigator.clipboard.writeText(v); setCopied(v); window.setTimeout(() => setCopied(''), 1800); } catch { /* copie indisponible */ } }
   return <section className="sc-card hl-gdetail hl-wide">
-    <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Erreurs regroupées</button>
+    <PageTrail parents={[{label: 'Erreurs regroupées', onSelect: onBack}]} current={'Détail de l’incident'}/>
     {error && <p className="sc-hint" role="alert">{error}</p>}
     {!g && !error && <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}
     {g && <>
@@ -349,12 +351,12 @@ function Incidents({token, now}: {token: string; now: number}) {
       <h4>Destinataires des alertes</h4>
       <ul className="hl-recip"><li><NavGlyph g="users" size={14}/>{d.recipients.managers} Manager(s) Système actif(s) (toujours prévenus)</li>
         {d.recipients.extra.map(x => <li key={x.id}><NavGlyph g="message" size={14}/><span>{x.email}{x.label ? ` · ${x.label}` : ''}</span>
-          {d.recipients.can_manage && <button type="button" className="sc-btn sc-btn-ghost hl-sm" disabled={busy} onClick={() => void post(`/platform/system/health/alert-recipients/${x.id}/remove`, undefined, 'Adresse retirée.')}>Retirer</button>}</li>)}</ul>
+          {d.recipients.can_manage && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost hl-sm" disabled={busy} onClick={() => void post(`/platform/system/health/alert-recipients/${x.id}/remove`, undefined, 'Adresse retirée.')}>Retirer</OnlineActionButton>}</li>)}</ul>
       {d.recipients.can_manage && <form className="hl-addr" onSubmit={async e => { e.preventDefault(); if (await post('/platform/system/health/alert-recipients', {email: email.trim()}, 'Adresse ajoutée : elle recevra les prochaines alertes.')) setEmail(''); }}>
         <label htmlFor="hl-addr">Ajouter une adresse d’astreinte</label>
         <div><input id="hl-addr" type="email" inputMode="email" autoComplete="email" placeholder="nom@exemple.com" value={email} onChange={e => setEmail(e.target.value)} required/>
-          <button className="sc-btn" disabled={busy || !email.includes('@')}>Ajouter</button></div>
-        <button type="button" className="sc-btn sc-btn-ghost" disabled={busy} onClick={() => void post('/platform/system/health/alerts/test', undefined, 'E-mail de test envoyé à tous les destinataires.')}>Envoyer un e-mail de test</button>
+          <OnlineActionButton className="sc-btn" disabled={busy || !email.includes('@')}>Ajouter</OnlineActionButton></div>
+        <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" disabled={busy} onClick={() => void post('/platform/system/health/alerts/test', undefined, 'E-mail de test envoyé à tous les destinataires.')}>Envoyer un e-mail de test</OnlineActionButton>
       </form>}
       {note && <p className="hl-empty" role="status"><NavGlyph g="checkCircle" size={16}/>{note}</p>}
     </>}

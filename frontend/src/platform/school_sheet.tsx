@@ -1,3 +1,5 @@
+import {OnlineActionButton} from './online_action';
+import {PageTrail} from './navigation';
 import React, {useEffect, useRef, useState} from 'react';
 import {toast} from 'sonner';
 import {Modal} from './account';
@@ -42,7 +44,7 @@ export function SchoolSheetView({token, id, has, onBack, onChanged}: {token: str
     return () => ctl.abort();
   }, [token, id, nonce]);
   const refresh = () => { setNonce(n => n + 1); onChanged(); };
-  const backBtn = <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Écoles</button>;
+  const backBtn = <PageTrail parents={[{label: 'Écoles', onSelect: onBack}]} current={d?.school.name || 'Fiche école'}/>;
   if (error) return <div className="sc-sheet-page">{backBtn}<div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Fiche indisponible.</b><small>{error}</small></div>
     <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setNonce(n => n + 1)}>Réessayer</button></div></div>;
   if (!d) return <div className="sc-sheet-page" aria-busy="true">{backBtn}<div className="sc-card"><i className="sc-skel" style={{width: '50%', height: 22}}/><i className="sc-skel" style={{width: '30%'}}/></div>
@@ -51,11 +53,11 @@ export function SchoolSheetView({token, id, has, onBack, onChanged}: {token: str
   const canEdit = st !== 'DISABLED' && has('platform.schools.update');
   const canAdmin = st !== 'DISABLED' && has('platform.school_admin.bootstrap');
   const actions = [
-    canEdit && <button key="edit" type="button" className="sc-btn sc-btn-ghost" onClick={() => setDialog({kind: 'edit'})}><NavGlyph g="doc" size={16}/>Modifier</button>,
+    canEdit && <OnlineActionButton key="edit" type="button" className="sc-btn sc-btn-ghost" onClick={() => setDialog({kind: 'edit'})}><NavGlyph g="doc" size={16}/>Modifier</OnlineActionButton>,
     canAdmin && <button key="admin" type="button" className={`sc-btn ${d.admins.length === 0 ? 'sc-btn-primary' : 'sc-btn-ghost'}`} onClick={() => setDialog({kind: 'admin'})}>
       <NavGlyph g="key" size={16}/>{d.admins.length === 0 ? 'Créer l’administrateur initial' : d.counters.admins_active === 0 ? 'Remplacer l’administrateur' : 'Ajouter un administrateur'}</button>,
-    st === 'ACTIVE' && has('platform.schools.suspend') && <button key="suspend" type="button" className="sc-btn sc-btn-danger" onClick={() => setDialog({kind: 'suspend'})}>Suspendre</button>,
-    st === 'SUSPENDED' && has('platform.schools.activate') && <button key="react" type="button" className="sc-btn sc-btn-primary" onClick={() => setDialog({kind: 'reactivate'})}>Réactiver</button>,
+    st === 'ACTIVE' && has('platform.schools.suspend') && <OnlineActionButton key="suspend" type="button" className="sc-btn sc-btn-danger" onClick={() => setDialog({kind: 'suspend'})}>Suspendre</OnlineActionButton>,
+    st === 'SUSPENDED' && has('platform.schools.activate') && <OnlineActionButton key="react" type="button" className="sc-btn sc-btn-primary" onClick={() => setDialog({kind: 'reactivate'})}>Réactiver</OnlineActionButton>,
   ].filter(Boolean);
   const h = d.health; const pendingAdmins = d.admins.filter(a => a.state === 'PENDING').length;
   return <div className="sc-sheet-page">
@@ -88,7 +90,7 @@ export function SchoolSheetView({token, id, has, onBack, onChanged}: {token: str
           <dt>Téléphone de l’école</dt><dd>{s.phone_display || '—'}</dd><dt>E-mail de l’école</dt><dd>{s.email || '—'}</dd>
           <dt>Créée le</dt><dd>{when(s.created_at)}</dd>
         </dl></section>
-      <section className="sc-card"><div className="sc-card-head"><h3>Promoteur / contact principal</h3>{canEdit && <button type="button" className="sc-link" onClick={() => setDialog({kind: 'edit'})}>Modifier</button>}</div>
+      <section className="sc-card"><div className="sc-card-head"><h3>Promoteur / contact principal</h3>{canEdit && <OnlineActionButton type="button" className="sc-link" onClick={() => setDialog({kind: 'edit'})}>Modifier</OnlineActionButton>}</div>
         {s.contact_name ? <dl className="sc-dl"><dt>Nom</dt><dd>{s.contact_name}</dd><dt>Fonction</dt><dd>{s.contact_function || '—'}</dd>
           <dt>Téléphone</dt><dd>{s.contact_phone_display ? <a href={`tel:${s.contact_phone}`}>{s.contact_phone_display}</a> : '—'}</dd>
           <dt>E-mail</dt><dd>{s.contact_email ? <a href={`mailto:${s.contact_email}`}>{s.contact_email}</a> : '—'}</dd></dl>
@@ -96,15 +98,15 @@ export function SchoolSheetView({token, id, has, onBack, onChanged}: {token: str
         <p className="sc-hint">Contact institutionnel de la plateforme. Distinct de l’administrateur, qui gère l’accès technique de l’école.</p></section>
     </div>
 
-    <section className="sc-card"><div className="sc-card-head"><h3>Administrateurs / accès</h3>{canAdmin && d.admins.length > 0 && <button type="button" className="sc-link" onClick={() => setDialog({kind: 'admin'})}>Ajouter</button>}</div>
+    <section className="sc-card"><div className="sc-card-head"><h3>Administrateurs / accès</h3>{canAdmin && d.admins.length > 0 && <OnlineActionButton type="button" className="sc-link" onClick={() => setDialog({kind: 'admin'})}>Ajouter</OnlineActionButton>}</div>
       {d.admins.length === 0 ? <div className="sc-callout"><NavGlyph g="key" size={18}/><div><b>Aucun administrateur.</b><small>L’école ne peut pas encore se configurer : créez son administrateur initial.</small></div></div>
         : <ul className="sc-admins">{d.admins.map(a => <li key={a.membership_id}>
           <span className="sc-admin-avatar" aria-hidden="true">{a.full_name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}</span>
           <div><b>{a.full_name}</b><small>{a.email}</small><small>{a.last_seen_at ? `Dernière connexion : ${ago(a.last_seen_at).toLowerCase()}` : 'Jamais connecté à cette école'}</small></div>
           <span className={`sc-admin-state sc-as-${a.state.toLowerCase()}`}>{ADMIN_STATE[a.state]}</span>
           <div className="sc-admin-actions">
-            {a.state !== 'DISABLED' && has('platform.school_admin.bootstrap') && st !== 'DISABLED' && <button type="button" className="sc-btn sc-btn-ghost sc-btn-sm" onClick={() => setDialog({kind: 'reset', admin: a})}>Réinitialiser l’accès</button>}
-            {a.membership_active && has('platform.access.manage') && <button type="button" className="sc-btn sc-btn-ghost sc-btn-sm sc-danger-text" onClick={() => setDialog({kind: 'disable', admin: a})}>Désactiver l’accès</button>}
+            {a.state !== 'DISABLED' && has('platform.school_admin.bootstrap') && st !== 'DISABLED' && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost sc-btn-sm" onClick={() => setDialog({kind: 'reset', admin: a})}>Réinitialiser l’accès</OnlineActionButton>}
+            {a.membership_active && has('platform.access.manage') && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost sc-btn-sm sc-danger-text" onClick={() => setDialog({kind: 'disable', admin: a})}>Désactiver l’accès</OnlineActionButton>}
           </div></li>)}</ul>}
       <p className="sc-hint">La plateforme gouverne uniquement l’administrateur de l’école (continuité et sécurité de l’accès). Les autres rôles — caissier, secrétaire, préfet, enseignant… — se gèrent dans l’espace de l’école.</p>
     </section>
@@ -176,7 +178,7 @@ export function SchoolFormDialog({token, has, initial, onClose, onCreated}: {tok
       <p className="sc-hint">Étape suivante : créer l’administrateur initial. C’est lui qui configurera l’école (année scolaire, classes, frais).</p></div>
     <div className="es-modal-foot">
       <button type="button" className="es-btn es-btn-ghost" onClick={() => onCreated(created.id)}>Ouvrir la fiche</button>
-      {has('platform.school_admin.bootstrap') && <button type="button" className="es-btn es-btn-primary" onClick={() => setAdminFor({...created, status: 'ACTIVE'})}>Créer l’administrateur initial</button>}
+      {has('platform.school_admin.bootstrap') && <OnlineActionButton type="button" className="es-btn es-btn-primary" onClick={() => setAdminFor({...created, status: 'ACTIVE'})}>Créer l’administrateur initial</OnlineActionButton>}
     </div></Modal>;
   const field = (k: keyof SchoolIdentity, label: string, input: React.ReactNode, hint?: string) => <div className={`sc-field ${errors[k] ? 'sc-invalid' : ''}`}>
     <label htmlFor={`sf-${k}`}>{label}</label>{input}{errors[k] ? <small id={`sf-${k}-err`} role="alert">{errors[k]}</small> : hint ? <small className="sc-hint">{hint}</small> : null}</div>;
@@ -211,7 +213,7 @@ export function SchoolFormDialog({token, has, initial, onClose, onCreated}: {tok
       </fieldset>
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button className="es-btn es-btn-primary" disabled={busy}>{busy ? (editing ? 'Enregistrement…' : 'Création…') : editing ? 'Enregistrer' : 'Créer l’école'}</button></div>
+        <OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy ? (editing ? 'Enregistrement…' : 'Création…') : editing ? 'Enregistrer' : 'Créer l’école'}</OnlineActionButton></div>
     </form>
   </Modal>;
 }
@@ -241,7 +243,7 @@ export function AdminDialog({token, school, emailAvailable, replacing, onClose, 
     {result.temporary_password ? <OneTimeSecret value={result.temporary_password} who={name}/>
       : result.invitation_sent ? <p>Une invitation a été envoyée à <b>{email}</b>. Le lien permet de choisir le mot de passe ; il expire automatiquement.</p>
       : <p>Ce compte EduSync existait déjà : il est rattaché à l’école comme administrateur, sans changer son mot de passe.</p>}
-    <div className="es-modal-foot"><button type="button" className="es-btn es-btn-primary" onClick={onDone}>Terminé</button></div></Modal>;
+    <div className="es-modal-foot"><OnlineActionButton type="button" className="es-btn es-btn-primary" onClick={onDone}>Terminé</OnlineActionButton></div></Modal>;
   return <Modal title={title} subtitle={`${school.name} · ${school.code}`} onClose={onClose}>
     <form className="sc-form" onSubmit={submit} noValidate>
       {replacing && <p className="sc-hint">Aucun administrateur n’est actif : le nouvel administrateur rétablira l’accès de l’école. Désactivez ensuite l’ancien accès si nécessaire.</p>}
@@ -254,7 +256,7 @@ export function AdminDialog({token, school, emailAvailable, replacing, onClose, 
         : <p className="sc-hint">Un mot de passe provisoire sera généré et affiché une seule fois ; il devra être changé à la première connexion.</p>}
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Enregistrement…' : 'Créer l’accès administrateur'}</button></div>
+        <OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Enregistrement…' : 'Créer l’accès administrateur'}</OnlineActionButton></div>
     </form></Modal>;
 }
 
@@ -269,7 +271,7 @@ function ResetAccessDialog({token, schoolId, admin, emailAvailable, onClose, onD
   if (result) return <Modal title="Accès réinitialisé" subtitle={admin.full_name} onClose={onClose}>
     {result.temporary_password ? <OneTimeSecret value={result.temporary_password} who={admin.full_name}/> : <p>Un lien a été envoyé à <b>{admin.email}</b>.</p>}
     <p className="sc-hint">{result.sessions_closed} session(s) ouverte(s) fermée(s) : les appareils perdus ou compromis n’ont plus accès.</p>
-    <div className="es-modal-foot"><button type="button" className="es-btn es-btn-primary" onClick={onClose}>Terminé</button></div></Modal>;
+    <div className="es-modal-foot"><OnlineActionButton type="button" className="es-btn es-btn-primary" onClick={onClose}>Terminé</OnlineActionButton></div></Modal>;
   return <Modal title="Réinitialiser l’accès" subtitle={`${admin.full_name} · ${admin.email}`} onClose={onClose}>
     <form className="sc-form" onSubmit={submit} noValidate>
       <p className="sc-hint">Pour un administrateur qui a perdu son téléphone ou son mot de passe, ou dont le compte est compromis : toutes ses sessions sont fermées et un nouvel accès est délivré. Un code de confirmation peut vous être demandé.</p>
@@ -279,7 +281,7 @@ function ResetAccessDialog({token, schoolId, admin, emailAvailable, onClose, onD
         <label><input type="radio" name="ra-delivery" checked={delivery === 'INVITATION'} onChange={() => setDelivery('INVITATION')}/> Lien par e-mail</label></fieldset>}
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Réinitialisation…' : 'Réinitialiser'}</button></div>
+        <OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Réinitialisation…' : 'Réinitialiser'}</OnlineActionButton></div>
     </form></Modal>;
 }
 
@@ -296,7 +298,7 @@ function DisableAccessDialog({token, admin, onClose, onDone}: {token: string; ad
       <div className="sc-field"><label htmlFor="da-reason">Motif *</label><textarea id="da-reason" rows={3} value={reason} onChange={e => setReason(e.target.value)} maxLength={500}/></div>
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button className="es-btn es-btn-danger" disabled={busy}>{busy ? 'Désactivation…' : 'Désactiver l’accès'}</button></div>
+        <OnlineActionButton className="es-btn es-btn-danger" disabled={busy}>{busy ? 'Désactivation…' : 'Désactiver l’accès'}</OnlineActionButton></div>
     </form></Modal>;
 }
 

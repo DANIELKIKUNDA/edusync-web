@@ -1,3 +1,5 @@
+import {OnlineActionButton} from './online_action';
+import {PageTrail} from './navigation';
 import React, {useEffect, useRef, useState} from 'react';
 import {toast} from 'sonner';
 import {platformRbacRoles, teamRoles, type InboxItem} from '../api';
@@ -104,7 +106,7 @@ function History({token, reload, onOpen, onNew}: {token: string; reload: number;
   return <div className="sc cp">
     <header className="sc-head">
       <div><h2>Notifications système</h2><p>Notification interne à l’application : aucun SMS, WhatsApp ni e-mail.</p></div>
-      <div className="sc-head-actions"><button type="button" className="sc-btn sc-btn-primary" onClick={onNew}><NavGlyph g="plus" size={16}/><span>Nouvelle notification</span></button></div>
+      <div className="sc-head-actions"><OnlineActionButton type="button" className="sc-btn sc-btn-primary" onClick={onNew}><NavGlyph g="plus" size={16}/><span>Nouvelle notification</span></OnlineActionButton></div>
     </header>
     <div className="sc-toolbar sc-search-open">
       <label className="sc-search"><NavGlyph g="search" size={17}/>
@@ -129,7 +131,7 @@ function History({token, reload, onOpen, onNew}: {token: string; reload: number;
           <span className="cp-col-target"><i className="sc-skel" style={{width: '60%'}}/></span><span className="cp-col-reads"><i className="sc-skel" style={{width: 50}}/></span><span><i className="sc-skel" style={{width: 60}}/></span><span/></div>)}</div>
       : rows.length === 0 ? <div className="sc-empty"><NavGlyph g={f.q ? 'search' : 'bell'} size={24}/>
           <b>{f.q.trim() ? `Aucun résultat pour « ${f.q.trim()} ».` : filtered ? 'Aucune notification ne correspond à ces filtres.' : 'Aucune notification envoyée pour le moment.'}</b>
-          {!filtered && <button type="button" className="sc-btn sc-btn-primary" onClick={onNew}><NavGlyph g="plus" size={16}/>Créer la première notification</button>}</div>
+          {!filtered && <OnlineActionButton type="button" className="sc-btn sc-btn-primary" onClick={onNew}><NavGlyph g="plus" size={16}/>Créer la première notification</OnlineActionButton>}</div>
       : <div className={`sc-list ${loading ? 'sc-busy' : ''}`} role="table" aria-label="Historique des notifications">
         <div className="sc-row cp-row sc-row-head" role="row"><span role="columnheader">Notification</span><span role="columnheader">Gravité</span>
           <span role="columnheader" className="cp-col-target">Cible</span><span role="columnheader" className="cp-col-reads">Lues</span><span role="columnheader">Statut</span><span role="columnheader"><span className="es-sr">Ouvrir</span></span></div>
@@ -167,7 +169,7 @@ function CampaignDetailView({token, id, onBack, onDuplicate}: {token: string; id
   const title = useRef<HTMLHeadingElement>(null);
   useEffect(() => { const ctl = new AbortController(); setError(''); fetchCampaign(token, id, ctl.signal).then(setD).catch(e => { if (!ctl.signal.aborted) setError(msg(e)); }); return () => ctl.abort(); }, [token, id, nonce]);
   useEffect(() => { if (d) title.current?.focus({preventScroll: true}); }, [d?.id]);
-  const backBtn = <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Notifications système</button>;
+  const backBtn = <PageTrail parents={[{label: 'Notifications système', onSelect: onBack}]} current={'Détail de notification'}/>;
   if (error) return <div className="sc-sheet-page">{backBtn}<div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Détail indisponible.</b><small>{error}</small></div>
     <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setNonce(n => n + 1)}>Réessayer</button></div></div>;
   if (!d) return <div className="sc-sheet-page" aria-busy="true">{backBtn}<div className="sc-card"><i className="sc-skel" style={{width: '50%', height: 22}}/><i className="sc-skel" style={{width: '80%'}}/></div></div>;
@@ -361,8 +363,8 @@ function Composer({token, canTeam, prefill, onClose, onSent}: {token: string; ca
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       <div className="es-modal-foot">
         <button type="button" className="es-btn es-btn-ghost" onClick={() => { setError(''); if (step === 0) onClose(); else setStep((step - 1) as 0 | 1 | 2); }}>{step === 0 ? 'Annuler' : 'Retour'}</button>
-        {step < 3 ? <button type="button" className="es-btn es-btn-primary" disabled={estimating || (step === 0 && audience?.deliveries === 0)} onClick={() => void next()}>Continuer</button>
-          : <button type="button" className="es-btn es-btn-primary" disabled={busy || estimating || !audience?.deliveries} onClick={() => void send()}>{busy ? 'Envoi…' : individual ? 'Envoyer la notification' : 'Confirmer l’envoi'}</button>}
+        {step < 3 ? <OnlineActionButton type="button" className="es-btn es-btn-primary" disabled={estimating || (step === 0 && audience?.deliveries === 0)} onClick={() => void next()}>Continuer</OnlineActionButton>
+          : <OnlineActionButton type="button" className="es-btn es-btn-primary" disabled={busy || estimating || !audience?.deliveries} onClick={() => void send()}>{busy ? 'Envoi…' : individual ? 'Envoyer la notification' : 'Confirmer l’envoi'}</OnlineActionButton>}
       </div>
     </div>
   </Modal>;

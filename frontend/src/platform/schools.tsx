@@ -1,3 +1,4 @@
+import {OnlineActionButton} from './online_action';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {toast} from 'sonner';
 import {NavGlyph} from './nav_icons';
@@ -133,7 +134,7 @@ export function SchoolsModule({token, has, preset, active, onChanged}: Props) {
       <div className="sc-head-actions">
         <button type="button" className="sc-icon-btn sc-only-phone" aria-label="Rechercher une école" aria-expanded={searchOpen} onClick={() => { const open = !searchOpen; setSearchOpen(open); if (open) window.setTimeout(() => searchInput.current?.focus(), 0); }}><NavGlyph g="search" size={18}/></button>
         <button type="button" className="sc-btn sc-btn-ghost sc-hide-phone" onClick={() => void exportCsv()} disabled={!data || data.total === 0}><NavGlyph g="download" size={16}/>Exporter</button>
-        {has('platform.schools.create') && <button type="button" className="sc-btn sc-btn-primary" onClick={() => setCreating(true)}><NavGlyph g="plus" size={16}/><span>Nouvelle école</span></button>}
+        {has('platform.schools.create') && <OnlineActionButton type="button" className="sc-btn sc-btn-primary" onClick={() => setCreating(true)}><NavGlyph g="plus" size={16}/><span>Nouvelle école</span></OnlineActionButton>}
       </div>
     </header>
 
@@ -244,5 +245,5 @@ function EmptyState({f, filtered, canCreate, onCreate}: {f: SchoolFilters; filte
   if (f.q.trim()) return <div className="sc-empty"><NavGlyph g="search" size={24}/><b>Aucun résultat pour « {f.q.trim()} ».</b><small>Vérifiez l’orthographe ou cherchez par code EduSync (EDS-…) ou par nom du promoteur.</small></div>;
   if (filtered) return <div className="sc-empty"><NavGlyph g="school" size={24}/><b>{statusText || 'Aucune école ne correspond à ces filtres.'}</b><small>Modifiez les filtres pour élargir la liste.</small></div>;
   return <div className="sc-empty"><NavGlyph g="school" size={24}/><b>Aucune école créée pour le moment.</b>
-    {canCreate ? <button type="button" className="sc-btn sc-btn-primary" onClick={onCreate}><NavGlyph g="plus" size={16}/>Créer la première école</button> : <small>Les écoles apparaîtront ici dès leur création.</small>}</div>;
+    {canCreate ? <OnlineActionButton type="button" className="sc-btn sc-btn-primary" onClick={onCreate}><NavGlyph g="plus" size={16}/>Créer la première école</OnlineActionButton> : <small>Les écoles apparaîtront ici dès leur création.</small>}</div>;
 }

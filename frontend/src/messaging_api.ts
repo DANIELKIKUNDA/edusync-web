@@ -51,7 +51,8 @@ export const pushSubscribe = (t: string, body: {provider: string; endpoint: stri
   post<{id: string; status: string}>(t, platform ? '/platform/inbox/push-subscriptions' : '/notifications/push-subscriptions', body);
 export const pushRevoke = (t: string, id: string, platform = false) =>
   post<{revoked: boolean}>(t, platform ? `/platform/inbox/push-subscriptions/${id}/revoke` : `/notifications/push-subscriptions/${id}/revoke`, {});
-export const pushDevices = (t: string) => call<{items: any[]}>(t, '/notifications/push-subscriptions');
+export type PushDevice={id:string;provider:string;device_label:string|null;created_at:string;last_used_at:string|null};
+export const pushDevices = (t: string, platform = false) => call<{items: PushDevice[]}>(t, platform ? '/platform/inbox/push-subscriptions' : '/notifications/push-subscriptions');
 export const pushTest = (t: string) => post<{message_id: string; devices: number}>(t, '/notifications/push-test', {});
 
 // Atelier Pro -------------------------------------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+import {OnlineActionButton} from './online_action';
+import {PageTrail} from './navigation';
 // Plateforme EduSync — Messagerie : centre d'exploitation des canaux (lot 2026-10).
 // Cartes cliquables (push, e-mail, SMS, file d'envoi, échecs actifs) à valeur centrée ; état COURANT de chaque fournisseur
 // (une erreur résolue reste dans l'historique sans dégrader l'état) ; explorateur de la file avec filtres serveur et
@@ -11,6 +13,7 @@ import {NavGlyph} from './nav_icons';
 import {promptText} from './dialogs';
 import {getConnectivity, subscribeConnectivity} from './connectivity';
 import {disablePush, enablePush, pushSupport, rememberedSubscription} from '../push_client';
+import {pushDevices, type PushDevice} from '../messaging_api';
 import {
   CHANNEL_LABEL, EVENT_LABEL, MOVEMENT_LABEL, STATUS_LABEL, adjustWallet, creditWallet, getDelivery, getLedger, getStatus, listDeliveries, listWallets,
   requestHealthCheck, retryDelivery, testSend, testStatus,
@@ -156,7 +159,7 @@ function ChannelPage({token, c, now, online, onBack, onDeliveries, onMeasure, bu
       ['Projet Firebase', c.health?.project_id || '—']]
     : [['Identifiants', cfg.client_configured ? 'Présents (jamais affichés)' : 'Absents'], ['Expéditeur', cfg.sender_configured ? 'Configuré' : 'Absent']];
   return <div className="sc-sheet-page ms">
-    <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Messagerie</button>
+    <PageTrail parents={[{label: 'Messagerie', onSelect: onBack}]} current={CHANNEL_LABEL[c.channel] || 'Canal'}/>
     <header className="sc-card sc-sheet-head"><div className="sc-sheet-id"><span className={`sc-sheet-logo ms-logo ${st.cls}`} aria-hidden="true"><NavGlyph g={ICON[c.channel]} size={24}/></span>
       <div><h2>{CHANNEL_LABEL[c.channel]} — {c.provider_label}</h2><p>{c.reasons.join(' · ')}</p>
         <div className="sc-badges"><span className={`sc-badge ms-badge ${st.cls}`}><NavGlyph g={st.icon} size={12}/>{st.label}</span>
@@ -196,17 +199,22 @@ function ChannelPage({token, c, now, online, onBack, onDeliveries, onMeasure, bu
     the server (stored encrypted), never shown nor kept in the browser. Needed to receive the real test push. */
 function ThisDevice({token, online}: {token: string; online: boolean}) {
   const support = pushSupport();
-  const [active, setActive] = useState(() => Boolean(rememberedSubscription('platform')));
+  const [active, setActive] = useState(false);
+  const [devices,setDevices]=useState<PushDevice[]>([]);
+  useEffect(()=>{let alive=true;if(online)void pushDevices(token,true).then(r=>{if(alive){setDevices(r.items);setActive(r.items.some(d=>d.id===rememberedSubscription('platform')))}}).catch(()=>{});return()=>{alive=false}},[token,online]);
   const [busy, setBusy] = useState(false);
   async function on() { setBusy(true); try { const r = await enablePush(token, 'platform', true); setActive(true);
+    void pushDevices(token,true).then(result=>setDevices(result.items)).catch(()=>{});
     toast.success(r.simulated ? 'Notifications activées (mode développement simulé)' : 'Notifications activées sur cet appareil'); }
     catch (e) { toast.error(e instanceof Error ? e.message : friendlyError(e)); } finally { setBusy(false); } }
   async function off() { setBusy(true); try { await disablePush(token, 'platform', true); setActive(false); toast.success('Notifications désactivées sur cet appareil'); }
+    catch(e){toast.error(friendlyError(e));}
     finally { setBusy(false); } }
   return <section className="sc-card"><h3>Notifications sur cet appareil</h3>
-    <p className="sc-hint">{!support.supported ? support.reason : active ? 'Cet appareil reçoit les notifications de la plateforme.' : 'Activez-les pour recevoir le push de test et les alertes sur ce téléphone ou cet ordinateur.'}</p>
+    <p className="sc-hint">{!support.supported ? support.reason : active ? 'Cet appareil est enregistré. Envoyez un push de test pour vérifier sa réception.' : 'Activez-les pour recevoir le push de test et les alertes sur ce téléphone ou cet ordinateur.'}</p>
+    {devices.length>0&&<p className="sc-hint">Appareils actifs confirmés par le serveur : {devices.length}.</p>}
     {support.supported && <div className="ms-actions">{active
-      ? <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void off()} disabled={busy}>Désactiver sur cet appareil</button>
+      ? <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => void off()} disabled={busy}>Désactiver sur cet appareil</OnlineActionButton>
       : <button type="button" className="sc-btn" onClick={() => void on()} disabled={busy || !online}><NavGlyph g="bell" size={16}/>{busy ? 'Activation…' : 'Activer sur cet appareil'}</button>}</div>}
   </section>;
 }
@@ -244,7 +252,7 @@ function DeliveriesPage({token, initial, onBack, onOpen, onFilters}: {token: str
     <label className="ms-f"><span>Au</span><input type="date" value={f.date_to || ''} onChange={e => set('date_to', e.target.value)}/></label>
   </>;
   return <div className="sc ms">
-    <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Messagerie</button>
+    <PageTrail parents={[{label: 'Messagerie', onSelect: onBack}]} current={'Envois'}/>
     <header className="sc-head"><div><h2>Envois</h2><p>Recherche et filtres côté serveur. Destinataires masqués.</p></div></header>
     <div className="ms-bar">
       <label className="ms-search"><NavGlyph g="search" size={16}/><input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Identifiant, référence fournisseur ou adresse exacte" aria-label="Rechercher un envoi"/></label>
@@ -300,7 +308,7 @@ function DeliveryPage({token, id, online, canRetry, onBack}: {token: string; id:
   async function copy(v: string) { try { await navigator.clipboard.writeText(v); toast.success('Copié'); } catch { /* indisponible */ } }
   const Id = ({v}: {v: string | null}) => v ? <span className="ms-id"><code>{v}</code><button type="button" className="ms-copy" onClick={() => void copy(v)} aria-label={`Copier ${v}`}><NavGlyph g="doc" size={13}/></button></span> : <>—</>;
   return <div className="sc-sheet-page ms">
-    <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Retour</button>
+    <PageTrail parents={[{label: 'Retour', onSelect: onBack}]} current={'Détail de l’envoi'}/>
     {error && <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Envoi introuvable.</b><small>{error}</small></div></div>}
     {!d && !error && <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}
     {d && <>
@@ -365,7 +373,7 @@ function WalletPage({token, id, online, canCredit, canAdjust, onBack}: {token: s
   const load = useCallback(() => getLedger(token, id).then(x => { setData(x); setError(''); }).catch(e => setError(e instanceof UserFacingError ? e.message : friendlyError(e))), [token, id]);
   useEffect(() => { void load(); }, [load]);
   return <div className="sc-sheet-page ms">
-    <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Messagerie</button>
+    <PageTrail parents={[{label: 'Messagerie', onSelect: onBack}]} current={data ? `Portefeuille SMS — ${data.wallet.name}` : 'Portefeuille SMS'}/>
     {error && <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Portefeuille indisponible.</b><small>{error}</small></div></div>}
     {!data && !error && <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}
     {data && <>

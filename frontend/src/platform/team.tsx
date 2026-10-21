@@ -1,3 +1,5 @@
+import {OnlineActionButton} from './online_action';
+import {PageTrail} from './navigation';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {toast} from 'sonner';
 import {teamCapabilities, teamRoles, type PlatformCapability, type PlatformRole} from '../api';
@@ -83,7 +85,7 @@ export function TeamPage({token, preset, onChanged}: Props) {
       <div><h2>Équipe plateforme</h2><p>Membres de la Plateforme EduSync, rôles et capacités</p></div>
       <div className="sc-head-actions">
         {tab === 'users'
-          ? <button type="button" className="sc-btn sc-btn-primary" onClick={() => setAdding({})} disabled={!activeRoles.length}><NavGlyph g="plus" size={16}/><span>Ajouter un membre</span></button>
+          ? <OnlineActionButton type="button" className="sc-btn sc-btn-primary" onClick={() => setAdding({})} disabled={!activeRoles.length}><NavGlyph g="plus" size={16}/><span>Ajouter un membre</span></OnlineActionButton>
           : <RoleCreateButton token={token} caps={caps} onSaved={changed}/>}
       </div>
     </header>
@@ -305,12 +307,12 @@ function AddMemberWizard({token, roles, caps, existing, onClose, onDone}: {token
       </div>}
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       <div className="es-modal-foot">
-        {step === 'done' ? <button type="button" className="es-btn es-btn-primary" onClick={() => onDone(result!.id)}>Ouvrir la fiche</button> : <>
+        {step === 'done' ? <OnlineActionButton type="button" className="es-btn es-btn-primary" onClick={() => onDone(result!.id)}>Ouvrir la fiche</OnlineActionButton> : <>
           <button type="button" className="es-btn es-btn-ghost" onClick={() => { setError(''); if (step === 'kind' || (existing && step === 'roles')) onClose(); else setStep(step === 'summary' ? 'roles' : step === 'roles' ? 'who' : 'kind'); }}>
             {step === 'kind' || (existing && step === 'roles') ? 'Annuler' : 'Retour'}</button>
           {step === 'summary'
-            ? <button type="button" className="es-btn es-btn-primary" disabled={busy} onClick={() => void submit()}>{busy ? 'Validation…' : kind === 'new' ? (delivery === 'INVITATION' ? 'Créer le compte et envoyer l’invitation' : 'Créer le compte') : `Donner l’accès plateforme à ${who.name.split(' ')[0] || 'ce compte'}`}</button>
-            : <button type="button" className="es-btn es-btn-primary" onClick={next}>Continuer</button>}
+            ? <OnlineActionButton type="button" className="es-btn es-btn-primary" disabled={busy} onClick={() => void submit()}>{busy ? 'Validation…' : kind === 'new' ? (delivery === 'INVITATION' ? 'Créer le compte et envoyer l’invitation' : 'Créer le compte') : `Donner l’accès plateforme à ${who.name.split(' ')[0] || 'ce compte'}`}</OnlineActionButton>
+            : <OnlineActionButton type="button" className="es-btn es-btn-primary" onClick={next}>Continuer</OnlineActionButton>}
         </>}
       </div>
     </div>
@@ -355,7 +357,7 @@ function MemberSheet({token, id, roles, caps, onBack, onChanged}: {token: string
   }, [token, id, nonce]);
   useEffect(() => { if (d && focusedFor.current !== id) { focusedFor.current = id; title.current?.focus({preventScroll: true}); } }, [d, id]);
   const refresh = () => { setNonce(n => n + 1); onChanged(); };
-  const backBtn = <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Équipe plateforme</button>;
+  const backBtn = <PageTrail parents={[{label: 'Équipe plateforme', onSelect: onBack}]} current={d?.full_name || 'Fiche membre'}/>;
   if (error && !d) return <div className="sc-sheet-page">{backBtn}<div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Fiche indisponible.</b><small>{error}</small></div>
     <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setNonce(n => n + 1)}>Réessayer</button></div></div>;
   if (!d) return <div className="sc-sheet-page" aria-busy="true">{backBtn}<div className="sc-card"><i className="sc-skel" style={{width: '50%', height: 22}}/><i className="sc-skel" style={{width: '30%'}}/></div></div>;
@@ -388,22 +390,22 @@ function MemberSheet({token, id, roles, caps, onBack, onChanged}: {token: string
             {!d.is_member && <span className="sc-badge tm-ms-disabled"><i aria-hidden="true"/>Sans accès plateforme</span>}</div></div>
       </div>
       {!me && d.is_member && <div className="sc-sheet-actions">
-        {(d.invitation_state === 'PENDING' || d.invitation_state === 'EXPIRED') && <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: 'Renvoyer l’invitation',
+        {(d.invitation_state === 'PENDING' || d.invitation_state === 'EXPIRED') && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: 'Renvoyer l’invitation',
           body: <p>Un nouveau lien à usage unique est envoyé à {d.email} ; l’ancien cesse de fonctionner.</p>, button: 'Renvoyer', ok: 'Invitation renvoyée',
-          run: (r, k) => resendInvitation(token, k, id, r)})}><NavGlyph g="message" size={16}/>Renvoyer l’invitation</button>}
+          run: (r, k) => resendInvitation(token, k, id, r)})}><NavGlyph g="message" size={16}/>Renvoyer l’invitation</OnlineActionButton>}
         {d.platform_status === 'SUSPENDED'
-          ? <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: 'Réactiver l’accès plateforme', body: <p>Ses rôles et capacités redeviennent effectifs immédiatement.</p>,
-              button: 'Réactiver', ok: 'Compte réactivé', run: (r, k) => setMemberStatus(token, k, id, 'reactivate', r)})}>Réactiver</button>
-          : <button type="button" className="sc-btn sc-btn-danger" onClick={() => setConfirm({title: 'Suspendre l’accès plateforme', danger: true,
+          ? <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: 'Réactiver l’accès plateforme', body: <p>Ses rôles et capacités redeviennent effectifs immédiatement.</p>,
+              button: 'Réactiver', ok: 'Compte réactivé', run: (r, k) => setMemberStatus(token, k, id, 'reactivate', r)})}>Réactiver</OnlineActionButton>
+          : <OnlineActionButton type="button" className="sc-btn sc-btn-danger" onClick={() => setConfirm({title: 'Suspendre l’accès plateforme', danger: true,
               body: <><p><b>Suspension temporaire</b> : toutes ses sessions plateforme sont coupées ; ses rôles et capacités sont <b>conservés</b> et reviennent à la réactivation.</p>
                 <p className="sc-muted">Pour retirer définitivement l’accès, utilisez « Retirer l’accès plateforme ».</p></>,
               button: 'Suspendre', ok: 'Compte suspendu', strong: isManager ? 'Je confirme la suspension d’un Manager Système.' : undefined,
-              run: (r, k) => setMemberStatus(token, k, id, 'suspend', r)})}>Suspendre</button>}
-        <button type="button" className="sc-btn sc-btn-danger" onClick={() => setConfirm({title: 'Retirer l’accès plateforme', danger: true,
+              run: (r, k) => setMemberStatus(token, k, id, 'suspend', r)})}>Suspendre</OnlineActionButton>}
+        <OnlineActionButton type="button" className="sc-btn sc-btn-danger" onClick={() => setConfirm({title: 'Retirer l’accès plateforme', danger: true,
           body: <><p><b>Retrait définitif</b> : tous ses rôles plateforme ({activeRoles.map(r => r.label).join(', ') || 'aucun'}) et ses {d.supplementary_count} capacité(s) supplémentaire(s) prennent fin ; ses sessions plateforme sont fermées.</p>
             <p>{d.school_memberships ? `Son compte EduSync et ses ${d.school_memberships} rattachement(s) école restent intacts.` : 'Son compte EduSync reste intact.'}</p>{preview([], effective)}</>,
           button: 'Retirer l’accès', ok: 'Accès plateforme retiré', strong: isManager ? 'Je confirme le retrait d’accès d’un Manager Système.' : undefined,
-          run: (r, k) => removeAccess(token, k, id, r)})}>Retirer l’accès plateforme</button>
+          run: (r, k) => removeAccess(token, k, id, r)})}>Retirer l’accès plateforme</OnlineActionButton>
       </div>}
       {me && <p className="sc-muted sc-noaction">Votre compte : vos propres droits ne se modifient pas ici.</p>}
     </header>
@@ -418,10 +420,10 @@ function MemberSheet({token, id, roles, caps, onBack, onChanged}: {token: string
     <div className="sc-sheet-grid">
       <section className="sc-card"><div className="sc-card-head"><h3>Rôles</h3></div>
         <ul className="tm-plain">{activeRoles.map(r => <li key={r.code}><span><b>{r.label}</b><small>{r.kind === 'PLATFORM_STANDARD' ? 'Standard' : `Personnalisé · ${r.code}`}{r.status !== 'ACTIVE' ? ` · rôle ${ROLE_STATUS[r.status]?.toLowerCase()}` : ''}</small></span>
-          {!me && <button type="button" className="sc-btn sc-btn-ghost" onClick={() => { const diff = roleDiff(r.code, false); setConfirm({title: `Retirer le rôle « ${r.label} »`, danger: r.code === 'MANAGER_SYSTEME',
+          {!me && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => { const diff = roleDiff(r.code, false); setConfirm({title: `Retirer le rôle « ${r.label} »`, danger: r.code === 'MANAGER_SYSTEME',
             body: <>{activeRoles.length === 1 && <p><b>C’est son seul rôle</b> : son accès plateforme et ses capacités supplémentaires prennent fin.</p>}{preview(diff.add, diff.del)}</>,
             button: 'Retirer le rôle', ok: 'Rôle retiré', strong: r.code === 'MANAGER_SYSTEME' ? 'Je confirme la rétrogradation d’un Manager Système.' : undefined,
-            run: (rs, k) => revokeRole(token, k, id, r.code, rs)}); }}>Retirer</button>}</li>)}
+            run: (rs, k) => revokeRole(token, k, id, r.code, rs)}); }}>Retirer</OnlineActionButton>}</li>)}
           {!activeRoles.length && <li className="sc-muted">Aucun rôle actif.</li>}</ul>
         {!me && d.is_member && assignable.length > 0 && <div className="tm-assign">
           <select aria-label="Rôle à attribuer" value={assign} onChange={e => setAssign(e.target.value)}><option value="">Attribuer un rôle…</option>{assignable.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}</select>
@@ -435,11 +437,11 @@ function MemberSheet({token, id, roles, caps, onBack, onChanged}: {token: string
           <dt>Sessions plateforme</dt><dd>{d.sessions.length}</dd>
           <dt>Droits modifiés</dt><dd>{d.rights_changed ? `${fullDate(d.rights_changed.occurred_at)}${d.rights_changed.actor ? ` par ${d.rights_changed.actor}` : ''}` : '—'}</dd></dl>
         {!me && d.is_member && <div className="tm-actions">
-          {d.mfa?.enrolled && <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setMfaReset(true)}>Réinitialiser la validation en deux étapes</button>}
+          {d.mfa?.enrolled && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => setMfaReset(true)}>Réinitialiser la validation en deux étapes</OnlineActionButton>}
           {d.sessions.length > 0 && <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: 'Déconnecter tous ses appareils', body: <p>Ses {d.sessions.length} session(s) plateforme sont fermées.</p>,
             button: 'Déconnecter', ok: 'Appareils déconnectés', run: (r, k) => revokeSessions(token, k, id, r)})}>Déconnecter ses appareils</button>}
-          <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: 'Réinitialiser le mot de passe', body: <p>Un mot de passe provisoire est généré et affiché une fois ; toutes ses sessions sont coupées.</p>,
-            button: 'Réinitialiser', ok: 'Mot de passe réinitialisé', run: async (r, k) => { const out = await resetPassword(token, k, id, r); if (out.temporary_password) setSecret(out.temporary_password); }})}>Réinitialiser le mot de passe</button>
+          <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: 'Réinitialiser le mot de passe', body: <p>Un mot de passe provisoire est généré et affiché une fois ; toutes ses sessions sont coupées.</p>,
+            button: 'Réinitialiser', ok: 'Mot de passe réinitialisé', run: async (r, k) => { const out = await resetPassword(token, k, id, r); if (out.temporary_password) setSecret(out.temporary_password); }})}>Réinitialiser le mot de passe</OnlineActionButton>
         </div>}
       </section>
     </div>
@@ -452,9 +454,9 @@ function MemberSheet({token, id, roles, caps, onBack, onChanged}: {token: string
         <ul>{items.map(c => <li key={c.code}><span><b>{c.label}</b><small>{c.code}{c.risk ? ` · risque ${RISK_LABEL[c.risk]?.toLowerCase() || c.risk}` : ''}</small>
           <span className="tm-origins">{c.origins.map((o, i) => o.kind === 'ROLE' ? <em key={i} className="tm-origin">{o.label}</em>
             : <em key={i} className="tm-origin tm-origin-grant" title={`Motif : ${o.reason}`}>Attribution individuelle{o.valid_until ? ` · jusqu’au ${fullDate(o.valid_until)}` : ''}{o.granted_by ? ` · par ${o.granted_by}` : ''}</em>)}</span></span>
-          {!me && c.origins.some(o => o.kind === 'GRANT') && <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: `Retirer « ${c.label} »`,
+          {!me && c.origins.some(o => o.kind === 'GRANT') && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => setConfirm({title: `Retirer « ${c.label} »`,
             body: <><p>Seule l’attribution individuelle prend fin ; les rôles ne changent pas.{c.origins.length > 1 ? ' La capacité reste héritée d’un rôle.' : ''}</p>{preview([], c.origins.length > 1 ? [] : [c.code])}</>,
-            button: 'Retirer la capacité', ok: 'Capacité retirée', run: (r, k) => revokeCapability(token, k, id, c.code, r)})}>Retirer</button>}</li>)}</ul></details>)}</div>}
+            button: 'Retirer la capacité', ok: 'Capacité retirée', run: (r, k) => revokeCapability(token, k, id, c.code, r)})}>Retirer</OnlineActionButton>}</li>)}</ul></details>)}</div>}
       <details className="tm-group tm-reserved"><summary><h4>Capacités critiques non délégables</h4><small>{d.non_delegable.length}</small></summary>
         <ul>{d.non_delegable.map(c => <li key={c.code}><span><b><NavGlyph g="lock" size={13}/> {c.label}</b><small>{c.reason}</small></span></li>)}</ul></details>
     </section>
@@ -472,7 +474,7 @@ function MemberSheet({token, id, roles, caps, onBack, onChanged}: {token: string
       setMfaReset(false); if (p) setSecret(p); refresh();
     }}/>}
     {secret && <Modal title="Mot de passe provisoire" subtitle={d.full_name} onClose={() => setSecret(null)}><OneTimeSecret value={secret}/>
-      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-primary" onClick={() => setSecret(null)}>Terminé</button></div></Modal>}
+      <div className="es-modal-foot"><OnlineActionButton type="button" className="es-btn es-btn-primary" onClick={() => setSecret(null)}>Terminé</OnlineActionButton></div></Modal>}
   </div>;
 }
 
@@ -494,7 +496,7 @@ function ConfirmDialog({c, onClose, onDone}: {c: Confirm; onClose: () => void; o
       <div className={`sc-field ${error ? 'sc-invalid' : ''}`}><label htmlFor="tm-c-reason">Motif * (tracé dans l’audit)</label>
         <textarea id="tm-c-reason" rows={2} value={reason} onChange={e => setReason(e.target.value)} maxLength={500}/>{error && <small role="alert">{error}</small>}</div>
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button type="submit" className={`es-btn ${c.danger ? 'es-btn-danger' : 'es-btn-primary'}`} disabled={busy}>{busy ? 'Traitement…' : c.button}</button></div>
+        <OnlineActionButton type="submit" className={`es-btn ${c.danger ? 'es-btn-danger' : 'es-btn-primary'}`} disabled={busy}>{busy ? 'Traitement…' : c.button}</OnlineActionButton></div>
     </form>
   </Modal>;
 }
@@ -534,7 +536,7 @@ function GrantDialog({token, member, caps, allCaps, onClose, onDone}: {token: st
       <div className={`sc-field ${error ? 'sc-invalid' : ''}`}><label htmlFor="tm-g-reason">Motif * (tracé dans l’audit)</label>
         <textarea id="tm-g-reason" rows={2} value={reason} onChange={e => setReason(e.target.value)} placeholder="Ex. : remplacement pendant les congés" maxLength={500}/>{error && <small role="alert">{error}</small>}</div>
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button type="submit" className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Attribution…' : 'Ajouter la capacité'}</button></div>
+        <OnlineActionButton type="submit" className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Attribution…' : 'Ajouter la capacité'}</OnlineActionButton></div>
     </form>
   </Modal>;
 }
@@ -553,7 +555,7 @@ function MfaResetDialog({name, onClose, onConfirm}: {name: string; onClose: () =
       <div className="sc-field"><label htmlFor="tm-mfa-why">Motif *</label><textarea id="tm-mfa-why" rows={3} value={why} onChange={e => setWhy(e.target.value)} placeholder="Ex. : téléphone perdu, identité vérifiée par appel le…"/></div>
       <label className="mfa-reset-pw"><input type="checkbox" checked={withPassword} onChange={e => setWithPassword(e.target.checked)}/><span><b>Réinitialiser aussi le mot de passe</b><small>Recommandé si le téléphone a été volé ou si le mot de passe a pu être vu. Un mot de passe provisoire est généré et affiché une fois ; toutes ses sessions sont coupées.</small></span></label>
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
-      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><button className="es-btn es-btn-danger" disabled={busy}>{busy ? 'Réinitialisation…' : 'Réinitialiser'}</button></div>
+      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><OnlineActionButton className="es-btn es-btn-danger" disabled={busy}>{busy ? 'Réinitialisation…' : 'Réinitialiser'}</OnlineActionButton></div>
     </form>
   </Modal>;
 }
@@ -579,17 +581,17 @@ function RolesView({token, roles, caps, onChanged}: {token: string; roles: Platf
         <div className="tm-role-foot"><small>{r.active_users ? `${r.active_users} membre(s)` : 'Aucun membre'} · modifié {ago(r.updated_at).toLowerCase()}</small>
           <span>
             {std && <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setView(r)}>Consulter</button>}
-            {!std && r.status !== 'ARCHIVED' && <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setEdit(r)}>Modifier</button>}
-            {!std && r.status === 'DRAFT' && <button type="button" className="sc-btn" onClick={() => setStatus({role: r, action: 'activate'})}>Activer</button>}
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setClone(r)}>Cloner</button>
-            {!std && r.status !== 'ARCHIVED' && <button type="button" className="sc-btn sc-btn-danger" onClick={() => setStatus({role: r, action: 'archive'})}>Archiver</button>}
+            {!std && r.status !== 'ARCHIVED' && <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => setEdit(r)}>Modifier</OnlineActionButton>}
+            {!std && r.status === 'DRAFT' && <OnlineActionButton type="button" className="sc-btn" onClick={() => setStatus({role: r, action: 'activate'})}>Activer</OnlineActionButton>}
+            <OnlineActionButton type="button" className="sc-btn sc-btn-ghost" onClick={() => setClone(r)}>Cloner</OnlineActionButton>
+            {!std && r.status !== 'ARCHIVED' && <OnlineActionButton type="button" className="sc-btn sc-btn-danger" onClick={() => setStatus({role: r, action: 'archive'})}>Archiver</OnlineActionButton>}
           </span></div>
       </li>;
     })}</ul>
     {view && <Modal title={view.label} subtitle={`${view.code} · rôle standard, non modifiable : clonez-le pour l’adapter`} onClose={() => setView(null)} wide>
       <CapabilityGroups codes={view.capabilities} caps={caps}/>
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={() => setView(null)}>Fermer</button>
-        <button type="button" className="es-btn es-btn-primary" onClick={() => { setClone(view); setView(null); }}>Cloner ce rôle</button></div></Modal>}
+        <OnlineActionButton type="button" className="es-btn es-btn-primary" onClick={() => { setClone(view); setView(null); }}>Cloner ce rôle</OnlineActionButton></div></Modal>}
     {edit && <RoleEditor token={token} role={edit} caps={caps} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); onChanged(); }}/>}
     {clone && <CloneDialog token={token} role={clone} onClose={() => setClone(null)} onDone={() => { setClone(null); onChanged(); }}/>}
     {status && <ConfirmDialog c={{title: status.action === 'activate' ? `Activer « ${status.role.label} »` : `Archiver « ${status.role.label} »`, danger: status.action === 'archive',
@@ -602,7 +604,7 @@ function RolesView({token, roles, caps, onChanged}: {token: string; roles: Platf
 
 function RoleCreateButton({token, caps, onSaved}: {token: string; caps: PlatformCapability[]; onSaved: () => void}) {
   const [open, setOpen] = useState(false);
-  return <><button type="button" className="sc-btn sc-btn-primary" onClick={() => setOpen(true)}><NavGlyph g="plus" size={16}/><span>Nouveau rôle</span></button>
+  return <><OnlineActionButton type="button" className="sc-btn sc-btn-primary" onClick={() => setOpen(true)}><NavGlyph g="plus" size={16}/><span>Nouveau rôle</span></OnlineActionButton>
     {open && <RoleEditor token={token} role={null} caps={caps} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); onSaved(); }}/>}</>;
 }
 
@@ -646,7 +648,7 @@ function RoleEditor({token, role, caps, onClose, onSaved}: {token: string; role:
         <CapabilityGroups codes={added} added={added} removed={removed} caps={caps}/></div>}
       {needsReason && <div className="sc-field"><label htmlFor="tm-r-reason">Motif * (tracé dans l’audit)</label><input id="tm-r-reason" value={reason} onChange={e => setReason(e.target.value)} maxLength={500}/></div>}
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
-      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Enregistrement…' : role ? 'Enregistrer' : 'Créer le brouillon'}</button></div>
+      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Enregistrement…' : role ? 'Enregistrer' : 'Créer le brouillon'}</OnlineActionButton></div>
     </form>
   </Modal>;
 }
@@ -666,7 +668,7 @@ function CloneDialog({token, role, onClose, onDone}: {token: string; role: Platf
       <div className="sc-field"><label htmlFor="tm-cl-label">Libellé *</label><input id="tm-cl-label" value={label} onChange={e => setLabel(e.target.value)}/></div>
       <div className="sc-field"><label htmlFor="tm-cl-code">Code *</label><input id="tm-cl-code" value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))} autoComplete="off"/></div>
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
-      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Clonage…' : 'Cloner'}</button></div>
+      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button><OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Clonage…' : 'Cloner'}</OnlineActionButton></div>
     </form>
   </Modal>;
 }

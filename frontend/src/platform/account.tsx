@@ -1,3 +1,4 @@
+import {OnlineActionButton} from './online_action';
 import React, {useEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {useForm} from 'react-hook-form';
@@ -14,13 +15,19 @@ import {CURRENT_BUILD, shortBuild} from './updates';
 
 export function Modal({title, subtitle, onClose, children, wide}: {title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; wide?: boolean}) {
   const ref = useRef<HTMLDivElement>(null);
+  // A caller may create an inline callback on every input change. Only the
+  // dialog's lifetime owns focus; callback changes must never restore it.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>('input,button,select,textarea')?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const first = ref.current?.querySelector<HTMLElement>('input:not([disabled]),select:not([disabled]),textarea:not([disabled])')
+      ?? ref.current?.querySelector<HTMLElement>('button:not([disabled])');
+    first?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
     window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('keydown', onKey); prev?.focus?.(); };
-  }, [onClose]);
+  }, []);
   return <div className="es-modal-backdrop" onMouseDown={e => e.currentTarget === e.target && onClose()}>
     <div className={`es-modal ${wide ? 'es-modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
       <div className="es-modal-head"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
@@ -97,7 +104,7 @@ export function PreferencesDialog({theme, onTheme, onClose}: {theme: ThemePref; 
     </fieldset>
     <p className="es-hint">Le choix est appliqué tout de suite et conservé sur cet appareil pour votre compte, même après une déconnexion. Langue : français.</p>
     <p className="es-hint es-version">Version d’EduSync : <b>{shortBuild(CURRENT_BUILD)}</b></p>
-    <div className="es-modal-foot"><button className="es-btn es-btn-primary" onClick={onClose}>Terminé</button></div>
+    <div className="es-modal-foot"><OnlineActionButton className="es-btn es-btn-primary" onClick={onClose}>Terminé</OnlineActionButton></div>
   </Modal>;
 }
 
@@ -156,8 +163,8 @@ export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {t
           <button className="es-btn es-btn-ghost" disabled={busy === s.id} onClick={() => void revoke(s)}>{busy === s.id ? 'Déconnexion…' : 'Déconnecter'}</button>
         </li>)}</ul>}
       {active.length > 0 && <div className="es-modal-foot">{confirmAll
-        ? <><span className="es-hint es-grow" role="status">Tous vos appareils, y compris celui-ci, seront déconnectés.</span><button className="es-btn es-btn-ghost" onClick={() => setConfirmAll(false)}>Annuler</button><button className="es-btn es-btn-danger" autoFocus disabled={busy === 'all'} onClick={() => void logoutAll()}>{busy === 'all' ? 'Déconnexion…' : 'Confirmer'}</button></>
-        : <button className="es-btn es-btn-danger" onClick={() => setConfirmAll(true)}>Déconnecter tous les appareils</button>}</div>}
+        ? <><span className="es-hint es-grow" role="status">Tous vos appareils, y compris celui-ci, seront déconnectés.</span><button className="es-btn es-btn-ghost" onClick={() => setConfirmAll(false)}>Annuler</button><OnlineActionButton className="es-btn es-btn-danger" autoFocus disabled={busy === 'all'} onClick={() => void logoutAll()}>{busy === 'all' ? 'Déconnexion…' : 'Confirmer'}</OnlineActionButton></>
+        : <OnlineActionButton className="es-btn es-btn-danger" onClick={() => setConfirmAll(true)}>Déconnecter tous les appareils</OnlineActionButton>}</div>}
     </div>}
     {tab === 'mfa' && platform && <MfaPanel token={token}/>}
     {tab === 'password' && <form className="es-form" onSubmit={save} noValidate>
@@ -166,7 +173,7 @@ export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {t
       <FormField label="Nouveau mot de passe *" error={form.formState.errors.next?.message}><input type="password" autoComplete="new-password" {...form.register('next')}/></FormField>
       <FormField label="Confirmer le nouveau mot de passe *" error={form.formState.errors.confirm?.message}><input type="password" autoComplete="new-password" {...form.register('confirm')}/></FormField>
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button className="es-btn es-btn-primary" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? 'Modification…' : 'Modifier le mot de passe'}</button></div>
+        <OnlineActionButton className="es-btn es-btn-primary" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? 'Modification…' : 'Modifier le mot de passe'}</OnlineActionButton></div>
     </form>}
   </Modal>;
 }
@@ -194,10 +201,10 @@ function MfaPanel({token}: {token: string}) {
       <ul className="es-recovery" aria-label="Nouveaux codes de secours">{codes.map(c => <li key={c}><code>{c}</code></li>)}</ul>
       <div className="es-alert" role="note">Ces codes ne seront plus affichés. Rangez-les hors d’EduSync (gestionnaire de mots de passe, papier sous clé).</div>
       <div className="es-modal-foot"><button className="es-btn es-btn-ghost" onClick={() => { void navigator.clipboard?.writeText(text()).then(() => toast.success('Codes copiés')); }}>Copier</button>
-        <button className="es-btn es-btn-primary" onClick={() => setCodes(null)}>J’ai conservé ces codes</button></div>
+        <OnlineActionButton className="es-btn es-btn-primary" onClick={() => setCodes(null)}>J’ai conservé ces codes</OnlineActionButton></div>
     </> : st.enrolled && <form onSubmit={regenerate} noValidate className="es-form">
       <FormField label="Code de votre application (6 chiffres) *"><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}/></FormField>
-      <div className="es-modal-foot"><button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Génération…' : 'Générer de nouveaux codes de secours'}</button></div>
+      <div className="es-modal-foot"><OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Génération…' : 'Générer de nouveaux codes de secours'}</OnlineActionButton></div>
     </form>}
     <p className="es-hint">Téléphone perdu ou changé ? Demandez à un autre Manager Système de réinitialiser votre validation en deux étapes depuis « Équipe plateforme » : vous la configurerez à nouveau à la connexion suivante. Elle ne peut pas être désactivée.</p>
   </div>;
@@ -223,7 +230,7 @@ export function StepUpDialog({token, onDone}: {token: string; onDone: (ok: boole
       </FormField>
       <p className="es-hint">Une fois confirmé, ce code reste valable quelques minutes sur cet appareil pour les autres actions sensibles.</p>
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={() => onDone(false)}>Annuler</button>
-        <button className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Vérification…' : 'Confirmer'}</button></div>
+        <OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy ? 'Vérification…' : 'Confirmer'}</OnlineActionButton></div>
     </form>
   </Modal></div>, document.body);
 }

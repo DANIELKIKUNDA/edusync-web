@@ -1,3 +1,4 @@
+import {PageTrail} from './navigation';
 import React, {useEffect, useRef, useState} from 'react';
 import {toast} from 'sonner';
 import {downloadAuditCsv, fetchAudit, fetchAuditEvent, type AuditCategory, type AuditDetail, type AuditItem, type AuditQuery} from './audit_api';
@@ -250,7 +251,7 @@ function EventView({token, id, links, onBack, onOpen}: {token: string; id: strin
   const title = useRef<HTMLHeadingElement>(null);
   useEffect(() => { const ctl = new AbortController(); setD(null); setError(''); fetchAuditEvent(token, id, ctl.signal).then(setD).catch(e => { if (!ctl.signal.aborted) setError(msg(e)); }); return () => ctl.abort(); }, [token, id, nonce]);
   useEffect(() => { if (d) title.current?.focus({preventScroll: true}); }, [d?.id]);
-  const backBtn = <button type="button" className="sc-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Journal d’audit</button>;
+  const backBtn = <PageTrail parents={[{label: 'Journal d’audit', onSelect: onBack}]} current={'Événement'}/>;
   if (error) return <div className="sc-sheet-page">{backBtn}<div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Événement indisponible.</b><small>{error}</small></div>
     <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setNonce(n => n + 1)}>Réessayer</button></div></div>;
   if (!d) return <div className="sc-sheet-page" aria-busy="true">{backBtn}<div className="sc-card"><i className="sc-skel" style={{width: '50%', height: 22}}/><i className="sc-skel" style={{width: '70%'}}/></div></div>;

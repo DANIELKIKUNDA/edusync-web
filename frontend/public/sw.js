@@ -1,5 +1,17 @@
-const CACHE='edusync-shell-2026-10-updates';
+const CACHE='edusync-shell-2026-10-platform-closure';
 const SHELL=['/','/manifest.webmanifest'];
+
+// On a first visit, boot assets may finish loading before this worker takes
+// control. The page supplies only the public, hashed asset URLs it has loaded.
+self.addEventListener('message',event=>{
+  if(event.data?.type!=='CACHE_SHELL_ASSETS'||!Array.isArray(event.data.urls))return;
+  const urls=event.data.urls.slice(0,100).filter(raw=>{
+    try{const u=new URL(raw,self.location.origin);return u.origin===self.location.origin&&/^\/assets\/[^?#]+\.(js|css|woff2|svg|png)$/.test(u.pathname)&&!u.search;}catch{return false;}
+  });
+  event.waitUntil(caches.open(CACHE).then(cache=>Promise.all(urls.map(async url=>{
+    try{if(await cache.match(url))return;const r=await fetch(url,{credentials:'omit'});if(r.ok)await cache.put(url,r);}catch{/* retry on a future online load */}
+  }))));
+});
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
@@ -19,7 +31,7 @@ self.addEventListener('fetch',event=>{
 
   // SECURITY / MULTI-TENANT: never cache API or authenticated responses in the shared
   // service-worker cache. Business offline data lives in the scoped IndexedDB layer.
-  if(url.origin!==self.location.origin || url.pathname.startsWith('/api/') || url.pathname==='/version.json' || request.headers.has('Authorization')) return;
+  if(url.origin!==self.location.origin || url.pathname.startsWith('/api/') || ['/version.json','/health-api','/health'].includes(url.pathname) || request.cache==='no-store' || request.headers.has('Authorization')) return;
 
   if(request.mode==='navigate'){
     event.respondWith(fetch(request).catch(()=>caches.match('/')));
@@ -27,7 +39,10 @@ self.addEventListener('fetch',event=>{
   }
 
   event.respondWith(
-    caches.match(request).then(cached=>cached || fetch(request).then(response=>{
+    // Hashed public assets do not vary by identity or request Origin. Preview
+    // servers can add Vary: Origin; the first-visit cache uses credential-free
+    // requests and must still serve these same immutable bytes offline.
+    caches.match(request,{ignoreVary:url.pathname.startsWith('/assets/')}).then(cached=>cached || fetch(request).then(response=>{
       if(response.ok && response.type==='basic'){
         const copy=response.clone();
         caches.open(CACHE).then(cache=>cache.put(request,copy));

@@ -1,3 +1,4 @@
+import {OnlineActionButton} from './online_action';
 /* Change of space without signing out (lot 2026-10).
 
    One identity, several spaces (the platform console, one or more schools), one persistent session. The server is
@@ -13,6 +14,7 @@ import {hasUnsavedForms} from './mobile_back';
 import {confirmAction} from './dialogs';
 import {mfaVerify,MfaError,isMfaStep,type MfaStep} from '../api';
 import './spaces.css';
+import {getPlatformAuthState, platformLastRead} from './offline_session';
 
 export type Space={scope:'PLATFORM'|'SCHOOL';school_code:string|null;label:string;roles:string[];current:boolean};
 export type SpacesState={contexts:Space[];current:{scope:'PLATFORM'|'SCHOOL';school_code:string|null};current_valid:boolean};
@@ -96,7 +98,7 @@ function SwitchMfa({step,onCancel,onDone}:{step:MfaStep;onCancel:()=>void;onDone
   const [code,setCode]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);const sent=useRef('');
   if(step.mfa_enrollment_required)return <Modal title="Validation en deux étapes à configurer" onClose={onCancel}>
     <p className="sp-note">Cet espace exige la validation en deux étapes, qui n’est pas encore configurée sur votre compte. Déconnectez-vous puis ouvrez cet espace depuis l’écran de connexion pour la configurer.</p>
-    <div className="es-modal-foot"><button type="button" className="es-btn es-btn-primary" onClick={onCancel}>Compris</button></div></Modal>;
+    <div className="es-modal-foot"><OnlineActionButton type="button" className="es-btn es-btn-primary" onClick={onCancel}>Compris</OnlineActionButton></div></Modal>;
   async function confirm(value=code){
     if(busy)return;setError('');
     if(!/^\d{6}$/.test(value)){setError('Saisissez les 6 chiffres affichés par votre application.');return}
@@ -109,7 +111,7 @@ function SwitchMfa({step,onCancel,onDone}:{step:MfaStep;onCancel:()=>void;onDone
       <label className="sp-code"><span>Code de vérification</span><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={code} disabled={busy} aria-invalid={!!error}
         onChange={e=>{const v=e.target.value.replace(/\D/g,'').slice(0,6);setCode(v);if(v.length===6&&sent.current!==v){sent.current=v;void confirm(v)}}}/></label>
       {error&&<div className="es-alert es-alert-bad" role="alert"><NavGlyph g="alert" size={16}/><span>{error}</span></div>}
-      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onCancel}>Annuler</button><button className="es-btn es-btn-primary" disabled={busy}>{busy?'Vérification…':'Confirmer'}</button></div>
+      <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onCancel}>Annuler</button><OnlineActionButton className="es-btn es-btn-primary" disabled={busy}>{busy?'Vérification…':'Confirmer'}</OnlineActionButton></div>
     </form>
   </Modal>;
 }
@@ -137,6 +139,9 @@ export function SpaceRecovery({spaces,onSwitched,onLogout}:{spaces:SpacesState;o
 /** Platform administration is online-only: an explicit banner instead of buttons that fail one by one. */
 export function OfflineAdminBanner(){
   const online=useOnline();
-  if(online)return null;
-  return <div className="es-alert es-alert-warn sp-offline" role="status"><NavGlyph g="wifiOff" size={16}/><span><b>Hors connexion — actions d’administration indisponibles.</b> La consultation reste possible ; les modifications reprendront au retour de la connexion.</span></div>;
+  const [auth,setAuth]=useState(getPlatformAuthState);
+  const [readAt,setReadAt]=useState(platformLastRead);
+  useEffect(()=>{const authChange=()=>setAuth(getPlatformAuthState());const cache=()=>setReadAt(platformLastRead());window.addEventListener('edusync:platform-auth',authChange);window.addEventListener('edusync:platform-cache',cache);return()=>{window.removeEventListener('edusync:platform-auth',authChange);window.removeEventListener('edusync:platform-cache',cache)}},[]);
+  if(online&&auth!=='OFFLINE_AUTHENTICATED_CACHED')return null;
+  return <div className="es-alert es-alert-warn sp-offline" role="status"><NavGlyph g="wifiOff" size={16}/><span><b>Hors connexion — lecture seule.</b> Seules les données déjà consultées sont disponibles ; elles peuvent être anciennes. Aucune modification n’est mise en attente.{readAt&&<small>Dernière synchronisation de la donnée consultée : {new Date(readAt).toLocaleString('fr-FR')}.</small>}</span></div>;
 }

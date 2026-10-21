@@ -61,9 +61,33 @@ jobs:
       - name: Typecheck
         working-directory: frontend
         run: npx tsc --noEmit -p tsconfig.json
+      - name: Régressions plateforme (MFA, push, réseau, navigation)
+        working-directory: frontend
+        run: npm test
+      - name: Navigateur de certification
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Parcours plateforme dans Chromium (réponses serveur de test)
+        working-directory: frontend
+        run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: platform-browser-components
+          path: frontend/test-results/
       - name: Build
         working-directory: frontend
         run: npx vite build
+      - name: Build compilé — premier démarrage, cache et révocation
+        working-directory: frontend
+        env:
+          EDUSYNC_TEST_BUILD: "1"
+        run: npm run test:browser -- platform.spec.ts offline.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: platform-browser-compiled
+          path: frontend/test-results/
 
   security:
     name: Sécurité — dépendances, licences, secrets

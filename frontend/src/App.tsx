@@ -1,3 +1,4 @@
+import {clearPlatformContext, getPlatformAuthState, knownPlatform, OFFLINE_PLATFORM_TOKEN, rememberPlatformContext, restorePlatformContext, setPlatformAuthState} from './platform/offline_session';
 import React,{lazy,Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {SecureLogin} from './login';
 import {dismissBoot} from './platform/boot';
@@ -62,10 +63,10 @@ const schoolsDeepLink=():'dashboard'|'schools'|'access'|'team'|'notifications'|'
 function AtelierPro({token,user,onLogout,onSwitchSpace}:{token:string;user:PlatformUser;onLogout:()=>void;onSwitchSpace?:()=>void}){
   const [tab,setTab]=useState<'dashboard'|'schools'|'access'|'team'|'notifications'|'audit'|'diagnostics'|'messaging'>(schoolsDeepLink);
   // Server-computed identity and menu: a PLATFORM_CUSTOM account only sees (and only loads) what its roles open.
-  const [me,setMe]=useState<PlatformMe|null>(null);
+  const [me,setMe]=useState<PlatformMe|null>(()=>knownPlatform()?.me||null);
   const can=(key:string)=>!!me?.menu.some(m=>m.key===key);
   const has=(cap:string)=>!!me?.permissions.includes(cap);
-  useEffect(()=>{replaceMobileRoot('platform',schoolsDeepLink());const h=(e:Event)=>{const d=(e as CustomEvent).detail;if(d?.edusyncScope==='platform'&&d.edusyncScreen)setTab(d.edusyncScreen)};window.addEventListener('edusync:android-back',h);return()=>window.removeEventListener('edusync:android-back',h)},[]);
+  useEffect(()=>{replaceMobileRoot('platform',schoolsDeepLink());const h=(e:Event)=>{const d=(e as CustomEvent).detail;if(d?.edusyncScope==='platform'&&d.edusyncScreen)setTab(current=>knownPlatform()?.me.menu.some(x=>x.key===d.edusyncScreen)?d.edusyncScreen:current)};window.addEventListener('edusync:android-back',h);return()=>window.removeEventListener('edusync:android-back',h)},[]);
   const goTab=(next:typeof tab)=>{if(tab==='dashboard'&&next!=='dashboard')dashScroll.current=window.scrollY;if(next!==tab){pushMobileScreen('platform',next);/* the new screen starts with a clean URL; the left one keeps its own (back restores it) */if(window.location.search)history.replaceState(history.state,'',window.location.pathname)}setTab(next)};
   const [systemNotifications,setSystemNotifications]=useState<any>({items:[]});
   const [error,setError]=useState('');
@@ -80,7 +81,7 @@ function AtelierPro({token,user,onLogout,onSwitchSpace}:{token:string;user:Platf
   const schoolSchema=z.object({name:z.string().trim().min(2,'Le nom de l’école est obligatoire.'),code:z.string().trim().min(2,'Le code établissement est obligatoire.').max(24,'Le code est trop long.')});type SchoolCreateForm=z.infer<typeof schoolSchema>;const schoolForm=useForm<SchoolCreateForm>({resolver:zodResolver(schoolSchema),defaultValues:{name:'',code:''},...formDefaults});
   // Lists load when their screen opens (the dashboard has its own single request): no request burst at start-up.
   async function refresh(){setDashKey(k=>k+1)}
-  useEffect(()=>{let alive=true;platformMe(token).then(m=>{if(!alive)return;setMe(m);if(!m.menu.some(x=>x.key==='dashboard')&&m.menu[0])setTab(m.menu[0].key as typeof tab);else if(!m.menu.some(x=>x.key==='schools'))setTab(t=>t==='schools'?'dashboard':t)}).catch(e=>alive&&setError(friendlyError(e)));return()=>{alive=false}},[token]);
+  useEffect(()=>{let alive=true;platformMe(token).then(m=>{if(!alive)return;if(getPlatformAuthState()!=='OFFLINE_AUTHENTICATED_CACHED')rememberPlatformContext(m);setMe(m);setTab(t=>m.menu.some(x=>x.key===t)?t:(m.menu[0]?.key||'dashboard') as typeof tab)}).catch(e=>alive&&setError(friendlyError(e)));return()=>{alive=false}},[token]);
   useEffect(()=>{if(!me)return;if(tab==='schools')setSchoolsVisited(true);if(tab==='access')setAccessVisited(true)},[tab,me]);
   // Dashboard -> filtered view -> back: the dashboard stays mounted (data and scroll position kept).
   function openTarget(t:DashboardTarget){
@@ -109,12 +110,12 @@ function AtelierPro({token,user,onLogout,onSwitchSpace}:{token:string;user:Platf
     {me&&can('dashboard')&&<div hidden={tab!=='dashboard'}><PlatformDashboard key={dashKey} token={token} userName={me?.user.full_name||user.full_name} can={can} has={has} onOpen={openTarget} onCreateSchool={()=>setCreatingSchool(true)}/></div>}
     {can('schools')&&(schoolsVisited||tab==='schools')&&<div hidden={tab!=='schools'}><SchoolsModule token={token} has={has} preset={schoolsPreset} active={tab==='schools'} onChanged={()=>setDashKey(k=>k+1)}/></div>}
     {can('access')&&(accessVisited||tab==='access')&&<div hidden={tab!=='access'}><AccessDirectory token={token} has={has} preset={accessPreset} active={tab==='access'} onOpenSchool={id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')}} onOpenTeam={t=>{setTeamPreset({...t,nonce:Date.now()});goTab('team')}}/></div>}
-    {tab==='notifications'&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><CampaignsPanel token={token} canTeam={has('platform.collaborators.manage')}/></Suspense>}
-    {tab==='audit'&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><AuditPanel token={token} canExport={has('platform.audit.export')} links={{canSchools:can('schools'),canTeam:can('team'),canAccess:can('access'),canNotify:can('notifications'),
+    {tab==='notifications'&&can('notifications')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><CampaignsPanel token={token} canTeam={has('platform.collaborators.manage')}/></Suspense>}
+    {tab==='audit'&&can('audit')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><AuditPanel token={token} canExport={has('platform.audit.export')} links={{canSchools:can('schools'),canTeam:can('team'),canAccess:can('access'),canNotify:can('notifications'),
       onOpenSchool:id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')},onOpenMember:id=>{setTeamPreset({openMember:id,nonce:Date.now()});goTab('team')},
       onOpenUser:id=>{setAccessPreset({openUser:id,nonce:Date.now()});goTab('access')},onOpenCampaign:id=>{goTab('notifications');history.replaceState(history.state,'',`${window.location.pathname}?campaign=${id}`)}}}/></Suspense>}
-    {tab==='messaging'&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformMessaging token={token} canCredit={has('platform.sms_wallet.credit')} canAdjust={has('platform.sms_wallet.adjust')} canRetry={has('platform.messaging.retry')}/></Suspense>}
-    {tab==='diagnostics'&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><HealthPanel token={token} canMessaging={can('messaging')} onOpenMessaging={()=>goTab('messaging')}/></Suspense>}
+    {tab==='messaging'&&can('messaging')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformMessaging token={token} canCredit={has('platform.sms_wallet.credit')} canAdjust={has('platform.sms_wallet.adjust')} canRetry={has('platform.messaging.retry')}/></Suspense>}
+    {tab==='diagnostics'&&can('diagnostics')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><HealthPanel token={token} canMessaging={can('messaging')} onOpenMessaging={()=>goTab('messaging')}/></Suspense>}
     {notificationOpen&&<PlatformNotificationDialog token={token} schools={[]} onClose={()=>setNotificationOpen(false)} onDone={async()=>{setNotificationOpen(false);setSystemNotifications(await platformSystemNotifications(token,0));await refresh()}}/>}
   </Shell>
 }
@@ -290,9 +291,49 @@ export function App(){
   const checking=useRef(false);
   async function onRefused(){if(checking.current)return;checking.current=true;try{const st=await fetchSpaces();if(!st){clear();return}if(!st.current_valid)setRecovery(st)}catch{/* réseau : l’écran courant signale l’erreur */}finally{checking.current=false}}
   useEffect(()=>{const h=()=>{void onRefused()};window.addEventListener('edusync:space-check',h);return()=>window.removeEventListener('edusync:space-check',h)},[]);
-  useEffect(()=>{let alive=true;(async()=>{try{if(/^#(reset|invitation)=/.test(window.location.hash))return;/* lien de compte reçu par e-mail : écran dédié */const r=await fetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store'});if(!r.ok){if(r.status===401){const st=await fetchSpaces().catch(()=>null);if(alive&&st&&!st.current_valid&&st.contexts.length)setRecovery(st)}return}const d=await r.json();if(!alive||!d.access_token)return;if(d.scope==='SCHOOL'&&d.school&&d.user){setSchoolSession({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]})}else if(d.scope==='PLATFORM'){setPlatformToken(d.access_token);if(d.user)setPlatformUser({full_name:d.user.full_name,email:d.user.email})}}catch{/* aucune session persistante : afficher la connexion */}finally{if(alive)setRestoring(false)}})();return()=>{alive=false}},[]);
+  useEffect(()=>{
+    let alive=true, running=false;
+    restorePlatformContext();
+    async function restore(){
+      if(running || /^#(reset|invitation)=/.test(window.location.hash))return;
+      running=true;
+      try{
+        const r=await fetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store'});
+        if(!alive)return;
+        if(!r.ok){
+          if(r.status===401 || r.status===403){
+            const st=await fetchSpaces();
+            if(!alive)return;
+            clearPlatformContext();setPlatformToken('');
+            if(st&&!st.current_valid&&st.contexts.length)setRecovery(st);
+            return;
+          }
+          throw new Error('SESSION_SERVICE_UNAVAILABLE');
+        }
+        const d=await r.json();if(!alive||!d.access_token)return;
+        if(d.scope==='SCHOOL'&&d.school&&d.user){clearPlatformContext();setSchoolSession({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]});}
+        else if(d.scope==='PLATFORM'){
+          const previous=knownPlatform();
+          if(previous&&d.user?.email&&previous.me.user.email.toLowerCase()!==d.user.email.toLowerCase())clearPlatformContext();
+          setPlatformAuthState('ONLINE_AUTHENTICATED');setPlatformToken(d.access_token);
+          if(d.user)setPlatformUser({full_name:d.user.full_name,email:d.user.email});
+        }
+      }catch{
+        // A timeout is not proof of revocation. Restore display-only context,
+        // never a cached bearer token or authority to perform a mutation.
+        const cached=knownPlatform();
+        if(alive&&cached){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setPlatformUser(cached.me.user);setPlatformToken(t=>t||OFFLINE_PLATFORM_TOKEN);}
+      }finally{running=false;if(alive)setRestoring(false);}
+    }
+    const online=()=>{void restore()};
+    const offline=()=>{if(knownPlatform())setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED')};
+    const probe=(e:Event)=>{if((e as CustomEvent).detail?.state==='ONLINE'&&getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&knownPlatform()&&navigator.onLine)void restore()};
+    window.addEventListener('online',online);window.addEventListener('offline',offline);window.addEventListener('edusync:connectivity',probe);
+    void restore();
+    return()=>{alive=false;window.removeEventListener('online',online);window.removeEventListener('offline',offline);window.removeEventListener('edusync:connectivity',probe)};
+  },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
-  function clear(){setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
+  function clear(){clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
   useEffect(()=>{if(!restoring)dismissBoot()},[restoring]);
   // While the persistent session is checked, the static boot screen (index.html) stays on screen: one continuous start.
   if(restoring)return null;
