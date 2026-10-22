@@ -158,7 +158,10 @@ def test_new_version_is_announced_and_applied_safely():
     nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
     assert "location = /version.json" in nginx and 'Cache-Control "no-store"' in nginx
     sw = (ROOT / "frontend/public/sw.js").read_text(encoding="utf-8")
-    assert "url.pathname==='/version.json'" in sw and "EDUSYNC_SKIP_WAITING" in sw            # never served from the SW cache
+    # never served from the SW cache: /version.json is part of the early bypass of the fetch handler (before any respondWith)
+    bypass = next(line for line in sw.splitlines() if "url.pathname.startsWith('/api/')" in line)
+    assert bypass.strip().startswith("if(") and bypass.rstrip().endswith("return;") and "'/version.json'" in bypass
+    assert sw.index(bypass) < sw.index("event.respondWith(") and "EDUSYNC_SKIP_WAITING" in sw
     up = (FRONT / "platform/updates.ts").read_text(encoding="utf-8")
     assert "POLL_MS = 5 * 60 * 1000" in up and "'visibilitychange'" in up and "'online'" in up
     assert "hasUnsavedForms()" in up and "activity.pending > 0" in up and "confirmAction(" in up     # never loses work silently
