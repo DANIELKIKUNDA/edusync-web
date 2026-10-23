@@ -9,8 +9,10 @@ let known:KnownPlatform|null=null;
 let state:PlatformAuthState='AUTH_REQUIRED';
 let lastRead:number|undefined;
 
+// localStorage, not sessionStorage: an installed app closed and reopened without network must find its read-only
+// context again (offline-first). Same bound (24 h after the last online validation), same content (no token).
 export function restorePlatformContext():KnownPlatform|null {
-  try {const v=JSON.parse(sessionStorage.getItem(KEY)||'null');
+  try {const v=JSON.parse(localStorage.getItem(KEY)||sessionStorage.getItem(KEY)||'null');
     if(v?.me?.user?.id && Array.isArray(v.me.menu) && Array.isArray(v.me.permissions) && typeof v.scope==='string' && Date.now()-v.at<24*3600_000) known=v;
   } catch { /* no usable local context */ }
   return known;
@@ -19,10 +21,10 @@ export function rememberPlatformContext(me:PlatformMe){
   if(known && known.me.user.id!==me.user.id) void clearPlatformSnapshots().catch(()=>{});
   const scope=known?.me.user.id===me.user.id?known.scope:`platform:${crypto.randomUUID()}`;
   known={scope,me,at:Date.now()};
-  try{sessionStorage.setItem(KEY,JSON.stringify(known))}catch{/* private mode: memory only */}
+  try{localStorage.setItem(KEY,JSON.stringify(known));sessionStorage.removeItem(KEY)}catch{/* private mode: memory only */}
   setPlatformAuthState('ONLINE_AUTHENTICATED');
 }
-export function clearPlatformContext(){known=null;lastRead=undefined;try{sessionStorage.removeItem(KEY)}catch{};void clearPlatformSnapshots().catch(()=>{});setPlatformAuthState('AUTH_REQUIRED');}
+export function clearPlatformContext(){known=null;lastRead=undefined;try{localStorage.removeItem(KEY);sessionStorage.removeItem(KEY)}catch{};void clearPlatformSnapshots().catch(()=>{});setPlatformAuthState('AUTH_REQUIRED');}
 export function getPlatformAuthState(){return state;}
 export function setPlatformAuthState(next:PlatformAuthState){state=next;window.dispatchEvent(new CustomEvent('edusync:platform-auth',{detail:next}));}
 export function platformLastRead(){return lastRead;}

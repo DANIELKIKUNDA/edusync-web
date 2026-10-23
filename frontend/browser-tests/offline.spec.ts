@@ -15,7 +15,7 @@ test('platform session survives network loss, then revalidates and obeys revocat
     return route.fulfill({json:body});
   });
   await page.goto('/');await expect(page.getByRole('heading',{name:'Journal d’audit',level:2})).toBeVisible();
-  await expect.poll(()=>page.evaluate(()=>sessionStorage.getItem('edusync.platform.readonly-context')!==null)).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('edusync.platform.readonly-context')!==null)).toBe(true);
   if(process.env.EDUSYNC_TEST_BUILD==='1'){
     // First-visit boot assets are cached after worker activation, not only on a second visit.
     await expect.poll(()=>page.evaluate(async()=>{const names=await caches.keys();const cache=await caches.open(names.find(n=>n.startsWith('edusync-shell'))!);const urls=performance.getEntriesByType('resource').map(r=>r.name).filter(raw=>new URL(raw).pathname.startsWith('/assets/'));return urls.length>0&&(await Promise.all(urls.map(u=>cache.match(u)))).every(Boolean);})).toBe(true);
@@ -29,6 +29,11 @@ test('platform session survives network loss, then revalidates and obeys revocat
     await page.reload();await expect(page.locator('.es-shell')).toBeVisible();
     await expect(page.getByText('Hors connexion — lecture seule.',{exact:true})).toBeVisible();
     await expect(page.getByRole('heading',{name:'Journal d’audit',level:2})).toBeVisible();
+    // the app closed and reopened without network (new tab: empty sessionStorage) stays signed in, read-only
+    const reopened=await context.newPage();await reopened.goto('/');
+    await expect(reopened.locator('.es-shell')).toBeVisible();
+    await expect(reopened.getByText('Hors connexion — lecture seule.',{exact:true})).toBeVisible();
+    await reopened.close();
   }
   await page.screenshot({path:`${process.env.EDUSYNC_TEST_OUTPUT||'test-results'}/offline-platform.png`});
   offline=false;await context.setOffline(false);
@@ -36,5 +41,5 @@ test('platform session survives network loss, then revalidates and obeys revocat
   await expect(page.locator('.es-shell')).toBeVisible();
   revoked=true;offline=true;await context.setOffline(true);offline=false;await context.setOffline(false);
   await expect(page.locator('.es-shell')).toHaveCount(0);
-  expect(await page.evaluate(()=>sessionStorage.getItem('edusync.platform.readonly-context'))).toBeNull();
+  expect(await page.evaluate(()=>localStorage.getItem('edusync.platform.readonly-context'))).toBeNull();
 });

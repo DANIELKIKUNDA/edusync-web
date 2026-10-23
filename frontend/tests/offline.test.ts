@@ -7,13 +7,13 @@ import type {PlatformMe} from '../src/api';
 const me:PlatformMe={user:{id:'owner',email:'owner@example.test',full_name:'Owner'},roles:[],permissions:['platform.audit.read'],menu:[{key:'audit',label:'Journal',capability:'platform.audit.read'}]};
 const network=vi.fn();
 beforeEach(()=>{network.mockReset().mockRejectedValue(new TypeError('network'));vi.stubGlobal('fetch',network);});
-afterEach(()=>{clearPlatformContext();sessionStorage.clear();vi.unstubAllGlobals();});
+afterEach(()=>{clearPlatformContext();sessionStorage.clear();localStorage.clear();vi.unstubAllGlobals();});
 
 it('stores display context without a bearer token and restores the same scoped identity',()=>{
   rememberPlatformContext(me);setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
   expect(restorePlatformContext()?.me.user.id).toBe('owner');
   expect(getPlatformAuthState()).toBe('OFFLINE_AUTHENTICATED_CACHED');
-  expect(sessionStorage.getItem('edusync.platform.readonly-context')).not.toMatch(/access_token|Bearer|refresh_token/);
+  expect(localStorage.getItem('edusync.platform.readonly-context')).not.toMatch(/access_token|Bearer|refresh_token/);
 });
 
 it('only caches approved reads and never credentials, MFA, exports or streams',()=>{
@@ -55,4 +55,14 @@ it('does not resurrect cached data after a confirmed authorization refusal',asyn
   const {resilientFetch}=await import('../src/platform/connectivity');
   const r=await resilientFetch('/api/v1/platform/schools');expect(r.status).toBe(403);
   clearPlatformContext();expect(getPlatformAuthState()).toBe('AUTH_REQUIRED');expect(knownPlatform()).toBeNull();
+});
+
+it('an app closed then reopened without network finds its read-only context again (not only a reload)',async()=>{
+  rememberPlatformContext(me);
+  sessionStorage.clear();vi.resetModules();                                    // closed app: tab storage and memory are gone
+  const fresh=await import('../src/platform/offline_session');
+  expect(fresh.restorePlatformContext()?.me.user.id).toBe('owner');
+  fresh.clearPlatformContext();                                                // sign-out / revocation forgets it everywhere
+  expect(localStorage.getItem('edusync.platform.readonly-context')).toBeNull();
+  vi.resetModules();expect((await import('../src/platform/offline_session')).restorePlatformContext()).toBeNull();
 });

@@ -31,7 +31,7 @@ sur un vrai appareil restent à réaliser. Les preuves de l'ancien staging ne ce
 - Navigation par menu calculé côté serveur pour tous les rôles. Un deep link ou un ancien état d'historique
   ne monte plus les modules notifications/audit/messagerie/service sans leur entrée autorisée.
 - États explicites `ONLINE_AUTHENTICATED`, `OFFLINE_AUTHENTICATED_CACHED`, `AUTH_REQUIRED`.
-  Le contexte de consultation conservé dans sessionStorage ne contient aucun bearer/refresh token.
+  Le contexte de consultation conservé dans localStorage (il survit à la fermeture de l’application, pour rouvrir hors connexion) ne contient aucun bearer/refresh token.
   Sa restauration est bornée à 24 h ; il sert à l'affichage, jamais à autoriser une écriture.
 - Réutilisation d'IndexedDB existant : magasin séparé de snapshots JSON, namespace de session/identité,
   au maximum 40 réponses de 256 000 caractères. Les secrets, MFA, sessions, configurations Push, exports,
