@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import random
+import re
 import time
 from uuid import uuid4
 
@@ -112,7 +113,7 @@ def _claim(engine, delivery_id=None):
             extra = ' AND d.id=:did'
             params['did'] = delivery_id
         row = c.execute(text(f"""SELECT d.id, d.school_id, d.destination, d.attempts, d.channel, d.estimated_segments, d.wallet_state,
-                d.recipient_id, d.message_id, m.body, m.subject, m.kind, m.template_code, m.link_path,
+                d.recipient_id, d.message_id, m.body, m.subject, m.kind, m.template_code, m.link_path, m.correlation_id,
                 r.display_name, r.secret_ciphertext, r.target_school_id, s.enabled, s.sms_enabled, s.email_enabled, s.push_enabled
             FROM communication_deliveries d
             JOIN communication_messages m ON m.id=d.message_id
@@ -150,9 +151,11 @@ async def _send(cfg, engine, row) -> ports.SendResult | None:
     ch = row['channel']
     if ch == 'SMS':
         p = build_sms_provider(cfg)
+        row['_provider'] = getattr(p, 'code', None)
         return await p.send_sms(to_e164=row['destination'], body=row['body']) if p else None
     if ch == 'EMAIL':
         p = build_email_provider(cfg)
+        row['_provider'] = getattr(p, 'code', None)
         if not p:
             return None
         link = None
@@ -165,6 +168,7 @@ async def _send(cfg, engine, row) -> ports.SendResult | None:
         return await p.send_email(to=row['destination'], content=content)
     if ch == 'PUSH':
         p = build_push_provider(cfg)
+        row['_provider'] = getattr(p, 'code', None)
         if not p:
             return None
         with engine.begin() as c:
@@ -283,8 +287,28 @@ def run_once(cfg, r, engine, throttle: SmsThrottle | None = None) -> bool:
     except Exception as exc:  # noqa: BLE001 — an adapter bug is a retryable failure, never a lost message
         log.warning('provider call failed channel=%s error=%s', row['channel'], type(exc).__name__)
         result = ports.SendResult(ports.RETRYABLE, error_code='ADAPTER_ERROR')
-    _finish(engine, row, token, result)
+    state = _finish(engine, row, token, result)
+    log_attempt(row, result, state)
     return True
+
+
+def log_attempt(row, result, state: str) -> None:
+    """One structured line per provider attempt (stdout, read with `docker compose logs`). Identifiers and sanitized
+    provider codes only: never a push token, an address, a key or a message body. `device_id` is the internal push
+    subscription id, not the FCM token."""
+    detail = (result.error_detail or '') if result is not None else ''
+    http = re.match(r'HTTP (\d{3})', detail)
+    fields = {'event': 'delivery_attempt', 'job_id': str(row['id']), 'message_id': str(row['message_id']), 'channel': row['channel'],
+              'provider': row.get('_provider') or 'none', 'attempt': int(row['attempts']) + 1, 'result': state,
+              'provider_http_status': int(http.group(1)) if http else None,
+              'provider_error_code': None if result is None else (result.error_code if result.outcome != ports.SENT else None),
+              'provider_error_detail': detail[:160] or None, 'provider_accepted': result is not None and result.outcome == ports.SENT,
+              'correlation_id': str(row['correlation_id']) if row.get('correlation_id') else None}
+    if row['channel'] == 'PUSH':
+        fields['device_id'] = str(row['destination'])
+    if result is None:
+        fields['provider_error_code'] = 'PROVIDER_NOT_CONFIGURED'
+    (log.info if state == 'SENT' else log.warning)(json.dumps(fields, ensure_ascii=False))
 
 
 # ================================================================================================ receipts

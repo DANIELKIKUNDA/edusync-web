@@ -213,3 +213,21 @@ def test_one_device_failing_never_degrades_a_healthy_provider():
     st = channel_state("push", cfg, bad, {}, NOW)
     assert st["state"] == "UNAVAILABLE" and any("Firebase Cloud Messaging API Admin" in r for r in st["reasons"])
     assert st["provider_health"]["ok"] is False and "delivery_health" in st
+
+
+def test_worker_logs_one_structured_line_per_attempt_without_token(caplog):
+    import json
+    import logging
+    from edusync.modules.communications.worker import log_attempt
+    from edusync.shared.messaging import ports
+    row = {'id': 'd-1', 'message_id': 'm-1', 'channel': 'PUSH', 'attempts': 0, 'destination': 'sub-1', '_provider': 'fcm',
+           'correlation_id': 'c-1', 'body': 'secret body'}
+    with caplog.at_level(logging.INFO, logger='edusync.communications_worker'):
+        log_attempt(row, ports.SendResult(ports.RETRYABLE, error_code='PUSH_IAM_PERMISSION_MISSING',
+                                          error_detail='HTTP 403 PERMISSION_DENIED · IAM_PERMISSION_DENIED'), 'FAILED_RETRYABLE')
+        log_attempt(row, ports.SendResult(ports.SENT, provider_message_id='projects/x/messages/1'), 'SENT')
+    first, second = (json.loads(r.getMessage()) for r in caplog.records)
+    assert first['job_id'] == 'd-1' and first['provider'] == 'fcm' and first['attempt'] == 1 and first['provider_http_status'] == 403
+    assert first['provider_error_code'] == 'PUSH_IAM_PERMISSION_MISSING' and first['correlation_id'] == 'c-1' and first['device_id'] == 'sub-1'
+    assert second['result'] == 'SENT' and second['provider_accepted'] is True and second['provider_error_code'] is None
+    assert 'secret body' not in caplog.text and 'token' not in caplog.text
