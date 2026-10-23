@@ -277,3 +277,19 @@ input,select,textarea{border-color:var(--line-strong)!important;border-radius:7p
 .feeMore{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;padding:16px 12px 6px}
 .feeMore span{color:var(--muted,#64748b);font-size:.9rem}
 .feeMore .softBtn{min-height:44px}
+
+/* Local screen protection (ScreenBoundary, 2026-10-23): the shell stays, only the failing area shows this card. */
+.screenError{display:flex;gap:14px;align-items:flex-start;margin:16px 0;padding:18px 20px;border:1px solid var(--es-line,#d5dbe6);border-radius:14px;background:var(--es-surface,#fff);color:var(--es-ink,#14213d)}
+.screenError svg{flex:none;margin-top:2px;color:var(--es-warn,#b45309)}
+.screenError>div{flex:1;min-width:0}.screenError b{display:block;font-size:15px}.screenError p{margin:4px 0 0;color:var(--es-muted,#5b6578);font-size:13.5px;line-height:1.45}
+.screenError button{flex:none;align-self:center}
+.screenError.compact{margin:6px 0;padding:10px 12px;border-radius:10px;gap:10px}.screenError.compact b{font-size:13.5px}.screenError.compact p{font-size:12.5px}
+@media (max-width:560px){.screenError{flex-wrap:wrap}.screenError button{width:100%}}
+/* Capability-driven school home */
+.homeActions{display:flex;gap:8px;flex-wrap:wrap}
+button.homeSearch{width:100%;text-align:left;font:inherit;cursor:pointer;border:1px solid var(--es-line,#d5dbe6);background:var(--es-surface,#fff);min-height:44px}
+.homeList{list-style:none;margin:0;padding:0;display:grid;gap:8px}.homeList li{display:grid;gap:2px}.homeList small{color:var(--es-muted,#5b6578)}
+/* Access requests */
+.requestRow{display:flex;gap:16px;justify-content:space-between;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--es-line,#e3e8f0)}
+.requestRow>div:first-child{min-width:0;display:grid;gap:4px}.requestRow small{color:var(--es-muted,#5b6578)}
+@media (max-width:640px){.requestRow{flex-direction:column}}

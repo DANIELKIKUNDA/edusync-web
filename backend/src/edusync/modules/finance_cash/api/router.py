@@ -175,11 +175,11 @@ def reopen_school_day(b:ReopenBody,actor:ActorContext=Depends(require_school_act
 @router.get('/day/journal.pdf')
 def day_journal_pdf(day:str|None=Query(None),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  """G-DOC-3 — Desktop export_cash_journal_pdf for the school's day."""
- need(actor,'finance.cash.journal.export_pdf');need(actor,'finance.cash.other.read')
+ need(actor,'finance.cash.journal.export');need(actor,'finance.cash.other.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   r=_report(c,actor,day);name=_school_name(c,actor.school_id)
  r['operations']=_names(services,r['operations']);data=cash_journal_pdf(school_name=name,report=r)
- archive_generated_tx(services,actor,data=data,fmt='PDF',required_capability='finance.cash.journal.export_pdf',document_code='finance.cash.journal',title=f"Journal de caisse du {r['day']}",file_name=f"journal_caisse_{r['day']}.pdf")
+ archive_generated_tx(services,actor,data=data,fmt='PDF',required_capability='finance.cash.journal.export',document_code='finance.cash.journal',title=f"Journal de caisse du {r['day']}",file_name=f"journal_caisse_{r['day']}.pdf")
  return _Stream(_BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="journal_caisse_{r["day"]}.pdf"'})
 @router.get('/day/report.pdf')
 def day_report_pdf(day:str|None=Query(None),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):

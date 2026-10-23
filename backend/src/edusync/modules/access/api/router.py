@@ -1,14 +1,16 @@
 """School access governance — each school sets its own policy (owner decision 2026-10-02).
 
-Standard roles are product baselines (read-only here). A school adapts them by cloning into
-SCHOOL_CUSTOM roles, assigning roles to its members with a scope (school / section / class) and an
-optional end date. No approval workflow: governance is enforced by automatic guardrails and full
-transparency (every change is in the audit journal, readable by holders of audit.school.read).
+Standard roles are product baselines maintained by the platform. Since 2026-10-23 a school adjusts a standard role
+WITHOUT copying it: `standard role + school GRANT − school REVOKE` (rbac_school_role_policies, migration 0085), so
+the role keeps its identity and its future baseline updates. School-owned roles (SCHOOL_CUSTOM) remain for truly new
+profiles. Members receive roles with a scope (school / section / class) and an optional end date. Separation of
+duties is a set of constraints (ALLOW / WARN / REQUIRE_APPROVAL / BLOCK, application/policies.py); a change that
+requires approval becomes a request decided by another access manager. Every change is in the audit journal.
 
 Guardrails, enforced server-side for every school:
   * no self-service: nobody changes their own roles;
   * a school role can never carry a platform capability;
-  * the school can never lose its last access manager (access.roles.manage);
+  * the school can never lose its last access manager (access.roles.manage), nor the protected base of a role;
   * standard roles are immutable; custom roles belong to one school only (RLS + trigger);
   * nobody hands over, through a role, an access-governance capability (access.*) they do not hold, nor acts on a
     member holding one they lack (N2 anti-escalation, 2026-10-14).
@@ -22,7 +24,9 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
+from edusync.modules.access.application import policies, projection
 from edusync.modules.iam.application import account_links
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
 from edusync.adapters.postgres_repositories import PostgresAuditRepository
@@ -98,21 +102,23 @@ def _user_cards(services: AppServices, user_ids: set[str], school_id: UUID | Non
 
 
 def _school_capabilities(conn) -> dict[str, dict]:
+    """Capabilities the rights editor offers: ACTIVE ones only (PLANNED, DEPRECATED and ALIAS are hidden, owner
+    decision 4) and never a platform capability."""
     rows = conn.execute(text("""SELECT code,domain_name,group_name,label,risk,scope_types FROM capability_catalog
-                                WHERE code NOT LIKE 'platform.%' AND NOT (scope_types ? 'PLATFORM')
+                                WHERE code NOT LIKE 'platform.%' AND NOT (scope_types ? 'PLATFORM') AND lifecycle='ACTIVE'
                                 ORDER BY domain_name,group_name,code""")).mappings().all()
     return {r["code"]: dict(r) for r in rows}
 
 
+def _hidden_caps(conn, caps) -> set[str]:
+    """Capabilities of `caps` that the editor does not show (kept untouched when a role is saved)."""
+    if not caps:
+        return set()
+    return {r[0] for r in conn.execute(text("SELECT code FROM capability_catalog WHERE code = ANY(:c) AND lifecycle<>'ACTIVE'"), {"c": list(caps)})}
+
+
 def _assert_managers_remain(conn, school_id: UUID) -> None:
-    left = conn.execute(text("""SELECT count(DISTINCT a.membership_id) FROM rbac_assignments a
-          JOIN rbac_roles r ON r.id=a.role_id AND r.status='ACTIVE'
-          JOIN rbac_role_capabilities rc ON rc.role_id=r.id AND rc.capability_code=:cap
-          JOIN school_memberships m ON m.id=a.membership_id AND m.active=true
-          WHERE a.school_id=:sid AND a.active=true AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())"""),
-                        {"cap": MANAGER_CAPABILITY, "sid": str(school_id)}).scalar_one()
-    if left == 0:
-        raise HTTPException(409, "Refusé : l'école doit garder au moins un gestionnaire des accès")
+    policies.assert_managers_remain(conn, school_id)
 
 
 def _role(conn, role_id: UUID, *, for_update: bool = False) -> dict:
@@ -153,7 +159,16 @@ def roles(actor: ActorContext = Depends(require_school_actor), services: AppServ
               coalesce((SELECT array_agg(rc.capability_code ORDER BY rc.capability_code) FROM rbac_role_capabilities rc WHERE rc.role_id=r.id),'{}') capabilities
               FROM rbac_roles r WHERE r.level='SCHOOL' AND r.status IN ('ACTIVE','ARCHIVED')
               ORDER BY CASE r.kind WHEN 'SCHOOL_CUSTOM' THEN 0 ELSE 1 END, r.label"""), {"sid": str(actor.school_id)}).mappings().all()
-    return {"items": [{**_json(dict(r)), "editable": r["kind"] == "SCHOOL_CUSTOM"} for r in rows]}
+        active = _active_only(conn)
+        items = []
+        for r in rows:
+            item = {**_json(dict(r)), "editable": r["kind"] == "SCHOOL_CUSTOM", "adjustable": r["kind"] == "SCHOOL_STANDARD"}
+            # what the role allows HERE (standard role + this school's policy), visible capabilities only
+            caps = policies.role_effective(conn, actor.school_id, r["id"]) if r["kind"] == "SCHOOL_STANDARD" else set(r["capabilities"])
+            item["capabilities"] = sorted(active(caps))
+            item["adjustments"] = len(policies.active_policies(conn, actor.school_id, r["id"])) if r["kind"] == "SCHOOL_STANDARD" else 0
+            items.append(item)
+    return {"items": items}
 
 
 @router.get("/members")
@@ -239,10 +254,13 @@ def create_role(b: RoleInput, idempotency_key: str | None = Header(None, alias="
     def action(conn):
         caps = list(b.capabilities)
         base = None
+        hidden: set[str] = set()
         if b.clone_from_role_id:
             base = _role(conn, b.clone_from_role_id)
-            caps = sorted(set(caps) | set(_role_caps(conn, base["id"])))
-        caps = _validated_caps(conn, caps)
+            base_caps = set(_role_caps(conn, base["id"])) if base["kind"] != "SCHOOL_STANDARD" else policies.role_effective(conn, actor.school_id, base["id"])
+            hidden = _hidden_caps(conn, base_caps)
+            caps = sorted(set(caps) | (base_caps - hidden))
+        caps = sorted(set(_validated_caps(conn, caps)) | hidden)
         _assert_can_delegate(actor, caps)  # N2 anti-escalation: a role never carries more than its author holds
         code = "CUSTOM_" + uuid4().hex[:10].upper()
         rid = conn.execute(text("""INSERT INTO rbac_roles(school_id,code,label,description,level,kind,status,created_by_user_id)
@@ -277,7 +295,7 @@ def update_role(role_id: UUID, b: RoleInput, if_match: str | None = Header(None,
         if holders:
             raise HTTPException(403, "Refusé : vous ne pouvez pas modifier un rôle que vous détenez vous-même")
         before = _role_caps(conn, role_id)
-        caps = _validated_caps(conn, b.capabilities)
+        caps = sorted(set(_validated_caps(conn, b.capabilities)) | _hidden_caps(conn, before))  # hidden ones are kept
         _assert_can_delegate(actor, set(caps) - set(before))  # N2 anti-escalation on the added capabilities
         conn.execute(text("DELETE FROM rbac_role_capabilities WHERE role_id=:r"), {"r": str(role_id)})
         for cap in caps:
@@ -328,6 +346,14 @@ class AssignInput(BaseModel):
     scopes: list[ScopeInput] = Field(default_factory=lambda: [ScopeInput()], min_length=1, max_length=20)
     valid_until: datetime | None = None
     reason: str = Field(min_length=3, max_length=500)
+    acknowledge_warnings: bool = False   # separation of duties: WARN constraints shown to and confirmed by the manager
+
+
+def _role_caps_here(conn, actor: ActorContext, role: dict) -> set[str]:
+    """What a role carries in this school: a standard role with the school's policy, a school role as defined."""
+    if role["kind"] == "SCHOOL_STANDARD":
+        return policies.role_effective(conn, actor.school_id, role["id"])
+    return set(_role_caps(conn, role["id"]))
 
 
 @router.post("/members/{membership_id}/roles", status_code=201)
@@ -342,43 +368,66 @@ def assign(membership_id: UUID, b: AssignInput, idempotency_key: str | None = He
         raise HTTPException(422, "La date de fin doit être dans le futur")
 
     def action(conn):
-        m = conn.execute(text("SELECT user_id,active FROM school_memberships WHERE id=:m AND school_id=:s"),
-                         {"m": str(membership_id), "s": str(actor.school_id)}).mappings().first()
-        if not m:
-            raise HTTPException(404, "Membre introuvable dans cette école")
-        if not m["active"]:
-            raise HTTPException(409, "Ce membre est désactivé")
-        role = _role(conn, b.role_id)
-        if role["status"] != "ACTIVE" or (role["kind"] == "SCHOOL_CUSTOM" and str(role["school_id"]) != str(actor.school_id)):
-            raise HTTPException(404, "Rôle introuvable")
-        _assert_can_delegate(actor, _role_caps(conn, b.role_id))  # N2 anti-escalation: only what the assigner holds
-        scopes = []
-        for s in b.scopes:
-            if s.type == "SCHOOL":
-                scopes.append(("SCHOOL", None))
-                continue
-            value = (s.value or "").strip().upper()
-            lookup = SECTION_EXISTS if s.type == "SECTION" else CLASS_EXISTS
-            if not value or not conn.execute(lookup,
-                                             {"s": str(actor.school_id), "v": value}).first():
-                raise HTTPException(422, f"Périmètre inconnu dans cette école : {s.type} {s.value}")
-            scopes.append((s.type, value))
-        dup = conn.execute(text("SELECT 1 FROM rbac_assignments WHERE membership_id=:m AND role_id=:r AND active=true AND (valid_until IS NULL OR valid_until>now())"),
-                           {"m": str(membership_id), "r": str(b.role_id)}).first()
-        if dup:
-            raise HTTPException(409, "Ce rôle est déjà attribué à ce membre : retirez-le pour changer son périmètre")
-        aid = conn.execute(text("""INSERT INTO rbac_assignments(user_id,role_id,school_id,membership_id,valid_until,granted_by_user_id,reason)
-              VALUES(:u,:r,:s,:m,:vu,:by,:reason) RETURNING id"""),
-                           {"u": str(m["user_id"]), "r": str(b.role_id), "s": str(actor.school_id), "m": str(membership_id),
-                            "vu": b.valid_until, "by": str(actor.user_id), "reason": b.reason}).scalar_one()
-        for t, v in sorted(set(scopes), key=lambda x: (x[0], x[1] or "")):
-            conn.execute(text("INSERT INTO rbac_assignment_scopes(assignment_id,scope_type,scope_value) VALUES(:a,:t,:v)"), {"a": str(aid), "t": t, "v": v})
-        out = {"assignment_id": str(aid), "membership_id": str(membership_id), "role_id": str(b.role_id), "role_label": role["label"],
-               "scopes": [{"type": t, "value": v} for t, v in scopes], "valid_until": b.valid_until.isoformat() if b.valid_until else None}
-        _audit(conn, actor, "ACCESS_ROLE_ASSIGNED", "rbac_assignment", aid, out, reason=b.reason)
-        return 201, out
+        return _assign_core(conn, actor, membership_id, b)
 
     return _idempotent(services, actor, idempotency_key, "ACCESS_ROLE_ASSIGN", {"membership": str(membership_id), **b.model_dump(mode="json")}, action)
+
+
+def _assign_core(conn, actor: ActorContext, membership_id: UUID, b: AssignInput, *, approving: bool = False, request_id=None):
+    """Assignment shared by the direct call and the approval of a request (the approver is then `actor`)."""
+    m = conn.execute(text("SELECT user_id,active FROM school_memberships WHERE id=:m AND school_id=:s"),
+                     {"m": str(membership_id), "s": str(actor.school_id)}).mappings().first()
+    if not m:
+        raise HTTPException(404, "Membre introuvable dans cette école")
+    if not m["active"]:
+        raise HTTPException(409, "Ce membre est désactivé")
+    role = _role(conn, b.role_id)
+    if role["status"] != "ACTIVE" or (role["kind"] == "SCHOOL_CUSTOM" and str(role["school_id"]) != str(actor.school_id)):
+        raise HTTPException(404, "Rôle introuvable")
+    role_caps = _role_caps_here(conn, actor, role)
+    _assert_can_delegate(actor, role_caps)  # N2 anti-escalation: only what the assigner holds
+    scopes = []
+    for s in b.scopes:
+        if s.type == "SCHOOL":
+            scopes.append(("SCHOOL", None))
+            continue
+        value = (s.value or "").strip().upper()
+        lookup = SECTION_EXISTS if s.type == "SECTION" else CLASS_EXISTS
+        if not value or not conn.execute(lookup,
+                                         {"s": str(actor.school_id), "v": value}).first():
+            raise HTTPException(422, f"Périmètre inconnu dans cette école : {s.type} {s.value}")
+        scopes.append((s.type, value))
+    dup = conn.execute(text("SELECT 1 FROM rbac_assignments WHERE membership_id=:m AND role_id=:r AND active=true AND (valid_until IS NULL OR valid_until>now())"),
+                       {"m": str(membership_id), "r": str(b.role_id)}).first()
+    if dup:
+        raise HTTPException(409, "Ce rôle est déjà attribué à ce membre : retirez-le pour changer son périmètre")
+    verdict = policies.evaluate(conn, school_id=actor.school_id, actor=actor, added=role_caps, affected_members=[str(membership_id)],
+                                self_hit="Vous êtes la personne concernée" if str(membership_id) == str(actor.membership_id) else None,
+                                kind="ROLE_ASSIGNMENT", approving=approving)
+    if verdict["effect"] == "BLOCK" or (verdict["effect"] == "WARN" and not (b.acknowledge_warnings or approving)):
+        raise policies.sod_error(verdict)
+    if verdict["effect"] == "REQUIRE_APPROVAL" and not approving:
+        return 202, _create_request(conn, actor, "ROLE_ASSIGNMENT", {"membership_id": str(membership_id), **b.model_dump(mode="json")},
+                                    verdict, b.reason, summary=f"Attribuer « {role['label']} »")
+    aid = conn.execute(text("""INSERT INTO rbac_assignments(user_id,role_id,school_id,membership_id,valid_until,granted_by_user_id,reason)
+          VALUES(:u,:r,:s,:m,:vu,:by,:reason) RETURNING id"""),
+                       {"u": str(m["user_id"]), "r": str(b.role_id), "s": str(actor.school_id), "m": str(membership_id),
+                        "vu": b.valid_until, "by": str(actor.user_id), "reason": b.reason}).scalar_one()
+    try:
+        for t, v in sorted(set(scopes), key=lambda x: (x[0], x[1] or "")):
+            conn.execute(text("INSERT INTO rbac_assignment_scopes(assignment_id,scope_type,scope_value) VALUES(:a,:t,:v)"), {"a": str(aid), "t": t, "v": v})
+    except DBAPIError as e:  # scope rules of a standard role (e.g. Préfet = Secondaire only) are database triggers
+        raise HTTPException(422, "Périmètre refusé : " + str(getattr(e.orig, "diag", None) and e.orig.diag.message_primary or "non autorisé pour ce rôle")) from None
+    out = {"assignment_id": str(aid), "membership_id": str(membership_id), "role_id": str(b.role_id), "role_label": role["label"],
+           "scopes": [{"type": t, "value": v} for t, v in scopes], "valid_until": b.valid_until.isoformat() if b.valid_until else None}
+    if verdict["rules"]:
+        out["acknowledged_rules"] = [h["rule"] for h in verdict["rules"]]
+    if request_id:
+        out["request_id"] = str(request_id)
+    _audit(conn, actor, "ACCESS_ROLE_ASSIGNED", "rbac_assignment", aid, out, reason=b.reason)
+    return 201, out
+
+
 
 
 @router.post("/assignments/{assignment_id}/revoke")
@@ -433,11 +482,8 @@ class MemberUpdate(BaseModel):
 
 
 def _member_caps(conn, school_id: UUID, membership_id) -> set[str]:
-    """School capabilities currently held by a member (active roles, any scope)."""
-    return {r[0] for r in conn.execute(text("""SELECT DISTINCT rc.capability_code FROM rbac_assignments a
-          JOIN rbac_roles r ON r.id=a.role_id AND r.status='ACTIVE' JOIN rbac_role_capabilities rc ON rc.role_id=r.id
-          WHERE a.school_id=:s AND a.membership_id=:m AND a.active AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())"""),
-        {"s": str(school_id), "m": str(membership_id)})}
+    """School capabilities currently held by a member (active roles with the school's policies, any scope)."""
+    return policies.member_effective(conn, school_id, membership_id)
 
 
 GOVERNANCE_PREFIX = "access."
@@ -538,7 +584,7 @@ def create_member(b: MemberCreate, idempotency_key: str | None = Header(None, al
             role = _role(conn, b.role_id)
             if role["status"] != "ACTIVE" or (role["kind"] == "SCHOOL_CUSTOM" and str(role["school_id"]) != str(actor.school_id)):
                 raise HTTPException(404, "Rôle introuvable")
-            _assert_can_delegate(actor, _role_caps(conn, b.role_id))
+            _assert_can_delegate(actor, _role_caps_here(conn, actor, role))
             aid = conn.execute(text("""INSERT INTO rbac_assignments(user_id,role_id,school_id,membership_id,granted_by_user_id,reason)
                 VALUES(:u,:r,:s,:m,:by,:reason) RETURNING id"""), {"u": str(uid), "r": str(b.role_id), "s": str(actor.school_id), "m": str(mid),
                                                                     "by": str(actor.user_id), "reason": b.reason}).scalar_one()
@@ -642,3 +688,398 @@ def reset_member_credentials(membership_id: UUID, b: ReasonInput, idempotency_ke
         out = {"membership_id": str(membership_id), "sessions_revoked": revoked, "must_change_password": True}
         _audit(conn, actor, "ACCESS_MEMBER_CREDENTIALS_RESET", "school_membership", membership_id, out, reason=b.reason)
     return {**out, "temporary_password": temporary}
+
+
+# --------------------------------------------------------------------------------------- school role policies (2026-10-23)
+def _dumps(value) -> str:
+    import json
+    return json.dumps(_json(value), ensure_ascii=False)
+
+
+def _create_request(conn, actor: ActorContext, kind: str, payload: dict, verdict: dict, reason: str, *, summary: str) -> dict:
+    rid = conn.execute(text("""INSERT INTO rbac_change_requests(school_id,kind,payload,rules,reason,requested_by_user_id,requested_by_membership_id)
+        VALUES(:s,:k,CAST(:p AS jsonb),CAST(:r AS jsonb),:reason,:u,:m) RETURNING id"""),
+        {"s": str(actor.school_id), "k": kind, "p": _dumps({**payload, "summary": summary}), "r": _dumps(verdict["rules"]),
+         "reason": reason, "u": str(actor.user_id), "m": str(actor.membership_id)}).scalar_one()
+    out = {"status": "PENDING_APPROVAL", "request_id": str(rid), "kind": kind, "summary": summary, "rules": verdict["rules"],
+           "message": "Demande enregistrée : un autre gestionnaire des accès doit l’approuver."}
+    _audit(conn, actor, "ACCESS_CHANGE_REQUESTED", "rbac_change_request", rid, out, reason=reason)
+    return out
+
+
+def _holds_role(conn, actor: ActorContext, role_id) -> bool:
+    return bool(conn.execute(text("""SELECT 1 FROM rbac_assignments WHERE role_id=:r AND membership_id=:m AND active
+        AND (valid_until IS NULL OR valid_until>now()) LIMIT 1"""), {"r": str(role_id), "m": str(actor.membership_id)}).first())
+
+
+def _active_only(conn):
+    cat = policies.catalog(conn)
+    return lambda caps: {c for c in caps if cat.get(c, {}).get("lifecycle") == "ACTIVE"}
+
+
+class PolicyInput(BaseModel):
+    capabilities: list[str] = Field(max_length=400)   # what the standard role must allow in this school (ACTIVE codes)
+    reason: str = Field(min_length=5, max_length=500)
+    acknowledge_warnings: bool = False
+
+
+@router.get("/roles/{role_id}/policy")
+def role_policy(role_id: UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """A role in this school: platform baseline, school adjustments, protected base, effective result."""
+    _need(actor, "access.roles.read")
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        role = _role(conn, role_id)
+        active = _active_only(conn)
+        standard = role["kind"] == "SCHOOL_STANDARD"
+        base = policies.baseline(conn, role_id)
+        effective = policies.role_effective(conn, actor.school_id, role_id) if standard else base
+        pol = policies.active_policies(conn, actor.school_id, role_id) if standard else []
+        lock = policies.locked(conn, role_id)
+        pending = conn.execute(text("""SELECT id,created_at,payload->>'summary' summary FROM rbac_change_requests
+            WHERE school_id=:s AND status='PENDING' AND payload->>'role_id'=:r ORDER BY created_at"""),
+                               {"s": str(actor.school_id), "r": str(role_id)}).mappings().all()
+        holders = len(policies.holders(conn, actor.school_id, role_id))
+        mine = _holds_role(conn, actor, role_id)
+    cards = _user_cards(services, {str(p["created_by_user_id"]) for p in pol if p["created_by_user_id"]})
+    return {"role": _json(role), "adjustable": standard, "holders": holders, "held_by_me": mine,
+            "baseline": sorted(active(base)), "effective": sorted(active(effective)), "locked": sorted(lock),
+            "policies": [{**_json({k: v for k, v in p.items() if k != "created_by_user_id"}),
+                          "by": cards.get(str(p["created_by_user_id"]), {}).get("full_name")} for p in pol],
+            "pending_requests": [_json(dict(r)) for r in pending]}
+
+
+@router.put("/roles/{role_id}/policy")
+def update_role_policy(role_id: UUID, b: PolicyInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                       actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Adjust a standard role for this school (GRANT / REVOKE), keeping its identity. Separation of duties applies."""
+    _need(actor, MANAGER_CAPABILITY)
+
+    def action(conn):
+        return _apply_policy(conn, actor, role_id, set(b.capabilities), b.reason, acknowledge=b.acknowledge_warnings)
+
+    return _idempotent(services, actor, idempotency_key, "ACCESS_ROLE_POLICY", {"role": str(role_id), **b.model_dump(mode="json")}, action)
+
+
+def _apply_policy(conn, actor: ActorContext, role_id: UUID, desired: set[str], reason: str, *, acknowledge: bool,
+                  approving: bool = False, request_id=None):
+    role = _role(conn, role_id)
+    if role["status"] != "ACTIVE":
+        raise HTTPException(409, "Rôle archivé")
+    conn.execute(text("SELECT 1 FROM rbac_roles WHERE id=:id FOR UPDATE"), {"id": str(role_id)})
+    plan = policies.plan_role_policy(conn, school_id=actor.school_id, role=role, desired=desired)
+    if not plan["create"] and not plan["withdraw"]:
+        return 200, {"role_id": str(role_id), "status": "UNCHANGED", "added": [], "removed": []}
+    _assert_can_delegate(actor, plan["added"])
+    verdict = policies.evaluate(conn, school_id=actor.school_id, actor=actor, added=set(plan["added"]),
+                                affected_members=policies.holders(conn, actor.school_id, role_id),
+                                self_hit="Vous détenez ce rôle" if _holds_role(conn, actor, role_id) else None,
+                                kind="ROLE_POLICY", approving=approving)
+    if verdict["effect"] == "BLOCK" or (verdict["effect"] == "WARN" and not (acknowledge or approving)):
+        raise policies.sod_error(verdict)
+    if verdict["effect"] == "REQUIRE_APPROVAL" and not approving:
+        return 202, _create_request(conn, actor, "ROLE_POLICY", {"role_id": str(role_id), "capabilities": sorted(desired)}, verdict, reason,
+                                    summary=f"Ajuster « {role['label']} » : +{len(plan['added'])} / −{len(plan['removed'])}")
+    policies.apply_role_policy(conn, school_id=actor.school_id, role_id=role_id, plan=plan, reason=reason, user_id=actor.user_id, request_id=request_id)
+    policies.assert_managers_remain(conn, actor.school_id)
+    out = {"role_id": str(role_id), "role_label": role["label"], "status": "APPLIED", "added": plan["added"], "removed": plan["removed"],
+           "grants": plan["grants"], "revokes": plan["revokes"], "acknowledged_rules": [h["rule"] for h in verdict["rules"]],
+           "request_id": str(request_id) if request_id else None}
+    _audit(conn, actor, "ACCESS_ROLE_POLICY_UPDATED", "rbac_role", role_id, out, reason=reason)
+    return 200, out
+
+
+# --------------------------------------------------------------------------------------- change requests
+@router.get("/requests")
+def change_requests(status: str = Query("PENDING", pattern="^(PENDING|ALL)$"), actor: ActorContext = Depends(require_school_actor),
+                    services: AppServices = Depends(get_services)):
+    _need(actor, "access.roles.read")
+    only_pending = "AND status='PENDING'" if status == "PENDING" else ""
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        rows = conn.execute(text(f"""SELECT id,kind,payload,rules,status,reason,requested_by_user_id,decided_by_user_id,decided_at,decision_reason,created_at
+              FROM rbac_change_requests WHERE school_id=:s {only_pending} ORDER BY created_at DESC LIMIT 100"""), {"s": str(actor.school_id)}).mappings().all()
+    cards = _user_cards(services, {str(r["requested_by_user_id"]) for r in rows} | {str(r["decided_by_user_id"]) for r in rows if r["decided_by_user_id"]})
+    items = []
+    for r in rows:
+        item = _json(dict(r))
+        item["requested_by"] = cards.get(str(r["requested_by_user_id"]), {}).get("full_name")
+        item["decided_by"] = cards.get(str(r["decided_by_user_id"]), {}).get("full_name") if r["decided_by_user_id"] else None
+        item["mine"] = str(r["requested_by_user_id"]) == str(actor.user_id)
+        item["can_decide"] = r["status"] == "PENDING" and not item["mine"] and MANAGER_CAPABILITY in actor.permissions
+        item.pop("requested_by_user_id", None)
+        item.pop("decided_by_user_id", None)
+        items.append(item)
+    return {"items": items}
+
+
+class DecisionInput(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+def _request_for_update(conn, actor: ActorContext, request_id: UUID) -> dict:
+    r = conn.execute(text("SELECT * FROM rbac_change_requests WHERE id=:id AND school_id=:s FOR UPDATE"),
+                     {"id": str(request_id), "s": str(actor.school_id)}).mappings().first()
+    if not r:
+        raise HTTPException(404, "Demande introuvable")
+    if r["status"] != "PENDING":
+        raise HTTPException(409, "Demande déjà traitée")
+    return dict(r)
+
+
+SELF_APPROVAL = {"effect": "BLOCK", "rules": [{"rule": "SELF_ELEVATION", "label": "Personne n’approuve sa propre demande",
+                                               "effect": "BLOCK", "detail": "Vous avez fait cette demande"}]}
+
+
+@router.post("/requests/{request_id}/approve")
+def approve_request(request_id: UUID, b: DecisionInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                    actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """A second access manager approves: never the requester (SELF_ELEVATION, also a database CHECK), never a change
+    that elevates the approver's own rights. The change is re-evaluated against the current state when approved."""
+    _need(actor, MANAGER_CAPABILITY)
+
+    def action(conn):
+        r = _request_for_update(conn, actor, request_id)
+        if str(r["requested_by_user_id"]) == str(actor.user_id):
+            raise policies.sod_error(SELF_APPROVAL)
+        payload = r["payload"]
+        if r["kind"] == "ROLE_POLICY":
+            _, result = _apply_policy(conn, actor, UUID(payload["role_id"]), set(payload["capabilities"]), r["reason"],
+                                      acknowledge=True, approving=True, request_id=request_id)
+        else:
+            body = AssignInput(**{k: v for k, v in payload.items() if k in AssignInput.model_fields})
+            _, result = _assign_core(conn, actor, UUID(payload["membership_id"]), body, approving=True, request_id=request_id)
+        conn.execute(text("""UPDATE rbac_change_requests SET status='APPROVED', decided_by_user_id=:u, decided_at=now(), decision_reason=:d WHERE id=:id"""),
+                     {"u": str(actor.user_id), "d": b.reason, "id": str(request_id)})
+        out = {"request_id": str(request_id), "status": "APPROVED", "result": result}
+        _audit(conn, actor, "ACCESS_CHANGE_APPROVED", "rbac_change_request", request_id, out, reason=b.reason)
+        return 200, out
+
+    return _idempotent(services, actor, idempotency_key, "ACCESS_REQUEST_APPROVE", {"request": str(request_id), **b.model_dump()}, action)
+
+
+@router.post("/requests/{request_id}/reject")
+def reject_request(request_id: UUID, b: DecisionInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                   actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Another manager rejects; the requester may withdraw (cancel) their own request."""
+    _need(actor, MANAGER_CAPABILITY)
+
+    def action(conn):
+        r = _request_for_update(conn, actor, request_id)
+        mine = str(r["requested_by_user_id"]) == str(actor.user_id)
+        status = "CANCELLED" if mine else "REJECTED"
+        conn.execute(text("""UPDATE rbac_change_requests SET status=:st, decided_by_user_id=:u, decided_at=now(), decision_reason=:d WHERE id=:id"""),
+                     {"st": status, "u": str(actor.user_id), "d": b.reason, "id": str(request_id)})
+        out = {"request_id": str(request_id), "status": status}
+        _audit(conn, actor, f"ACCESS_CHANGE_{status}", "rbac_change_request", request_id, out, reason=b.reason)
+        return 200, out
+
+    return _idempotent(services, actor, idempotency_key, "ACCESS_REQUEST_REJECT", {"request": str(request_id), **b.model_dump()}, action)
+
+
+# --------------------------------------------------------------------------------------- separation of duties
+@router.get("/sod")
+def sod_rules(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, "access.roles.read")
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        items = policies.rules(conn, actor.school_id)
+    return {"items": [_json(r) for r in items], "effects": policies.SEVERITY}
+
+
+class SodInput(BaseModel):
+    effect: Literal["ALLOW", "WARN", "REQUIRE_APPROVAL", "BLOCK"]
+    reason: str = Field(min_length=5, max_length=500)
+
+
+@router.put("/sod/{code}")
+def update_sod(code: str, b: SodInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+               actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """The school sets its own level for an overridable constraint; critical rules (SELF_ELEVATION) are fixed."""
+    _need(actor, MANAGER_CAPABILITY)
+
+    def action(conn):
+        rule = next((r for r in policies.rules(conn, actor.school_id) if r["code"] == code), None)
+        if rule is None:
+            raise HTTPException(404, "Règle introuvable")
+        if not rule["school_overridable"]:
+            raise HTTPException(409, "Règle critique : son niveau est fixé par la plateforme")
+        conn.execute(text("""INSERT INTO rbac_school_sod_overrides(school_id,rule_code,effect,reason,updated_by_user_id)
+            VALUES(:s,:c,:e,:r,:u) ON CONFLICT (school_id,rule_code) DO UPDATE SET effect=EXCLUDED.effect, reason=EXCLUDED.reason,
+            updated_by_user_id=EXCLUDED.updated_by_user_id, updated_at=now(), version=rbac_school_sod_overrides.version+1"""),
+                     {"s": str(actor.school_id), "c": code, "e": b.effect, "r": b.reason, "u": str(actor.user_id)})
+        out = {"rule": code, "effect": b.effect, "previous": rule["effect"]}
+        _audit(conn, actor, "ACCESS_SOD_RULE_UPDATED", "rbac_sod_rule", uuid4(), out, reason=b.reason)
+        return 200, out
+
+    return _idempotent(services, actor, idempotency_key, "ACCESS_SOD_UPDATE", {"rule": code, **b.model_dump()}, action)
+
+
+# --------------------------------------------------------------------------------------- assisted conversion of a cloned role
+def _member_roles(conn, actor: ActorContext, membership_id: str) -> list[str]:
+    return [str(r[0]) for r in conn.execute(text("""SELECT role_id FROM rbac_assignments WHERE school_id=:s AND membership_id=:m AND active
+        AND valid_from<=now() AND (valid_until IS NULL OR valid_until>now())"""), {"s": str(actor.school_id), "m": membership_id})]
+
+
+def _member_exceptions(conn, actor: ActorContext, membership_id: str) -> set[str]:
+    return {r[0] for r in conn.execute(text("""SELECT capability_code FROM rbac_exception_grants WHERE school_id=:s AND membership_id=:m
+        AND active AND valid_from<=now() AND valid_until>now()"""), {"s": str(actor.school_id), "m": membership_id})}
+
+
+def _conversion(conn, actor: ActorContext, custom_id: UUID, standard_id: UUID | None) -> dict:
+    """Proof-based conversion of a SCHOOL_CUSTOM clone into « standard role + school policy ». Never automatic: every
+    member holding either role is simulated; the conversion is refused if one of them would gain or lose an ACTIVE
+    capability (format aliases follow their canonical *.export, PLANNED / DEPRECATED capabilities protect nothing)."""
+    custom = _role(conn, custom_id)
+    if custom["kind"] != "SCHOOL_CUSTOM" or str(custom["school_id"]) != str(actor.school_id) or custom["status"] != "ACTIVE":
+        raise HTTPException(409, "Seul un rôle actif propre à l’école se convertit")
+    active = _active_only(conn)
+    custom_caps = active(_role_caps(conn, custom_id))
+    standards = [dict(r) for r in conn.execute(text("""SELECT id,code,label,kind,school_id,status,description,version FROM rbac_roles
+        WHERE kind='SCHOOL_STANDARD' AND status='ACTIVE'""")).mappings()]
+    def score(r):
+        base = active(policies.baseline(conn, r["id"]))
+        return len(custom_caps & base) / max(1, len(custom_caps | base))
+    candidates = sorted(({"id": str(r["id"]), "label": r["label"], "similarity": round(score(r), 3)} for r in standards), key=lambda x: -x["similarity"])
+    wanted = str(standard_id) if standard_id else candidates[0]["id"]
+    target = next((r for r in standards if str(r["id"]) == wanted), None)
+    if target is None:
+        raise HTTPException(404, "Rôle standard introuvable")
+    plan = policies.plan_role_policy(conn, school_id=actor.school_id, role=target, desired=custom_caps)
+    new_target = active((policies.baseline(conn, target["id"]) - set(plan["revokes"])) | set(plan["grants"]))
+    members = sorted(set(policies.holders(conn, actor.school_id, custom_id)) | set(policies.holders(conn, actor.school_id, target["id"])))
+    proof, blockers = [], []
+    for mid in members:
+        held = _member_roles(conn, actor, mid)
+        before = active(policies.member_effective(conn, actor.school_id, mid))
+        after = active(_member_exceptions(conn, actor, mid))
+        for rid in held:
+            after |= new_target if rid in (str(custom_id), str(target["id"])) else active(_role_caps_here(conn, actor, _role(conn, rid)))
+        if str(custom_id) in held and str(target["id"]) in held:
+            blockers.append({"membership_id": mid, "reason": "détient déjà le rôle standard et le rôle à convertir"})
+        elif before != after:
+            blockers.append({"membership_id": mid, "gained": sorted(after - before), "lost": sorted(before - after)})
+        proof.append({"membership_id": mid, "identical": before == after, "before": sorted(before)})
+    return {"custom": _json(custom), "target": _json(target), "candidates": candidates[:3],
+            "plan": {"grants": plan["grants"], "revokes": plan["revokes"]},
+            "members": [{k: v for k, v in m.items() if k != "before"} for m in proof], "blockers": blockers,
+            "convertible": not blockers, "_proof": proof}
+
+
+@router.get("/roles/{role_id}/conversion-preview")
+def conversion_preview(role_id: UUID, standard_role_id: UUID | None = Query(None), actor: ActorContext = Depends(require_school_actor),
+                       services: AppServices = Depends(get_services)):
+    _need(actor, "access.roles.read")
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        out = _conversion(conn, actor, role_id, standard_role_id)
+    out.pop("_proof")
+    return out
+
+
+class ConvertInput(BaseModel):
+    standard_role_id: UUID
+    reason: str = Field(min_length=5, max_length=500)
+
+
+@router.post("/roles/{role_id}/convert")
+def convert_role(role_id: UUID, b: ConvertInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                 actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Applies a conversion whose simulation proves nobody's effective capabilities change, reassigns the members (same
+    scopes and end dates), archives the clone, then re-checks every member in the same transaction. Audited."""
+    _need(actor, MANAGER_CAPABILITY)
+    _need(actor, "access.permissions.assign")
+
+    def action(conn):
+        preview = _conversion(conn, actor, role_id, b.standard_role_id)
+        if not preview["convertible"]:
+            raise HTTPException(409, {"code": "CONVERSION_NOT_IDENTICAL", "message": "Conversion refusée : des droits effectifs changeraient",
+                                      "blockers": preview["blockers"]})
+        if _holds_role(conn, actor, role_id) or _holds_role(conn, actor, b.standard_role_id):
+            raise policies.sod_error({"effect": "BLOCK", "rules": [{"rule": "SELF_ELEVATION", "label": "Personne ne convertit un rôle qu’il détient",
+                                                                     "effect": "BLOCK", "detail": "Vous détenez l’un de ces rôles"}]})
+        target = _role(conn, b.standard_role_id)
+        active = _active_only(conn)
+        plan = policies.plan_role_policy(conn, school_id=actor.school_id, role=target, desired=active(_role_caps(conn, role_id)))
+        policies.apply_role_policy(conn, school_id=actor.school_id, role_id=target["id"], plan=plan, reason=b.reason, user_id=actor.user_id)
+        moved = 0
+        for a in conn.execute(text("""SELECT id,user_id,membership_id,valid_until FROM rbac_assignments WHERE role_id=:r AND school_id=:s AND active
+                AND (valid_until IS NULL OR valid_until>now())"""), {"r": str(role_id), "s": str(actor.school_id)}).mappings().all():
+            scopes = conn.execute(text("SELECT scope_type,scope_value FROM rbac_assignment_scopes WHERE assignment_id=:a"), {"a": str(a["id"])}).all()
+            conn.execute(text("UPDATE rbac_assignments SET active=false,version=version+1,updated_at=now() WHERE id=:a"), {"a": str(a["id"])})
+            nid = conn.execute(text("""INSERT INTO rbac_assignments(user_id,role_id,school_id,membership_id,valid_until,granted_by_user_id,reason)
+                VALUES(:u,:r,:s,:m,:vu,:by,:reason) RETURNING id"""), {"u": str(a["user_id"]), "r": str(target["id"]), "s": str(actor.school_id),
+                                                                     "m": str(a["membership_id"]), "vu": a["valid_until"], "by": str(actor.user_id),
+                                                                     "reason": "Conversion assistée : " + b.reason}).scalar_one()
+            for t, v in scopes:
+                conn.execute(text("INSERT INTO rbac_assignment_scopes(assignment_id,scope_type,scope_value) VALUES(:a,:t,:v)"), {"a": str(nid), "t": t, "v": v})
+            moved += 1
+        conn.execute(text("UPDATE rbac_roles SET status='ARCHIVED',version=version+1,updated_at=now() WHERE id=:r"), {"r": str(role_id)})
+        changed = [m["membership_id"] for m in preview["_proof"] if active(policies.member_effective(conn, actor.school_id, m["membership_id"])) != set(m["before"])]
+        if changed:
+            raise HTTPException(409, f"Conversion annulée : la vérification après application a détecté {len(changed)} différence(s)")
+        policies.assert_managers_remain(conn, actor.school_id)
+        out = {"custom_role_id": str(role_id), "standard_role_id": str(target["id"]), "members_moved": moved, "plan": preview["plan"],
+               "proof": {"members_checked": len(preview["_proof"]), "identical": True}}
+        _audit(conn, actor, "ACCESS_ROLE_CONVERTED", "rbac_role", role_id, out, reason=b.reason)
+        return 200, out
+
+    return _idempotent(services, actor, idempotency_key, "ACCESS_ROLE_CONVERT", {"role": str(role_id), **b.model_dump(mode="json")}, action)
+
+
+# --------------------------------------------------------------------------------------- authoritative projection
+@router.get("/me")
+def access_me(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """What the signed-in member may see and do in this school (owner decision 8): effective capabilities and scopes,
+    roles, navigation, dashboard widgets and shortcuts — computed here, never guessed by the browser."""
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        roles = conn.execute(text("""SELECT r.id,r.code,r.label,r.kind,a.valid_until,
+              (SELECT coalesce(json_agg(json_build_object('type',s.scope_type,'value',s.scope_value) ORDER BY s.scope_type,s.scope_value),'[]')
+                 FROM rbac_assignment_scopes s WHERE s.assignment_id=a.id) scopes,
+              (SELECT count(*) FROM rbac_school_role_policies p WHERE p.active AND p.school_id=a.school_id AND p.role_id=r.id) adjustments
+            FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id AND r.status='ACTIVE'
+            WHERE a.membership_id=:m AND a.school_id=:s AND a.active AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())
+            ORDER BY CASE r.kind WHEN 'SCHOOL_STANDARD' THEN 0 ELSE 1 END, r.label"""),
+                             {"m": str(actor.membership_id), "s": str(actor.school_id)}).mappings().all()
+        lifecycle = {r[0]: r[1] for r in conn.execute(text("SELECT code, lifecycle FROM capability_catalog"))}
+    caps = set(actor.permissions)
+    scoped = sorted({(c, t, v) for c, t, v in actor.capability_scopes if t != "SCHOOL" and lifecycle.get(c) == "ACTIVE"})
+    return {"membership_id": str(actor.membership_id), "school_id": str(actor.school_id),
+            "roles": [{**_json(dict(r)), "standard": r["kind"] == "SCHOOL_STANDARD", "adjusted": r["adjustments"] > 0} for r in roles],
+            "role_label": " · ".join(r["label"] for r in roles) or "Membre",
+            "permissions": sorted(c for c in caps if lifecycle.get(c) in ("ACTIVE", "ALIAS")),
+            "scoped": [{"capability": c, "type": t, "value": v} for c, t, v in scoped],
+            "navigation": projection.navigation(caps), "widgets": projection.widgets(caps), "actions": projection.actions(caps)}
+
+
+@router.get("/dashboard")
+def admin_dashboard(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Data of the administration widgets, each section only when its capability is held."""
+    caps = set(actor.permissions)
+    out: dict[str, Any] = {}
+    sid = {"s": str(actor.school_id)}
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        if "access.users.read" in caps:
+            out["access.members"] = dict(conn.execute(text("""SELECT count(*) FILTER (WHERE m.active) active, count(*) FILTER (WHERE NOT m.active) inactive,
+                  count(*) FILTER (WHERE m.active AND NOT EXISTS (SELECT 1 FROM rbac_assignments a WHERE a.membership_id=m.id AND a.active
+                     AND (a.valid_until IS NULL OR a.valid_until>now()))) without_role,
+                  (SELECT count(*) FROM rbac_assignments a WHERE a.school_id=:s AND a.active AND a.valid_until BETWEEN now() AND now()+interval '30 days') expiring
+                FROM school_memberships m WHERE m.school_id=:s"""), sid).mappings().one())
+        if "access.roles.manage" in caps:
+            out["access.requests"] = {
+                "pending": conn.execute(text("SELECT count(*) FROM rbac_change_requests WHERE school_id=:s AND status='PENDING'"), sid).scalar_one(),
+                "adjusted_roles": conn.execute(text("SELECT count(DISTINCT role_id) FROM rbac_school_role_policies WHERE school_id=:s AND active"), sid).scalar_one()}
+        if "settings.academic_year.read" in caps:
+            years = conn.execute(text("SELECT label,status,start_date,end_date FROM academic_years WHERE school_id=:s ORDER BY start_date DESC LIMIT 3"), sid).mappings().all()
+            out["settings.academic_year"] = {"years": [_json(dict(y)) for y in years], "active": next((y["label"] for y in years if y["status"] == "ACTIVE"), None)}
+        if "settings.structure.read" in caps:
+            out["settings.structure"] = dict(conn.execute(text("""SELECT (SELECT count(*) FROM school_sections WHERE school_id=:s AND enabled) sections,
+                  (SELECT count(*) FROM school_classes c JOIN academic_years y ON y.id=c.academic_year_id AND y.status='ACTIVE'
+                    WHERE c.school_id=:s AND c.enabled) classes"""), sid).mappings().one())
+        if "audit.school.read" in caps:
+            rows = conn.execute(text("""SELECT occurred_at,action,actor_user_id FROM audit_events WHERE school_id=:s
+                  AND (action LIKE 'ACCESS_%' OR action LIKE 'SETTINGS_%' OR action LIKE 'ACADEMIC_YEAR_%') ORDER BY occurred_at DESC LIMIT 8"""), sid).mappings().all()
+        else:
+            rows = []
+    if rows:
+        names = _user_cards(services, {str(r["actor_user_id"]) for r in rows if r["actor_user_id"]})
+        out["audit.recent"] = [{"at": _json(r["occurred_at"]), "action": r["action"], "actor": names.get(str(r["actor_user_id"]), {}).get("full_name")} for r in rows]
+    elif "audit.school.read" in caps:
+        out["audit.recent"] = []
+    return out

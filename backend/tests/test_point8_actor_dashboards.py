@@ -10,22 +10,25 @@ def test_home_is_real_and_default():
     assert '<HomePage' in APP
     assert 'Tableau de bord général à porter dans un lot suivant' not in APP
 
-def test_actor_models_are_permission_driven_not_job_title_hardcoded():
-    for model in ('GOVERNANCE','SCHOOL_DIRECTION','FINANCE','CASHIER','SECRETARIAT','INTENDANCE'):
-        assert model in HOME
-    assert "permissions:string[]" in HOME
-    assert "finance.checkout.collect" in HOME and "inventory.stock.issue" in HOME
+PROJ=(ROOT/'backend/src/edusync/modules/access/application/projection.py').read_text(encoding='utf-8')
 
-def test_secondary_school_direction_stays_schooling_first():
-    assert "Effectifs de mon périmètre" in HOME
-    assert "Lecture scolaire prioritaire; la finance reste secondaire." in HOME
-    assert "Recouvrement de mon périmètre" in HOME
 
-def test_cashier_knows_school_headcount_but_keeps_cash_first():
-    assert "Poste de caisse" in HOME
-    assert "Élèves actifs" in HOME
-    assert "Encaisser rapidement" in HOME
-    assert "Solde théorique CDF" in HOME
+def test_actor_dashboards_are_capability_driven_not_job_title_hardcoded():
+    # Owner decision 9 (2026-10-23): no profile guessed in the browser — each widget declares its capabilities server-side.
+    assert "modelOf" not in HOME and "GOVERNANCE" not in HOME and "permissions:string[]" not in HOME
+    assert "me:AccessMe" in HOME and "me.widgets" in HOME
+    for wid, cap in (("cash.today", "finance.cash.open"), ("checkout.quick", "finance.checkout.collect"), ("headcounts.summary", "headcounts.read"),
+                     ("finance.recovery", "finance.recovery.monthly.read"), ("inventory.stock", "inventory.stock.read"), ("access.members", "access.users.read")):
+        assert f'"id": "{wid}"' in PROJ and f'"{cap}"' in PROJ
+
+
+def test_school_direction_sees_headcounts_and_its_scoped_recovery():
+    assert '"id": "headcounts.summary"' in PROJ and '"id": "headcounts.movements"' in PROJ and '"id": "finance.recovery"' in PROJ
+
+
+def test_cashier_keeps_cash_first():
+    assert "Ma caisse du jour" in PROJ and "Encaisser rapidement" in PROJ and "Solde théorique CDF" in HOME
+
 
 def test_recovery_monthly_is_scope_aware_for_prefet_and_secondary_directors():
     assert "scopes=()" in REC
@@ -34,5 +37,5 @@ def test_recovery_monthly_is_scope_aware_for_prefet_and_secondary_directors():
     assert "actor.scopes_for('finance.recovery.monthly.read')" in ROUTER
 
 def test_intendance_does_not_invent_point9_metrics():
-    # Wording rewritten for end users (2026-10 certification); intent unchanged: no invented stewardship data.
-    assert "Aucune donnée d’intendance n’est encore enregistrée" in HOME
+    # Stewardship cards show real stock alerts / counts only; an empty state says so instead of inventing figures.
+    assert "Aucun stock sous son seuil d’alerte." in HOME and "Aucun inventaire en cours." in HOME

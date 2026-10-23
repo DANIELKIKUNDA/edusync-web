@@ -211,13 +211,13 @@ class PostgresMembershipRepository:
         Resource-scope authorization still belongs to PostgresAuthorizationRepository;
         this union is intentionally only a coarse capability list for menu rendering.
         """
-        rows = self.connection.execute(text("""
-            SELECT DISTINCT capability_code
-              FROM (
-                SELECT rc.capability_code
+        from edusync.adapters.rbac_effective import ALIAS_EXPANSION, ASSIGNMENT_CAPABILITIES
+        rows = self.connection.execute(text(f"""
+            WITH held(code) AS (
+                SELECT ac.capability_code
                   FROM rbac_assignments a
                   JOIN rbac_roles r ON r.id=a.role_id AND r.status='ACTIVE'
-                  JOIN rbac_role_capabilities rc ON rc.role_id=r.id
+                  CROSS JOIN LATERAL ({ASSIGNMENT_CAPABILITIES}) ac
                  WHERE a.membership_id=:mid AND a.active=true
                    AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())
                 UNION
@@ -225,8 +225,8 @@ class PostgresMembershipRepository:
                   FROM rbac_exception_grants eg
                  WHERE eg.membership_id=:mid AND eg.active=true
                    AND eg.valid_from<=now() AND eg.valid_until>now()
-              ) q
-             ORDER BY capability_code
+            ){ALIAS_EXPANSION}
+             ORDER BY 1
         """), {"mid": membership_id}).all()
         return frozenset(str(r[0]) for r in rows)
 

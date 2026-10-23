@@ -41,6 +41,6 @@ def test_movements_are_filtered_paged_and_do_not_merge_years():
 def test_api_exposes_preserved_effectifs_and_deposit_contracts():
     for route in ['/overview','/counts','/movements','/deposits','/exports/counts.pdf','/exports/counts.xlsx','/print/counts.pdf','/exports/deposits.xlsx']:
         assert route in ROUTER
-    for cap in ['headcounts.read','headcounts.by_class.read','headcounts.by_section.read','headcounts.by_option.read','headcounts.movements.read','headcounts.export_xlsx','headcounts.export_pdf','headcounts.print','contributions.record','contributions.register.read','contributions.register.export_xlsx']:
+    for cap in ['headcounts.read','headcounts.by_class.read','headcounts.by_section.read','headcounts.by_option.read','headcounts.movements.read','headcounts.export','contributions.record','contributions.register.read','contributions.register.export_xlsx']:
         assert cap in ROUTER
     assert 'effectifs_router' in APP and 'POINT-4D-EFFECTIFS-DEPOTS' in APP

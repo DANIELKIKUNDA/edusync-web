@@ -12,7 +12,7 @@ def test_atelier_pro_frontend_no_longer_placeholder_nav():
     s=(ROOT/'frontend/src/App.tsx').read_text()
     assert 'Administration technique légère de la plateforme' not in s
     # Closure 2026-10: shell replaced by platform/shell.tsx (AppShell); same intent, new implementation.
-    for label in ('Tableau de bord','Écoles','Accès','Journal d’audit','État du service'):
+    for label in ('Tableau de bord','Écoles','accès','Journal d’audit','État du service'):
         assert label in s
     # N1 certification 2026-10 (justified adaptation): the audit journal moved to platform/audit.tsx on the
     # filtered /platform/audit-log endpoint; it is still keyset-paginated by cursor (same intent).

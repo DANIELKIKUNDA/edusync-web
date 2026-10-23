@@ -86,26 +86,57 @@ class PostgresAuthorizationRepository:
         for menu rendering: a SCHOOL scope attached to role A may not widen a
         SECTION-scoped capability that came only from role B.
         """
-        rows = self.connection.execute(text("""
-            SELECT DISTINCT rc.capability_code, s.scope_type, s.scope_value
-              FROM rbac_assignments a
-              JOIN rbac_roles r ON r.id=a.role_id AND r.status='ACTIVE'
-              JOIN rbac_role_capabilities rc ON rc.role_id=r.id
-              JOIN rbac_assignment_scopes s ON s.assignment_id=a.id
-             WHERE a.user_id=:uid AND a.school_id=:sid AND a.active=true
-               AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())
-            UNION
-            SELECT eg.capability_code,eg.scope_type,eg.scope_value
-              FROM rbac_exception_grants eg
-             WHERE eg.user_id=:uid AND eg.school_id=:sid AND eg.active=true
-               AND eg.valid_from<=now() AND eg.valid_until>now()
+        from edusync.adapters.rbac_effective import ASSIGNMENT_CAPABILITIES
+        rows = self.connection.execute(text(f"""
+            WITH held(code, scope_type, scope_value) AS (
+                SELECT DISTINCT ac.capability_code, s.scope_type, s.scope_value
+                  FROM rbac_assignments a
+                  JOIN rbac_roles r ON r.id=a.role_id AND r.status='ACTIVE'
+                  CROSS JOIN LATERAL ({ASSIGNMENT_CAPABILITIES}) ac
+                  JOIN rbac_assignment_scopes s ON s.assignment_id=a.id
+                 WHERE a.user_id=:uid AND a.school_id=:sid AND a.active=true
+                   AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())
+                UNION
+                SELECT eg.capability_code,eg.scope_type,eg.scope_value
+                  FROM rbac_exception_grants eg
+                 WHERE eg.user_id=:uid AND eg.school_id=:sid AND eg.active=true
+                   AND eg.valid_from<=now() AND eg.valid_until>now()
+            ), canon AS (
+                SELECT code, scope_type, scope_value FROM held
+                UNION SELECT k.alias_of, h.scope_type, h.scope_value FROM held h JOIN capability_catalog k ON k.code=h.code AND k.alias_of IS NOT NULL
+            )
+            SELECT code, scope_type, scope_value FROM canon
+            UNION SELECT k.code, c.scope_type, c.scope_value FROM canon c JOIN capability_catalog k ON k.alias_of=c.code
              ORDER BY 1,2,3
         """), {"uid":user_id,"sid":school_id}).all()
         return tuple((str(r[0]),str(r[1]),None if r[2] is None else str(r[2])) for r in rows)
 
+    def _apply_school_policies(self, roles: dict[UUID, Role], school_id: UUID) -> None:
+        """standard role + school GRANT - school REVOKE, then format aliases (rbac_effective.py)."""
+        from edusync.adapters.rbac_effective import expand_aliases
+        aliases = {str(r[0]): str(r[1]) for r in self.connection.execute(text(
+            "SELECT code, alias_of FROM capability_catalog WHERE alias_of IS NOT NULL")).all()}
+        if not roles:
+            return
+        stmt = text("""SELECT role_id, capability_code, effect FROM rbac_school_role_policies
+                        WHERE active AND school_id=:sid AND role_id IN :ids""").bindparams(bindparam("ids", expanding=True))
+        policies = self.connection.execute(stmt, {"sid": school_id, "ids": list(roles)}).all()
+        for rid, role in roles.items():
+            caps = set(role.capability_codes)
+            for prid, cap, effect in policies:
+                if prid != rid:
+                    continue
+                if effect == 'REVOKE':
+                    caps -= {cap} | {v for v, c in aliases.items() if c == cap}
+                else:
+                    caps.add(cap)
+            role.capability_codes = expand_aliases(caps, aliases)
+
     def authorize(self, context: AuthorizationContext) -> AuthorizationDecision:
         assignments=self.effective_role_assignments(context.user_id, context.school_id)
         roles=self.roles({a.role_id for a in assignments})
+        if context.school_id is not None:
+            self._apply_school_policies(roles, context.school_id)
         base=decide(context, assignments, roles)
         if base.allowed:
             return base

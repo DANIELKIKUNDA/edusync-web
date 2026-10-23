@@ -412,9 +412,9 @@ def test_access_governance_guardrails_are_enforced_server_side():
     assert "code NOT LIKE 'platform.%'" in s                                   # no platform capability
     assert s.count("_assert_managers_remain(conn, actor.school_id)") == 3      # never zero access managers (role edit, revoke, N2 member deactivation)
     assert "Les rôles standards ne se modifient pas" in s                      # standard roles immutable
-    assert s.count("_idempotent(services, actor, idempotency_key") == 5        # every role mutation idempotent
+    assert s.count("_idempotent(services, actor, idempotency_key") == 10       # every role mutation idempotent (+ policies, requests, SoD, conversion 2026-10-23)
     assert s.count("_idempotent_iam(services, actor,") >= 3                     # N2 member mutations idempotent (create, rename, (de)activate; reset never replayed)
-    assert s.count('_audit(conn, actor, "ACCESS_') == 9                        # every mutation journaled (5 role + 4 member call sites)
+    assert s.count('_audit(conn, actor, "ACCESS_') == 14                       # every mutation journaled (5 role + 4 member + policy, request, SoD, conversion call sites)
 
 
 def test_access_names_resolved_only_for_this_schools_members():
@@ -426,7 +426,10 @@ def test_access_names_resolved_only_for_this_schools_members():
 def test_access_screen_is_wired_into_school_navigation():
     app = (ROOT.parent / "frontend/src/App.tsx").read_text(encoding="utf-8")
     # Closure 2026-10: navigation icons are SVG keys, no emoji.
-    assert "['lock','Accès & rôles','access']" in app and "access:['access.roles.read','audit.school.read']" in app
+    # 2026-10-23: the school menu is computed by the server (/access/me) from effective capabilities.
+    proj = (SRC / "modules/access/application/projection.py").read_text(encoding="utf-8")
+    assert '("access", "Accès & rôles", "lock", ("access.users.read", "access.roles.read", "audit.school.read"))' in proj
+    assert "getAccessMe(session.token)" in app
     assert "module==='access'?<AccessPage" in app
     main = (SRC / "bootstrap/app.py").read_text(encoding="utf-8")
     assert 'prefix="/api/v1/access"' in main

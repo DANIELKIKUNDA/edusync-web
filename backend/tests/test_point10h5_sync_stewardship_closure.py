@@ -9,7 +9,7 @@ def test_asset_column_matches_migration_and_count_is_fail_closed():
  assert "@router.get('/asset-types')" in r
 def test_sync_admin_is_permission_driven_and_mounted_in_shell():
  a=read('frontend/src/App.tsx'); s=read('frontend/src/sync_admin.tsx')
- assert "sync:['sync.']" in a and "module==='sync'" in a
+ assert '("sync", "Synchronisation", "sync", ("sync.status.read",))' in read('backend/src/edusync/modules/access/application/projection.py') and "module==='sync'" in a
  assert "sync.device.register" in s and "sync.device.revoke" in s and "sync.conflicts.read" in s
 def test_api_has_operational_stewardship_and_sync_clients():
  a=read('frontend/src/api.ts')

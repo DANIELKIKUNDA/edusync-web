@@ -40,7 +40,9 @@ type TeamPreset={openMember?:string;addExisting?:{id:string;full_name:string;ema
 const HealthPanel=lazy(()=>import('./platform/health').then(m=>({default:m.HealthPanel})));
 const AuditPanel=lazy(()=>import('./platform/audit').then(m=>({default:m.AuditPanel})));
 const CampaignsPanel=lazy(()=>import('./platform/campaigns').then(m=>({default:m.CampaignsPanel})));
-import {platformMe,platformAvatarBlob,uploadPlatformAvatar,deletePlatformAvatar,type PlatformMe} from './api';
+import {platformMe,platformAvatarBlob,uploadPlatformAvatar,deletePlatformAvatar,getAccessMe,type AccessMe,type PlatformMe} from './api';
+import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
+import {PageTrail} from './platform/navigation';
 import {installMobileBackCoordinator,installUnsavedFormGuard,pushMobileScreen,replaceMobileRoot} from './platform/mobile_back';
 import {confirmAction,promptText} from './platform/dialogs';
 import {formatDate,formatMoney,PERIODICITY_LABEL,suggestNextYear} from './platform/format';
@@ -106,16 +108,16 @@ function AtelierPro({token,user,onLogout,onSwitchSpace}:{token:string;user:Platf
     {stepUp&&<StepUpDialog token={token} onDone={ok=>{stepUp(ok);setStepUp(null)}}/>}
     {!me&&!error&&<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}
     {creatingSchool&&<SchoolFormDialog token={token} has={has} onClose={()=>setCreatingSchool(false)} onCreated={id=>{setCreatingSchool(false);void refresh();setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')}}/>}
-    {tab==='team'&&can('team')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><TeamPage token={token} preset={teamPreset} onChanged={()=>{void platformMe(token).then(setMe).catch(()=>undefined)}}/></Suspense>}
-    {me&&can('dashboard')&&<div hidden={tab!=='dashboard'}><PlatformDashboard key={dashKey} token={token} userName={me?.user.full_name||user.full_name} can={can} has={has} onOpen={openTarget} onCreateSchool={()=>setCreatingSchool(true)}/></div>}
-    {can('schools')&&(schoolsVisited||tab==='schools')&&<div hidden={tab!=='schools'}><SchoolsModule token={token} has={has} preset={schoolsPreset} active={tab==='schools'} onChanged={()=>setDashKey(k=>k+1)}/></div>}
-    {can('access')&&(accessVisited||tab==='access')&&<div hidden={tab!=='access'}><AccessDirectory token={token} has={has} preset={accessPreset} active={tab==='access'} onOpenSchool={id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')}} onOpenTeam={t=>{setTeamPreset({...t,nonce:Date.now()});goTab('team')}}/></div>}
-    {tab==='notifications'&&can('notifications')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><CampaignsPanel token={token} canTeam={has('platform.collaborators.manage')}/></Suspense>}
-    {tab==='audit'&&can('audit')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><AuditPanel token={token} canExport={has('platform.audit.export')} links={{canSchools:can('schools'),canTeam:can('team'),canAccess:can('access'),canNotify:can('notifications'),
+    {tab==='team'&&can('team')&&<ScreenBoundary resetKey={tab} label={tab}><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><TeamPage token={token} preset={teamPreset} onChanged={()=>{void platformMe(token).then(setMe).catch(()=>undefined)}}/></Suspense></ScreenBoundary>}
+    {me&&can('dashboard')&&<div hidden={tab!=='dashboard'}><ScreenBoundary label='dashboard'><PlatformDashboard key={dashKey} token={token} userName={me?.user.full_name||user.full_name} can={can} has={has} onOpen={openTarget} onCreateSchool={()=>setCreatingSchool(true)}/></ScreenBoundary></div>}
+    {can('schools')&&(schoolsVisited||tab==='schools')&&<div hidden={tab!=='schools'}><ScreenBoundary label="schools"><SchoolsModule token={token} has={has} preset={schoolsPreset} active={tab==='schools'} onChanged={()=>setDashKey(k=>k+1)}/></ScreenBoundary></div>}
+    {can('access')&&(accessVisited||tab==='access')&&<div hidden={tab!=='access'}><ScreenBoundary label="access"><AccessDirectory token={token} has={has} preset={accessPreset} active={tab==='access'} onOpenSchool={id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')}} onOpenTeam={t=>{setTeamPreset({...t,nonce:Date.now()});goTab('team')}}/></ScreenBoundary></div>}
+    {tab==='notifications'&&can('notifications')&&<ScreenBoundary resetKey={tab} label={tab}><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><CampaignsPanel token={token} canTeam={has('platform.collaborators.manage')}/></Suspense></ScreenBoundary>}
+    {tab==='audit'&&can('audit')&&<ScreenBoundary resetKey={tab} label={tab}><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><AuditPanel token={token} canExport={has('platform.audit.export')} links={{canSchools:can('schools'),canTeam:can('team'),canAccess:can('access'),canNotify:can('notifications'),
       onOpenSchool:id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')},onOpenMember:id=>{setTeamPreset({openMember:id,nonce:Date.now()});goTab('team')},
-      onOpenUser:id=>{setAccessPreset({openUser:id,nonce:Date.now()});goTab('access')},onOpenCampaign:id=>{goTab('notifications');history.replaceState(history.state,'',`${window.location.pathname}?campaign=${id}`)}}}/></Suspense>}
-    {tab==='messaging'&&can('messaging')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformMessaging token={token} canCredit={has('platform.sms_wallet.credit')} canAdjust={has('platform.sms_wallet.adjust')} canRetry={has('platform.messaging.retry')}/></Suspense>}
-    {tab==='diagnostics'&&can('diagnostics')&&<Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><HealthPanel token={token} canMessaging={can('messaging')} onOpenMessaging={()=>goTab('messaging')}/></Suspense>}
+      onOpenUser:id=>{setAccessPreset({openUser:id,nonce:Date.now()});goTab('access')},onOpenCampaign:id=>{goTab('notifications');history.replaceState(history.state,'',`${window.location.pathname}?campaign=${id}`)}}}/></Suspense></ScreenBoundary>}
+    {tab==='messaging'&&can('messaging')&&<ScreenBoundary resetKey={tab} label={tab}><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformMessaging token={token} canCredit={has('platform.sms_wallet.credit')} canAdjust={has('platform.sms_wallet.adjust')} canRetry={has('platform.messaging.retry')}/></Suspense></ScreenBoundary>}
+    {tab==='diagnostics'&&can('diagnostics')&&<ScreenBoundary resetKey={tab} label={tab}><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><HealthPanel token={token} canMessaging={can('messaging')} onOpenMessaging={()=>goTab('messaging')}/></Suspense></ScreenBoundary>}
     {notificationOpen&&<PlatformNotificationDialog token={token} schools={[]} onClose={()=>setNotificationOpen(false)} onDone={async()=>{setNotificationOpen(false);setSystemNotifications(await platformSystemNotifications(token,0));await refresh()}}/>}
   </Shell>
 }
@@ -241,13 +243,16 @@ function Shell({title,subtitle,onLogout,onSwitchSpace,nav,children,user,token,ro
 
 // POINT 4D frozen navigation contract: ['settings','personnel','students','headcounts','home']
 function SchoolApp({session,onLogout,onSwitchSpace}:{session:SavedSchoolSession;onLogout:()=>void;onSwitchSpace?:()=>void}){const [dialog,setDialog]=useState<''|'profile'|'security'>('');const [module,setModule]=useState('home');const goModule=(next:string)=>{if(next!==module)pushMobileScreen('school',next);setModule(next)};useEffect(()=>{replaceMobileRoot('school','home');const h=(e:Event)=>{const d=(e as CustomEvent).detail;if(d?.edusyncScope==='school'&&d.edusyncScreen)setModule(d.edusyncScreen)};window.addEventListener('edusync:android-back',h);return()=>window.removeEventListener('edusync:android-back',h)},[]);const [shellYears,setShellYears]=useState<AcademicYear[]>([]);const [selectedYearId,setSelectedYearId]=useState('');useEffect(()=>{let alive=true;listYearSelector(session.token).then(years=>{if(!alive)return;setShellYears(years);const saved=localStorage.getItem(`edusync.year.${session.school.id}`);const selected=(saved&&years.some(y=>y.id===saved)?saved:years.find(y=>y.status==='ACTIVE')?.id)||years[0]?.id||'';setSelectedYearId(selected)}).catch(()=>{if(alive)setShellYears([])});return()=>{alive=false}},[session.token,session.school.id]);function selectShellYear(id:string){setSelectedYearId(id);if(id)localStorage.setItem(`edusync.year.${session.school.id}`,id)}const selectedYear=shellYears.find(y=>y.id===selectedYearId);
-  const nav=[['home','Accueil','home'],['settings','Paramètres','settings'],['users','Personnel','personnel'],['students','Élèves & inscriptions','students'],['chart','Effectifs & dépôts','headcounts'],['finance','Centre financier','finance'],['folder','Documents','documents'],['box','Intendance','stewardship'],['sync','Synchronisation','sync'],['bell','Communication','communications'],['lock','Accès & rôles','access']] as const;
-  const prefixes:Record<string,string[]>={settings:['settings.'],personnel:['personnel.'],students:['students.','families.','enrollments.'],headcounts:['headcounts.'],finance:['finance.','contributions.'],documents:['documents.','students.directory.','families.directory.','personnel.directory.','headcounts.export','headcounts.print','finance.views.','finance.reports.'],stewardship:['inventory.'],sync:['sync.'],communications:['communications.','notifications.internal.configure'],access:['access.roles.read','audit.school.read']};
-  const canOpenModule=(key:string)=>key==='home'||(prefixes[key]??[]).some(prefix=>session.permissions.some(p=>p.startsWith(prefix)));
-  const visibleNav=nav.filter(([, ,key])=>canOpenModule(key));
-  const currentLabel=visibleNav.find(([, ,key])=>key===module)?.[1]||'EduSync';
+  // Navigation, widgets and shortcuts come from the server (/access/me, owner decision 8): effective capabilities,
+  // never a guess from prefixes or role names. Until it answers, only the home entry is shown.
+  const [me,setMe]=useState<AccessMe|null>(null),[meError,setMeError]=useState<unknown>(null),[meAttempt,setMeAttempt]=useState(0);
+  useEffect(()=>{let alive=true;getAccessMe(session.token).then(m=>{if(alive){setMe(m);setMeError(null)}}).catch(e=>{if(alive)setMeError(e)});return()=>{alive=false}},[session.token,meAttempt]);
+  const nav=me?.navigation??[{key:'home',label:'Accueil',icon:'home'}];
+  const canOpenModule=(key:string)=>nav.some(x=>x.key===key);
+  useEffect(()=>{if(me&&!canOpenModule(module))setModule('home')},[me]);
+  const currentLabel=nav.find(x=>x.key===module)?.label||'EduSync';
   const shortLabels:Record<string,string>={home:'Accueil',students:'Élèves',finance:'Finance',documents:'Documents'};
-  const shellNav:ShellNavItem[]=visibleNav.map(([icon,label,key])=>({key,label,icon,active:module===key,onSelect:()=>goModule(key),primary:['home','students','finance','documents'].includes(key),shortLabel:shortLabels[key]}));
+  const shellNav:ShellNavItem[]=nav.map(({icon,label,key})=>({key,label,icon,active:module===key,onSelect:()=>goModule(key),primary:['home','students','finance','documents'].includes(key),shortLabel:shortLabels[key]}));
   const yearLabel=selectedYear?.label;
   const account:ShellAccount={name:session.user.full_name,email:session.user.email,context:`${session.school.name} · ${session.school.code}`,detail:yearLabel?(/^ann[ée]e/i.test(yearLabel)?yearLabel:`Année ${yearLabel}`):undefined,items:[
     ...(onSwitchSpace?[{key:'space',label:'Changer d’espace',icon:'layers',onSelect:onSwitchSpace}]:[]),
@@ -257,9 +262,12 @@ function SchoolApp({session,onLogout,onSwitchSpace}:{session:SavedSchoolSession;
     {key:'logout',label:'Se déconnecter',icon:'logout',onSelect:onLogout,danger:true}]};
   const yearSelect=(where:string)=>shellYears.length>0&&<label className={`es-year es-year-${where}`} title="Année scolaire consultée"><NavGlyph g="calendar" size={15}/><span>Année</span><select aria-label="Année scolaire consultée" value={selectedYearId} onChange={e=>selectShellYear(e.target.value)}>{shellYears.map(y=><option key={y.id} value={y.id} title={y.status==='ACTIVE'?'Année en cours':y.status==='CLOSED'?'Année clôturée':undefined}>{y.code||y.label}</option>)}</select></label>;
   const tools=<>{yearSelect('top')}<StatusChip compact={false}/>{session.permissions.includes('notifications.internal.read')&&<NotificationBell token={session.token} canDismiss={session.permissions.includes('notifications.internal.dismiss')}/>}</>;
-  return <AppShell orgLabel={session.school.name} orgCode={session.school.code} drawerTools={yearSelect('drawer')} nav={shellNav} title={currentLabel} context={`${session.school.name}${yearLabel?` · ${yearLabel}`:''}`} tools={tools} account={account}>
+  // Same shell conventions as the platform (owner decision 10): account docked in the sidebar, space switch in the
+  // account menu, breadcrumb back to the home, one local boundary per screen (decision 11).
+  return <AppShell accountDock orgLabel={session.school.name} orgCode={session.school.code} drawerTools={yearSelect('drawer')} nav={shellNav} title={currentLabel} context={`${session.school.name}${yearLabel?` · ${yearLabel}`:''}`} tools={tools} account={account}>
     <OfflineAdminBanner/>
-    <Suspense fallback={<ModuleLoader/>}>{module==='settings'?<SettingsPage session={session}/>:module==='personnel'?<PersonnelPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='students'?<SchoolingPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='headcounts'?<EffectifsPage token={session.token} permissions={session.permissions} schoolName={session.school.name} yearId={selectedYearId||undefined}/>:module==='finance'?<FinancePage token={session.token} permissions={session.permissions}/>:module==='documents'?<DocumentsPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='stewardship'?<StewardshipPage token={session.token} permissions={session.permissions}/>:module==='sync'?<SyncAdminPage token={session.token} permissions={session.permissions}/>:module==='access'?<AccessPage token={session.token} permissions={session.permissions} userName={session.user.full_name}/>:module==='communications'?<CommunicationsPage token={session.token} permissions={session.permissions} schoolId={session.school.id} schoolName={session.school.name}/>:module==='home'?<HomePage token={session.token} permissions={session.permissions} schoolName={session.school.name} userName={session.user.full_name} onNavigate={goModule} yearId={selectedYearId||undefined} yearLabel={selectedYear?.label}/>:<Panel title="Module" subtitle="Ce module sera activé lorsqu’il disposera de ses contrats métier certifiés."><div/></Panel>}</Suspense>
+    {module!=='home'&&<PageTrail parents={[{label:'Accueil',onSelect:()=>goModule('home')}]} current={currentLabel}/>}
+    <ScreenBoundary resetKey={module} label={module}><Suspense fallback={<ModuleLoader/>}>{module==='settings'?<SettingsPage session={session}/>:module==='personnel'?<PersonnelPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='students'?<SchoolingPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='headcounts'?<EffectifsPage token={session.token} permissions={session.permissions} schoolName={session.school.name} yearId={selectedYearId||undefined}/>:module==='finance'?<FinancePage token={session.token} permissions={session.permissions}/>:module==='documents'?<DocumentsPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='stewardship'?<StewardshipPage token={session.token} permissions={session.permissions}/>:module==='sync'?<SyncAdminPage token={session.token} permissions={session.permissions}/>:module==='access'?<AccessPage token={session.token} permissions={session.permissions} userName={session.user.full_name}/>:module==='communications'?<CommunicationsPage token={session.token} permissions={session.permissions} schoolId={session.school.id} schoolName={session.school.name}/>:module==='home'?(me?<HomePage token={session.token} me={me} schoolName={session.school.name} userName={session.user.full_name} onNavigate={goModule} yearId={selectedYearId||undefined} yearLabel={selectedYear?.label}/>:meError?<ScreenError error={meError} onRetry={()=>setMeAttempt(a=>a+1)}/>:<ModuleLoader/>):<Panel title="Module" subtitle="Ce module sera activé lorsqu’il disposera de ses contrats métier certifiés."><div/></Panel>}</Suspense></ScreenBoundary>
     {dialog==='profile'&&<ProfileDialog name={session.user.full_name} email={session.user.email} context={`${session.school.name} · ${session.school.code}`} detail={yearLabel} onClose={()=>setDialog('')}/>}
     {dialog==='security'&&<SecurityDialog token={session.token} onClose={()=>setDialog('')} onPasswordChanged={onLogout}/>}
   </AppShell>}
@@ -283,7 +291,7 @@ export function App(){
     const next=r.scope==='SCHOOL'?spaceKey({scope:'SCHOOL',school_code:r.school?.code}):'PLATFORM';
     let saved='';try{saved=sessionStorage.getItem(`edusync.url.${next}`)||''}catch{/* facultatif */}
     history.replaceState(null,'',window.location.pathname+saved);
-    if(r.scope==='SCHOOL'){setPlatformToken('');setSchoolSession({token:r.access_token,school:r.school,user:r.user,permissions:r.permissions||[]})}
+    if(r.scope==='SCHOOL'){setPlatformToken('');openSchool({token:r.access_token,school:r.school,user:r.user,permissions:r.permissions||[]})}
     else{setSchoolSession(null);setPlatformUser({full_name:r.user?.full_name||'',email:r.user?.email||''});setPlatformToken(r.access_token)}
     toast.success(r.scope==='SCHOOL'?`Espace ouvert : ${r.school?.name}`:'Espace ouvert : Plateforme EduSync');
   }
@@ -312,7 +320,7 @@ export function App(){
           throw new Error('SESSION_SERVICE_UNAVAILABLE');
         }
         const d=await r.json();if(!alive||!d.access_token)return;
-        if(d.scope==='SCHOOL'&&d.school&&d.user){setPlatformAuthState('ONLINE_AUTHENTICATED');setPlatformToken('');setSchoolSession({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]});}
+        if(d.scope==='SCHOOL'&&d.school&&d.user){setPlatformAuthState('ONLINE_AUTHENTICATED');setPlatformToken('');openSchool({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]});}
         else if(d.scope==='PLATFORM'){
           const previous=knownPlatform();
           if(previous&&d.user?.email&&previous.me.user.email.toLowerCase()!==d.user.email.toLowerCase())clearPlatformContext();
@@ -337,6 +345,9 @@ export function App(){
   },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
   function clear(){clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
+  // A school session validated online becomes the school's offline context BEFORE its screens mount, so their first
+  // reads (/access/me, settings…) are already kept for an offline reopening.
+  function openSchool(next:SavedSchoolSession){if(next.token!==OFFLINE_SCHOOL_TOKEN)rememberSchoolContext(next);setSchoolSession(next)}
   // A school session validated online becomes the school's offline context (display only, no token).
   useEffect(()=>{if(schoolSession&&schoolSession.token!==OFFLINE_SCHOOL_TOKEN&&getPlatformAuthState()!=='OFFLINE_AUTHENTICATED_CACHED')rememberSchoolContext(schoolSession)},[schoolSession]);
   useEffect(()=>{if(!restoring)dismissBoot()},[restoring]);
@@ -347,5 +358,5 @@ export function App(){
   const openSwitcher=spaces&&spaces.contexts.length>1?()=>setSwitching(true):undefined;
   if(schoolSession)return <><SchoolApp key={`school:${schoolSession.school.id}`} session={schoolSession} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}</>;
   if(platformToken)return <><AtelierPro key="platform" token={platformToken} user={platformUser} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}</>;
-  return <SecureLogin onPlatform={(token,user)=>{setPlatformUser(user);setPlatformToken(token)}} onSchool={setSchoolSession}/>;
+  return <SecureLogin onPlatform={(token,user)=>{setPlatformUser(user);setPlatformToken(token)}} onSchool={openSchool}/>;
 }

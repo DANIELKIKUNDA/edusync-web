@@ -61,7 +61,7 @@ export function PeriodicReports({token, can}: {token: string; can: (p: string) =
       <div className="reportTitle"><div><span className="eyebrow">{a === b ? a : `${a} → ${b}`} · {MODE_LABEL[report.partial_reporting_mode] ?? report.partial_reporting_mode}</span><h3>{report.profile.title}</h3><small>{report.profile.intro}</small></div>
         <b>{money(report.totals.CDF ?? 0, 'CDF')} · {money(report.totals.USD ?? 0, 'USD')}</b></div>
       <div className="dayActions">{can('finance.reports.periodic.generate') && <button className="collectBtn" disabled={busy} onClick={() => void officialPdf()}>PDF officiel (numéroté)</button>}
-        {can('finance.reports.periodic.export_xlsx') && <button className="softBtn" onClick={() => void excel()}>Excel (sans numéro)</button>}</div>
+        {can('finance.reports.periodic.export') && <button className="softBtn" onClick={() => void excel()}>Excel (sans numéro)</button>}</div>
       <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>N°</th><th>Noms et post-noms</th><th>Classe</th><th>Observation</th><th>FC</th><th>USD</th></tr></thead>
         <tbody>{report.rows.map((r, i) => <tr key={r.payment_id}><td>{i + 1}</td><td><b>{[r.last_name, r.middle_name, r.first_name].filter(Boolean).join(' ') || '—'}</b></td><td>{r.class_label || '—'}</td><td>{r.observation}</td>
           <td>{r.currency === 'CDF' ? money(r.amount, 'CDF') : ''}</td><td>{r.currency === 'USD' ? money(r.amount, 'USD') : ''}</td></tr>)}

@@ -101,7 +101,7 @@ export function SchoolDayPanel({token, can, day}: {token: string; can: (p: strin
       <ul>{d.operations.filter(o => o.payment_id).map(o => <li key={o.payment_id!}><span>{o.reference} · {o.user_name || '—'}</span><b>{money(o.amount, o.currency)}</b>
         {o.reversed ? <small>Contre-opération faite</small> : !d.closed && <button className="ghost" onClick={() => askReversal(o.payment_id!, o.reference)}>Contre-opération</button>}</li>)}</ul></details>}
     <div className="dayActions">
-      {can('finance.cash.journal.export_pdf') && <button className="softBtn" onClick={() => void openPdf(token, 'journal', d.day)}>Journal de caisse (PDF)</button>}
+      {can('finance.cash.journal.export') && <button className="softBtn" onClick={() => void openPdf(token, 'journal', d.day)}>Journal de caisse (PDF)</button>}
       {can('finance.reports.daily.generate') && <button className="softBtn" onClick={() => void openPdf(token, 'report', d.day)}>Rapport journalier (PDF)</button>}
       {can('finance.cash.day.close') && !d.closed && d.day === today && <button className="collectBtn" disabled={busy} onClick={() => void close()}>Clôturer la journée</button>}
       {can('finance.cash.reopen') && d.closed && d.day === today && <button className="softBtn" disabled={busy} onClick={() => void reopen()}>Rouvrir la journée</button>}

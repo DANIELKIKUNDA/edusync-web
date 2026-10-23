@@ -11,8 +11,9 @@ def test_point9_permissions_fail_closed_and_reason_required():
  assert "reason:str=Field(min_length=3" in s and 'Stock insuffisant' in s
 def test_point9_ui_is_permission_driven():
  a=read('frontend/src/App.tsx'); h=read('frontend/src/home.tsx'); u=read('frontend/src/stewardship.tsx')
- assert "stewardship:['inventory.']" in a
- assert "inventory.assets.create" in h and "inventory.assets.manage" not in h
+ pj=read('backend/src/edusync/modules/access/application/projection.py')
+ assert '("stewardship", "Intendance", "box", ("inventory.assets.read", "inventory.stock.read", "inventory.counts.read"))' in pj  # server menu (2026-10-23)
+ assert "inventory.assets.manage" not in h and "inventory.assets.manage" not in pj
  # Ownership split kept (stock vs cash collection), wording rewritten for end users in the 2026-10 certification.
  assert 'L’Intendance gère le stock ; le Centre financier encaisse les ventes.' in u
 def test_secondary_directors_baseline_excludes_finance_and_personnel():

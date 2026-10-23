@@ -459,3 +459,13 @@ export async function checkoutFeeBundle(token:string,enrollmentId:string,codes='
 export async function platformAvatarBlob(token:string):Promise<Blob|null>{const r=await fetch(`${API}/auth/platform/avatar`,{headers:{'Authorization':`Bearer ${token}`}});if(r.status===404)return null;if(!r.ok)throw new Error(await errorDetail(r,'Photo indisponible'));return r.blob()}
 export async function uploadPlatformAvatar(token:string,file:Blob):Promise<{version:string}>{const r=await fetch(`${API}/auth/platform/avatar`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':file.type||'application/octet-stream'},body:file});if(r.status===413||r.status===422){let d='';try{d=(await r.json()).detail}catch{/* non JSON */}throw new UserFacingError(typeof d==='string'&&d.length<200?d:'Photo refusée : choisissez une image JPEG, PNG ou WebP de moins de 5 Mo.')}if(!r.ok)throw new Error(await errorDetail(r,'Photo non enregistrée'));return r.json()}
 export async function deletePlatformAvatar(token:string):Promise<void>{const r=await fetch(`${API}/auth/platform/avatar`,{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}});if(!r.ok)throw new Error(await errorDetail(r,'Photo non retirée'))}
+// Authoritative projection of the school space (owner decision 8, 2026-10-23): navigation, widgets and shortcuts are
+// computed by the server from the effective capabilities; the browser never guesses from a role name.
+export type AccessNav={key:string;label:string;icon:string};
+export type AccessWidget={id:string;title:string;module:string;priority:number};
+export type AccessAction={id:string;label:string;module:string};
+export type AccessMe={membership_id:string;school_id:string;role_label:string;permissions:string[];scoped:{capability:string;type:string;value:string}[];
+  roles:{id:string;code:string;label:string;kind:string;standard:boolean;adjusted:boolean;scopes:{type:string;value:string|null}[]}[];
+  navigation:AccessNav[];widgets:AccessWidget[];actions:AccessAction[]};
+export async function getAccessMe(token:string):Promise<AccessMe>{const r=await fetch(`${API}/access/me`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Espace indisponible'));return r.json()}
+export async function getAccessDashboard(token:string):Promise<Record<string,any>>{const r=await fetch(`${API}/access/dashboard`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Tableau de bord indisponible'));return r.json()}

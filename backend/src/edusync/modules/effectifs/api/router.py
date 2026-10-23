@@ -130,7 +130,7 @@ def record_deposit(body:DepositBody,idempotency_key:str|None=Header(default=None
 
 
 def _export_counts(group_by:str,scope:HeadcountScope,year_id:UUID|None,actor:ActorContext,services:AppServices,*,xlsx:bool,print_mode:bool=False):
-    cap="headcounts.print" if print_mode else ("headcounts.export_xlsx" if xlsx else "headcounts.export_pdf")
+    cap="headcounts.export"  # one business capability for PDF, Excel and print (formats are aliases)
     group_cap,title,sheet=_group_meta(group_by)
     _need(actor,cap);_need(actor,group_cap)
     # Data scope is anchored to the read capability; an export permission can never widen it.

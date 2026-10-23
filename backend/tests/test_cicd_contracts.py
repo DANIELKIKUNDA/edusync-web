@@ -25,7 +25,7 @@ def test_ci_runs_tests_typecheck_build_and_security_on_every_push_and_pr():
 
 def test_images_are_built_only_after_ci_and_tagged_by_commit_sha():
     images = CI.split("  images:", 1)[1]
-    assert "needs: [backend, frontend, security]" in images
+    assert "needs: [backend, rbac-contract, frontend, security]" in images  # + RBAC contract (2026-10-23)
     assert "linux/amd64,linux/arm64" in images and images.count("${{ github.sha }}") >= 3
     assert ":latest" not in CI
     for name in ("edusync-backend", "edusync-frontend", "edusync-backup"):

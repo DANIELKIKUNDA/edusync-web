@@ -129,7 +129,7 @@ def periodic_pdf(b: PeriodicPdfBody, actor: ActorContext = Depends(require_schoo
 def periodic_xlsx(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIER', start: date | None = None, end: date | None = None,
                   actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """Desktop export_periodic_financial_report_xlsx: Excel companion, never consumes an official number."""
-    need(actor, 'finance.reports.periodic.export_xlsx'); a, z = _period(period_type, start, end)
+    need(actor, 'finance.reports.periodic.export'); a, z = _period(period_type, start, end)
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
             report = PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=z, profile_code=profile_code)
@@ -197,7 +197,7 @@ def student_account(student_id: _UUID, actor: ActorContext = Depends(require_sch
 @router.get('/students/{student_id}/account.pdf')
 def student_account_pdf_route(student_id: _UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """G-DOC-2 — Desktop export_student_account_pdf."""
-    need(actor, 'students.account.export_pdf')
+    need(actor, 'students.account.export')
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
             acc = PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id)
@@ -206,7 +206,7 @@ def student_account_pdf_route(student_id: _UUID, actor: ActorContext = Depends(r
         raise HTTPException(404, str(e)) from e
     data = student_account_pdf(school=school, account=acc)
     mat = acc['student'].get('matricule') or 'eleve'
-    archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='students.account.export_pdf', document_code='students.account',
+    archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='students.account.export', document_code='students.account',
                          title=f"Relevé du compte élève {mat}", file_name=f"releve_{mat}.pdf")
     return _Stream(_BytesIO(data), media_type='application/pdf', headers={'Content-Disposition': 'inline; filename="releve_compte_eleve.pdf"'})
 

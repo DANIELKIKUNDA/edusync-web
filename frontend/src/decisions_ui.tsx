@@ -34,7 +34,7 @@ export function StudentFinancePanel({token, can}: {token: string; can: (p: strin
     {person && view && <>
       <div className="payerStrip"><div className="payerAvatar">{person.last_name[0]}{person.first_name[0]}</div><div><b>{person.last_name} {person.middle_name} {person.first_name}</b><span>{person.matricule} · {person.class_label}</span>
         <small>{Object.entries(view.summary).map(([c, s]) => `${c} : net ${money(s.net, c)} · réglé ${money(s.settled, c)} · reste ${money(s.remaining, c)}`).join(' — ')}</small></div>
-        {can('students.account.export_pdf') && <button onClick={() => void openStudentAccountPdf(token, person.student_id)}>Relevé PDF</button>}{can('finance.decisions.create') && <button onClick={() => setForm(f => !f)}>{form ? 'Fermer' : 'Nouvelle décision'}</button>}</div>
+        {can('students.account.export') && <button onClick={() => void openStudentAccountPdf(token, person.student_id)}>Relevé PDF</button>}{can('finance.decisions.create') && <button onClick={() => setForm(f => !f)}>{form ? 'Fermer' : 'Nouvelle décision'}</button>}</div>
       {form && <DecisionForm token={token} person={person} charges={view.charges} onDone={async () => { setForm(false); await load(); }}/>}
       <ul className="operatorCharges">{view.charges.map(c => <li key={c.id} className={`op-${c.status}`}>
         <div><b>{c.period_label || c.label}</b><small>{STATUS_LABEL[c.status]} · brut {money(c.gross, c.currency)} · net {money(c.net, c.currency)} · réglé {money(c.settled, c.currency)}</small>

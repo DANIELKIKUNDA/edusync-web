@@ -377,7 +377,7 @@ def _export_filters(repo:PostgresSchoolingRepository,*,q:str|None,academic_year_
 
 @router.get('/exports/students.pdf')
 def export_students_pdf(q:str|None=None,academic_year_id:UUID|None=None,section_id:UUID|None=None,class_id:UUID|None=None,status:str|None=None,gender:Literal['M','F']|None=None,all_years:bool=False,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    _need(actor,'students.directory.print_pdf');scopes=_scopes(actor,'students.directory.print_pdf')
+    _need(actor,'students.directory.export');scopes=_scopes(actor,'students.directory.export')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresSchoolingRepository(conn);rows=repo.list_students(actor.school_id,scopes=scopes,q=q,class_id=class_id,section_id=section_id,academic_year_id=academic_year_id,gender=gender,status=status,all_years=all_years,limit=1000,offset=0)
         filters=[]
@@ -388,12 +388,12 @@ def export_students_pdf(q:str|None=None,academic_year_id:UUID|None=None,section_
         filters += [f"Section : {'sélectionnée' if section_id else 'Toutes'}",f"Classe : {'sélectionnée' if class_id else 'Toutes'}",f"Statut : {status or 'Tous'}",f"Sexe : {gender or 'M/F'}"]
         if q:filters.append(f'Recherche : {q}')
         data=student_directory_pdf(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
-        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='students.directory.print_pdf',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.pdf',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='students.directory.export',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.pdf',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="annuaire_eleves.pdf"'})
 
 @router.get('/exports/students.xlsx')
 def export_students_xlsx(q:str|None=None,academic_year_id:UUID|None=None,section_id:UUID|None=None,class_id:UUID|None=None,status:str|None=None,gender:Literal['M','F']|None=None,all_years:bool=False,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    _need(actor,'students.directory.export_xlsx');scopes=_scopes(actor,'students.directory.export_xlsx')
+    _need(actor,'students.directory.export');scopes=_scopes(actor,'students.directory.export')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresSchoolingRepository(conn);rows=repo.list_students(actor.school_id,scopes=scopes,q=q,class_id=class_id,section_id=section_id,academic_year_id=academic_year_id,gender=gender,status=status,all_years=all_years,limit=1000,offset=0)
         filters=[]
@@ -404,31 +404,31 @@ def export_students_xlsx(q:str|None=None,academic_year_id:UUID|None=None,section
         filters += [f"Section : {'sélectionnée' if section_id else 'Toutes'}",f"Classe : {'sélectionnée' if class_id else 'Toutes'}",f"Statut : {status or 'Tous'}",f"Sexe : {gender or 'M/F'}"]
         if q:filters.append(f'Recherche : {q}')
         data=student_directory_xlsx(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
-        archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='students.directory.export_xlsx',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.xlsx',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
+        archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='students.directory.export',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.xlsx',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="annuaire_eleves.xlsx"'})
 
 @router.get('/exports/families.pdf')
 def export_families_pdf(q:str|None=None,academic_year_id:UUID|None=None,enrolled_only:bool=True,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    _need(actor,'families.directory.print_pdf');scopes=_scopes(actor,'families.directory.print_pdf')
+    _need(actor,'families.directory.export');scopes=_scopes(actor,'families.directory.export')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresSchoolingRepository(conn);rows=repo.list_families(actor.school_id,scopes=scopes,q=q,academic_year_id=academic_year_id,enrolled_only=enrolled_only,limit=1000,offset=0)
         year=repo.active_year(actor.school_id) if academic_year_id is None else conn.execute(text('SELECT label FROM academic_years WHERE school_id=:sid AND id=:id'),{'sid':actor.school_id,'id':academic_year_id}).mappings().first()
         filters=[f"Année : {(year or {}).get('label','Année sélectionnée')}",'Inscrits dans l’année consultée' if enrolled_only else 'Répertoire global']
         if q:filters.append(f'Recherche : {q}')
         data=family_directory_pdf(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
-        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='families.directory.print_pdf',document_code='families.directory',title='Répertoire des familles',file_name='repertoire_familles.pdf',academic_year_id=academic_year_id if 'families.directory'!='students.profile' else None)
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='families.directory.export',document_code='families.directory',title='Répertoire des familles',file_name='repertoire_familles.pdf',academic_year_id=academic_year_id if 'families.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="repertoire_familles.pdf"'})
 
 @router.get('/exports/families.xlsx')
 def export_families_xlsx(q:str|None=None,academic_year_id:UUID|None=None,enrolled_only:bool=True,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    _need(actor,'families.directory.export_xlsx');scopes=_scopes(actor,'families.directory.export_xlsx')
+    _need(actor,'families.directory.export');scopes=_scopes(actor,'families.directory.export')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresSchoolingRepository(conn);rows=repo.list_families(actor.school_id,scopes=scopes,q=q,academic_year_id=academic_year_id,enrolled_only=enrolled_only,limit=1000,offset=0)
         year=repo.active_year(actor.school_id) if academic_year_id is None else conn.execute(text('SELECT label FROM academic_years WHERE school_id=:sid AND id=:id'),{'sid':actor.school_id,'id':academic_year_id}).mappings().first()
         filters=[f"Année : {(year or {}).get('label','Année sélectionnée')}",'Inscrits dans l’année consultée' if enrolled_only else 'Répertoire global']
         if q:filters.append(f'Recherche : {q}')
         data=family_directory_xlsx(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
-        archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='families.directory.export_xlsx',document_code='families.directory',title='Répertoire des familles',file_name='repertoire_familles.xlsx',academic_year_id=academic_year_id if 'families.directory'!='students.profile' else None)
+        archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='families.directory.export',document_code='families.directory',title='Répertoire des familles',file_name='repertoire_familles.xlsx',academic_year_id=academic_year_id if 'families.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="repertoire_familles.xlsx"'})
 
 @router.get('/students/{student_id}/profile.pdf')

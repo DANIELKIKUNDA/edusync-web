@@ -97,7 +97,7 @@ def test_secretariat_is_optional_minimal_without_finance():
 def test_intendant_has_full_inventory_domain_but_no_finance():
     c = caps("INTENDANT")
     reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
-    inventory = {x["code"] for x in reg["capabilities"] if x["code"].startswith("inventory.")}
+    inventory = {x["code"] for x in reg["capabilities"] if x["code"].startswith("inventory.") and x.get("source_status") != "MERGED_2026_10_23"}
     assert inventory <= c
     assert not any(x.startswith("finance.") for x in c)
 

@@ -6,7 +6,7 @@ API=Path('../frontend/src/api.ts').read_text(encoding='utf-8')
 
 def test_personnel_is_real_navigation_target():
     # Closure 2026-10: navigation icons are SVG keys, no emoji.
-    assert "['users','Personnel','personnel']" in APP
+    assert '("personnel", "Personnel", "users", ("personnel.read",))' in Path('src/edusync/modules/access/application/projection.py').read_text(encoding='utf-8')
     assert '<PersonnelPage' in APP
 
 def test_personnel_ui_has_centered_kpis_and_professional_tabs():
@@ -27,8 +27,8 @@ def test_personnel_table_prioritizes_register_over_form():
     assert '.personRow' in CSS
 
 def test_pdf_and_excel_are_permission_gated():
-    assert "can('personnel.directory.print_pdf')" in PAGE
-    assert "can('personnel.directory.export_xlsx')" in PAGE
+    # PDF and Excel are formats of one business capability (owner decision 2026-10-23: format variants are aliases)
+    assert PAGE.count("can('personnel.directory.export')") >= 1
     assert 'personnelRegisterPdf' in API and 'personnelRegisterXlsx' in API
 
 def test_profile_has_assignments_children_history_and_pdf():

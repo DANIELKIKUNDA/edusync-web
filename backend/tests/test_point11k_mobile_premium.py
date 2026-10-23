@@ -1,13 +1,14 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 APP=(ROOT/'frontend/src/App.tsx').read_text()
+PROJ=(ROOT/'backend/src/edusync/modules/access/application/projection.py').read_text(encoding='utf-8')  # server navigation (2026-10-23)
 HTML=(ROOT/'frontend/index.html').read_text()
 MAN=(ROOT/'frontend/public/manifest.webmanifest').read_text()
 def test_mobile_navigation_is_permission_driven():
-    assert "const prefixes:Record<string,string[]>" in APP
-    for x in ["settings.","personnel.","students.","families.","enrollments.","headcounts.","finance.","documents.","inventory.","sync."]:
-        assert x in APP
-    assert "const visibleNav=nav.filter(([, ,key])=>canOpenModule(key))" in APP
+    # 2026-10-23: no client prefixes any more — explicit capabilities per entry, computed by the server
+    assert "const prefixes" not in APP and "canOpenModule=(key:string)=>nav.some(x=>x.key===key)" in APP
+    for x in ["settings.","personnel.","students.","families.","headcounts.","finance.","documents.","inventory.","sync."]:
+        assert x in PROJ
 def test_boot_signature_and_account_are_present():
     assert 'from VolcanoTech' in HTML
     # Closure 2026-10: shell replaced by platform/shell.tsx (AppShell); same intent, new implementation.

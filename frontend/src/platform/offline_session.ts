@@ -86,7 +86,8 @@ export function cacheablePlatformPath(path:string){
 // School screens already consulted (lists, records, settings, finance reports). Never accounts / sessions / MFA,
 // imports, exports, files, documents to print or streams.
 export function cacheableSchoolPath(path:string){
-  return /^\/api\/v1\/(schooling|finance|personnel|settings|stewardship|effectifs|notifications|documents\/history|sync\/status)(?:\/|$)/.test(path)
+  return (/^\/api\/v1\/(schooling|finance|personnel|settings|stewardship|effectifs|notifications|documents\/history|sync\/status)(?:\/|$)/.test(path)
+    || /^\/api\/v1\/access\/(me|dashboard)$/.test(path))
     && !/\/(stream|avatar|sessions|recovery|mfa|import|imports|exports?|download|files?|pdf|branding)(?:[./]|$)|\.(pdf|csv|xlsx?|zip)$/.test(path);
 }
 export function cacheablePath(path:string, kind:OfflineContextKind|undefined=known?.kind){

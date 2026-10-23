@@ -2,16 +2,23 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
 import {friendlyError} from './platform/errors';
+import {confirmAction} from './platform/dialogs';
 import './access.css';
 
-/* Accès & rôles — each school sets its own access policy (owner decision 2026-10-02).
-   No approval workflow: automatic guardrails + full transparency (rights journal). */
+/* Accès & rôles — each school sets its own access policy (owner decisions 2026-10-02 and 2026-10-23).
+   A standard role is ADJUSTED for the school (GRANT / REVOKE) instead of being copied: it keeps its identity.
+   Separation of duties: WARN asks for a confirmation, REQUIRE_APPROVAL creates a request decided by another access
+   manager, BLOCK refuses (never self-approval). Everything is in the rights journal. */
 
 type Props={token:string;permissions:string[];userName:string};
-type Tab='members'|'roles'|'journal';
+type Tab='members'|'roles'|'requests'|'journal';
 type Capability={code:string;label:string;group:string;risk:'LOW'|'MEDIUM'|'HIGH'|'CRITICAL'|string};
 type Domain={domain:string;capabilities:Capability[]};
-type Role={id:string;code:string;label:string;description:string;kind:'SCHOOL_STANDARD'|'SCHOOL_CUSTOM';status:string;version:number;holders:number;capabilities:string[];editable:boolean};
+type Role={id:string;code:string;label:string;description:string;kind:'SCHOOL_STANDARD'|'SCHOOL_CUSTOM';status:string;version:number;holders:number;capabilities:string[];editable:boolean;adjustable?:boolean;adjustments?:number};
+type SodRule={rule:string;label:string;effect:string;detail:string};
+type ChangeRequest={id:string;kind:string;payload:{summary?:string};rules:SodRule[];status:string;reason:string;requested_by:string|null;decided_by:string|null;created_at:string;mine:boolean;can_decide:boolean};
+type PolicyView={baseline:string[];effective:string[];locked:string[];holders:number;held_by_me:boolean;pending_requests:{id:string;summary:string}[]};
+type ChangeResult={status?:string;message?:string;request_id?:string};
 type Scope={type:'SCHOOL'|'SECTION'|'CLASS';value:string|null};
 type MemberRole={assignment_id:string;role_id:string;role_label:string;role_kind:string;valid_until:string|null;scopes:Scope[]};
 type Member={membership_id:string;active:boolean;full_name:string;email:string;roles:MemberRole[];is_me:boolean;must_change_password?:boolean;shared_account?:boolean};
@@ -20,11 +27,26 @@ type ScopeOptions={sections:{code:string;label:string}[];classes:{code:string;la
 
 const API=import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const headers=(token:string,extra:Record<string,string>={})=>({'Authorization':`Bearer ${token}`,'Content-Type':'application/json',...extra});
-async function readError(r:Response){try{const b=await r.json();return typeof b.detail==='string'?b.detail:`Erreur ${r.status}`}catch{return `Erreur ${r.status}`}}
-async function get<T>(token:string,path:string):Promise<T>{const r=await fetch(`${API}/access/${path}`,{headers:headers(token)});if(!r.ok)throw new Error(await readError(r));return r.json()}
+/** Separation-of-duties answer (409): WARN can be confirmed, BLOCK cannot. */
+export class SodError extends Error{constructor(public code:string,message:string,public rules:SodRule[]){super(message)}}
+async function readError(r:Response):Promise<Error>{try{const b=await r.json();const d=b.detail;
+  if(d&&typeof d==='object'&&d.code)return String(d.code).startsWith('SOD_')?new SodError(d.code,d.message,d.rules||[]):new Error(d.message||`Erreur ${r.status}`);
+  return new Error(typeof d==='string'?d:`Erreur ${r.status}`)}catch{return new Error(`Erreur ${r.status}`)}}
+async function get<T>(token:string,path:string):Promise<T>{const r=await fetch(`${API}/access/${path}`,{headers:headers(token)});if(!r.ok)throw await readError(r);return r.json()}
 async function send<T>(token:string,method:'POST'|'PUT'|'PATCH',path:string,body:unknown,extra:Record<string,string>={}):Promise<T>{
   const r=await fetch(`${API}/access/${path}`,{method,headers:headers(token,{'Idempotency-Key':crypto.randomUUID(),...extra}),body:JSON.stringify(body)});
-  if(!r.ok)throw new Error(await readError(r));return r.json()}
+  if(!r.ok)throw await readError(r);return r.json()}
+/** Sends a governed change; a WARN from the separation of duties is shown and, if confirmed, sent again with the
+    acknowledgement. Returns the server result (APPLIED, PENDING_APPROVAL…). */
+async function governed(token:string,method:'POST'|'PUT',path:string,body:Record<string,unknown>):Promise<ChangeResult>{
+  try{return await send<ChangeResult>(token,method,path,body)}catch(e){
+    if(e instanceof SodError&&e.code==='SOD_WARNING'){
+      const ok=await confirmAction({title:'Séparation des tâches',confirmLabel:'Confirmer malgré ce cumul',danger:true,
+        message:`${e.rules.map(r=>`${r.label} (${r.detail})`).join(' · ')}. La confirmation est inscrite au journal des droits.`});
+      if(!ok)throw new Error('Changement annulé.');
+      return send<ChangeResult>(token,method,path,{...body,acknowledge_warnings:true});
+    }throw e}}
+function announce(r:ChangeResult,applied:string){if(r.status==='PENDING_APPROVAL')toast.info(r.message||'Demande envoyée pour approbation');else toast.success(applied)}
 
 const has=(p:string[],c:string)=>p.includes(c);
 const RISK_LABEL:Record<string,string>={LOW:'Faible',MEDIUM:'Modéré',HIGH:'Élevé',CRITICAL:'Critique'};
@@ -76,7 +98,8 @@ export default function AccessPage({token,permissions,userName}:Props){
   const [catalog,setCatalog]=useState<Domain[]>([]),[roles,setRoles]=useState<Role[]>([]),[members,setMembers]=useState<Member[]>([]);
   const [journal,setJournal]=useState<JournalItem[]>([]),[scopes,setScopes]=useState<ScopeOptions>({sections:[],classes:[]});
   const [q,setQ]=useState('');
-  const [editor,setEditor]=useState<{mode:'create'|'edit';role?:Role;base?:Role}|null>(null);
+  const [editor,setEditor]=useState<{mode:'create'|'edit'|'policy';role?:Role;base?:Role}|null>(null);
+  const [requests,setRequests]=useState<ChangeRequest[]>([]);
   const [assignFor,setAssignFor]=useState<Member|null>(null);
   const [confirm,setConfirm]=useState<{title:string;text:string;cta:string;run:(reason:string)=>Promise<void>}|null>(null);
   const [openId,setOpenId]=useState<string|null>(null),[adding,setAdding]=useState(false),[secret,setSecret]=useState<{title:string;name:string;email:string;password:string}|null>(null);
@@ -90,6 +113,7 @@ export default function AccessPage({token,permissions,userName}:Props){
         jobs.push(get<{items:Role[]}>(token,'roles').then(d=>setRoles(d.items)));
         jobs.push(get<{items:Member[]}>(token,'members').then(d=>setMembers(d.items)));
         jobs.push(get<ScopeOptions>(token,'scope-options').then(setScopes));
+        jobs.push(get<{items:ChangeRequest[]}>(token,'requests').then(d=>setRequests(d.items)));
       }
       if(canJournal)jobs.push(get<{items:JournalItem[]}>(token,'journal?limit=100').then(d=>setJournal(d.items)));
       await Promise.all(jobs);
@@ -116,6 +140,11 @@ export default function AccessPage({token,permissions,userName}:Props){
     const off=kind==='deactivate';
     setConfirm({title:off?`Désactiver ${m.full_name}`:`Réactiver ${m.full_name}`,text:off?'Son accès à cette école est coupé immédiatement (sessions comprises). Ses rôles et son historique sont conservés ; son compte reste valable dans ses autres écoles.':'Son accès à cette école est rétabli avec ses rôles actuels.',cta:off?'Désactiver':'Réactiver',
       run:async reason=>{await send(token,'POST',`members/${m.membership_id}/${kind}`,{reason});toast.success(off?'Membre désactivé — effet immédiat':'Membre réactivé');await load()}});
+  }
+  function decide(r:ChangeRequest,kind:'approve'|'reject'){
+    const approve=kind==='approve';
+    setConfirm({title:approve?'Approuver la demande':r.mine?'Retirer ma demande':'Refuser la demande',text:`${r.payload.summary??r.kind} — demandée par ${r.requested_by??'—'}.${approve?' Le changement est appliqué immédiatement après votre approbation.':''}`,cta:approve?'Approuver':r.mine?'Retirer':'Refuser',
+      run:async reason=>{await send(token,'POST',`requests/${r.id}/${kind}`,{reason});toast.success(approve?'Demande approuvée — changement appliqué':'Demande clôturée');await load()}});
   }
   async function archive(role:Role){
     setConfirm({title:`Archiver « ${role.label} »`,text:'Le rôle ne pourra plus être attribué. Il doit d’abord être retiré à toutes les personnes qui le détiennent.',cta:'Archiver',
@@ -144,12 +173,14 @@ export default function AccessPage({token,permissions,userName}:Props){
       <span><Icon name="check" size={13}/> Personne ne s’attribue de droits</span>
       <span><Icon name="check" size={13}/> Aucun droit plateforme</span>
       <span><Icon name="check" size={13}/> Toujours un gestionnaire des accès</span>
+      <span><Icon name="check" size={13}/> Séparation des tâches</span>
       <span><Icon name="check" size={13}/> Tout est journalisé</span>
     </div>
 
     <div className="personTabs" role="tablist">
       {canRead&&<button role="tab" aria-selected={tab==='members'} className={tab==='members'?'active':''} onClick={()=>setTab('members')}><Icon name="users" size={15}/> Membres <span>{members.length}</span></button>}
       {canRead&&<button role="tab" aria-selected={tab==='roles'} className={tab==='roles'?'active':''} onClick={()=>setTab('roles')}><Icon name="key" size={15}/> Rôles <span>{activeRoles.length}</span></button>}
+      {canRead&&<button role="tab" aria-selected={tab==='requests'} className={tab==='requests'?'active':''} onClick={()=>setTab('requests')}><Icon name="clock" size={15}/> Demandes <span>{requests.length}</span></button>}
       {canJournal&&<button role="tab" aria-selected={tab==='journal'} className={tab==='journal'?'active':''} onClick={()=>setTab('journal')}><Icon name="history" size={15}/> Journal des droits <span>{journal.length}</span></button>}
     </div>
 
@@ -175,21 +206,32 @@ export default function AccessPage({token,permissions,userName}:Props){
     {tab==='roles'&&canRead&&<section className="roleGrid">
       {activeRoles.map(r=>{const caps=r.capabilities.map(c=>capIndex.get(c)).filter(Boolean) as Capability[];const critical=caps.filter(c=>c.risk==='CRITICAL').length;const high=caps.filter(c=>c.risk==='HIGH').length;
         return <article key={r.id} className={`roleCard ${r.kind==='SCHOOL_CUSTOM'?'custom':''}`}>
-          <div className="roleCardTop"><span className={`kindBadge ${r.kind==='SCHOOL_CUSTOM'?'custom':''}`}>{r.kind==='SCHOOL_CUSTOM'?'Propre à l’école':'Standard EduSync'}</span><span className="holders"><Icon name="users" size={13}/> {r.holders}</span></div>
+          <div className="roleCardTop"><span className={`kindBadge ${r.kind==='SCHOOL_CUSTOM'?'custom':''}`}>{r.kind==='SCHOOL_CUSTOM'?'Propre à l’école':(r.adjustments?`Standard · ajusté (${r.adjustments})`:'Standard EduSync')}</span><span className="holders"><Icon name="users" size={13}/> {r.holders}</span></div>
           <h4>{r.label}</h4><p>{r.description||'—'}</p>
           <div className="riskMeter" aria-label={`${r.capabilities.length} permissions dont ${critical} critiques`}>
             <span><b>{r.capabilities.length}</b> permissions</span>{critical>0&&<i className="risk critical">{critical} critique{critical>1?'s':''}</i>}{high>0&&<i className="risk high">{high} élevée{high>1?'s':''}</i>}
           </div>
           <div className="roleCardActions">
             {r.kind==='SCHOOL_STANDARD'
-              ?<>{canManageRoles&&<button className="softBtn" onClick={()=>setEditor({mode:'create',base:r})}><Icon name="copy" size={15}/> Cloner pour adapter</button>}<button className="textBtn" onClick={()=>setEditor({mode:'edit',role:r})}><Icon name="eye" size={15}/> Voir</button></>
+              ?<>{canManageRoles&&<button className="softBtn" onClick={()=>setEditor({mode:'policy',role:r})}><Icon name="edit" size={15}/> Ajuster pour l’école</button>}<button className="textBtn" onClick={()=>setEditor({mode:'edit',role:r})}><Icon name="eye" size={15}/> Voir</button>{canManageRoles&&<button className="textBtn" onClick={()=>setEditor({mode:'create',base:r})} title="Pour un profil réellement nouveau"><Icon name="copy" size={15}/> Nouveau rôle à partir de…</button>}</>
               :<>{canManageRoles&&<button className="softBtn" onClick={()=>setEditor({mode:'edit',role:r})}><Icon name="edit" size={15}/> Modifier</button>}{canManageRoles&&<button className="textBtn danger" onClick={()=>void archive(r)}><Icon name="archive" size={15}/> Archiver</button>}</>}
           </div>
         </article>})}
     </section>}
 
+    {tab==='requests'&&canRead&&<section className="premiumCard">
+      <div className="cardHeading"><div><h3>Demandes d’approbation</h3><p>Certains changements (par exemple ajouter un droit d’administration des accès à un rôle) doivent être approuvés par un autre gestionnaire des accès. Personne n’approuve sa propre demande.</p></div></div>
+      <ul className="memberList" aria-label="Demandes en attente">{requests.map(r=><li key={r.id} className="requestRow">
+        <div><b>{r.payload.summary??r.kind}</b><small>Demandée par {r.requested_by??'—'} · {dateTimeFr(r.created_at)}</small>
+          {r.rules.map(x=><p key={x.rule} className="reason">{x.label}{x.detail?` — ${x.detail}`:''}</p>)}<p className="reason">« {r.reason} »</p></div>
+        <div className="sheetButtons">{r.can_decide&&<button className="primaryBtn" onClick={()=>decide(r,'approve')}>Approuver</button>}
+          {(r.can_decide||r.mine)&&<button className="softBtn" onClick={()=>decide(r,'reject')}>{r.mine?'Retirer':'Refuser'}</button>}
+          {r.mine&&<small className="fieldHint">Un autre gestionnaire doit l’approuver</small>}</div></li>)}</ul>
+      {!loading&&!requests.length&&<div className="personEmpty"><span><Icon name="check" size={26}/></span><b>Aucune demande en attente</b><small>Les changements qui exigent une approbation apparaîtront ici.</small></div>}
+    </section>}
+
     {tab==='journal'&&canJournal&&<section className="premiumCard">
-      <div className="cardHeading"><div><h3>Journal des droits</h3><p>Lecture seule. Aucune validation n’est demandée : chaque changement est simplement visible, daté et attribué.</p></div></div>
+      <div className="cardHeading"><div><h3>Journal des droits</h3><p>Lecture seule : chaque changement est visible, daté et attribué, y compris les confirmations et les approbations.</p></div></div>
       <div className="timeline">{journal.map((j,i)=><div key={i} className="timelineItem"><span className="timelineDot"><Icon name={j.action==='ACCESS_ROLE_REVOKED'?'x':j.action==='ACCESS_ROLE_ASSIGNED'?'plus':'key'} size={15}/></span>
         <div><b>{ACTION_LABEL[j.action]??j.action} · {j.new_data?.role_label??j.new_data?.label??''}</b>
           <small>{dateTimeFr(j.created_at)} · par {j.actor??'—'}</small>
@@ -203,7 +245,7 @@ export default function AccessPage({token,permissions,userName}:Props){
 
     {/* Overlays live at the end of <body>: the page's entry animation (a transform) would otherwise pin them to the page, not the screen. */}
     {createPortal(<>
-    {editor&&<RoleEditor token={token} catalog={catalog} capIndex={capIndex} editor={editor} readOnly={editor.mode==='edit'&&(!editor.role?.editable||!canManageRoles)}
+    {editor&&<RoleEditor token={token} catalog={catalog} capIndex={capIndex} editor={editor} readOnly={(editor.mode==='edit'&&(!editor.role?.editable||!canManageRoles))||(editor.mode==='policy'&&!canManageRoles)}
       onClose={()=>setEditor(null)} onSaved={async()=>{setEditor(null);await load()}}/>}
     {opened&&<MemberSheet member={opened} canAssign={canAssign} canUpdate={canUpdate} canActivate={canActivate} canReset={canReset} token={token}
       onClose={()=>setOpenId(null)} onAssign={()=>setAssignFor(opened)} onRevoke={r=>void revoke(opened,r)} onAction={k=>memberAction(opened,k)} onRenamed={load}/>}
@@ -217,9 +259,16 @@ export default function AccessPage({token,permissions,userName}:Props){
   </div>;
 }
 
-function RoleEditor({token,catalog,capIndex,editor,readOnly,onClose,onSaved}:{token:string;catalog:Domain[];capIndex:Map<string,Capability>;editor:{mode:'create'|'edit';role?:Role;base?:Role};readOnly:boolean;onClose:()=>void;onSaved:()=>Promise<void>}){
+function RoleEditor({token,catalog,capIndex,editor,readOnly,onClose,onSaved}:{token:string;catalog:Domain[];capIndex:Map<string,Capability>;editor:{mode:'create'|'edit'|'policy';role?:Role;base?:Role};readOnly:boolean;onClose:()=>void;onSaved:()=>Promise<void>}){
   const source=editor.role??editor.base;
-  const original=useMemo(()=>new Set(source?.capabilities??[]),[source]);
+  const policyMode=editor.mode==='policy';
+  const [policy,setPolicy]=useState<PolicyView|null>(null),[reason,setReason]=useState('');
+  useEffect(()=>{if(!policyMode||!editor.role)return;let alive=true;
+    get<PolicyView>(token,`roles/${editor.role.id}/policy`).then(p=>{if(!alive)return;setPolicy(p);setSelected(new Set(p.effective))}).catch(e=>toast.error(friendlyError(e)));
+    return()=>{alive=false}},[policyMode,editor.role?.id]);
+  const baseline=useMemo(()=>new Set(policy?.baseline??[]),[policy]);
+  const locked=useMemo(()=>new Set(policy?.locked??[]),[policy]);
+  const original=useMemo(()=>new Set(policyMode?(policy?.effective??[]):(source?.capabilities??[])),[source,policy,policyMode]);
   const [label,setLabel]=useState(editor.role?.label??(editor.base?`${editor.base.label} — adapté`:''));
   const [description,setDescription]=useState(editor.role?.description??(editor.base?`Adapté depuis le rôle standard « ${editor.base.label} »`:''));
   const [selected,setSelected]=useState<Set<string>>(new Set(source?.capabilities??[]));
@@ -227,10 +276,18 @@ function RoleEditor({token,catalog,capIndex,editor,readOnly,onClose,onSaved}:{to
   useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose]);
   const added=[...selected].filter(c=>!original.has(c)),removed=[...original].filter(c=>!selected.has(c));
   const critical=[...selected].filter(c=>capIndex.get(c)?.risk==='CRITICAL').length;
-  const toggle=(c:string)=>{if(readOnly)return;setSelected(s=>{const n=new Set(s);n.has(c)?n.delete(c):n.add(c);return n})};
+  const toggle=(c:string)=>{if(readOnly||locked.has(c))return;setSelected(s=>{const n=new Set(s);n.has(c)?n.delete(c):n.add(c);return n})};
   const domains=catalog.map(d=>({...d,capabilities:d.capabilities.filter(c=>(!onlySelected||selected.has(c.code))&&(!q.trim()||`${c.label} ${c.code} ${c.group}`.toLowerCase().includes(q.toLowerCase())))})).filter(d=>d.capabilities.length);
-  const title=readOnly?(source?.label??'Rôle'):editor.mode==='create'?(editor.base?'Adapter un rôle standard':'Nouveau rôle de l’école'):'Modifier le rôle';
+  const title=policyMode?`Ajuster « ${source?.label} » pour l’école`:readOnly?(source?.label??'Rôle'):editor.mode==='create'?(editor.base?'Nouveau rôle à partir d’un rôle standard':'Nouveau rôle de l’école'):'Modifier le rôle';
+  async function savePolicy(){
+    if(reason.trim().length<5){toast.error('Indiquez un motif (5 caractères au moins)');return}
+    try{setBusy(true);
+      const r=await governed(token,'PUT',`roles/${editor.role!.id}/policy`,{capabilities:[...selected],reason:reason.trim()});
+      announce(r,r.status==='UNCHANGED'?'Aucun changement':'Rôle ajusté pour l’école — effet immédiat, il reste un rôle standard');await onSaved();
+    }catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}
+  }
   async function save(){
+    if(policyMode){await savePolicy();return}
     if(label.trim().length<3){toast.error('Donnez un nom d’au moins 3 caractères');return}
     try{setBusy(true);
       if(editor.mode==='create')await send(token,'POST','roles',{label:label.trim(),description:description.trim(),capabilities:[...selected]});
@@ -241,10 +298,15 @@ function RoleEditor({token,catalog,capIndex,editor,readOnly,onClose,onSaved}:{to
   return <div className="sheetBackdrop" onClick={onClose}><aside className="roleSheet" role="dialog" aria-modal="true" aria-label={title} onClick={e=>e.stopPropagation()}>
     <header className="sheetHead"><div><span className="eyebrow"><Icon name="key" size={13}/> {readOnly?'Lecture seule':'Éditeur de rôle'}</span><h3>{title}</h3></div><button className="iconAction" aria-label="Fermer" onClick={onClose}><Icon name="x" size={16}/></button></header>
     <div className="sheetBody">
-      <div className="sheetFields">
+      {policyMode?<div className="sheetFields">
+        <p className="fieldHint">Le rôle reste le rôle standard EduSync : vous ajoutez ou retirez seulement des permissions pour votre école. Les mises à jour du rôle standard par EduSync continuent de s’appliquer.{policy?` ${policy.holders} personne(s) détiennent ce rôle.`:''}{locked.size>0?' Les permissions verrouillées forment le socle protégé du rôle.':''}</p>
+        {policy?.held_by_me&&<p className="error" role="alert">Vous détenez ce rôle : vous ne pouvez pas l’ajuster vous-même (séparation des tâches).</p>}
+        {(policy?.pending_requests.length??0)>0&&<p className="fieldHint">Demande en attente : {policy!.pending_requests.map(x=>x.summary).join(' · ')}</p>}
+        {!readOnly&&<label>Motif *<textarea value={reason} onChange={e=>setReason(e.target.value)} rows={2} maxLength={500} placeholder="Ex. Le préfet ne gère pas la caisse dans notre école"/></label>}
+      </div>:<div className="sheetFields">
         <label>Nom du rôle<input value={label} disabled={readOnly} onChange={e=>setLabel(e.target.value)} maxLength={120} placeholder="Ex. Gestionnaire sans sortie d’agent"/></label>
         <label>Description<textarea value={description} disabled={readOnly} onChange={e=>setDescription(e.target.value)} rows={2} maxLength={600}/></label>
-      </div>
+      </div>}
       <div className="capToolbar">
         <label className="searchBox"><Icon name="search" size={15}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Rechercher une permission" aria-label="Rechercher une permission"/></label>
         <label className="toggleLine"><input type="checkbox" checked={onlySelected} onChange={e=>setOnlySelected(e.target.checked)}/> Sélection seulement</label>
@@ -253,8 +315,8 @@ function RoleEditor({token,catalog,capIndex,editor,readOnly,onClose,onSaved}:{to
         return <section key={d.domain} className="capDomain"><div className="capDomainHead"><b>{d.domain}</b><small>{d.capabilities.filter(c=>selected.has(c.code)).length}/{d.capabilities.length}</small>
           {!readOnly&&<button className="textBtn" onClick={()=>setSelected(s=>{const n=new Set(s);d.capabilities.forEach(c=>all?n.delete(c.code):n.add(c.code));return n})}>{all?'Tout retirer':'Tout cocher'}</button>}</div>
           {d.capabilities.map(c=><label key={c.code} className={`capRow ${selected.has(c.code)?'on':''} ${readOnly?'ro':''}`}>
-            <input type="checkbox" checked={selected.has(c.code)} disabled={readOnly} onChange={()=>toggle(c.code)}/>
-            <span className="capText"><b>{c.label}</b><small>{c.group}</small></span>
+            <input type="checkbox" checked={selected.has(c.code)} disabled={readOnly||locked.has(c.code)} onChange={()=>toggle(c.code)}/>
+            <span className="capText"><b>{c.label}</b><small>{c.group}{policyMode&&locked.has(c.code)?' · verrouillée':policyMode&&selected.has(c.code)&&!baseline.has(c.code)?' · ajoutée par l’école':policyMode&&!selected.has(c.code)&&baseline.has(c.code)?' · retirée par l’école':''}</small></span>
             <i className={`risk ${String(c.risk).toLowerCase()}`}>{RISK_LABEL[c.risk]??c.risk}</i>
           </label>)}</section>})}
         {!domains.length&&<div className="personEmpty"><span><Icon name="search" size={24}/></span><b>Aucune permission</b><small>Aucun résultat pour cette recherche.</small></div>}
@@ -263,7 +325,7 @@ function RoleEditor({token,catalog,capIndex,editor,readOnly,onClose,onSaved}:{to
     <footer className="sheetFoot">
       <div className="sheetSummary"><b>{selected.size}</b> permissions{critical>0&&<i className="risk critical">{critical} critique{critical>1?'s':''}</i>}
         {(added.length>0||removed.length>0)&&<span className="diffBadge">{added.length>0&&<em className="add">+{added.length}</em>}{removed.length>0&&<em className="del">−{removed.length}</em>}</span>}</div>
-      <div className="sheetButtons"><button className="softBtn" onClick={onClose}>{readOnly?'Fermer':'Annuler'}</button>{!readOnly&&<button className="primaryBtn" disabled={busy} onClick={()=>void save()}>{busy?'Enregistrement…':editor.mode==='create'?'Créer le rôle':'Enregistrer'}</button>}</div>
+      <div className="sheetButtons"><button className="softBtn" onClick={onClose}>{readOnly?'Fermer':'Annuler'}</button>{!readOnly&&<button className="primaryBtn" disabled={busy||(policyMode&&(!policy||policy.held_by_me))} onClick={()=>void save()}>{busy?'Enregistrement…':editor.mode==='create'?'Créer le rôle':policyMode?'Appliquer à l’école':'Enregistrer'}</button>}</div>
     </footer>
   </aside></div>;
 }
@@ -279,8 +341,8 @@ function AssignDialog({token,member,roles,scopes,canScope,onClose,onSaved}:{toke
   const validUntil=duration==='none'?null:duration==='date'?(until?new Date(`${until}T23:59:59`).toISOString():null):new Date(Date.now()+Number(duration)*864e5).toISOString();
   const ready=roleId&&reason.trim().length>=3&&(scopeType==='SCHOOL'||scopeValue)&&(duration!=='date'||until);
   async function save(){if(!ready)return;try{setBusy(true);
-    await send(token,'POST',`members/${member.membership_id}/roles`,{role_id:roleId,scopes:[scopeType==='SCHOOL'?{type:'SCHOOL'}:{type:scopeType,value:scopeValue}],valid_until:validUntil,reason:reason.trim()});
-    toast.success(`Rôle attribué à ${member.full_name} — effet immédiat`);await onSaved()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
+    const r=await governed(token,'POST',`members/${member.membership_id}/roles`,{role_id:roleId,scopes:[scopeType==='SCHOOL'?{type:'SCHOOL'}:{type:scopeType,value:scopeValue}],valid_until:validUntil,reason:reason.trim()});
+    announce(r,`Rôle attribué à ${member.full_name} — effet immédiat`);await onSaved()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
   return <div className="wizardBackdrop" onClick={onClose}><div className="accountSecurityDialog assignDialog" role="dialog" aria-modal="true" aria-label="Attribuer un rôle" onClick={e=>e.stopPropagation()}>
     <div className="modalHead"><div><h3>Attribuer un rôle</h3><p><span className="avatar sm">{initials(member.full_name)}</span> {member.full_name}</p></div><button type="button" aria-label="Fermer" onClick={onClose}>×</button></div>
     <label>Rôle<select value={roleId} onChange={e=>setRoleId(e.target.value)}>

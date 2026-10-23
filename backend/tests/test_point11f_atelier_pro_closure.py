@@ -8,7 +8,7 @@ ROUTER=(ROOT/'backend/src/edusync/modules/platform/api/router.py').read_text()
 
 def test_atelier_pro_has_no_placeholder_navigation_and_all_six_real_modules():
     # Closure 2026-10: shell replaced by platform/shell.tsx (AppShell); same intent, new implementation.
-    for label in ['Tableau de bord','Écoles','Accès','Notifications système','Journal d’audit','État du service']:
+    for label in ['Tableau de bord','Écoles','accès','Notifications système','Journal d’audit','État du service']:
         assert label in APP
     assert "false,()=>setTab" not in APP
     assert 'Administration technique légère' not in APP

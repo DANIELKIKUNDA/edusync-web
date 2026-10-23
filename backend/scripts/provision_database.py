@@ -208,11 +208,16 @@ def main() -> None:
             ("0082_audit_log_search", "0082_audit_log_search.sql"),
             ("0083_platform_alerts", "0083_platform_alerts.sql"),
             ("0084_platform_messaging_cockpit", "0084_platform_messaging_cockpit.sql"),
+            ("0085_school_rbac_policies", "0085_school_rbac_policies.sql"),
         ]
+        # CI only (rbac-contract job): stop after a given migration to snapshot the state BEFORE a later one.
+        until = os.environ.get("EDUSYNC_MIGRATE_UNTIL", "").strip()
         for version, filename in remaining_migrations:
             if not _migration_applied(conn, version):
                 _execute_sql_file(conn, MIGRATIONS / filename)
                 _record_migration(conn, version)
+            if until and version == until:
+                break
 
         dbname = owner_url.database or "edusync"
         conn.exec_driver_sql(f"GRANT CONNECT ON DATABASE \"{dbname.replace(chr(34), chr(34)*2)}\" TO {TENANT_ROLE}, {PLATFORM_ROLE}")

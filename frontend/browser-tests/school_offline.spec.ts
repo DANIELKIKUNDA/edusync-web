@@ -19,6 +19,8 @@ test('école : fermée puis rouverte en mode avion, reste connectée en lecture 
     let body:unknown={items:[],total:0,has_more:false,next_cursor:null,limit:50};
     if(path.endsWith('/auth/refresh'))body={access_token:'online-fixture-token',scope:'SCHOOL',school,user,permissions:['settings.read','personnel.read']};
     else if(path.endsWith('/auth/contexts'))body={contexts:[],current:{scope:'SCHOOL'},current_valid:true};
+    else if(path.endsWith('/access/me'))body={membership_id:'m',school_id:school.id,role_label:'Secrétariat',permissions:['settings.read','personnel.read'],scoped:[],roles:[],
+      navigation:[{key:'home',label:'Accueil',icon:'home'},{key:'settings',label:'Paramètres',icon:'settings'},{key:'personnel',label:'Personnel',icon:'users'}],widgets:[],actions:[]};
     else if(path.endsWith('/settings/overview'))body={school:{...school,version:1},readiness:{percent:80,global_blocking:false,items:[]}};
     else if(path.endsWith('/settings/academic-years'))body=[{id:'y1',code:'2026-2027',label:'2026-2027',start_date:'2026-09-01',end_date:'2027-07-02',status:'ACTIVE',version:1}];
     else if(path.endsWith('/stream'))return route.fulfill({contentType:'text/event-stream',body:''});

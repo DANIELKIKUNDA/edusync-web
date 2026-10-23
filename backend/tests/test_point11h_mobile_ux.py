@@ -1,6 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 APP=(ROOT/'frontend/src/App.tsx').read_text(encoding='utf-8')
+PROJ=(ROOT/'backend/src/edusync/modules/access/application/projection.py').read_text(encoding='utf-8')  # server navigation (2026-10-23)
 CSS=(ROOT/'frontend/src/styles.css').read_text(encoding='utf-8')
 PKG=(ROOT/'frontend/package.json').read_text(encoding='utf-8')
 
@@ -12,9 +13,10 @@ def test_mobile_navigation_is_real_not_hidden_desktop_only():
     assert "['home','students','finance','documents']" in APP
 
 def test_mobile_preserves_rbac_and_all_school_modules():
-    assert 'visibleNav.map' in APP
-    assert "stewardship:['inventory.']" in APP and "const visibleNav=nav.filter(([, ,key])=>canOpenModule(key))" in APP
-    assert "sync:['sync.']" in APP
+    # 2026-10-23: the phone menu uses the same server navigation as the desktop (/access/me)
+    assert 'const shellNav:ShellNavItem[]=nav.map(' in APP and "const nav=me?.navigation??[{key:'home',label:'Accueil',icon:'home'}]" in APP
+    for key in ('"stewardship"', '"sync"', '"students"', '"finance"', '"access"'):
+        assert key in PROJ
 
 def test_mobile_safe_area_touch_and_table_contracts():
     assert 'env(safe-area-inset-bottom)' in CSS
