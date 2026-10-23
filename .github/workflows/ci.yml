@@ -82,7 +82,7 @@ jobs:
         working-directory: frontend
         env:
           EDUSYNC_TEST_BUILD: "1"
-        run: npm run test:browser -- platform.spec.ts offline.spec.ts
+        run: npm run test:browser -- platform.spec.ts offline.spec.ts school_offline.spec.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:

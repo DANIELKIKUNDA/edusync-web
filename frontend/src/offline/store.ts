@@ -39,10 +39,10 @@ function openDb():Promise<IDBDatabase>{
   });
 }
 
-// Read-only platform snapshots share the existing IndexedDB infrastructure, but
+// Read-only platform / school snapshots share the existing IndexedDB infrastructure, but
 // never the school mutation outbox. A per-browser-session namespace isolates
 // identities and is discarded on logout/space change. No token is stored here.
-export async function platformSnapshot(scope:string, path:string, value?:string):Promise<{body:string;at:number}|null>{
+export async function platformSnapshot(scope:string, path:string, value?:string, max=40):Promise<{body:string;at:number}|null>{
   const db=await openDb();
   try{return await new Promise((resolve,reject)=>{
     const tx=db.transaction(READS,value===undefined?'readonly':'readwrite');
@@ -51,8 +51,9 @@ export async function platformSnapshot(scope:string, path:string, value?:string)
     if(value===undefined){const get=store.get(key);get.onsuccess=()=>{result=get.result||null};}
     else {
       store.put({key,scope,body:value,at:Date.now()});
-      // Keep at most 40 already-read responses per browser session.
-      const all=store.getAll();all.onsuccess=()=>{const entries=all.result.sort((a,b)=>b.at-a.at);entries.slice(40).forEach(x=>store.delete(x.key));};
+      // Keep at most `max` already-read responses per context (offline policy: 40 platform, 120 school); older
+      // namespaces (another identity / space) are dropped.
+      const all=store.getAll();all.onsuccess=()=>{const entries=all.result.filter(x=>x.scope===scope).sort((a,b)=>b.at-a.at);entries.slice(max).forEach(x=>store.delete(x.key));all.result.filter(x=>x.scope!==scope).forEach(x=>store.delete(x.key));};
     }
     tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
   })}finally{db.close()}

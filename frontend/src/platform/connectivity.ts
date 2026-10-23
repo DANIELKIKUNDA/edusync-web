@@ -1,4 +1,4 @@
-import {cachedPlatformRead, getPlatformAuthState, knownPlatform, rememberPlatformRead, setPlatformAuthState} from './offline_session';
+import {cachedPlatformRead, cacheablePath, getPlatformAuthState, knownContext, rememberPlatformRead, setPlatformAuthState} from './offline_session';
 import {UserFacingError} from './errors';
 export type ConnectivityState='ONLINE'|'DEGRADED'|'SUSPECTED_OFFLINE'|'OFFLINE'|'RECOVERING';
 type Snapshot={state:ConnectivityState;failures:number;successes:number;since:number;lastSuccess?:number;lastFailure?:number};
@@ -38,17 +38,18 @@ export async function resilientFetch(input:RequestInfo|URL,init?:RequestInit):Pr
   if(!isEduSyncApi(input))return nativeFetch(input,init);
   const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url,window.location.origin);
   const method=(init?.method||(input instanceof Request?input.method:'GET')).toUpperCase();
-  const scope=knownPlatform()?.scope||null;
+  const scope=knownContext()?.scope||null;
   const read=method==='GET';
-  const offline=knownPlatform() && (navigator.onLine===false || getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED');
+  // Platform AND school: a known (signed-in) context without network is read-only, whatever its offline policy.
+  const offline=knownContext() && (navigator.onLine===false || getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED');
   if(offline && !['GET','HEAD','OPTIONS'].includes(method) && !/\/auth\/(refresh|logout)$/.test(url.pathname))
     throw new UserFacingError('Hors connexion — lecture seule. Cette action nécessite une connexion au serveur.','OFFLINE_READ_ONLY');
-  if(offline && read && url.pathname.startsWith('/api/v1/platform/')){
+  if(offline && read && !/\/auth\//.test(url.pathname)){
     const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
     throw new UserFacingError('Cette donnée n’est pas disponible hors connexion. Réessayez au retour du réseau.','OFFLINE_NOT_CACHED');
   }
   try{const response=await resilientApiFetch(input,init);if(read)await rememberPlatformRead(url,response,scope);return response;}
-  catch(error){if(read && scope && knownPlatform()?.scope===scope){
+  catch(error){if(read && scope && knownContext()?.scope===scope && cacheablePath(url.pathname)){
     setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
     const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
   }throw error;}
@@ -70,7 +71,7 @@ let installed=false;
 export function installResilientFetch(){
   globalThis.fetch=resilientFetch as typeof fetch;
   if(!installed){installed=true;
-    window.addEventListener('offline',()=>{publish({...snap,state:'OFFLINE',successes:0,since:Date.now()});if(knownPlatform())setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED')});
+    window.addEventListener('offline',()=>{publish({...snap,state:'OFFLINE',successes:0,since:Date.now()});if(knownContext())setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED')});
     window.addEventListener('online',()=>publish({...snap,state:'RECOVERING',successes:0,since:Date.now()}));
     if(navigator.onLine===false)publish({...snap,state:'OFFLINE',successes:0,since:Date.now()});
   }

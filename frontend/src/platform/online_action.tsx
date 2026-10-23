@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from 'react';
-import {getPlatformAuthState, knownPlatform} from './offline_session';
+import {getPlatformAuthState, knownContext} from './offline_session';
 import {getConnectivity} from './connectivity';
 
-function readOnly(){return !!knownPlatform() && (navigator.onLine===false || getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED' || getConnectivity().state==='OFFLINE');}
+function readOnly(){return !!knownContext() && (navigator.onLine===false || getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED' || getConnectivity().state==='OFFLINE');}
 
 /** A disabled affordance as well as the API guard: never queue a sensitive action. */
 export function OnlineActionButton(props:React.ComponentProps<'button'>){

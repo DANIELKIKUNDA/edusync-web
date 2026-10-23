@@ -1,4 +1,4 @@
-import {clearPlatformContext, getPlatformAuthState, knownPlatform, OFFLINE_PLATFORM_TOKEN, rememberPlatformContext, restorePlatformContext, setPlatformAuthState} from './platform/offline_session';
+import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState} from './platform/offline_session';
 import React,{lazy,Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {SecureLogin} from './login';
 import {dismissBoot} from './platform/boot';
@@ -258,6 +258,7 @@ function SchoolApp({session,onLogout,onSwitchSpace}:{session:SavedSchoolSession;
   const yearSelect=(where:string)=>shellYears.length>0&&<label className={`es-year es-year-${where}`} title="Année scolaire consultée"><NavGlyph g="calendar" size={15}/><span>Année</span><select aria-label="Année scolaire consultée" value={selectedYearId} onChange={e=>selectShellYear(e.target.value)}>{shellYears.map(y=><option key={y.id} value={y.id} title={y.status==='ACTIVE'?'Année en cours':y.status==='CLOSED'?'Année clôturée':undefined}>{y.code||y.label}</option>)}</select></label>;
   const tools=<>{yearSelect('top')}<StatusChip compact={false}/>{session.permissions.includes('notifications.internal.read')&&<NotificationBell token={session.token} canDismiss={session.permissions.includes('notifications.internal.dismiss')}/>}</>;
   return <AppShell orgLabel={session.school.name} orgCode={session.school.code} drawerTools={yearSelect('drawer')} nav={shellNav} title={currentLabel} context={`${session.school.name}${yearLabel?` · ${yearLabel}`:''}`} tools={tools} account={account}>
+    <OfflineAdminBanner/>
     <Suspense fallback={<ModuleLoader/>}>{module==='settings'?<SettingsPage session={session}/>:module==='personnel'?<PersonnelPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='students'?<SchoolingPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='headcounts'?<EffectifsPage token={session.token} permissions={session.permissions} schoolName={session.school.name} yearId={selectedYearId||undefined}/>:module==='finance'?<FinancePage token={session.token} permissions={session.permissions}/>:module==='documents'?<DocumentsPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='stewardship'?<StewardshipPage token={session.token} permissions={session.permissions}/>:module==='sync'?<SyncAdminPage token={session.token} permissions={session.permissions}/>:module==='access'?<AccessPage token={session.token} permissions={session.permissions} userName={session.user.full_name}/>:module==='communications'?<CommunicationsPage token={session.token} permissions={session.permissions} schoolId={session.school.id} schoolName={session.school.name}/>:module==='home'?<HomePage token={session.token} permissions={session.permissions} schoolName={session.school.name} userName={session.user.full_name} onNavigate={goModule} yearId={selectedYearId||undefined} yearLabel={selectedYear?.label}/>:<Panel title="Module" subtitle="Ce module sera activé lorsqu’il disposera de ses contrats métier certifiés."><div/></Panel>}</Suspense>
     {dialog==='profile'&&<ProfileDialog name={session.user.full_name} email={session.user.email} context={`${session.school.name} · ${session.school.code}`} detail={yearLabel} onClose={()=>setDialog('')}/>}
     {dialog==='security'&&<SecurityDialog token={session.token} onClose={()=>setDialog('')} onPasswordChanged={onLogout}/>}
@@ -293,7 +294,7 @@ export function App(){
   useEffect(()=>{const h=()=>{void onRefused()};window.addEventListener('edusync:space-check',h);return()=>window.removeEventListener('edusync:space-check',h)},[]);
   useEffect(()=>{
     let alive=true, running=false;
-    restorePlatformContext();
+    restoreOfflineContext();
     async function restore(){
       if(running || /^#(reset|invitation)=/.test(window.location.hash))return;
       running=true;
@@ -304,14 +305,14 @@ export function App(){
           if(r.status===401 || r.status===403){
             const st=await fetchSpaces();
             if(!alive)return;
-            clearPlatformContext();setPlatformToken('');
+            clearPlatformContext();setPlatformToken('');setSchoolSession(null);
             if(st&&!st.current_valid&&st.contexts.length)setRecovery(st);
             return;
           }
           throw new Error('SESSION_SERVICE_UNAVAILABLE');
         }
         const d=await r.json();if(!alive||!d.access_token)return;
-        if(d.scope==='SCHOOL'&&d.school&&d.user){clearPlatformContext();setSchoolSession({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]});}
+        if(d.scope==='SCHOOL'&&d.school&&d.user){setPlatformAuthState('ONLINE_AUTHENTICATED');setPlatformToken('');setSchoolSession({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]});}
         else if(d.scope==='PLATFORM'){
           const previous=knownPlatform();
           if(previous&&d.user?.email&&previous.me.user.email.toLowerCase()!==d.user.email.toLowerCase())clearPlatformContext();
@@ -321,19 +322,23 @@ export function App(){
       }catch{
         // A timeout is not proof of revocation. Restore display-only context,
         // never a cached bearer token or authority to perform a mutation.
-        const cached=knownPlatform();
-        if(alive&&cached){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setPlatformUser(cached.me.user);setPlatformToken(t=>t||OFFLINE_PLATFORM_TOKEN);}
+        // Each context keeps its own offline policy (24 h platform, 7 days school: offline_session.ts).
+        const cached=knownContext();
+        if(alive&&cached?.kind==='PLATFORM'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setPlatformUser(cached.me.user);setPlatformToken(t=>t||OFFLINE_PLATFORM_TOKEN);}
+        else if(alive&&cached?.kind==='SCHOOL'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setSchoolSession(s=>s||{token:OFFLINE_SCHOOL_TOKEN,...cached.session});}
       }finally{running=false;if(alive)setRestoring(false);}
     }
     const online=()=>{void restore()};
-    const offline=()=>{if(knownPlatform())setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED')};
-    const probe=(e:Event)=>{if((e as CustomEvent).detail?.state==='ONLINE'&&getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&knownPlatform()&&navigator.onLine)void restore()};
+    const offline=()=>{if(knownContext())setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED')};
+    const probe=(e:Event)=>{if((e as CustomEvent).detail?.state==='ONLINE'&&getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&knownContext()&&navigator.onLine)void restore()};
     window.addEventListener('online',online);window.addEventListener('offline',offline);window.addEventListener('edusync:connectivity',probe);
     void restore();
     return()=>{alive=false;window.removeEventListener('online',online);window.removeEventListener('offline',offline);window.removeEventListener('edusync:connectivity',probe)};
   },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
   function clear(){clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
+  // A school session validated online becomes the school's offline context (display only, no token).
+  useEffect(()=>{if(schoolSession&&schoolSession.token!==OFFLINE_SCHOOL_TOKEN&&getPlatformAuthState()!=='OFFLINE_AUTHENTICATED_CACHED')rememberSchoolContext(schoolSession)},[schoolSession]);
   useEffect(()=>{if(!restoring)dismissBoot()},[restoring]);
   // While the persistent session is checked, the static boot screen (index.html) stays on screen: one continuous start.
   if(restoring)return null;

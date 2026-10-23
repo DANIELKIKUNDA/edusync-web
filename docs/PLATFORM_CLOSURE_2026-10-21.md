@@ -32,7 +32,12 @@ sur un vrai appareil restent à réaliser. Les preuves de l'ancien staging ne ce
   ne monte plus les modules notifications/audit/messagerie/service sans leur entrée autorisée.
 - États explicites `ONLINE_AUTHENTICATED`, `OFFLINE_AUTHENTICATED_CACHED`, `AUTH_REQUIRED`.
   Le contexte de consultation conservé dans localStorage (il survit à la fermeture de l’application, pour rouvrir hors connexion) ne contient aucun bearer/refresh token.
-  Sa restauration est bornée à 24 h ; il sert à l'affichage, jamais à autoriser une écriture.
+  Politique explicite par contexte (`OFFLINE_POLICY`, offline_session.ts, règle produit du 23/10/2026) : **Plateforme 24 h**,
+  **École 7 jours** après la dernière validation en ligne ; jamais un TTL partagé. Il sert à l'affichage, jamais à
+  autoriser une écriture. Espace École : contexte (école, utilisateur, permissions de menu) et pages déjà consultées
+  (scolarité, finance, personnel, paramètres, intendance…, jamais comptes, MFA, imports, exports, fichiers, flux),
+  120 réponses au plus ; écriture refusée hors connexion avant tout appel réseau ; revalidation au retour du réseau ;
+  révocation serveur → effacement et écran de connexion (browser-tests/school_offline.spec.ts, tests/school_offline.test.ts).
 - Réutilisation d'IndexedDB existant : magasin séparé de snapshots JSON, namespace de session/identité,
   au maximum 40 réponses de 256 000 caractères. Les secrets, MFA, sessions, configurations Push, exports,
   fichiers et flux ne sont pas mis en cache. Le changement d'espace, la déconnexion et la révocation effacent
