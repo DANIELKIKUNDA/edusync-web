@@ -92,3 +92,4 @@ button.ms-kpi:hover{border-color:var(--es-brand);box-shadow:0 6px 18px var(--es-
 .ms-diag code{font-size:12px;overflow-wrap:anywhere}.ms-diag small{color:var(--es-muted);overflow-wrap:anywhere}
 .ms-dok>svg{color:var(--es-ok);flex:none;margin-top:2px}.ms-dko>svg{color:var(--es-bad);flex:none;margin-top:2px}.ms-dko code{color:var(--es-bad)}
 @media (max-width:767.98px){.ms-diag{grid-template-columns:minmax(0,1fr)}}
+.ms-hint-line{display:block;margin-top:3px;color:var(--es-muted);font-size:12px}

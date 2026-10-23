@@ -214,16 +214,17 @@ def _finish(engine, row, token, result) -> str:
                 _wipe_secret_if_final(c, row)
             return 'SENT'
         code = 'PROVIDER_NOT_CONFIGURED' if result is None else ports.safe_error(result.error_code or result.outcome)
+        detail = None if result is None or not result.error_detail else str(result.error_detail)[:240]
         retryable = result is None or result.outcome == ports.RETRYABLE
         if retryable and attempts < MAX_ATTEMPTS:
             delay = backoff_seconds(attempts, None if result is None else result.retry_after_seconds)
             c.execute(text("""UPDATE communication_deliveries SET status='FAILED_RETRYABLE', attempts=:a,
-                next_attempt_at=now()+(:d||' seconds')::interval, last_error_code=:e, locked_until=NULL, processing_token=NULL
-                WHERE id=:id AND processing_token=:t"""), {'a': attempts, 'd': delay, 'e': code, 'id': row['id'], 't': token})
+                next_attempt_at=now()+(:d||' seconds')::interval, last_error_code=:e, last_error_detail=:x, locked_until=NULL, processing_token=NULL
+                WHERE id=:id AND processing_token=:t"""), {'a': attempts, 'd': delay, 'e': code, 'x': detail, 'id': row['id'], 't': token})
             return 'FAILED_RETRYABLE'
         n = c.execute(text("""UPDATE communication_deliveries SET status='FAILED_PERMANENT', attempts=:a, failed_at=now(), last_error_code=:e,
-            next_attempt_at=NULL, locked_until=NULL, processing_token=NULL WHERE id=:id AND processing_token=:t"""),
-            {'a': attempts, 'e': code, 'id': row['id'], 't': token}).rowcount
+            last_error_detail=:x, next_attempt_at=NULL, locked_until=NULL, processing_token=NULL WHERE id=:id AND processing_token=:t"""),
+            {'a': attempts, 'e': code, 'x': detail, 'id': row['id'], 't': token}).rowcount
         if n:
             _wallet(c, row, 'RELEASE', row.get('estimated_segments'))
             if row['channel'] == 'PUSH' and result is not None and result.outcome == ports.INVALID_TOKEN:

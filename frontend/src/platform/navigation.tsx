@@ -4,8 +4,35 @@ import './navigation.css';
 
 export type Crumb = {label: string; onSelect: () => void};
 
+const UUID_RX = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+/** The page label alone: no « EduSync », no « Gestion scolaire », no technical id, short. */
+export function pageLabel(label: string) {
+  const clean = (label || '')
+    .replace(UUID_RX, '')
+    .replace(/\bEduSync\b/gi, '')
+    .replace(/\bGestion scolaire\b/gi, '')
+    .replace(/\s*[·—–|-]\s*(?=[·—–|-]|$)/g, '')
+    .replace(/^\s*[·—–|-]\s*/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  const short = clean.length > 60 ? `${clean.slice(0, 59).trimEnd()}…` : clean;
+  return short || 'Plateforme';
+}
+
+/** Browser tab: « Push — EduSync ». One single global rule (the shell applies it), the same for every role. */
 export function pageTitle(label: string) {
-  return `${label.replace(/\s*[·—-]\s*EduSync.*$/i, '').replace(/^EduSync\s*[·—-]\s*/i, '').trim() || 'Plateforme'} — EduSync`;
+  return `${pageLabel(label)} — EduSync`;
+}
+
+/** Installed application (PWA): the browser already writes the application name « EduSync » in the title bar, so
+    the page gives its label only — never « EduSync … — EduSync ». */
+export function isStandalone(): boolean {
+  try { return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches
+    || Boolean((navigator as Navigator & {standalone?: boolean}).standalone); } catch { return false; }
+}
+export function windowTitle(label: string) {
+  return isStandalone() ? pageLabel(label) : pageTitle(label);
 }
 
 /** Parents come from the authorized screen that rendered the detail, never from

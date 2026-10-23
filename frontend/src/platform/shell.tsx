@@ -1,6 +1,7 @@
-import React, {useEffect, useId, useRef, useState} from 'react';
+import React, {useEffect, useId, useRef, useState, useMemo} from 'react';
 import {NavGlyph} from './nav_icons';
-import {pageTitle, VerticalNavigation} from './navigation';
+import {windowTitle, VerticalNavigation} from './navigation';
+import {LogoutConfirm, logoutOrigin, restoreFocus} from './logout_confirm';
 import {connectivityLabel, getConnectivity, subscribeActivity, subscribeConnectivity, type ConnectivityState, type WriteActivity} from './connectivity';
 import './shell.css';
 import './theme.css';
@@ -143,7 +144,7 @@ function DrawerAccount({account, onPick}: {account: ShellAccount; onPick: (item:
   </div>;
 }
 
-export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerTools, account, children, mobileTitle, accountDock = false}: {
+export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerTools, account: rawAccount, children, mobileTitle, accountDock = false}: {
   orgLabel: string; orgCode?: string; nav: ShellNavItem[]; title: string; context?: string; tools?: React.ReactNode; drawerTools?: React.ReactNode;
   account: ShellAccount; children: React.ReactNode; mobileTitle?: string;
   /** Platform space: compact account block at the bottom of the sidebar / phone menu instead of the top bar. */
@@ -151,6 +152,10 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
 }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawer, setDrawer] = useState(false);
+  // Voluntary sign-out asks for a confirmation (every account menu of every role goes through this one wrapper).
+  const [logoutAsk, setLogoutAsk] = useState<{run: () => unknown; origin: HTMLElement | null} | null>(null);
+  const account: ShellAccount = useMemo(() => ({...rawAccount, items: rawAccount.items.map(item => item.key !== 'logout' ? item
+    : {...item, onSelect: () => setLogoutAsk({run: item.onSelect, origin: logoutOrigin()})})}), [rawAccount]);
   const [tip, setTip] = useState<{label: string; top: number} | null>(null);
   const drawerRef = useRef<HTMLElement>(null);
   useDismiss(drawer, () => setDrawer(false), drawerRef);
@@ -158,7 +163,7 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
     const updateTitle=()=>{
       const trails=Array.from(document.querySelectorAll<HTMLElement>('#es-content .pf-trail[data-page-title]'));
       const current=trails.filter(el=>!el.closest('[hidden]')).at(-1)?.dataset.pageTitle;
-      document.title=pageTitle(current||title);
+      document.title=windowTitle(current||title);
     };
     const content=document.getElementById('es-content');
     const observer=new MutationObserver(updateTitle);
@@ -254,5 +259,7 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
         </div>}
       </aside>
     </div>}
+    {logoutAsk && <LogoutConfirm onConfirm={() => logoutAsk.run()}
+      onCancel={() => { const origin = logoutAsk.origin; setLogoutAsk(null); requestAnimationFrame(() => restoreFocus(origin)); }}/>}
   </div>;
 }

@@ -45,6 +45,10 @@ STATUSES = ('QUEUED', 'PROCESSING', 'SENT', 'DELIVERED', 'FAILED_RETRYABLE', 'FA
 CURRENT_WINDOW = timedelta(minutes=15)       # a failure older than this is history, never the current state
 HEALTH_FRESH = timedelta(minutes=15)
 LATE_QUEUE_SECONDS = 600
+SYSTEMIC_FAILURES = 3                        # DELIVERY failures that may indicate a provider problem (15 min, no success)
+# Failures caused by ONE recipient (device unregistered, address refused…): DELIVERY health only, never the provider state.
+from edusync.shared.messaging.fcm_errors import DEVICE_CODES, OPERATOR_HINT, scope_of  # noqa: E402
+RECIPIENT_CODES = tuple(sorted(DEVICE_CODES | {"SMTP_RECIPIENT_REFUSED", "INVALID_DESTINATION", "NO_VALID_PHONE", "NO_EMAIL_ADDRESS"}))
 PROVIDER_NAME = {'email': {'smtp': 'SMTP (Brevo)', 'fake': 'Simulation'}, 'push': {'fcm': 'Firebase Cloud Messaging', 'fake': 'Simulation', 'mock': 'Simulation'},
                  'sms': {'orange': 'Orange SMS', 'fake': 'Simulation', 'mock': 'Simulation', 'sandbox': 'Simulation'}}
 
@@ -107,7 +111,8 @@ def channel_state(key: str, cfg_state: dict, snap: dict | None, facts: dict, now
     fresh = bool(checked and now - checked <= HEALTH_FRESH)
     last_success = facts.get('last_success')
     recent_success = bool(last_success and now - last_success <= (timedelta(days=30) if key == 'push' else timedelta(hours=24)))
-    failing_now = facts.get('failed_15m', 0) > 0 and facts.get('sent_15m', 0) == 0
+    # DELIVERY health: only failures that are not caused by one recipient, repeated, with no success meanwhile
+    failing_now = facts.get('failed_15m', 0) >= SYSTEMIC_FAILURES and facts.get('sent_15m', 0) == 0
     late = (facts.get('oldest_due_seconds') or 0) > LATE_QUEUE_SECONDS
     api_failing = [c for c in (api_checks or []) if c['ok'] is False]
     worker_checks = (h or {}).get('checks') or []
@@ -128,11 +133,17 @@ def channel_state(key: str, cfg_state: dict, snap: dict | None, facts: dict, now
         reasons += fix('Worker', worker_failing) or [f"Worker — {h.get('error_code') or 'fournisseur non configuré'}"]
         reasons += fix('API', api_failing)
     elif fresh and h.get('ok') is False:
-        state = 'UNAVAILABLE'; reasons.append(f"Contrôle réel en échec : {h.get('error_code') or 'erreur'}")
+        code = h.get('error_code') or 'erreur'
+        state = 'UNAVAILABLE'; reasons.append(f"Contrôle réel du fournisseur en échec : {code}" + (f" ({h['error_detail']})" if h.get('error_detail') else ''))
+        if OPERATOR_HINT.get(code):
+            reasons.append(OPERATOR_HINT[code])
     elif failing_now or late:
         state = 'DEGRADED'
         if failing_now:
-            reasons.append(f"{facts['failed_15m']} échec(s) sur les 15 dernières minutes, aucun envoi réussi")
+            reasons.append(f"{facts['failed_15m']} échecs d’envoi côté fournisseur en 15 min, aucun envoi réussi"
+                           + (f" (dernier : {facts.get('last_failure_code')})" if facts.get('last_failure_code') else ''))
+            if OPERATOR_HINT.get(facts.get('last_failure_code') or ''):
+                reasons.append(OPERATOR_HINT[facts['last_failure_code']])
         if late:
             reasons.append(f"Envoi le plus ancien en attente depuis {int(facts['oldest_due_seconds'] // 60)} min")
     elif key == 'push':
@@ -157,6 +168,14 @@ def channel_state(key: str, cfg_state: dict, snap: dict | None, facts: dict, now
             'provider_label': PROVIDER_NAME.get(key, {}).get((h or {}).get('provider') or provider, (h or {}).get('provider') or provider),
             'config_state': cfg_state['state'], 'state': state, 'reasons': reasons, 'simulated': cfg_state['state'] == 'SIMULATED',
             'diagnostics': {'api': api_checks or [], 'worker': worker_checks},
+            # PROVIDER health (real check of the worker) and DELIVERY health (real sends) are reported separately
+            'provider_health': None if not h else {'ok': h.get('ok'), 'fresh': fresh, 'error_code': h.get('error_code'),
+                                                   'send_authorized': h.get('send_authorized')},
+            'delivery_health': {'failed_15m_systemic': facts.get('failed_15m', 0), 'failed_15m_recipient': facts.get('failed_15m_recipient', 0),
+                                'sent_15m': facts.get('sent_15m', 0), 'last_failure_code': facts.get('last_failure_code'),
+                                'last_failure_scope': scope_of(facts.get('last_failure_code')) if facts.get('last_failure_code') else None,
+                                'last_failure_detail': _sanitize(facts.get('last_failure_detail')),
+                                'last_failure_hint': OPERATOR_HINT.get(facts.get('last_failure_code') or '')},
             'health': None if not h else {'checked_at': h.get('checked_at'), 'fresh': fresh, 'ok': h.get('ok'), 'latency_ms': h.get('latency_ms'),
                                           'error_code': h.get('error_code'), 'project_id': h.get('project_id'),
                                           'config': {k: v for k, v in (h.get('config') or {}).items() if k != 'provider'}},
@@ -170,18 +189,23 @@ def _facts(c) -> dict[str, dict]:
     rows = c.execute(text("""SELECT channel,
             max(sent_at) AS last_success,
             max(failed_at) FILTER (WHERE status='FAILED_PERMANENT') AS last_failure,
-            count(*) FILTER (WHERE (status='FAILED_PERMANENT' AND failed_at > now() - interval '15 minutes')
-                             OR (status='FAILED_RETRYABLE' AND last_attempt_at > now() - interval '15 minutes')) AS failed_15m,
+            count(*) FILTER (WHERE ((status='FAILED_PERMANENT' AND failed_at > now() - interval '15 minutes')
+                             OR (status='FAILED_RETRYABLE' AND last_attempt_at > now() - interval '15 minutes'))
+                             AND coalesce(last_error_code, '') <> ALL(:recipient)) AS failed_15m,
+            count(*) FILTER (WHERE ((status='FAILED_PERMANENT' AND failed_at > now() - interval '15 minutes')
+                             OR (status='FAILED_RETRYABLE' AND last_attempt_at > now() - interval '15 minutes'))
+                             AND last_error_code = ANY(:recipient)) AS failed_15m_recipient,
             count(*) FILTER (WHERE sent_at > now() - interval '15 minutes') AS sent_15m,
             count(*) FILTER (WHERE status IN ('QUEUED','FAILED_RETRYABLE','PROCESSING')) AS backlog,
             count(*) FILTER (WHERE status='FAILED_RETRYABLE') AS retrying,
             count(*) FILTER (WHERE status='FAILED_PERMANENT' AND failed_at > now() - interval '7 days') AS dead_7d,
             extract(epoch FROM now() - min(created_at) FILTER (WHERE status IN ('QUEUED','FAILED_RETRYABLE')))::int AS oldest_due_seconds
-        FROM communication_deliveries GROUP BY channel""")).mappings().all()
+        FROM communication_deliveries GROUP BY channel"""), {'recipient': list(RECIPIENT_CODES)}).mappings().all()
     out = {r['channel']: dict(r) for r in rows}
-    for r in c.execute(text("""SELECT DISTINCT ON (channel) channel, last_error_code FROM communication_deliveries
-            WHERE status='FAILED_PERMANENT' ORDER BY channel, failed_at DESC NULLS LAST""")).mappings():
-        out.setdefault(r['channel'], {})['last_failure_code'] = r['last_error_code']
+    for r in c.execute(text("""SELECT DISTINCT ON (channel) channel, last_error_code, last_error_detail FROM communication_deliveries
+            WHERE status IN ('FAILED_PERMANENT','FAILED_RETRYABLE') AND last_error_code IS NOT NULL
+            ORDER BY channel, coalesce(failed_at, last_attempt_at) DESC NULLS LAST""")).mappings():
+        out.setdefault(r['channel'], {}).update(last_failure_code=r['last_error_code'], last_failure_detail=r['last_error_detail'])
     for r in c.execute(text("""SELECT channel, status, count(*) n FROM communication_deliveries
             WHERE created_at >= now() - interval '24 hours' GROUP BY channel, status""")).mappings():
         out.setdefault(r['channel'], {}).setdefault('volumes_24h', {})[r['status']] = r['n']

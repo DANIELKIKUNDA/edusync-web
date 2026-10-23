@@ -54,7 +54,9 @@ async def _timed(coro) -> tuple[bool, int, str | None, dict]:
     except asyncio.TimeoutError:
         return False, int((time.perf_counter() - t0) * 1000), "TIMEOUT", {}
     except Exception as exc:  # noqa: BLE001 — classified, never the message (it may contain a host or an account name)
-        return False, int((time.perf_counter() - t0) * 1000), safe_error(getattr(exc, "health_code", None) or type(exc).__name__), {}
+        detail = getattr(exc, "health_detail", None)
+        return False, int((time.perf_counter() - t0) * 1000), safe_error(getattr(exc, "health_code", None) or type(exc).__name__), \
+            ({"error_detail": str(detail)[:200]} if detail else {})
 
 
 async def check_all(cfg) -> dict:

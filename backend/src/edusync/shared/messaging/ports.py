@@ -31,6 +31,7 @@ class SendResult:
     provider_message_id: str | None = None
     error_code: str | None = None
     retry_after_seconds: int | None = None
+    error_detail: str | None = None          # sanitized provider reason (HTTP status, google status / reason) — never a secret
 
     def __post_init__(self):
         if self.outcome not in OUTCOMES:

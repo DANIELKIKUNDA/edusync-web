@@ -12,7 +12,8 @@ import asyncio
 import json
 import warnings
 
-from edusync.shared.messaging.ports import INVALID_TOKEN, PERMANENT, RETRYABLE, SENT, SendResult, safe_error
+from edusync.shared.messaging.fcm_errors import classify, scope_of
+from edusync.shared.messaging.ports import RETRYABLE, SENT, SendResult
 
 APP_NAME = "edusync-fcm"
 
@@ -57,31 +58,50 @@ class FcmPushProvider:
                                                                         fcm_options=messaging.WebpushFCMOptions(link=link) if link and link.startswith("https://") else None))
         try:
             message_id = messaging.send(message, app=self._app)
-        except (messaging.UnregisteredError, messaging.SenderIdMismatchError):
-            return SendResult(INVALID_TOKEN, error_code="PUSH_TOKEN_UNREGISTERED")
-        except exceptions.InvalidArgumentError:
-            return SendResult(INVALID_TOKEN, error_code="PUSH_TOKEN_INVALID")
-        except messaging.QuotaExceededError:
-            return SendResult(RETRYABLE, error_code="PUSH_QUOTA_EXCEEDED", retry_after_seconds=300)
-        except (exceptions.UnavailableError, exceptions.InternalError, exceptions.DeadlineExceededError):
-            return SendResult(RETRYABLE, error_code="PUSH_PROVIDER_UNAVAILABLE")
-        except exceptions.UnauthenticatedError:
-            return SendResult(PERMANENT, error_code="PUSH_CREDENTIALS")
         except exceptions.FirebaseError as exc:
-            return SendResult(RETRYABLE, error_code=safe_error(f"PUSH_{getattr(exc, 'code', 'ERROR')}"))
+            # Precise mapping (fcm_errors.py): device-scope errors deactivate the device only; project / credential /
+            # API errors are retried with a long delay (an operator fix in Google Cloud recovers the queued pushes).
+            outcome, code, detail = classify(exc)
+            retry = 300 if code == "PUSH_QUOTA_EXCEEDED" else 900 if scope_of(code) == "PROVIDER" else None
+            return SendResult(outcome, error_code=code, retry_after_seconds=retry, error_detail=detail)
         except Exception:  # noqa: BLE001 — network errors surface as transport exceptions
-            return SendResult(RETRYABLE, error_code="PUSH_NETWORK")
+            return SendResult(RETRYABLE, error_code="PUSH_NETWORK", error_detail="transport")
         return SendResult(SENT, provider_message_id=str(message_id)[:180])
 
+    HEALTH_TOKEN = "edusync-health-check-not-a-device-token"
+
     def _health_blocking(self) -> dict:
-        info = self._app.credential.get_access_token()          # OAuth2 with the service account key (no message sent)
+        """PROVIDER health = the SEND permission, not only an OAuth token: a validate-only (dry_run) send to a token that
+        is not a device. Google checks credentials, the « Firebase Cloud Messaging API » and IAM BEFORE the token, so
+        « token invalid » proves the project can send; PERMISSION_DENIED / UNAUTHENTICATED prove it cannot. No push
+        is delivered (dry_run)."""
+        from firebase_admin import exceptions, messaging
+        info = self._app.credential.get_access_token()          # OAuth2 with the service account key
         if not getattr(info, "access_token", None):
             raise RuntimeError("no access token")
-        return {"project_id": getattr(self._app, "project_id", None)}
+        project = getattr(self._app, "project_id", None)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', DeprecationWarning)
+                messaging.send(messaging.Message(token=self.HEALTH_TOKEN, data={"health": "1"}), dry_run=True, app=self._app)
+        except exceptions.FirebaseError as exc:
+            outcome, code, detail = classify(exc)
+            if scope_of(code) == "DEVICE":
+                return {"project_id": project, "send_authorized": True}
+            err = RuntimeError("fcm health")
+            err.health_code, err.health_detail = code, detail
+            raise err from None
+        return {"project_id": project, "send_authorized": True}
 
     async def health_check(self) -> dict:
         try:
             return await asyncio.to_thread(self._health_blocking)
+        except RuntimeError as exc:
+            if getattr(exc, "health_code", None):
+                raise
+            err = RuntimeError("fcm health")
+            err.health_code = "PUSH_PROVIDER_UNAVAILABLE"
+            raise err from None
         except Exception as exc:  # noqa: BLE001 — google-auth errors may echo the account e-mail: only a code leaves here
             err = RuntimeError("fcm health")
             err.health_code = "PUSH_CREDENTIALS" if "RefreshError" in type(exc).__name__ else "PUSH_PROVIDER_UNAVAILABLE"

@@ -253,3 +253,11 @@
 }
 @media (prefers-reduced-motion:no-preference){.es-shell .es-side.es-peek{animation:es-peek-in .14s ease-out}}
 @keyframes es-peek-in{from{opacity:.6;transform:translateX(-8px)}to{opacity:1;transform:none}}
+/* Voluntary sign-out confirmation (lot 2026-10) */
+.es-logout{width:min(420px,100%);text-align:center;display:grid;justify-items:center;gap:8px;padding:22px 20px 18px}
+.es-logout h2{margin:4px 0 0;font-size:19px}.es-logout p{margin:0;color:var(--es-muted,#5b6578);font-size:14.5px;line-height:1.5}
+.es-logout-ico{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:var(--es-bad-soft,#fdecea);color:var(--es-bad,#b42318)}
+.es-logout .es-modal-foot{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.es-logout .es-btn{min-height:44px;justify-content:center;display:inline-flex;align-items:center;gap:8px}
+.es-logout-go{background:var(--es-bad,#b42318)!important;border-color:var(--es-bad,#b42318)!important;color:#fff!important}
+.es-logout-go:disabled{opacity:.8;cursor:progress}

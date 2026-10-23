@@ -11,6 +11,9 @@ export type Channel = {
   key: 'push' | 'email' | 'sms'; channel: 'PUSH' | 'EMAIL' | 'SMS'; provider: string; provider_label: string; config_state: string; state: ProviderState;
   reasons: string[]; simulated: boolean;
   diagnostics?: {api: Check[]; worker: Check[]};
+  provider_health?: null | {ok: boolean | null; fresh: boolean; error_code: string | null; send_authorized?: boolean | null};
+  delivery_health?: {failed_15m_systemic: number; failed_15m_recipient: number; sent_15m: number; last_failure_code: string | null;
+    last_failure_scope: 'DEVICE' | 'PROVIDER' | 'TRANSIENT' | null; last_failure_detail: string | null; last_failure_hint: string | null};
   health: null | {checked_at: string; fresh: boolean; ok: boolean | null; latency_ms: number | null; error_code: string | null; project_id: string | null;
     config: Record<string, string | number | boolean | null>};
   last_success_at: string | null; last_failure_at: string | null; last_failure_code: string | null; backlog: number; retrying: number; dead_7d: number;

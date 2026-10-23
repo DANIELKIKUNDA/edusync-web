@@ -170,6 +170,11 @@ function ChannelPage({token, c, now, online, onBack, onDeliveries, onMeasure, bu
         {c.health?.latency_ms != null && <><dt>Temps de réponse</dt><dd>{c.health.latency_ms} ms</dd></>}
         <dt>Dernier envoi réussi</dt><dd>{c.last_success_at ? `${ago(c.last_success_at, now)} · ${when(c.last_success_at)}` : 'Aucun'}</dd>
         <dt>Dernier échec (historique)</dt><dd>{c.last_failure_at ? `${ago(c.last_failure_at, now)}${c.last_failure_code ? ` · ${c.last_failure_code}` : ''}` : 'Aucun'}</dd>
+        {c.channel === 'PUSH' && c.provider_health?.send_authorized && <><dt>Autorisation d’envoi Firebase</dt><dd>Vérifiée (envoi à blanc accepté par l’API Cloud Messaging)</dd></>}
+        {c.delivery_health && (c.delivery_health.failed_15m_recipient > 0 || c.delivery_health.last_failure_code) && <>
+          <dt>Santé des envois (15 min)</dt><dd>{c.delivery_health.sent_15m} réussi(s) · {c.delivery_health.failed_15m_systemic} échec(s) côté fournisseur · {c.delivery_health.failed_15m_recipient} lié(s) à un appareil ou un destinataire</dd>
+          {c.delivery_health.last_failure_code && <><dt>Dernier échec d’envoi</dt><dd>{c.delivery_health.last_failure_code}{c.delivery_health.last_failure_scope === 'DEVICE' ? ' (cet appareil seulement)' : ''}
+            {c.delivery_health.last_failure_detail ? ` · ${c.delivery_health.last_failure_detail}` : ''}{c.delivery_health.last_failure_hint ? <small className="ms-hint-line">{c.delivery_health.last_failure_hint}</small> : null}</dd></>}</>}
         <dt>En attente / nouvel essai</dt><dd>{n(c.backlog)} / {n(c.retrying)}{c.oldest_due_seconds ? ` · plus ancien ${Math.round(c.oldest_due_seconds / 60)} min` : ''}</dd>
         <dt>Échecs définitifs (7 j)</dt><dd>{n(c.dead_7d)}</dd>
         <dt>Dernier test réel</dt><dd>{c.last_test ? `${STATUS_LABEL[c.last_test.status] || c.last_test.status} · ${ago(c.last_test.at, now)}${c.last_test.provider_proof ? ' · preuve du fournisseur' : ''}${c.last_test.error_code ? ` · ${c.last_test.error_code}` : ''}` : 'Aucun'}</dd></dl>

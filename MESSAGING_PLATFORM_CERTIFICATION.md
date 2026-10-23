@@ -103,3 +103,30 @@ Causes « Non configuré » trouvées dans le code et l'installation (19-21/10/2
 
 Aucun redémarrage manuel : après modification de `staging.env`, relancer *Deploy staging* (Actions → Run workflow,
 SHA courant) ; le contrôleur recrée l'API et le worker avec la nouvelle configuration.
+
+## 7. Push FCM : santé du fournisseur ≠ santé des envois (correctif 2026-10-23)
+
+Symptôme staging : contrôle réel « réussi », appareils enregistrés, mais chaque envoi refusé en `PUSH_PERMISSION_DENIED`
+et carte Push « Dégradé ». Causes dans le code :
+1. le contrôle de santé n'obtenait qu'un jeton OAuth (accepté même si l'API d'envoi est désactivée ou non autorisée) ;
+2. toute erreur Firebase non prévue devenait `PUSH_<code>` : un HTTP 403 `PERMISSION_DENIED` de **l'API d'envoi Google
+   Cloud** (jamais la permission du navigateur) s'affichait en fourre-tout, traité comme temporaire ;
+3. un seul échec d'envoi faisait passer le canal en « Dégradé ».
+
+Correctif : contrôle de santé = **envoi à blanc** (`dry_run`) vers un jeton qui n'est pas un appareil (Google vérifie
+identifiants, API et IAM avant le jeton) ; classement précis (`fcm_errors.py`) ; « Dégradé » seulement sur 3 échecs
+systémiques en 15 min sans succès ; un échec propre à un appareil désactive cet appareil sans dégrader le canal.
+
+| Réponse Firebase | Code EduSync | Portée | Action |
+|---|---|---|---|
+| 403 `PERMISSION_DENIED` · `SERVICE_DISABLED` | `PUSH_FCM_API_DISABLED` | fournisseur | Google Cloud Console → activer « Firebase Cloud Messaging API » (V1) |
+| 403 `PERMISSION_DENIED` · `IAM_PERMISSION_DENIED` | `PUSH_IAM_PERMISSION_MISSING` | fournisseur | rôle « Firebase Cloud Messaging API Admin » pour le compte de service |
+| 403 autre | `PUSH_PROJECT_PERMISSION_DENIED` | fournisseur | vérifier le projet du compte de service |
+| 403 `SENDER_ID_MISMATCH` | `PUSH_SENDER_ID_MISMATCH` | appareil | appareil enregistré avec un autre projet : il réactive les notifications |
+| 404 `UNREGISTERED` / 400 jeton | `PUSH_TOKEN_UNREGISTERED` / `PUSH_TOKEN_INVALID` | appareil | appareil désactivé, les autres continuent |
+| 401 `THIRD_PARTY_AUTH_ERROR` | `PUSH_WEBPUSH_AUTH` | fournisseur | clé VAPID de Firebase → Cloud Messaging → Web Push |
+| 401 `UNAUTHENTICATED` | `PUSH_CREDENTIALS` | fournisseur | clé du compte de service |
+| 503 / 500 / quota | `PUSH_PROVIDER_UNAVAILABLE` / `PUSH_QUOTA_EXCEEDED` | temporaire | nouvel essai automatique |
+
+Erreurs fournisseur : nouvel essai toutes les 15 min (bornées) — une correction dans Google Cloud délivre les pushes en
+attente. Le détail expurgé (statut HTTP, statut Google, raison) est conservé avec l'envoi, sans jeton ni secret.
