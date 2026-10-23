@@ -1,0 +1,35 @@
+# Dependabot (lot 2026-10) : propositions de mise à jour, vérifiées par la CI avant toute fusion (aucune fusion
+# automatique). Le fichier backend/requirements.lock (contraintes pip -c) n'est pas lu par Dependabot : il est
+# surveillé chaque jour par .github/workflows/dependency-audit.yml (pip-audit), qui ouvre un ticket avec la version
+# corrigée dès qu'une vulnérabilité est publiée.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+    open-pull-requests-limit: 5
+    groups:
+      corrections-mineures:
+        update-types: [minor, patch]
+    labels: [dependances]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+    open-pull-requests-limit: 3
+    labels: [dependances]
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+    open-pull-requests-limit: 3
+    labels: [dependances]

@@ -1,0 +1,92 @@
+# EduSync — audit quotidien des dépendances verrouillées (lot 2026-10).
+# Les vulnérabilités sont publiées en continu : sans ce contrôle, on ne les découvre qu'au push suivant, quand la CI
+# échoue. Chaque jour : pip-audit sur backend/requirements.lock, npm audit (exécution) sur frontend/package-lock.json.
+# Vulnérabilité trouvée → ticket « [Sécurité dépendances] » avec paquet, version, identifiants et version corrigée
+# (mis à jour s'il existe déjà) ; plus rien → commentaire et fermeture. Lecture seule sur le code, aucun secret.
+name: Audit dépendances
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: pip-audit + npm audit (quotidien)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      LABEL: securite-dependances
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Audits
+        id: audit
+        run: |
+          pip install -q pip-audit==2.10.1
+          set +e
+          # --no-deps --disable-pip : the lock pins every package; only the vulnerability database is queried
+          pip-audit -r backend/requirements.lock --no-deps --disable-pip --format json --output pip.json --progress-spinner off
+          (cd frontend && npm audit --omit=dev --json > ../npm.json)
+          set -e
+          python3 - <<'PY'
+          import json, os
+          rows = []
+          try:
+              for dep in json.load(open("pip.json")).get("dependencies", []):
+                  for v in dep.get("vulns", []):
+                      rows.append(("Python", dep["name"], dep.get("version", ""), v.get("id", ""), ", ".join(v.get("fix_versions", [])) or "aucune"))
+          except Exception as exc:
+              rows.append(("Python", "pip-audit", "", f"audit illisible : {type(exc).__name__}", ""))
+          try:
+              for name, v in (json.load(open("npm.json")).get("vulnerabilities") or {}).items():
+                  fix = v.get("fixAvailable")
+                  fix_txt = fix.get("version", "oui") if isinstance(fix, dict) else ("oui" if fix else "aucune")
+                  ids = ", ".join(sorted({x.get("url", "").rsplit("/", 1)[-1] for x in v.get("via", []) if isinstance(x, dict)})) or v.get("severity", "")
+                  rows.append(("npm", name, v.get("range", ""), ids, fix_txt))
+          except Exception as exc:
+              rows.append(("npm", "npm audit", "", f"audit illisible : {type(exc).__name__}", ""))
+          body = ["| Écosystème | Paquet | Version | Identifiant | Version corrigée |", "|---|---|---|---|---|"]
+          body += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]
+          with open("report.md", "w", encoding="utf-8") as f:
+              f.write("\n".join(body) + "\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("### Audit des dépendances\n" + ("\n".join(body) if rows else "Aucune vulnérabilité connue.") + "\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"count={len(rows)}\n")
+          PY
+      - name: Ticket (ouverture / mise à jour / fermeture)
+        run: |
+          repo="${{ github.repository }}"
+          open=$(gh issue list -R "$repo" --label "$LABEL" --state open --json number --jq '.[0].number // empty')
+          if [[ "${{ steps.audit.outputs.count }}" != "0" ]]; then
+            gh label create "$LABEL" -R "$repo" --color D93F0B --description "Vulnérabilité publiée sur une dépendance verrouillée" 2>/dev/null || true
+            { echo "L'audit quotidien a trouvé des vulnérabilités publiées sur des dépendances verrouillées."; echo
+              echo "La CI échouera au prochain push tant qu'elles ne sont pas corrigées."; echo; cat report.md; echo
+              echo "Correction : mettre à jour la version dans \`backend/requirements.lock\` ou \`frontend/package.json\` (version corrigée ci-dessus), lancer les tests, pousser."
+              echo; echo "_Mis à jour le $(date -u +'%d/%m/%Y %H:%M') UTC — ce ticket se fermera tout seul quand l'audit sera propre._"; } > body.md
+            if [[ -n "$open" ]]; then
+              gh issue edit "$open" -R "$repo" --body-file body.md
+            else
+              gh issue create -R "$repo" --title "[Sécurité dépendances] Vulnérabilité publiée sur une dépendance verrouillée" \
+                --label "$LABEL" --assignee "${{ github.repository_owner }}" --body-file body.md
+            fi
+            exit 1
+          elif [[ -n "$open" ]]; then
+            gh issue comment "$open" -R "$repo" --body "Résolu : audit propre le $(date -u +'%d/%m/%Y %H:%M') UTC."
+            gh issue close "$open" -R "$repo"
+          fi
