@@ -175,3 +175,19 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .classGroups .classActions button{min-height:34px;padding:0 10px;font-size:12.5px;border-radius:9px}
 .classGroups h4{margin:18px 0 8px;font-size:13px;font-weight:780;letter-spacing:.05em;text-transform:uppercase;color:var(--es-muted,#7a8599)}
 @media (max-width:720px){.classGroups .classList{grid-template-columns:1fr}.classGroups .classActions button{min-height:44px;flex:1 1 auto}}
+/* Benefits covering several fees + individual exemptions (settings parity 2026-10-24) */
+.feeChecks{display:grid;gap:6px;min-width:0}
+.feeChecks>span{font-weight:600;font-size:13px}
+.feeChecks>span small{font-weight:400;color:#5b6475}
+.feeCheckGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px 12px}
+.feeCheckGrid .checkField{min-width:0;overflow-wrap:anywhere}
+.exemptionCard{display:grid;gap:6px;background:#f8fafc}
+.exemptionCard p{margin:0;font-size:13.5px;line-height:1.5;color:#334155}
+.tariffCtas{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px}
+.tariffCtas small{flex-basis:100%;color:#5b6475;font-size:12.5px}
+.feeEdit{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%}
+.feeEdit input:not([type=checkbox]){flex:1 1 220px;min-height:38px}
+.feeEdit select{min-height:38px}
+.feeEdit .formActions{margin-left:auto}
+.feeRowActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cardsList article.muted{opacity:.7}

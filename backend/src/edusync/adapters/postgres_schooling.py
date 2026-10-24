@@ -174,11 +174,11 @@ class PostgresSchoolingRepository:
         return _row(r)
 
     def add_benefit(self, benefit:StudentBenefit)->dict[str,Any]:
-        r=self.connection.execute(text("""INSERT INTO student_benefits(id,school_id,student_id,academic_year_id,kind,source_reference,selected_explicitly,active,notes,version,configured_percent,applies_to_fee_code)
-          VALUES (:id,:sid,:student,:year,:kind,:source,true,:active,:notes,:version,:pct,:fee)
+        r=self.connection.execute(text("""INSERT INTO student_benefits(id,school_id,student_id,academic_year_id,kind,source_reference,selected_explicitly,active,notes,version,configured_percent,applies_to_fee_code,applies_to_fee_codes)
+          VALUES (:id,:sid,:student,:year,:kind,:source,true,:active,:notes,:version,:pct,:fee,:fees)
           ON CONFLICT(school_id,student_id,academic_year_id,kind) DO UPDATE SET source_reference=EXCLUDED.source_reference,active=EXCLUDED.active,notes=EXCLUDED.notes,
-            configured_percent=EXCLUDED.configured_percent,applies_to_fee_code=EXCLUDED.applies_to_fee_code
-          RETURNING *"""),{"pct":benefit.configured_percent,"fee":benefit.applies_to_fee_code,"id":benefit.id,"sid":benefit.school_id,"student":benefit.student_id,"year":benefit.academic_year_id,"kind":benefit.kind.value,"source":benefit.source_reference,"active":benefit.active,"notes":benefit.notes,"version":benefit.version}).first()
+            configured_percent=EXCLUDED.configured_percent,applies_to_fee_code=EXCLUDED.applies_to_fee_code,applies_to_fee_codes=EXCLUDED.applies_to_fee_codes
+          RETURNING *"""),{"pct":benefit.configured_percent,"fee":benefit.applies_to_fee_code,"fees":list(benefit.applies_to_fee_codes) or None,"id":benefit.id,"sid":benefit.school_id,"student":benefit.student_id,"year":benefit.academic_year_id,"kind":benefit.kind.value,"source":benefit.source_reference,"active":benefit.active,"notes":benefit.notes,"version":benefit.version}).first()
         return _row(r)
 
     def _visible_ids(self, school_id:UUID, scopes:tuple[tuple[str,str|None],...])->set[UUID]|None:

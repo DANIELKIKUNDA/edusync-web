@@ -126,14 +126,15 @@ class PostgresFeeScheduleRepository:
     # ---------- due charges ----------
     def benefit_percent(self, school_id: UUID, enrollment: dict[str, Any], fee_code: str) -> Decimal:
         """Desktop generate_charges_for_enrollment: the student's first active benefit of the year (ordered by type) applies
-        when its fee code matches the charge's fee code (exactly or as prefix CODE_); rate frozen at selection."""
-        b = self.connection.execute(text("""SELECT kind,configured_percent,applies_to_fee_code FROM student_benefits
+        when one of its fee codes matches the charge's fee code (exactly or as prefix CODE_); rate frozen at selection.
+        Settings parity 2026-10-24: a benefit may cover several fees (applies_to_fee_codes); no code = every fee."""
+        b = self.connection.execute(text("""SELECT kind,configured_percent,applies_to_fee_code,applies_to_fee_codes FROM student_benefits
             WHERE school_id=:sid AND student_id=:st AND academic_year_id=:y AND active ORDER BY kind LIMIT 1"""),
             {"sid": school_id, "st": enrollment["student_id"], "y": enrollment["academic_year_id"]}).first()
         if b is None:
             return Decimal("0")
-        applies = b._mapping["applies_to_fee_code"]
-        if applies and applies != fee_code and not fee_code.startswith(f"{applies}_"):
+        codes = [c for c in (b._mapping["applies_to_fee_codes"] or [b._mapping["applies_to_fee_code"]]) if c]
+        if codes and not any(c == fee_code or fee_code.startswith(f"{c}_") for c in codes):
             return Decimal("0")
         return Decimal(str(b._mapping["configured_percent"] or 0))
 

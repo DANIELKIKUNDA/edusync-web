@@ -100,7 +100,8 @@ class PostgresFinancialDecisionsRepository:
 
     def _charges(self, school_id: UUID, enrollment_id: UUID) -> list[dict[str, Any]]:
         rows = self.c.execute(text("""SELECT fc.id, fc.label, fc.currency, fc.net_amount, fc.gross_amount, fc.discount_amount, fc.paid_amount, fc.due_date,
-                   fc.period_label, fc.status, upper(coalesce(ft.code,'')) AS fee_code, upper(coalesce(cat.code,'')) AS fee_category
+                   fc.period_label, fc.status, upper(coalesce(ft.code,'')) AS fee_code, upper(coalesce(cat.code,'')) AS fee_category,
+                   ft.label AS fee_label
               FROM finance_charges fc LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id LEFT JOIN fee_categories cat ON cat.id=ft.category_id
              WHERE fc.school_id=:s AND fc.enrollment_id=:e ORDER BY fc.due_date NULLS FIRST, fc.period_order NULLS FIRST, fc.created_at"""),
             {"s": school_id, "e": enrollment_id}).mappings().all()
@@ -197,6 +198,7 @@ class PostgresFinancialDecisionsRepository:
             rows.append({"id": str(ch["id"]), "label": ch["label"], "period_label": ch["period_label"], "currency": ch["currency"], "due_date": ch["due_date"],
                          "gross": ex["gross"], "net": ex["net_after_decisions"], "settled": ex["settled"], "remaining": ex["remaining"], "status": status,
                          "decisions": ex["decisions"], "responsibility": ex["responsibilities"][0] if ex["responsibilities"] else None,
+                         "fee_code": ch["fee_code"] or None, "fee_label": ch["fee_label"],   # multi-fee exemptions (2026-10-24)
                          "lifecycle": dict(life) if life else None})
         events = [dict(r) for r in self.c.execute(text("""SELECT event_type, effective_date, reason, destination, created_at FROM student_status_events
             WHERE school_id=:s AND student_id=:st ORDER BY created_at DESC"""), {"s": school_id, "st": student_id}).mappings().all()]

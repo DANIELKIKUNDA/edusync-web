@@ -1,8 +1,8 @@
 // Settings assistants (2026-10-24): codes are generated, never typed; options exist only in the Humanités; parallels
 // and one class per option are planned without ever recreating an existing class.
 import {expect, it} from 'vitest';
-import {autoCode, planClasses, RDC_OPTIONS, FEE_PRESETS} from '../src/settings_wizards';
-import type {ReferenceCatalog, SchoolOption, SchoolSection} from '../src/api';
+import {autoCode, planClasses, parallelCount, existingParallels, MAX_PARALLELS, RDC_OPTIONS, FEE_PRESETS} from '../src/settings_wizards';
+import type {ReferenceCatalog, SchoolClass, SchoolOption, SchoolSection} from '../src/api';
 
 it('autoCode: accents, spaces and symbols become a clean code, unique among the existing ones', () => {
   expect(autoCode('Frais de laboratoire')).toBe('FRAIS_DE_LABORATOIRE');
@@ -51,4 +51,31 @@ it('catalogues ported from the desktop', () => {
   expect(RDC_OPTIONS.some(o => o.code === 'EB')).toBe(false);              // Éducation de base is not an option
   expect(RDC_OPTIONS.filter(o => o.group === 'TECHNICAL').length).toBeGreaterThan(5);
   expect(FEE_PRESETS.map(f => f.code)).toEqual(expect.arrayContaining(['INSCRIPTION', 'MINERVAL', 'ETAT_EXAMEN_ETAT', 'ETAT_TENASOSP', 'ECUSSON']));
+});
+
+it('parallels per level: 2 in 1re primaire, a single class in 7e EB (owner request 2026-10-24)', () => {
+  const plan = planClasses({sections, refs, options, picked: ['P1', 'S7'], parallels: {P1: 2}, optionIds: [], existing: new Set()});
+  expect(plan.map(p => p.label)).toEqual(['1re primaire A', '1re primaire B', '7e EB']);
+});
+
+it('parallels per Humanités option: 2 in Commerciale et gestion, 1 in Scientifique', () => {
+  const plan = planClasses({sections, refs, options, picked: ['H1'], parallels: {'H1:CG': 2}, optionIds: ['o-cg', 'o-sc'], existing: new Set()});
+  expect(plan.map(p => p.code)).toEqual(['H1_CG_A', 'H1_CG_B', 'H1_SC']);
+  expect(parallelCount({P1: 99}, 'P1')).toBe(MAX_PARALLELS);                // bounded
+  expect(parallelCount({}, 'P2')).toBe(1);                                  // default: a single class
+});
+
+it('a level already split in A and B never gets an extra class without letter', () => {
+  expect(planClasses({sections, refs, options, picked: ['P1'], parallels: {P1: 1}, optionIds: [], existing: new Set(['P1_A', 'P1_B'])})).toEqual([]);
+});
+
+it('an existing class without letter counts as the first parallel', () => {
+  const plan = planClasses({sections, refs, options, picked: ['P1'], parallels: {P1: 2}, optionIds: [], existing: new Set(['P1'])});
+  expect(plan.map(p => p.label)).toEqual(['1re primaire B']);
+});
+
+it('the grid starts from the parallels already open', () => {
+  const c = (code: string, ref: string, option_id?: string) => ({id: code, academic_year_id: 'y', section_id: 's', reference_code: ref, option_id, code, label: code, enabled: true, version: 1}) as SchoolClass;
+  expect(existingParallels([c('P1_A', 'P1'), c('P1_B', 'P1'), c('S7', 'S7'), c('H1_CG_A', 'H1', 'o-cg'), {...c('P2', 'P2'), academic_year_id: 'old'}], 'y', options))
+    .toEqual({P1: 2, S7: 1, 'H1:CG': 1});
 });

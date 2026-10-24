@@ -18,6 +18,25 @@ def _m(row):
     return row._mapping
 
 
+def fee_code_list(codes) -> list[str]:
+    """Upper-case, trimmed, de-duplicated fee codes in the order chosen (a benefit may cover several fees)."""
+    out: list[str] = []
+    for c in codes or []:
+        c = (c or '').strip().upper()[:48]
+        if c and c not in out:
+            out.append(c)
+    if len(out) > 30:
+        raise ValueError("Trente frais au plus par avantage")
+    return out
+
+
+def _benefit_out(row: dict) -> dict:
+    row['discount_percent'] = str(row['discount_percent'])
+    codes = list(row.get('applies_to_fee_codes') or [])
+    row['applies_to_fee_codes'] = codes or ([row['applies_to_fee_code']] if row.get('applies_to_fee_code') else [])
+    return row
+
+
 @dataclass(slots=True)
 class PostgresSettingsRepository:
     connection: Connection
@@ -394,38 +413,39 @@ class PostgresSettingsRepository:
 
     def list_benefit_policies(self, school_id: UUID, year_id: UUID) -> list[dict[str,Any]]:
         rows=self.connection.execute(text("""SELECT id,academic_year_id,benefit_type,enabled,min_children,max_beneficiaries,discount_percent,
-                   free_beneficiaries,applies_to_fee_code,selection_mode,notes,version
+                   free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,selection_mode,notes,version
               FROM school_benefit_policies WHERE school_id=:sid AND academic_year_id=:y ORDER BY benefit_type"""),{"sid":school_id,"y":year_id}).all()
-        return [{**dict(_m(r)),"discount_percent":str(_m(r)['discount_percent'])} for r in rows]
+        return [_benefit_out(dict(_m(r))) for r in rows]
 
     def save_benefit_policy(self, school_id: UUID, *, academic_year_id:UUID, benefit_type:str, enabled:bool, min_children:int=0,
                             max_beneficiaries:int=0, discount_percent:Decimal=Decimal('0'), free_beneficiaries:int=0,
-                            applies_to_fee_code:str|None='SCOLARITE', notes:str|None=None, expected_version:int|None=None
-                            ) -> tuple[dict[str,Any],dict[str,Any]|None]:
+                            applies_to_fee_code:str|None='SCOLARITE', applies_to_fee_codes:list[str]|None=None, notes:str|None=None,
+                            expected_version:int|None=None) -> tuple[dict[str,Any],dict[str,Any]|None]:
         benefit_type=benefit_type.strip().upper()
         if benefit_type not in self.BENEFIT_TYPES: raise ValueError("Type d'avantage invalide")
         if not (Decimal('0') <= Decimal(str(discount_percent)) <= Decimal('100')): raise ValueError("Le pourcentage doit être compris entre 0 et 100")
         self._editable_year(school_id,academic_year_id)
         old=self.connection.execute(text("""SELECT * FROM school_benefit_policies WHERE school_id=:sid AND academic_year_id=:y AND benefit_type=:t FOR UPDATE"""),
                                     {"sid":school_id,"y":academic_year_id,"t":benefit_type}).first()
+        # Several fees (owner request 2026-10-24): an explicit list wins over the single 0062 code; empty = every fee.
+        codes=fee_code_list(applies_to_fee_codes if applies_to_fee_codes is not None else [applies_to_fee_code] if applies_to_fee_code else [])
         values={"sid":school_id,"y":academic_year_id,"t":benefit_type,"en":bool(enabled),"minc":max(0,int(min_children)),"maxb":max(0,int(max_beneficiaries)),
-                "pct":Decimal(str(discount_percent)),"free":max(0,int(free_beneficiaries)),"fee":(applies_to_fee_code or '').strip().upper() or None,
+                "pct":Decimal(str(discount_percent)),"free":max(0,int(free_beneficiaries)),"fee":codes[0] if codes else None,"fees":codes or None,
                 "notes":(notes or '').strip() or None}
-        cols="id,academic_year_id,benefit_type,enabled,min_children,max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,selection_mode,notes,version"
+        cols="id,academic_year_id,benefit_type,enabled,min_children,max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,selection_mode,notes,version"
         if old is None:
             row=self.connection.execute(text(f"""INSERT INTO school_benefit_policies(school_id,academic_year_id,benefit_type,enabled,min_children,
-                max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,notes)
-                VALUES (:sid,:y,:t,:en,:minc,:maxb,:pct,:free,:fee,:notes) RETURNING {cols}"""),values).first()
+                max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,notes)
+                VALUES (:sid,:y,:t,:en,:minc,:maxb,:pct,:free,:fee,:fees,:notes) RETURNING {cols}"""),values).first()
             previous=None
         else:
             previous=dict(_m(old))
             if expected_version is not None and int(previous['version'])!=expected_version:
                 raise OptimisticConcurrencyError("Politique d'avantage modifiée par une autre session; rechargez")
             row=self.connection.execute(text(f"""UPDATE school_benefit_policies SET enabled=:en,min_children=:minc,max_beneficiaries=:maxb,
-                discount_percent=:pct,free_beneficiaries=:free,applies_to_fee_code=:fee,notes=:notes WHERE id=:id RETURNING {cols}"""),
+                discount_percent=:pct,free_beneficiaries=:free,applies_to_fee_code=:fee,applies_to_fee_codes=:fees,notes=:notes WHERE id=:id RETURNING {cols}"""),
                 {**values,"id":previous['id']}).first()
-        out=dict(_m(row)); out['discount_percent']=str(out['discount_percent'])
-        return out,previous
+        return _benefit_out(dict(_m(row))),previous
 
     # ---------- admission conditions (Desktop enrollment_policy_items, parity lot L4) ----------
     ADMISSION_COLUMNS = ("id,academic_year_id,fee_type_id,label,scope_type,scope_ref,required,payment_timing,bundle_code,can_pay_later,"

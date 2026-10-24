@@ -12,6 +12,7 @@ import {confirmAction} from './platform/dialogs';
 import {friendlyError} from './platform/errors';
 import {FormField} from './platform/forms';
 import {formatDate, formatMoney} from './platform/format';
+import {TariffAssistant} from './settings_tariff_assistant';
 
 export const TARIFF_GROUPS: [string, string][] = [['GENERAL', 'Humanités générales'], ['TECHNICAL', 'Humanités techniques'], ['OTHER', 'Autre groupe']];
 const SCOPES: [TariffScope, string][] = [['SCHOOL', 'Toute l’école'], ['SECTION', 'Section'], ['ACADEMIC_CLASS', 'Classe académique (niveau)'], ['OPTION_GROUP', 'Groupe d’Humanités'], ['CLASS', 'Classe ouverte']];
@@ -33,11 +34,20 @@ export function TariffsSettings({token, tariffs, years, fees, classes, sections,
   }, [yearRules]);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [assistant, setAssistant] = useState<null | 'grid' | 'rule' | 'regulatory'>(null);
   const locked = !year;
   const canManage = can('settings.tariffs.manage') && !locked;
   return <section className="panel">
     <div className="panelHead"><div><h3>Tarifs &amp; barèmes</h3><p>Tarifs hiérarchiques et datés : école → section → groupe d’Humanités → classe académique → classe ouverte. La règle la plus précise s’applique ; une nouvelle règle datée ne réécrit pas un mois déjà payé.</p></div></div>
     {error && <div className="error" role="alert">{error}</div>}
+    {canManage && <div className="tariffCtas">
+      <button type="button" className="primaryBtn" onClick={() => setAssistant('grid')}>Assistant tarifaire</button>
+      <button type="button" className="softBtn" onClick={() => setAssistant('rule')}>Règle sur plusieurs cibles</button>
+      <button type="button" className="softBtn" onClick={() => setAssistant('regulatory')}>Configurer les frais réglementaires</button>
+      <small>Grille par niveau, aperçu de ce que chaque classe paiera, frais de l’État / TENASOSP / frais techniques.</small>
+    </div>}
+    {assistant && year && <TariffAssistant token={token} year={year} fees={fees} classes={classes} sections={sections} refs={refs} tariffs={tariffs} can={can}
+      initialMode={assistant} onClose={() => setAssistant(null)} onDone={onDone}/>}
     {!year && <div className="emptyGuide"><b>Aucune année préparée ou en cours</b><p>Les tarifs appartiennent à une année scolaire : préparez-la d’abord.</p></div>}
     {year && yearRules.length === 0 && <div className="emptyGuide"><b>Aucune règle tarifaire pour {year.label}</b><p>{fees.length ? 'Ajoutez une règle pour chaque frais : par exemple un montant pour toute l’école, puis une règle plus précise pour une section ou une classe.' : 'Commencez par les types de frais, puis revenez fixer leurs montants.'}</p></div>}
     {byFee.map(([feeId, list]) => <div className="tariffGroup" key={feeId}>

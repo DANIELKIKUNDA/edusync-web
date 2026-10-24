@@ -203,7 +203,8 @@ def test_benefit_policies_copy_the_desktop():
         assert message in uc, message
     assert 'return Decimal("100")' in uc and ">= 5" not in uc  # free = 100 %; no hard-coded threshold any more
     fees = (ROOT / "backend/src/edusync/adapters/postgres_fee_schedules.py").read_text(encoding="utf-8")
-    assert 'fee_code.startswith(f"{applies}_")' in fees and "ORDER BY kind LIMIT 1" in fees
+    # Settings parity pass 2 (2026-10-24): same exact-or-prefix rule, for every fee the benefit covers.
+    assert 'fee_code.startswith(f"{c}_") for c in codes' in fees and "ORDER BY kind LIMIT 1" in fees
     router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
     assert "_need(actor,'settings.benefits.manage')" in router
     wizard = (ROOT / "frontend/src/schooling.tsx").read_text(encoding="utf-8")

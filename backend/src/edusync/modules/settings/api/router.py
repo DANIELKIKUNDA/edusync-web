@@ -543,6 +543,8 @@ class BenefitPolicyPut(BaseModel):
     discount_percent:Decimal=Field(default=Decimal('0'),ge=0,le=100,max_digits=5,decimal_places=2)
     free_beneficiaries:int=Field(default=0,ge=0,le=50)
     applies_to_fee_code:str|None=Field(default='SCOLARITE',max_length=48)
+    # Several fees (2026-10-24): when given, the list wins over the single code; an empty list means every fee.
+    applies_to_fee_codes:list[str]|None=Field(default=None,max_length=30)
     notes:str|None=Field(default=None,max_length=600)
     expected_version:int|None=Field(default=None,ge=1)
 

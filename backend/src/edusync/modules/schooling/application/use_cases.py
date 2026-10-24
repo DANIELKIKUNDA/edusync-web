@@ -211,6 +211,7 @@ class SchoolingService:
                         kind=BenefitKind.STAFF_CHILD, source_reference=str(staff_id), selected_explicitly=True,
                         configured_percent=_discount_from_policy(staff_policy),
                         applies_to_fee_code=(staff_policy or {}).get("applies_to_fee_code") or "SCOLARITE",
+                        applies_to_fee_codes=_fee_codes_from_policy(staff_policy),
                     ))
 
         # Desktop: family-size eligibility is computed from validated enrollments against the year's policy; the
@@ -229,6 +230,7 @@ class SchoolingService:
                     kind=BenefitKind.LARGE_FAMILY, source_reference=str(family_id), selected_explicitly=True,
                     configured_percent=_discount_from_policy(large_policy),
                     applies_to_fee_code=(large_policy or {}).get("applies_to_fee_code") or "SCOLARITE",
+                    applies_to_fee_codes=_fee_codes_from_policy(large_policy),
                 ))
 
         return {
@@ -236,6 +238,11 @@ class SchoolingService:
             "enrollment_ids": [str(x) for x in enrollment_ids], "count": len(student_ids),
             "large_family_eligible": eligible,
         }
+
+
+def _fee_codes_from_policy(policy) -> tuple[str, ...]:
+    """Every fee the policy covers, frozen on the beneficiary (settings parity 2026-10-24)."""
+    return tuple(c for c in ((policy or {}).get("applies_to_fee_codes") or []) if c)
 
 
 def _discount_from_policy(policy: dict | None) -> Decimal:

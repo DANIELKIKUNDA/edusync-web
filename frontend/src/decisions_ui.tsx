@@ -47,7 +47,9 @@ export function StudentFinancePanel({token, can}: {token: string; can: (p: strin
 }
 
 function DecisionForm({token, person, charges, onDone}: {token: string; person: CheckoutPerson; charges: OperatorCharge[]; onDone: () => Promise<void>}) {
-  const [kind, setKind] = useState('DISCOUNT'); const [scope, setScope] = useState('ALL_FEES'); const [ref, setRef] = useState('');
+  // Settings parity 2026-10-24: several fees (or several instalments) at once — one traceable decision per target.
+  const [kind, setKind] = useState('DISCOUNT'); const [scope, setScope] = useState('FEE_CODE'); const [ref, setRef] = useState(''); const [picked, setPicked] = useState<string[]>([]);
+  const feeTypes = [...new Map(charges.filter(c => c.fee_code).map(c => [c.fee_code!, c.fee_label || c.label])).entries()];
   const [valueType, setValueType] = useState<'PERCENT' | 'FIXED'>('PERCENT'); const [amount, setAmount] = useState(''); const [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
   const [priority, setPriority] = useState('100'); const [cumulative, setCumulative] = useState(true); const [periodStart, setPeriodStart] = useState(''); const [periodEnd, setPeriodEnd] = useState('');
   const [effective, setEffective] = useState(''); const [reason, setReason] = useState(''); const [reference, setReference] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
@@ -55,25 +57,31 @@ function DecisionForm({token, person, charges, onDone}: {token: string; person: 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (reason.trim().length < 3) { setError('Le motif de la décision financière est obligatoire.'); return; }
-    if (scope !== 'ALL_FEES' && !ref.trim()) { setError('La cible de la décision financière est obligatoire.'); return; }
+    const targets = scope === 'FEE_CODE' || scope === 'CHARGE' ? picked : scope === 'FEE_CATEGORY' ? [ref.trim()] : [null];
+    if (scope !== 'ALL_FEES' && !targets.filter(Boolean).length) { setError(scope === 'FEE_CODE' ? 'Cochez au moins un frais concerné.' : scope === 'CHARGE' ? 'Cochez au moins une échéance.' : 'La cible de la décision financière est obligatoire.'); return; }
     if (!full && !/^\d+([.,]\d{1,2})?$/.test(amount.trim())) { setError('Valeur en chiffres, deux décimales au plus.'); return; }
     if (!full && valueType === 'PERCENT' && Number(amount.replace(',', '.')) > 100) { setError('Un pourcentage ne dépasse pas 100.'); return; }
     try {
-      setBusy(true); setError('');
-      await createDecision(token, {enrollment_id: person.enrollment_id, decision_type: kind, scope_type: scope, scope_ref: scope === 'ALL_FEES' ? null : ref.trim(),
-        value_type: full ? 'PERCENT' : valueType, amount: full ? '100' : amount.replace(',', '.'), currency, priority: Number(priority) || 100, cumulative,
-        period_start: periodStart || null, period_end: periodEnd || null, effective_date: effective || null, reason: reason.trim(), reference: reference.trim() || null});
-      toast.success('Décision enregistrée et appliquée'); await onDone();
-    } catch (err) { setError(friendlyError(err)); } finally { setBusy(false); }
+      setBusy(true); setError(''); let done = 0;
+      for (const target of targets) {
+        const name = scope === 'FEE_CODE' ? feeTypes.find(([c]) => c === target)?.[1] : scope === 'CHARGE' ? charges.find(c => c.id === target)?.label : null;
+        try {
+          await createDecision(token, {enrollment_id: person.enrollment_id, decision_type: kind, scope_type: scope, scope_ref: target,
+            value_type: full ? 'PERCENT' : valueType, amount: full ? '100' : amount.replace(',', '.'), currency, priority: Number(priority) || 100, cumulative,
+            period_start: periodStart || null, period_end: periodEnd || null, effective_date: effective || null, reason: reason.trim(), reference: reference.trim() || null});
+          done++;
+        } catch (err) { throw new Error(`${name ? `${name} : ` : ''}${friendlyError(err)}${done ? ` (${done} décision(s) déjà enregistrée(s))` : ''}`); }
+      }
+      toast.success(done > 1 ? `${done} décisions enregistrées et appliquées` : 'Décision enregistrée et appliquée'); await onDone();
+    } catch (err) { setError(err instanceof Error ? err.message : friendlyError(err)); } finally { setBusy(false); }
   }
   return <form className="benefitCard decisionForm" onSubmit={submit} noValidate>
     {error && <div className="error" role="alert">{error}</div>}
     <fieldset disabled={busy}><legend>Nouvelle décision financière</legend>
       <div className="benefitGrid">
         <label>Nature<select value={kind} onChange={e => setKind(e.target.value)}>{Object.entries(KIND_LABEL).slice(0, 6).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-        <label>Portée<select value={scope} onChange={e => { setScope(e.target.value); setRef(''); }}><option value="ALL_FEES">Tous les frais</option><option value="FEE_CODE">Un type de frais (code)</option><option value="FEE_CATEGORY">Une catégorie de frais</option><option value="CHARGE">Un frais précis</option></select></label>
-        {scope === 'CHARGE' && <label>Frais<select value={ref} onChange={e => setRef(e.target.value)}><option value="">Choisir…</option>{charges.map(c => <option key={c.id} value={c.id}>{c.period_label || c.label}</option>)}</select></label>}
-        {(scope === 'FEE_CODE' || scope === 'FEE_CATEGORY') && <label>{scope === 'FEE_CODE' ? 'Code du frais (ex. SCOLARITE)' : 'Code de la catégorie'}<input value={ref} maxLength={80} onChange={e => setRef(e.target.value)}/></label>}
+        <label>Portée<select value={scope} onChange={e => { setScope(e.target.value); setRef(''); setPicked([]); }}><option value="FEE_CODE">Un ou plusieurs frais</option><option value="CHARGE">Une ou plusieurs échéances précises</option><option value="ALL_FEES">Tous les frais</option><option value="FEE_CATEGORY">Une catégorie de frais (code)</option></select></label>
+        {scope === 'FEE_CATEGORY' && <label>Code de la catégorie<input value={ref} maxLength={80} onChange={e => setRef(e.target.value)}/></label>}
         {full ? <p className="policyHint">Exonération et gratuité : toujours 100 % (règle Desktop).</p> : <>
           <label>Valeur<select value={valueType} onChange={e => setValueType(e.target.value as 'PERCENT' | 'FIXED')}><option value="PERCENT">Pourcentage</option><option value="FIXED">Montant fixe</option></select></label>
           <label>{valueType === 'PERCENT' ? 'Pourcentage' : 'Montant'}<input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}/></label>
@@ -86,6 +94,12 @@ function DecisionForm({token, person, charges, onDone}: {token: string; person: 
         <label>Motif *<input value={reason} maxLength={500} onChange={e => setReason(e.target.value)}/></label>
         <label>Référence (facultatif)<input value={reference} maxLength={120} onChange={e => setReference(e.target.value)}/></label>
       </div>
+      {(scope === 'FEE_CODE' || scope === 'CHARGE') && <div className="feeChecks" role="group" aria-label={scope === 'FEE_CODE' ? 'Frais concernés' : 'Échéances concernées'}>
+        <span>{scope === 'FEE_CODE' ? 'Frais concernés' : 'Échéances concernées'} <small>({picked.length} choisi{picked.length > 1 ? 's' : ''} · une décision par {scope === 'FEE_CODE' ? 'frais' : 'échéance'})</small></span>
+        <div className="feeCheckGrid">{(scope === 'FEE_CODE' ? feeTypes : charges.map(c => [c.id, c.period_label ? `${c.fee_label ?? c.label} — ${c.period_label}` : c.label] as [string, string])).map(([v, l]) =>
+          <label key={v} className="checkField"><input type="checkbox" checked={picked.includes(v)} onChange={e => setPicked(p => e.target.checked ? [...p, v] : p.filter(x => x !== v))}/> {l}</label>)}</div>
+        {scope === 'FEE_CODE' && !feeTypes.length && <small className="policyHint">Aucun frais dû pour cet élève : appliquez d’abord les barèmes.</small>}
+      </div>}
       <p className="policyHint">Sans date, la décision s’applique aux échéances à partir d’aujourd’hui (règle Desktop).</p>
       <div className="formActions"><button className="primaryBtn">{busy ? 'Enregistrement…' : 'Enregistrer la décision'}</button></div>
     </fieldset>
