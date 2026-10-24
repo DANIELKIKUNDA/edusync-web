@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import {takeAccountLink} from './account_links';
 import './styles.css';
 import '@fontsource-variable/inter';
 import './platform/modern.css';
@@ -24,6 +25,7 @@ if ('serviceWorker' in navigator) window.addEventListener('load',()=>{
     if('PerformanceObserver' in window){const observer=new PerformanceObserver(list=>cacheAssets(list.getEntries()));observer.observe({type:'resource',buffered:true});}
   }).catch(()=>{/* Offline shell unavailable on this device; the online app remains usable. */});
 });
-createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><App/><Toaster position="top-right" richColors closeButton/></ErrorBoundary></React.StrictMode>);
+const initialLink=takeAccountLink();
+createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><App initialLink={initialLink}/><Toaster position="top-right" richColors closeButton/></ErrorBoundary></React.StrictMode>);
 
 // The static boot screen stays until the session check ends: App (or ErrorBoundary) calls dismissBoot. No timer.

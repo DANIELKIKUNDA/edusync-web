@@ -1,6 +1,7 @@
 import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState} from './platform/offline_session';
 import React,{lazy,Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {SecureLogin} from './login';
+import {takeAccountLink,type AccountLink} from './account_links';
 import {dismissBoot} from './platform/boot';
 const PersonnelPage=lazy(()=>import('./personnel'));
 const SchoolingPage=lazy(()=>import('./schooling'));
@@ -382,7 +383,13 @@ function SchoolApp({session,onLogout,onSwitchSpace}:{session:SavedSchoolSession;
     {dialog==='security'&&<SecurityDialog token={session.token} onClose={()=>setDialog('')} onPasswordChanged={onLogout}/>}
   </AppShell>}
 
-export function App(){
+export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
+  // Account link e-mailed by EduSync (#invitation=… / #reset=…), read by main.tsx BEFORE any session restoration (fix
+  // 2026-10-24: an invitation opened from the installed Android PWA stayed on the boot screen forever). An already-open
+  // PWA receives a new link as a same-document navigation: hashchange, no reload.
+  const [pendingLink,setPendingLink]=useState<AccountLink|null>(initialLink);
+  useEffect(()=>{const h=()=>{const l=takeAccountLink();if(l){console.info('edusync.invitation',{stage:'link',result:'received-open-app'});setPendingLink(l)}};
+    window.addEventListener('hashchange',h);return()=>window.removeEventListener('hashchange',h)},[]);
   useEffect(()=>{const offBack=installMobileBackCoordinator();const offDirty=installUnsavedFormGuard();return()=>{offBack();offDirty()}},[]);
   const [platformToken,setPlatformToken]=useState('');
   const [platformUser,setPlatformUser]=useState<PlatformUser>({full_name:'',email:''});
@@ -414,10 +421,15 @@ export function App(){
     let alive=true, running=false;
     restoreOfflineContext();
     async function restore(){
-      if(running || /^#(reset|invitation)=/.test(window.location.hash))return;
+      if(running)return;
+      // An account link is handled first: no session restoration behind it, and the boot screen is released at once
+      // (the former early return here never ended `restoring`: endless boot screen).
+      if(initialLink){if(alive)setRestoring(false);return}
       running=true;
+      // Never wait forever for the session service: after 10 s the cached context or the sign-in screen is shown.
+      const ctl=new AbortController();const timer=window.setTimeout(()=>ctl.abort(),10000);
       try{
-        const r=await fetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store'});
+        const r=await fetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal:ctl.signal});
         if(!alive)return;
         if(!r.ok){
           if(r.status===401 || r.status===403){
@@ -444,7 +456,7 @@ export function App(){
         const cached=knownContext();
         if(alive&&cached?.kind==='PLATFORM'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setPlatformUser(cached.me.user);setPlatformToken(t=>t||OFFLINE_PLATFORM_TOKEN);}
         else if(alive&&cached?.kind==='SCHOOL'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setSchoolSession(s=>s||{token:OFFLINE_SCHOOL_TOKEN,...cached.session});}
-      }finally{running=false;if(alive)setRestoring(false);}
+      }finally{clearTimeout(timer);running=false;if(alive)setRestoring(false);}
     }
     const online=()=>{void restore()};
     const offline=()=>{if(knownContext())setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED')};
@@ -463,10 +475,14 @@ export function App(){
   useEffect(()=>{if(!restoring)dismissBoot()},[restoring]);
   // While the persistent session is checked, the static boot screen (index.html) stays on screen: one continuous start.
   if(restoring)return null;
+  // A link received while a session is open (PWA already open): the link screen first, then back to the open space.
+  if(pendingLink&&(schoolSession||platformToken))return <SecureLogin key={`link:${pendingLink.token.slice(0,8)}`} initialLink={pendingLink} onLinkHandled={()=>setPendingLink(null)}
+    onPlatform={(token,user)=>{setPendingLink(null);setSchoolSession(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{setPendingLink(null);setPlatformToken('');openSchool(s)}}/>;
   if(recovery)return <SpaceRecovery spaces={recovery} onSwitched={applySpace} onLogout={()=>{setRecovery(null);clear()}}/>;
   const switcher=switching&&<div className="es-stepup-layer es-space-layer"><SpaceSwitcher onClose={()=>setSwitching(false)} onSwitched={applySpace}/></div>;
   const openSwitcher=spaces&&spaces.contexts.length>1?()=>setSwitching(true):undefined;
   if(schoolSession)return <><SchoolApp key={`school:${schoolSession.school.id}`} session={schoolSession} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}</>;
   if(platformToken)return <><AtelierPro key="platform" token={platformToken} user={platformUser} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}</>;
-  return <SecureLogin onPlatform={(token,user)=>{setPlatformUser(user);setPlatformToken(token)}} onSchool={openSchool}/>;
+  return <SecureLogin key='login' initialLink={pendingLink} onLinkHandled={()=>setPendingLink(null)}
+    onPlatform={(token,user)=>{setPendingLink(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{setPendingLink(null);openSchool(s)}}/>;
 }

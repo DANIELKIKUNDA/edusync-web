@@ -1,5 +1,5 @@
-const CACHE='edusync-shell-2026-10-platform-closure';
-const SHELL=['/','/manifest.webmanifest'];
+const CACHE='edusync-shell-2026-10-24-activation';
+const SHELL=['/','/manifest.webmanifest','/boot-fallback.js'];
 
 // On a first visit, boot assets may finish loading before this worker takes
 // control. The page supplies only the public, hashed asset URLs it has loaded.
