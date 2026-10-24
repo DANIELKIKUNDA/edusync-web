@@ -98,7 +98,9 @@ def test_amounts_are_formatted_from_strings_never_through_floats():
     assert "Number(" not in body and "parseFloat" not in body
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
     tariffs = (ROOT / "frontend/src/settings_tariffs.tsx").read_text(encoding="utf-8")
-    assert "formatMoney(t.amount, t.currency)" in tariffs and "formatMoney(x.unit_price,x.currency)" in app
+    products = (ROOT / "frontend/src/settings_products.tsx").read_text(encoding="utf-8")   # articles moved there (2026-10-24)
+    assert "formatMoney(t.amount, t.currency)" in tariffs and "formatMoney(p.unit_price, p.currency)" in products
+    assert "lineValue(p.unit_price" in products and "Number(p.unit_price)" not in products        # stock value in exact cents
 
 
 def test_sidebar_collapse_is_an_icon_button_with_rail_overlay_and_pin():

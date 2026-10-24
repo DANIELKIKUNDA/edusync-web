@@ -10,9 +10,10 @@ import {
   saveSettings, walletLedger, type Draft, type HistoryItem, type Preview, type Readiness,
 } from './messaging_api';
 import {disablePush, enablePush, pushSupport, rememberedSubscription} from './push_client';
+import {NavGlyph} from './platform/nav_icons';
 import './communications.css';
 
-type Props = {token: string; permissions: string[]; schoolId: string; schoolName: string};
+type Props = {token: string; permissions: string[]; schoolId: string; schoolName: string; onNavigate?: (module: string) => void};
 type Tab = 'compose' | 'history' | 'settings';
 const AUD_LABEL: Record<Draft['audience_type'], string> = {INDIVIDUAL: 'Un élève (ses responsables)', CLASS: 'Une classe', SECTION: 'Une section', SCHOOL: 'Toute l’école'};
 const AUD_CAP: Record<Draft['audience_type'], string> = {INDIVIDUAL: 'communications.send.individual', CLASS: 'communications.send.class',
@@ -25,7 +26,7 @@ function smsUnits(text: string) {
 }
 const fmt = (iso?: string | null) => iso ? new Date(iso).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'}) : '—';
 
-export default function CommunicationsPage({token, permissions, schoolId, schoolName}: Props) {
+export default function CommunicationsPage({token, permissions, schoolId, schoolName, onNavigate}: Props) {
   const can = (p: string) => permissions.includes(p);
   const [tab, setTab] = useState<Tab>(can('communications.compose') ? 'compose' : can('communications.history.read') ? 'history' : 'settings');
   const [ready, setReady] = useState<Readiness | null>(null);
@@ -33,20 +34,21 @@ export default function CommunicationsPage({token, permissions, schoolId, school
   const reload = () => readiness(token).then(setReady).catch(e => setError(friendlyError(e)));
   useEffect(() => { void reload(); }, [token]);
   return <section className="commPage">
-    <header className="commHero"><div><div className="eyebrow">COMMUNICATION</div><h2>Centre de communication</h2>
-      <p>SMS, e-mails et notifications aux familles et au personnel de {schoolName}. Une panne d’un fournisseur ne bloque jamais l’école.</p></div>
+    <header className="commHero"><span className="commHeroIcon" aria-hidden="true"><NavGlyph g="message" size={26}/></span><div><div className="eyebrow">COMMUNICATION</div><h2>Centre de communication</h2>
+      <p>{can('communications.compose') ? `Écrivez aux familles et au personnel de ${schoolName} par SMS, e-mail ou notification. Une panne d’un fournisseur ne bloque jamais l’école.`
+        : `Vous décidez ici comment ${schoolName} communique : canaux autorisés, solde SMS, notifications de cet appareil. Les messages aux familles sont rédigés par les rôles qui en ont le droit.`}</p></div>
       {ready && <div className={`commWallet ${ready.wallet.low ? 'low' : ''}`} aria-label="Solde SMS"><b>{ready.wallet.available}</b><small>SMS disponibles</small>
         {ready.wallet.reserved > 0 && <small>{ready.wallet.reserved} réservés</small>}</div>}
     </header>
-    <nav className="commTabs" role="tablist">
-      {can('communications.compose') && <button role="tab" aria-selected={tab === 'compose'} className={tab === 'compose' ? 'active' : ''} onClick={() => setTab('compose')}>Composer</button>}
-      {can('communications.history.read') && <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>Historique</button>}
-      <button role="tab" aria-selected={tab === 'settings'} className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>Réglages</button>
-    </nav>
+    {(can('communications.compose') || can('communications.history.read')) && <nav className="commTabs" role="tablist">
+      {can('communications.compose') && <button role="tab" aria-selected={tab === 'compose'} className={tab === 'compose' ? 'active' : ''} onClick={() => setTab('compose')}><NavGlyph g="message" size={16}/>Écrire un message</button>}
+      {can('communications.history.read') && <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}><NavGlyph g="clock" size={16}/>Historique</button>}
+      <button role="tab" aria-selected={tab === 'settings'} className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}><NavGlyph g="sliders" size={16}/>Réglages</button>
+    </nav>}
     {error && <div className="error" role="alert">{error}</div>}
     {tab === 'compose' && ready && <Composer token={token} can={can} ready={ready} schoolId={schoolId} onSent={() => { void reload(); }}/>}
     {tab === 'history' && <History token={token} can={can}/>}
-    {tab === 'settings' && ready && <Settings token={token} can={can} ready={ready} schoolId={schoolId} onChange={reload}/>}
+    {tab === 'settings' && ready && <Settings token={token} can={can} ready={ready} schoolId={schoolId} onChange={reload} onNavigate={onNavigate}/>}
   </section>;
 }
 
@@ -178,42 +180,86 @@ function History({token, can}: {token: string; can: (p: string) => boolean}) {
 }
 
 // ---------------------------------------------------------------------------------------------------- Settings
-function Settings({token, can, ready, schoolId, onChange}: {token: string; can: (p: string) => boolean; ready: Readiness; schoolId: string; onChange: () => void}) {
+// Administrator view (finishing pass 2026-10-24): what this module controls, in four clickable cards, then each block.
+const CH_ICON = {sms: 'message', email: 'doc', push: 'bell'} as const;
+const SEND_CAPS: [string, string][] = [['communications.send.individual', 'un parent'], ['communications.send.class', 'une classe'],
+  ['communications.send.section', 'une section'], ['communications.send.all_parents', 'toute l’école']];
+type SchoolRole = {id: string; label: string; holders: number; capabilities: string[]; status: string};
+async function schoolRoles(token: string): Promise<SchoolRole[]> {
+  const r = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? '/api/v1'}/access/roles`, {headers: {Authorization: `Bearer ${token}`}});
+  if (!r.ok) throw new Error('Rôles indisponibles');
+  return (await r.json()).items;
+}
+
+function Settings({token, can, ready, schoolId, onChange, onNavigate}: {token: string; can: (p: string) => boolean; ready: Readiness; schoolId: string; onChange: () => void; onNavigate?: (m: string) => void}) {
   const [form, setForm] = useState({enabled: ready.enabled, sms_enabled: ready.sms_enabled, email_enabled: ready.email_enabled, push_enabled: ready.push_enabled,
     sms_low_balance_threshold: ready.sms_low_balance_threshold});
-  const [ledger, setLedger] = useState<any[]>([]); const [saving, setSaving] = useState(false);
+  const [ledger, setLedger] = useState<any[]>([]); const [saving, setSaving] = useState(false); const [roles, setRoles] = useState<SchoolRole[] | null>(null);
   const configure = can('notifications.internal.configure');
   useEffect(() => { if (can('communications.read')) void walletLedger(token).then(r => setLedger(r.items)).catch(() => setLedger([])); }, [token]);
+  useEffect(() => { if (can('access.roles.read')) void schoolRoles(token).then(setRoles).catch(() => setRoles([])); }, [token]);
+  const dirty = (Object.keys(form) as (keyof typeof form)[]).some(k => form[k] !== (ready as any)[k]);
   async function save() {
     setSaving(true);
-    try { await saveSettings(token, {...form, expected_version: ready.version}); toast.success('Réglages enregistrés'); onChange(); }
+    try { await saveSettings(token, {...form, expected_version: ready.version}); toast.success('Réglages de communication enregistrés'); onChange(); }
     catch (e) { toast.error(friendlyError(e)); } finally { setSaving(false); }
   }
-  const sw = (key: keyof typeof form, label: string, hint: string, platformKey?: 'sms' | 'email' | 'push') =>
-    <label className="commSwitch"><input type="checkbox" checked={Boolean(form[key])} disabled={!configure} onChange={e => setForm(f => ({...f, [key]: e.target.checked}))}/>
-      <span><b>{label}</b><small>{hint}{platformKey ? ` — plateforme : ${STATE_LABEL[ready.platform[platformKey].state]}` : ''}</small></span></label>;
-  return <div className="commGrid">
-    <div className="commCard"><h3>Canaux de l’école</h3>
-      {sw('enabled', 'Communications externes', 'Interrupteur général : désactivé, EduSync fonctionne normalement sans SMS ni e-mail.')}
-      {sw('sms_enabled', 'SMS', 'Facturé en unités SMS sur le portefeuille de l’école.', 'sms')}
-      {sw('email_enabled', 'E-mail', 'Gratuit pour l’école.', 'email')}
-      {sw('push_enabled', 'Notifications push', 'Sur les téléphones et ordinateurs qui les ont activées.', 'push')}
-      <label className="commField"><span>Seuil d’alerte du solde SMS</span>
-        <input type="number" min={0} value={form.sms_low_balance_threshold} disabled={!configure} aria-label="Seuil d’alerte SMS"
-          onChange={e => setForm(f => ({...f, sms_low_balance_threshold: Math.max(0, Number(e.target.value) || 0)}))}/></label>
-      {configure ? <button className="primaryBtn" disabled={saving} onClick={() => void save()}>Enregistrer</button>
-        : <small>Seul l’administrateur système de l’école modifie ces réglages.</small>}
+  const go = (id: string) => document.getElementById(id)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  const channels = [form.sms_enabled && 'SMS', form.email_enabled && 'e-mail', form.push_enabled && 'notifications'].filter(Boolean) as string[];
+  const senders = (roles ?? []).filter(r => r.status === 'ACTIVE' && r.capabilities.some(c => c === 'communications.compose' || c.startsWith('communications.send.')));
+  const support = pushSupport(); const pushHere = Boolean(rememberedSubscription(schoolId)) && support.permission === 'granted';
+  const sw = (key: 'sms_enabled' | 'email_enabled' | 'push_enabled', label: string, hint: string, platformKey: 'sms' | 'email' | 'push') => {
+    const state = ready.platform[platformKey].state; const off = !form.enabled;
+    return <label className={`commToggle ${off ? 'muted' : ''}`}>
+      <span className="commToggleIcon" aria-hidden="true"><NavGlyph g={CH_ICON[platformKey]} size={18}/></span>
+      <span className="commToggleText"><b>{label}</b><small>{hint}</small><em className={`pill state-${String(state).toLowerCase()}`}>Plateforme : {STATE_LABEL[state]}</em></span>
+      <input type="checkbox" role="switch" checked={Boolean(form[key])} disabled={!configure || off} onChange={e => setForm(f => ({...f, [key]: e.target.checked}))}/></label>;
+  };
+  return <div className="commAdmin">
+    <div className="commOverview">
+      <button type="button" className="commTile" onClick={() => go('comm-channels')}><span><NavGlyph g="sliders" size={20}/></span><b>{form.enabled ? (channels.length ? channels.join(' · ') : 'Aucun canal') : 'Désactivée'}</b><small>Canaux de l’école</small></button>
+      {can('communications.read') && <button type="button" className={`commTile ${ready.wallet.low ? 'warn' : ''}`} onClick={() => go('comm-wallet')}><span><NavGlyph g="finance" size={20}/></span><b>{ready.wallet.available} SMS</b><small>{ready.wallet.low ? 'Solde bas : à recharger' : 'Solde disponible'}</small></button>}
+      <button type="button" className="commTile" onClick={() => go('comm-device')}><span><NavGlyph g="bell" size={20}/></span><b>{pushHere ? 'Activées' : 'Non activées'}</b><small>Notifications sur cet appareil</small></button>
+      {roles !== null && <button type="button" className="commTile" onClick={() => go('comm-senders')}><span><NavGlyph g="users" size={20}/></span><b>{senders.length} rôle(s)</b><small>Peuvent écrire aux familles</small></button>}
     </div>
-    {can('communications.read') && <div className="commCard"><h3>Portefeuille SMS</h3>
-      <div className="commWalletRow"><div><b>{ready.wallet.balance}</b><small>solde</small></div><div><b>{ready.wallet.reserved}</b><small>réservés</small></div>
-        <div className={ready.wallet.low ? 'low' : ''}><b>{ready.wallet.available}</b><small>disponibles</small></div></div>
-      <small>Les crédits SMS s’achètent auprès d’EduSync ; une unité correspond à un SMS facturable (un message long compte plusieurs unités).</small>
-      <ul className="commLedger">{ledger.slice(0, 12).map(l => <li key={l.id}><span>{({TOPUP: 'Recharge', RESERVATION: 'Réservation', CONSUMPTION: 'Consommation', RELEASE: 'Libération',
-        ADJUSTMENT: 'Ajustement', REFUND: 'Remboursement'} as Record<string, string>)[l.movement_type] ?? l.movement_type}<small>{fmt(l.created_at)}{l.reference ? ` · ${l.reference}` : ''}</small></span>
-        <b className={l.direction === 'DEBIT' ? 'neg' : ''}>{l.direction === 'DEBIT' ? '−' : l.direction === 'CREDIT' ? '+' : ''}{l.quantity}</b></li>)}
-        {ledger.length === 0 && <li><small>Aucun mouvement.</small></li>}</ul>
-    </div>}
-    <PushOnThisDevice token={token} schoolId={schoolId} available={ready.platform.push.available}/>
+
+    <div className="commGrid">
+      <div className="commCard" id="comm-channels"><div className="commCardHead"><span className="commCardIcon"><NavGlyph g="sliders" size={18}/></span><div><h3>Canaux de l’école</h3><p>Ce que l’école autorise. Sans canal, EduSync fonctionne normalement : seuls les envois externes sont arrêtés.</p></div></div>
+        <label className="commToggle master"><span className="commToggleIcon" aria-hidden="true"><NavGlyph g="message" size={18}/></span>
+          <span className="commToggleText"><b>Communication externe</b><small>{form.enabled ? 'Activée : les rôles autorisés peuvent écrire aux familles.' : 'Désactivée : aucun SMS, e-mail ni notification ne part de l’école.'}</small></span>
+          <input type="checkbox" role="switch" checked={form.enabled} disabled={!configure} onChange={e => setForm(f => ({...f, enabled: e.target.checked}))}/></label>
+        {sw('sms_enabled', 'SMS', 'Facturé en unités sur le solde SMS de l’école.', 'sms')}
+        {sw('email_enabled', 'E-mail', 'Gratuit pour l’école.', 'email')}
+        {sw('push_enabled', 'Notifications', 'Sur les téléphones et ordinateurs qui les ont activées. Gratuit.', 'push')}
+        <label className="commField"><span>Alerte quand le solde SMS descend sous</span>
+          <input type="number" min={0} value={form.sms_low_balance_threshold} disabled={!configure} aria-label="Seuil d’alerte SMS"
+            onChange={e => setForm(f => ({...f, sms_low_balance_threshold: Math.max(0, Number(e.target.value) || 0)}))}/></label>
+        {configure ? <div className="commActions"><button className="primaryBtn" disabled={saving || !dirty} onClick={() => void save()}>{saving ? 'Enregistrement…' : dirty ? 'Enregistrer les réglages' : 'Réglages à jour'}</button></div>
+          : <small>Seul l’administrateur système de l’école modifie ces réglages.</small>}
+      </div>
+
+      {can('communications.read') && <div className="commCard" id="comm-wallet"><div className="commCardHead"><span className="commCardIcon"><NavGlyph g="finance" size={18}/></span><div><h3>Solde SMS</h3><p>Une unité = un SMS facturable ; un message long compte plusieurs unités. Les crédits s’achètent auprès d’EduSync.</p></div></div>
+        <div className="commWalletRow"><div><b>{ready.wallet.balance}</b><small>solde</small></div><div><b>{ready.wallet.reserved}</b><small>réservés</small></div>
+          <div className={ready.wallet.low ? 'low' : ''}><b>{ready.wallet.available}</b><small>disponibles</small></div></div>
+        <ul className="commLedger">{ledger.slice(0, 12).map(l => <li key={l.id}><span>{({TOPUP: 'Recharge', RESERVATION: 'Réservation', CONSUMPTION: 'Consommation', RELEASE: 'Libération',
+          ADJUSTMENT: 'Ajustement', REFUND: 'Remboursement'} as Record<string, string>)[l.movement_type] ?? l.movement_type}<small>{fmt(l.created_at)}{l.reference ? ` · ${l.reference}` : ''}</small></span>
+          <b className={l.direction === 'DEBIT' ? 'neg' : ''}>{l.direction === 'DEBIT' ? '−' : l.direction === 'CREDIT' ? '+' : ''}{l.quantity}</b></li>)}
+          {ledger.length === 0 && <li className="commEmpty"><small>Aucun mouvement pour l’instant.</small></li>}</ul>
+      </div>}
+
+      <div id="comm-device"><PushOnThisDevice token={token} schoolId={schoolId} available={ready.platform.push.available}/></div>
+
+      {roles !== null && <div className="commCard" id="comm-senders"><div className="commCardHead"><span className="commCardIcon"><NavGlyph g="users" size={18}/></span><div><h3>Qui peut écrire aux familles ?</h3><p>D’après les rôles de votre école. Pour confier l’envoi à quelqu’un, attribuez-lui l’un de ces rôles.</p></div></div>
+        {senders.length === 0 ? <p className="commEmpty">Aucun rôle actif ne peut envoyer de message. Attribuez par exemple le rôle de préfet des études ou de directeur.</p>
+          : <ul className="commRoles">{senders.map(r => {
+            const scopes = SEND_CAPS.filter(([c]) => r.capabilities.includes(c)).map(([, l]) => l);
+            return <li key={r.id}><span className="commRoleIcon" aria-hidden="true"><NavGlyph g="user" size={16}/></span>
+              <span><b>{r.label}</b><small>{scopes.length ? `Écrit à ${scopes.join(', ')}` : 'Rédige des messages'}{r.capabilities.includes('communications.sms.bulk_send') ? ' · SMS groupés' : r.capabilities.includes('communications.sms.send') ? ' · SMS' : ''}</small></span>
+              <em className={`pill ${r.holders ? 'ready' : ''}`}>{r.holders ? `${r.holders} personne(s)` : 'Personne'}</em></li>;
+          })}</ul>}
+        {onNavigate && can('access.roles.read') && <div className="commActions"><button className="softBtn" onClick={() => onNavigate('access')}><NavGlyph g="lock" size={15}/> Gérer dans Accès &amp; rôles</button></div>}
+      </div>}
+    </div>
   </div>;
 }
 
@@ -230,7 +276,7 @@ function PushOnThisDevice({token, schoolId, available}: {token: string; schoolId
   }
   async function off() { setBusy(true); try { await disablePush(token, schoolId); setActive(false); toast.success('Notifications désactivées sur cet appareil'); await load(); } finally { setBusy(false); } }
   async function test() { try { const r = await pushTest(token); toast.success(`Test envoyé à ${r.devices} appareil(s)`); } catch (e) { toast.error(friendlyError(e)); } }
-  return <div className="commCard"><h3>Notifications sur cet appareil</h3>
+  return <div className="commCard"><div className="commCardHead"><span className="commCardIcon"><NavGlyph g="bell" size={18}/></span><div><h3>Notifications sur cet appareil</h3><p>Recevez ici les alertes d’EduSync, même application fermée.</p></div></div>
     {!support.supported ? <p className="commNotice">{support.reason}</p> : !available ? <p className="commNotice">Les notifications push ne sont pas encore disponibles sur la plateforme.</p> : <>
       <p className="commState">{active ? 'Activées sur cet appareil.' : support.permission === 'denied' ? 'Bloquées par le navigateur : réautorisez-les dans ses réglages.' : 'Non activées sur cet appareil.'}</p>
       <div className="commActions">

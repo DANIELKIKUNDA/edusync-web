@@ -58,7 +58,7 @@ def split_equal(total: Decimal, count: int) -> list[Decimal]:
 
 
 class PostgresAnticipationRepository:
-    PLAN_COLUMNS = ("id,academic_year_id,name,scope_type,scope_ref,fee_type_id,target_months,contribution_months,participation_mode,"
+    PLAN_COLUMNS = ("id,academic_year_id,name,scope_type,scope_ref,scope_refs,fee_type_id,target_months,contribution_months,participation_mode,"
                     "allocation_strategy,effective_from,active,version")
 
     def __init__(self, connection: Connection):
@@ -78,7 +78,7 @@ class PostgresAnticipationRepository:
     def save_plan(self, school_id: UUID, *, academic_year_id: UUID, name: str, fee_type_id: UUID, target_months: list[str],
                   contribution_months: list[str], participation_mode: str = "OPTIONAL", scope_type: str = "SCHOOL",
                   scope_ref: str | None = None, effective_from: date | None = None, active: bool = True,
-                  plan_id: UUID | None = None) -> tuple[dict[str, Any], dict[str, Any] | None]:
+                  plan_id: UUID | None = None, scope_refs: list[str] | None = None) -> tuple[dict[str, Any], dict[str, Any] | None]:
         year = self.settings._editable_year(school_id, academic_year_id)
         name = (name or "").strip()
         if not name:
@@ -87,13 +87,24 @@ class PostgresAnticipationRepository:
             raise ValueError("Mode de participation invalide")
         if scope_type not in ("SCHOOL", "SECTION", "OPTION_GROUP", "ACADEMIC_CLASS", "CLASS"):
             raise ValueError("Portée du plan invalide")
-        ref = "*" if scope_type == "SCHOOL" else (scope_ref or "").strip()
-        if not ref:
-            raise ValueError("Choisissez la cible du plan")
-        if scope_type in ("OPTION_GROUP", "ACADEMIC_CLASS"):
-            ref = ref.upper()
-        if scope_type == "OPTION_GROUP" and ref not in self.settings.TARIFF_GROUPS:
+        # Several targets of the same kind (owner request 2026-10-24): e.g. 1re and 2e primaire A only.
+        raw = [] if scope_type == "SCHOOL" else (scope_refs if scope_refs else [scope_ref or ""])
+        refs: list[str] = []
+        for r in raw:
+            r = (r or "").strip()
+            r = r.upper() if scope_type in ("OPTION_GROUP", "ACADEMIC_CLASS") else r
+            if r and r not in refs:
+                refs.append(r)
+        if scope_type != "SCHOOL" and not refs:
+            raise ValueError("Choisissez au moins une cible du plan")
+        if scope_type == "OPTION_GROUP" and any(r not in self.settings.TARIFF_GROUPS for r in refs):
             raise ValueError("Groupe tarifaire invalide")
+        if scope_type == "CLASS":
+            found = self.connection.execute(text("""SELECT count(*) FROM school_classes WHERE school_id=:sid AND academic_year_id=:y
+                AND id::text = ANY(:ids)"""), {"sid": school_id, "y": academic_year_id, "ids": refs}).scalar_one()
+            if found != len(refs):
+                raise ValueError("Une classe choisie n'appartient pas à cette année scolaire")
+        ref = "*" if scope_type == "SCHOOL" else refs[0]
         targets, contributions = month_list(target_months), month_list(contribution_months)
         if not targets or not contributions:
             raise ValueError("Sélectionnez au moins un mois cible et un mois de contribution")
@@ -105,7 +116,7 @@ class PostgresAnticipationRepository:
         if fee._mapping["periodicity"] != "MONTHLY":
             raise ValueError("Un plan anticipé doit porter sur un frais mensuel")
         eff = effective_from or year["start_date"]
-        values = {"sid": school_id, "y": academic_year_id, "n": name, "st": scope_type, "sr": ref, "f": fee_type_id, "t": json.dumps(targets),
+        values = {"sid": school_id, "y": academic_year_id, "n": name, "st": scope_type, "sr": ref, "srs": refs or None, "f": fee_type_id, "t": json.dumps(targets),
                   "c": json.dumps(contributions), "pm": participation_mode, "eff": eff, "a": bool(active)}
         if plan_id is not None:
             old = self.connection.execute(text(f"SELECT {self.PLAN_COLUMNS} FROM anticipation_plans WHERE id=:id AND school_id=:sid FOR UPDATE"),
@@ -116,16 +127,16 @@ class PostgresAnticipationRepository:
             members = self.connection.execute(text("SELECT count(*) FROM anticipation_memberships WHERE plan_id=:id AND status IN ('ENROLLED','COMPLETED')"),
                                               {"id": plan_id}).scalar_one()
             structural = (str(o["fee_type_id"]) != str(fee_type_id) or list(o["target_months"]) != targets or list(o["contribution_months"]) != contributions
-                          or o["scope_type"] != scope_type or o["scope_ref"] != ref)
+                          or o["scope_type"] != scope_type or sorted(o.get("scope_refs") or ([o["scope_ref"]] if o["scope_type"] != "SCHOOL" else [])) != sorted(refs))
             if members and structural:
                 raise ValueError("Ce plan possède déjà des adhésions. Désactivez-le et créez une nouvelle version pour modifier sa structure.")
-            row = self.connection.execute(text(f"""UPDATE anticipation_plans SET name=:n,scope_type=:st,scope_ref=:sr,fee_type_id=:f,
+            row = self.connection.execute(text(f"""UPDATE anticipation_plans SET name=:n,scope_type=:st,scope_ref=:sr,scope_refs=:srs,fee_type_id=:f,
                 target_months=CAST(:t AS jsonb),contribution_months=CAST(:c AS jsonb),participation_mode=:pm,effective_from=:eff,active=:a
                 WHERE id=:id RETURNING {self.PLAN_COLUMNS}"""), {**values, "id": plan_id}).first()
             return dict(row._mapping), o
-        row = self.connection.execute(text(f"""INSERT INTO anticipation_plans(school_id,academic_year_id,name,scope_type,scope_ref,fee_type_id,
+        row = self.connection.execute(text(f"""INSERT INTO anticipation_plans(school_id,academic_year_id,name,scope_type,scope_ref,scope_refs,fee_type_id,
             target_months,contribution_months,participation_mode,effective_from,active)
-            VALUES (:sid,:y,:n,:st,:sr,:f,CAST(:t AS jsonb),CAST(:c AS jsonb),:pm,:eff,:a) RETURNING {self.PLAN_COLUMNS}"""), values).first()
+            VALUES (:sid,:y,:n,:st,:sr,:srs,:f,CAST(:t AS jsonb),CAST(:c AS jsonb),:pm,:eff,:a) RETURNING {self.PLAN_COLUMNS}"""), values).first()
         return dict(row._mapping), None
 
     def set_plan_active(self, school_id: UUID, plan_id: UUID, *, active: bool) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -151,9 +162,10 @@ class PostgresAnticipationRepository:
 
     @staticmethod
     def _scope_matches(plan: dict, ctx: dict) -> bool:
-        scope, ref = plan["scope_type"], plan["scope_ref"]
-        return (scope == "SCHOOL" or (scope == "SECTION" and ref == str(ctx["section_id"])) or (scope == "OPTION_GROUP" and ref == ctx["tariff_group"])
-                or (scope == "ACADEMIC_CLASS" and ref == ctx["level"]) or (scope == "CLASS" and ref == str(ctx["class_id"])))
+        scope = plan["scope_type"]
+        refs = set(plan.get("scope_refs") or [plan["scope_ref"]])        # several targets since migration 0089
+        return (scope == "SCHOOL" or (scope == "SECTION" and str(ctx["section_id"]) in refs) or (scope == "OPTION_GROUP" and ctx["tariff_group"] in refs)
+                or (scope == "ACADEMIC_CLASS" and ctx["level"] in refs) or (scope == "CLASS" and str(ctx["class_id"]) in refs))
 
     def _plan(self, school_id: UUID, plan_id: UUID) -> dict[str, Any]:
         row = self.connection.execute(text(f"""SELECT p.{self.PLAN_COLUMNS.replace(',', ',p.')},f.code AS fee_code,f.label AS fee_label

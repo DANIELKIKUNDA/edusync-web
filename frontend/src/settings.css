@@ -201,3 +201,32 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .mtOk{padding:10px 12px;border-radius:10px;background:#ecfdf3;color:#05603a;font-size:13.5px}
 .mtVolumes{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px}
 .mtVolumes li{display:flex;justify-content:space-between;gap:8px;font-size:13px;border-bottom:1px dotted #e5e9f1;padding:3px 0}
+.planTargets{border:1px solid #e5e9f1;border-radius:12px;padding:10px 12px;display:grid;gap:8px}
+.planTargets legend small{font-weight:400;color:#5b6475}
+.planTargetTools{display:flex;gap:12px}
+/* School articles: stock catalogue (2026-10-24) */
+.productKpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:4px 0 12px}
+.productKpis>div,.productKpis>button{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-align:left;border:1px solid #e5e9f1;border-radius:14px;padding:12px 14px;background:#fff;font:inherit;color:inherit}
+.productKpis>button{cursor:pointer}.productKpis>button.alert{border-color:#fecdca;background:#fff6f5}
+.productKpis span{grid-row:1/3;display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#eef4ff;color:#1557d6}
+.productKpis>button.alert span{background:#fee4e2;color:#b42318}
+.productKpis b{font-size:18px;font-weight:800;overflow-wrap:anywhere}.productKpis small{color:#5b6475;font-size:12.5px}
+.productGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.productCard{border:1px solid #e5e9f1;border-radius:14px;background:#fff;display:grid;gap:6px;padding:4px 4px 10px;transition:box-shadow .15s,border-color .15s}
+.productCard:hover{border-color:#c7d7fe;box-shadow:0 6px 18px -10px rgba(21,87,214,.35)}
+.productCard.muted{opacity:.65}
+.productMain{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;width:100%;padding:10px;border:0;background:none;text-align:left;font:inherit;color:inherit;cursor:pointer;border-radius:12px}
+.productMain:focus-visible{outline:3px solid #93b4ff}
+.productIcon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#f2f6ff;color:#1557d6}
+.productText{min-width:0;display:grid}.productText b{overflow-wrap:anywhere}.productText small{color:#5b6475}
+.productStock{display:grid;justify-items:end;gap:2px}.productStock b{font-size:20px;font-variant-numeric:tabular-nums}
+.pill.tone-ok{background:#ecfdf3;color:#05603a}.pill.tone-warn{background:#fffaeb;color:#93370d}.pill.tone-bad{background:#fef3f2;color:#b42318}.pill.tone-neutral{background:#f2f4f7;color:#475467}
+.productHint{padding:0 14px;color:#5b6475;font-size:12px}
+.productActions{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px}
+.productActions button{min-height:34px;padding:0 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.productActions button.on{background:#eef4ff;border-color:#84adff;color:#1557d6}
+.productPanel{margin:4px 10px 0;padding:10px;border-radius:12px;background:#f8fafc;display:grid;gap:8px}
+.moneyInput{display:flex;gap:6px}.moneyInput input{flex:1;min-width:0}.moneyInput select{width:84px}
+.enrollWindow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:2px}
+.enrollWindowEdit{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin-top:6px}
+.enrollWindowEdit label{display:grid;gap:2px;font-size:12px;color:#5b6475}.enrollWindowEdit input{min-height:36px}

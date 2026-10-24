@@ -158,20 +158,26 @@ class AcademicYearCreate(BaseModel):
     label:str=Field(min_length=4,max_length=96)
     start_date:date
     end_date:date
+    # Enrollment period (2026-10-24): informative, editable, never blocking (late enrollments and transfers exist).
+    enrollment_start:date|None=None
+    enrollment_end:date|None=None
 
 @router.get('/academic-years/selector')
 def year_selector(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """Minimal, non-sensitive year list for the shell's year selector, readable by every school member.
     Full year administration stays behind settings.academic_year.read / management capabilities."""
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return [{k:v for k,v in year_json(y).items() if k in ('id','code','label','status','start_date','end_date')}
-                for y in PostgresSettingsRepository(conn).list_academic_years(actor.school_id)]
+        repo=PostgresSettingsRepository(conn);windows=repo.enrollment_windows(actor.school_id)
+        # The enrollment period (2026-10-24) is shown to whoever enrolls: informative, never blocking.
+        return [{**{k:v for k,v in year_json(y).items() if k in ('id','code','label','status','start_date','end_date')},
+                 **windows.get(str(y.id),{'enrollment_start':None,'enrollment_end':None})} for y in repo.list_academic_years(actor.school_id)]
 
 @router.get('/academic-years')
 def list_years(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'settings.academic_year.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return [year_json(y) for y in PostgresSettingsRepository(conn).list_academic_years(actor.school_id)]
+        repo=PostgresSettingsRepository(conn);windows=repo.enrollment_windows(actor.school_id)
+        return [{**year_json(y),**windows.get(str(y.id),{'enrollment_start':None,'enrollment_end':None})} for y in repo.list_academic_years(actor.school_id)]
 
 def year_json(y:AcademicYear):
     return {'id':str(y.id),'code':y.code,'label':y.label,'start_date':y.start_date.isoformat(),'end_date':y.end_date.isoformat(),'status':y.status.value,'version':y.version}
@@ -182,8 +188,10 @@ def create_year(body:AcademicYearCreate,response:Response,idempotency_key:str|No
     _need(actor,'settings.academic_year.create');key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
-            repo=PostgresSettingsRepository(conn);y=AcademicYear(school_id=actor.school_id,**body.model_dump());repo.add_academic_year(y)
-            out=year_json(y);_audit_and_outbox(conn,request_actor,action='ACADEMIC_YEAR_CREATED',entity_type='AcademicYear',entity_id=y.id,old=None,new=out)
+            data=body.model_dump();window=(data.pop('enrollment_start'),data.pop('enrollment_end'))
+            repo=PostgresSettingsRepository(conn);y=AcademicYear(school_id=actor.school_id,**data);repo.add_academic_year(y)
+            repo.set_enrollment_window(actor.school_id,y.id,*window)
+            out={**year_json(y),'enrollment_start':window[0].isoformat() if window[0] else None,'enrollment_end':window[1].isoformat() if window[1] else None};_audit_and_outbox(conn,request_actor,action='ACADEMIC_YEAR_CREATED',entity_type='AcademicYear',entity_id=y.id,old=None,new=out)
             return 201,out
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_CREATE_ACADEMIC_YEAR',payload=body.model_dump(mode='json'),action=action)
         response.status_code=result.status_code;response.headers['ETag']=f'"{result.body["version"]}"';return result.body
@@ -667,6 +675,8 @@ class AnticipationPlanPut(BaseModel):
     participation_mode:Literal['OPTIONAL','MANDATORY']='OPTIONAL'
     scope_type:Literal['SCHOOL','SECTION','OPTION_GROUP','ACADEMIC_CLASS','CLASS']='SCHOOL'
     scope_ref:str|None=Field(default=None,max_length=64)
+    # Several targets of the same kind (2026-10-24); when given, the list wins over the single scope_ref.
+    scope_refs:list[str]|None=Field(default=None,max_length=200)
     effective_from:date|None=None
     active:bool=True
 
@@ -794,6 +804,9 @@ def update_contribution(contribution_id:UUID,body:ContributionUpdate,response:Re
 
 class ProductCreate(BaseModel):
     code:str=Field(min_length=2,max_length=48);label:str=Field(min_length=2,max_length=160);currency:Literal['CDF','USD'];unit_price:Decimal=Field(gt=0);stock_tracking:bool=False
+    # Stock management (2026-10-24): opening quantity (traced RECEIPT « Stock initial ») and low-stock alert threshold.
+    opening_quantity:Decimal=Field(default=Decimal('0'),ge=0,max_digits=18,decimal_places=3)
+    low_threshold:Decimal=Field(default=Decimal('0'),ge=0,max_digits=18,decimal_places=3)
 
 @router.get('/products')
 def products(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -805,7 +818,7 @@ def create_product(body:ProductCreate,response:Response,idempotency_key:str|None
     _need(actor,'settings.products.manage');key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
-            out=_jsonable(PostgresSettingsRepository(conn).create_product(actor.school_id,**body.model_dump()));_audit_and_outbox(conn,request_actor,action='SCHOOL_PRODUCT_CREATED',entity_type='SchoolProduct',entity_id=UUID(out['id']),old=None,new=out);return 201,out
+            out=_jsonable(PostgresSettingsRepository(conn).create_product(actor.school_id,user_id=actor.user_id,**body.model_dump()));_audit_and_outbox(conn,request_actor,action='SCHOOL_PRODUCT_CREATED',entity_type='SchoolProduct',entity_id=UUID(out['id']),old=None,new=out);return 201,out
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_CREATE_PRODUCT',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
     except Exception as exc:_error(exc)
 
@@ -816,6 +829,7 @@ class ProductUpdate(BaseModel):
     unit_price:Decimal=Field(gt=0)
     stock_tracking:bool=False
     enabled:bool=True
+    low_threshold:Decimal|None=Field(default=None,ge=0,max_digits=18,decimal_places=3)
 
 @router.put('/products/{product_id}')
 def update_product(product_id:UUID,body:ProductUpdate,response:Response,if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -956,3 +970,57 @@ def put_document_settings(body: DocumentSettingsPut, actor: ActorContext = Depen
             actor_user_id=actor.user_id, membership_id=actor.membership_id, school_id=actor.school_id, source=actor.source,
             old_data=dict(old) if old else None, new_data=dict(row), reason=None, correlation_id=actor.correlation_id, idempotency_key=None))
     return dict(row)
+
+
+
+# --- Administrator finishing pass (2026-10-24): enrollment period, product stock -------------------------------------
+class EnrollmentWindowPut(BaseModel):
+    enrollment_start:date|None=None
+    enrollment_end:date|None=None
+
+
+@router.put('/academic-years/{year_id}/enrollment-window')
+def put_enrollment_window(year_id:UUID,body:EnrollmentWindowPut,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Enrollment period of a prepared or active year. Informative only: an enrollment outside the period stays possible
+    (late enrollment, transfer) and is simply flagged to the secretary."""
+    _need(actor,'settings.academic_year.update')
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            repo=PostgresSettingsRepository(conn);y=repo.get_academic_year(actor.school_id,year_id)
+            if y is None: raise LookupError('Année scolaire introuvable')
+            if y.status.value not in ('PREPARED','ACTIVE'): raise ValueError(f"L'année {y.label} est en lecture seule")
+            old=repo.enrollment_windows(actor.school_id).get(str(year_id))
+            out=repo.set_enrollment_window(actor.school_id,year_id,body.enrollment_start,body.enrollment_end)
+            PostgresAuditRepository(conn).append(AuditRecord(action='ENROLLMENT_WINDOW_UPDATED',entity_type='AcademicYear',entity_id=year_id,actor_user_id=actor.user_id,
+                membership_id=actor.membership_id,school_id=actor.school_id,source=actor.source,old_data=old,new_data=out,reason=None,
+                correlation_id=actor.correlation_id,idempotency_key=None))
+            return out
+    except Exception as exc:_error(exc)
+
+
+class ProductStockMove(BaseModel):
+    movement_type:Literal['RECEIPT','ADJUSTMENT']
+    quantity:Decimal=Field(gt=0,max_digits=18,decimal_places=3)
+    adjustment_direction:Literal['INCREASE','DECREASE']|None=None
+    reason:str=Field(min_length=3,max_length=240)
+    reference:str|None=Field(default=None,max_length=96)
+
+
+@router.post('/products/{product_id}/stock',status_code=201)
+def product_stock_move(product_id:UUID,body:ProductStockMove,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Stock of a school article: receipt (delivery) or counted correction, always traced. Same capabilities as the
+    Intendance stock (inventory.stock.receive / inventory.stock.adjust); a sale is recorded by the cash desk only."""
+    _need(actor,'inventory.stock.receive' if body.movement_type=='RECEIPT' else 'inventory.stock.adjust')
+    if body.movement_type=='ADJUSTMENT' and body.adjustment_direction is None:
+        raise HTTPException(status_code=422,detail='Précisez le sens de la correction de stock')
+    delta=body.quantity if body.movement_type=='RECEIPT' or body.adjustment_direction=='INCREASE' else -body.quantity
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            out=PostgresSettingsRepository(conn).move_product_stock(actor.school_id,product_id,movement_type=body.movement_type,delta=delta,
+                reason=body.reason.strip(),reference=(body.reference or '').strip() or None,user_id=actor.user_id)
+            PostgresAuditRepository(conn).append(AuditRecord(action='SCHOOL_PRODUCT_STOCK_MOVED',entity_type='SchoolProduct',entity_id=product_id,actor_user_id=actor.user_id,
+                membership_id=actor.membership_id,school_id=actor.school_id,source=actor.source,old_data=None,
+                new_data={'movement_type':body.movement_type,'delta':str(delta),'quantity':out['quantity'],'reason':body.reason.strip()},reason=body.reason.strip(),
+                correlation_id=actor.correlation_id,idempotency_key=None))
+            return _jsonable(out)
+    except Exception as exc:_error(exc)

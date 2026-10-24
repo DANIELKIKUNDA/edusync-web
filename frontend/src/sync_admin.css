@@ -1,0 +1,47 @@
+/* Synchronisation & appareils (administrator finishing pass 2026-10-24) */
+.syncPremium{display:grid;gap:16px;min-width:0}
+.syncHero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center;padding:20px 22px;border-radius:18px;background:linear-gradient(135deg,#f5f8ff,#ffffff);border:1px solid #e3e9f6}
+.syncHeroIcon{display:grid;place-items:center;width:52px;height:52px;border-radius:15px;background:#1557d6;color:#fff;box-shadow:0 10px 24px -12px rgba(21,87,214,.7)}
+.syncHero small{font-size:11.5px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:#1557d6}
+.syncHero h2{margin:2px 0 4px;font-size:24px;letter-spacing:-.3px}
+.syncHero p{margin:0;max-width:760px;color:#475467;font-size:14px;line-height:1.5}
+.syncHealth{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:#f2f4f7;color:#475467;font-weight:700;font-size:13.5px;white-space:nowrap}
+.syncHealth.ok{background:#ecfdf3;color:#05603a}.syncHealth.warn{background:#fffaeb;color:#93370d}
+.syncKpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.syncKpi{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;column-gap:12px;align-items:center;text-align:left;padding:16px;border-radius:16px;border:1px solid #e4e9f2;background:#fff;font:inherit;color:inherit}
+button.syncKpi{cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+button.syncKpi:hover{transform:translateY(-2px);border-color:#c7d7fe;box-shadow:0 12px 26px -16px rgba(21,87,214,.5)}
+button.syncKpi:focus-visible{outline:3px solid #93b4ff;outline-offset:2px}
+.syncKpi.warn{border-color:#fedf89;background:#fffcf2}
+.syncKpiIcon{grid-row:1/4;display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:#eef4ff;color:#1557d6}
+.syncKpi.warn .syncKpiIcon{background:#fef0c7;color:#b54708}
+.syncKpi b{font-size:24px;font-weight:800;line-height:1.1}
+.syncKpiLabel{font-weight:700;font-size:13.5px}
+.syncKpi small{color:#667085;font-size:12px}
+.syncCard{border:1px solid #e4e9f2;border-radius:18px;background:#fff;padding:18px;display:grid;gap:14px;scroll-margin-top:90px}
+.syncCardHead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start}
+.syncCardHead h3{margin:0;font-size:16.5px}.syncCardHead p{margin:2px 0 0;color:#667085;font-size:13.5px;line-height:1.45}
+.syncCardIcon{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#f2f4f7;color:#344054}
+.syncCardIcon.warn{background:#fef0c7;color:#b54708}
+.syncCardHead .primaryBtn{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.deviceGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.deviceCard{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:12px;border:1px solid #e4e9f2;border-radius:14px}
+.deviceCard.revoked{opacity:.6}
+.deviceCard b{display:block;overflow-wrap:anywhere}.deviceCard small{color:#667085}
+.deviceCard .linkBtn{grid-column:2/4;justify-self:start}
+.deviceIcon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#f2f6ff;color:#1557d6}
+.linkBtn.danger{color:#b42318}
+.syncList{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.syncList li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid #eef1f6;border-radius:12px}
+.syncList li b{display:block}.syncList li small{color:#667085}
+.syncActions{display:flex;gap:6px}
+.syncEmpty{display:grid;justify-items:center;gap:4px;padding:22px;border:1px dashed #d0d5dd;border-radius:14px;color:#667085;text-align:center}
+.syncEmpty b{color:#344054}.syncEmpty.ok{color:#079455}.syncEmpty.ok b{color:#05603a}
+@media (max-width:720px){.syncHero{grid-template-columns:auto minmax(0,1fr)}.syncHealth{grid-column:1/-1;justify-self:start}.syncCardHead{grid-template-columns:auto minmax(0,1fr)}.syncCardHead .primaryBtn{grid-column:1/-1;justify-self:start}}
+:root[data-theme=dark] .syncHero,:root[data-theme=dark] .syncKpi,:root[data-theme=dark] .syncCard,:root[data-theme=dark] .deviceCard{background:var(--es-surface,#121a2b);border-color:var(--es-line,#24304a);color:inherit}
+:root[data-theme=dark] .syncHero p,:root[data-theme=dark] .syncCardHead p,:root[data-theme=dark] .syncKpi small{color:var(--es-muted,#98a2b3)}
+.deviceGrid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.syncPremium .linkBtn{border:0;background:none;padding:4px 0;font:inherit;font-size:13px;font-weight:700;color:#1557d6;cursor:pointer}
+.syncPremium .linkBtn.danger{color:#b42318}
+.syncPremium .linkBtn:hover{text-decoration:underline}
+.syncPremium .linkBtn:disabled{opacity:.5;cursor:not-allowed}

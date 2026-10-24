@@ -309,3 +309,13 @@ button.homeSearch{width:100%;text-align:left;font:inherit;cursor:pointer;border:
 .sh-bars i{align-self:end;display:block;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,var(--es-brand,#1557d6),var(--es-brand-line,#b9cdf7))}
 .sh-bars small{font-size:11px;color:var(--es-muted,#5b6578);text-align:center}
 @media (max-width:560px){.sh-search small{display:none}}
+.enrollPeriodNotice{display:grid;gap:2px;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13.5px}.enrollPeriodNotice b{font-weight:750}
+/* Loader centred in the visible work area, modern ring (owner report 2026-10-24: the loader sat at the top) */
+.moduleLoader{min-height:calc(100dvh - 160px);min-height:calc(100vh - 160px);width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#475467;background:transparent}
+.moduleLoader .loaderLine{display:none}
+.moduleLoader b{font-size:15px;font-weight:700;color:#1d2939}
+.moduleLoader span:not(.moduleSpinner){font-size:13px;color:#667085}
+.moduleSpinner{width:44px;height:44px;border-radius:50%;border:4px solid #e4e9f2;border-top-color:#1557d6;animation:es-spin .8s linear infinite}
+@keyframes es-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.moduleSpinner{animation-duration:2.4s}}
+.sessionRestore .moduleLoader{min-height:auto}

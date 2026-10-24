@@ -51,3 +51,10 @@
 .receiptNumbering input,.receiptNumbering select{min-height:40px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px}
 .receiptNumbering small{font-weight:400;color:#64748b}
 @media(max-width:720px){.receiptNumbering{grid-template-columns:1fr}}
+
+/* Administrator finishing pass 2026-10-24: hero icon, clickable catalogue */
+.docHero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center}
+.docHeroIcon{display:grid;place-items:center;width:52px;height:52px;border-radius:15px;background:#1557d6;color:#fff;box-shadow:0 10px 24px -12px rgba(21,87,214,.7)}
+.docCard.clickable{cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+.docCard.clickable:hover{transform:translateY(-2px);border-color:#c7d7fe;box-shadow:0 12px 26px -16px rgba(21,87,214,.5)}
+.docCard.clickable:focus-visible{outline:3px solid #93b4ff;outline-offset:2px}
