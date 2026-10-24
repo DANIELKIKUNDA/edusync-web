@@ -37,14 +37,21 @@ WIDGETS: list[dict] = [
     # Administration / configuration — « what must the administrator watch and do today »
     {"id": "access.members", "title": "Comptes et accès", "module": "access", "priority": 10, "all": ("access.users.read",)},
     {"id": "access.requests", "title": "Demandes d’approbation", "module": "access", "priority": 11, "all": ("access.roles.manage",)},
-    {"id": "settings.readiness", "title": "Paramétrage de l’établissement", "module": "settings", "priority": 12, "all": ("settings.school_identity.read",)},
-    {"id": "settings.academic_year", "title": "Année scolaire", "module": "settings", "priority": 13, "all": ("settings.academic_year.read",)},
-    {"id": "settings.structure", "title": "Structure : sections et classes", "module": "settings", "priority": 14, "all": ("settings.structure.read",)},
+    # Setup journey and its shortcut only for whoever can change the settings (2026-10-24: a cashier only reads them).
+    {"id": "settings.readiness", "title": "Paramétrage de l’établissement", "module": "settings", "priority": 12, "all": ("settings.school_identity.update",)},
+    # Each role its own home (owner, 2026-10-24): administration cards need a MANAGEMENT right, never a mere read right
+    # (the cashier reads the year and the structure through the secretariat baseline but administers neither).
+    {"id": "settings.academic_year", "title": "Année scolaire", "module": "settings", "priority": 13, "all": ("settings.academic_year.update",)},
+    {"id": "settings.structure", "title": "Structure : sections et classes", "module": "settings", "priority": 14, "all": ("settings.classes.create",)},
     {"id": "audit.recent", "title": "Dernières actions administratives", "module": "access", "priority": 15, "all": ("audit.school.read",)},
-    {"id": "sync.devices", "title": "Appareils et synchronisation", "module": "sync", "priority": 16, "all": ("sync.status.read",)},
+    {"id": "sync.devices", "title": "Appareils et synchronisation", "module": "sync", "priority": 16, "all": ("sync.device.register",)},
     # Operations
     {"id": "cash.today", "title": "Ma caisse du jour", "module": "finance", "priority": 20, "all": ("finance.cash.read", "finance.cash.open")},
     {"id": "checkout.quick", "title": "Encaisser rapidement", "module": "finance", "priority": 21, "all": ("finance.checkout.collect",)},
+    # Desk (cashier, who is usually also the secretary in the DRC): today's receipts, enrollments, articles to watch.
+    {"id": "cash.receipts", "title": "Encaissements du jour", "module": "finance", "priority": 22, "all": ("finance.cash.read", "finance.receipts.read")},
+    {"id": "enrollments.today", "title": "Inscriptions", "module": "students", "priority": 23, "all": ("enrollments.create", "students.read")},
+    {"id": "products.watch", "title": "Articles à surveiller", "module": "finance", "priority": 24, "all": ("finance.products.sale",)},
     {"id": "headcounts.summary", "title": "Effectifs", "module": "headcounts", "priority": 30, "all": ("headcounts.read",)},
     {"id": "headcounts.movements", "title": "Mouvements récents", "module": "headcounts", "priority": 31, "all": ("headcounts.movements.read",)},
     {"id": "finance.recovery", "title": "Évolution du recouvrement", "module": "finance", "priority": 40, "all": ("finance.recovery.monthly.read",)},
@@ -57,8 +64,9 @@ WIDGETS: list[dict] = [
 ACTIONS: list[dict] = [
     {"id": "students.search", "label": "Rechercher un élève", "module": "students", "all": ("students.read",)},
     {"id": "checkout.new", "label": "Nouvel encaissement", "module": "finance", "all": ("finance.checkout.collect",)},
+    {"id": "enrollments.new", "label": "Nouvelle inscription", "module": "students", "all": ("enrollments.create",)},
     {"id": "members.create", "label": "Ajouter un utilisateur", "module": "access", "all": ("access.users.create",)},
-    {"id": "settings.open", "label": "Compléter le paramétrage", "module": "settings", "all": ("settings.school_identity.read",)},
+    {"id": "settings.open", "label": "Compléter le paramétrage", "module": "settings", "all": ("settings.school_identity.update",)},
     {"id": "inventory.open", "label": "Ouvrir l’intendance", "module": "stewardship", "all": ("inventory.stock.read",)},
 ]
 

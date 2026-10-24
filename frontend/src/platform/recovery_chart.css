@@ -1,0 +1,47 @@
+/* Recovery evolution chart (2026-10-24) — tokens from the reference data-viz palette (series 1 blue), light and dark. */
+.rc-root{--rc-series:#2a78d6;--rc-track:#e4e7ec;--rc-grid:#eef0f3;--rc-text:#101828;--rc-muted:#667085;--rc-surface:#ffffff;--rc-band:rgba(42,120,214,.07);
+  display:grid;gap:12px;min-width:0;color:var(--rc-text)}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .rc-root{--rc-series:#3987e5;--rc-track:#2c3340;--rc-grid:#252b36;--rc-text:#f0efec;--rc-muted:#a6adbb;--rc-surface:#161b24;--rc-band:rgba(57,135,229,.12)}}
+:root[data-theme="dark"] .rc-root{--rc-series:#3987e5;--rc-track:#2c3340;--rc-grid:#252b36;--rc-text:#f0efec;--rc-muted:#a6adbb;--rc-surface:#161b24;--rc-band:rgba(57,135,229,.12)}
+.rc-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:12px}
+.rc-kpis{display:grid;grid-template-columns:repeat(4,minmax(110px,auto));gap:4px 22px}
+.rc-kpis div{display:grid}.rc-kpis b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-kpis div:first-child b{font-size:26px;color:var(--rc-text)}
+.rc-kpis small{color:var(--rc-muted);font-size:12px}
+.rc-controls{display:flex;gap:8px;flex-wrap:wrap}
+.rc-seg{display:inline-flex;padding:3px;border-radius:10px;background:var(--rc-grid)}
+.rc-seg button{border:0;background:none;padding:5px 11px;border-radius:8px;font:inherit;font-size:12.5px;font-weight:700;color:var(--rc-muted);cursor:pointer}
+.rc-seg button.on{background:var(--rc-surface);color:var(--rc-text);box-shadow:0 1px 3px rgba(16,24,40,.12)}
+.rc-charts{position:relative;display:grid;gap:4px;min-width:0}
+.rc-figure{margin:0;display:grid;gap:2px}
+.rc-figure figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:12px;font-weight:700;color:var(--rc-muted)}
+.rc-figure svg{display:block;overflow:visible}
+.rc-grid{stroke:var(--rc-grid);stroke-width:1}
+.rc-tick,.rc-x{fill:var(--rc-muted);font-size:11px;font-variant-numeric:tabular-nums}
+.rc-direct{fill:var(--rc-text);font-size:12px;font-weight:800}
+.rc-line{fill:none;stroke:var(--rc-series);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.rc-dot{fill:var(--rc-series);stroke:var(--rc-surface);stroke-width:2}
+.rc-track{fill:var(--rc-track)}
+.rc-fill{fill:var(--rc-series)}
+.rc-band{fill:var(--rc-band)}
+.rc-legend{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.rc-key{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:8px}
+.rc-key.track{background:var(--rc-track)}.rc-key.fill{background:var(--rc-series)}
+.rc-hit{position:absolute;top:0;bottom:0;border:0;background:transparent;cursor:pointer;padding:0}
+.rc-hit:focus-visible{outline:2px solid var(--rc-series);outline-offset:-2px}
+.rc-tip{position:absolute;top:8px;z-index:2;width:220px;display:grid;gap:3px;padding:10px 12px;border-radius:12px;background:var(--rc-surface);color:var(--rc-text);
+  box-shadow:0 12px 30px -12px rgba(16,24,40,.35),0 0 0 1px var(--rc-grid);pointer-events:none;font-size:12.5px}
+.rc-tip b{font-size:13.5px}.rc-tip span{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.rc-tip em{font-style:normal;color:var(--rc-muted)}
+.rc-tableWrap{overflow:auto}
+.rc-table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.rc-table th,.rc-table td{padding:7px 8px;border-bottom:1px solid var(--rc-grid);text-align:right;white-space:nowrap}
+.rc-table th:first-child,.rc-table td:first-child{text-align:left}
+.rc-table th{color:var(--rc-muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+.rc-table tfoot td{font-weight:800}
+.rc-empty{margin:0;color:var(--rc-muted);font-size:13.5px}
+.rc-skeleton{height:220px;border-radius:12px;background:linear-gradient(90deg,var(--rc-grid) 25%,var(--rc-track) 50%,var(--rc-grid) 75%);background-size:200% 100%;animation:rc-sh 1.2s linear infinite}
+@keyframes rc-sh{to{background-position:-200% 0}}
+.rc-foot{display:flex;justify-content:flex-end}
+.rc-link{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--rc-series);cursor:pointer}
+@media (max-width:640px){.rc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}

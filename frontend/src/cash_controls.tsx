@@ -36,7 +36,7 @@ export function CashExpenseForm({token, onDone}: {token: string; onDone: () => P
       <label>Motif<input value={reason} maxLength={500} onChange={e => setReason(e.target.value)}/></label>
       <label>Référence (facultatif)<input value={reference} maxLength={80} onChange={e => setReference(e.target.value)}/></label>
     </div>
-    <button disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer la dépense'}</button>
+    <button className="softBtn" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer la dépense'}</button>
   </form>;
 }
 
