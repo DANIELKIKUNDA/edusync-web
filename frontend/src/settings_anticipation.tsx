@@ -26,11 +26,17 @@ export function AnticipationPlansSettings({token, years, fees, classes, sections
   useEffect(() => { void load(); }, [token, year?.id]);
   const editable = can('finance.anticipation_plans.manage') && !!year;
   const yearClasses = classes.filter(c => year && c.academic_year_id === year.id && (c.status ?? (c.enabled ? 'ACTIVE' : 'INACTIVE')) !== 'ARCHIVED');
-  const scopeLabel = (p: AnticipationPlan) => p.scope_type === 'SCHOOL' ? 'Toute l’école'
-    : p.scope_type === 'SECTION' ? `Section ${sections.find(s => s.id === p.scope_ref)?.label ?? ''}`
-    : p.scope_type === 'OPTION_GROUP' ? TARIFF_GROUPS.find(([c]) => c === p.scope_ref)?.[1] ?? p.scope_ref
-    : p.scope_type === 'CLASS' ? `Classe ${yearClasses.find(c => c.id === p.scope_ref)?.label ?? ''}`
-    : `Niveau ${refs?.classes.find(r => r.code.toUpperCase() === p.scope_ref)?.label ?? p.scope_ref}`;
+  // Several targets of the same kind since migration 0089 (owner request 2026-10-24).
+  const one = (p: AnticipationPlan, ref: string) => p.scope_type === 'SECTION' ? sections.find(s => s.id === ref)?.label ?? ''
+    : p.scope_type === 'OPTION_GROUP' ? TARIFF_GROUPS.find(([c]) => c === ref)?.[1] ?? ref
+    : p.scope_type === 'CLASS' ? yearClasses.find(c => c.id === ref)?.label ?? ''
+    : refs?.classes.find(r => r.code.toUpperCase() === ref)?.label ?? ref;
+  const scopeLabel = (p: AnticipationPlan) => {
+    if (p.scope_type === 'SCHOOL') return 'Toute l’école';
+    const list = (p.scope_refs?.length ? p.scope_refs : [p.scope_ref]).map(r => one(p, r)).filter(Boolean);
+    const kind = {SECTION: 'Section', OPTION_GROUP: 'Groupe', CLASS: 'Classe', ACADEMIC_CLASS: 'Niveau'}[p.scope_type];
+    return list.length > 3 ? `${list.length} ${kind?.toLowerCase()}s : ${list.slice(0, 3).join(', ')}…` : `${kind}${list.length > 1 ? 's' : ''} ${list.join(', ')}`;
+  };
   async function toggle(p: AnticipationPlan) {
     if (p.active && !await confirmAction({title: 'Désactiver ce plan ?', message: 'Il ne sera plus proposé à la caisse. Les adhésions et paiements déjà enregistrés restent intacts.', confirmLabel: 'Désactiver'})) return;
     try { await setAnticipationPlanActive(token, p.id, !p.active); toast.success(p.active ? 'Plan désactivé' : 'Plan réactivé'); await load(); } catch (e) { setError(friendlyError(e)); }
@@ -57,7 +63,8 @@ function PlanForm({token, year, fees, sections, yearClasses, refs, current, onCa
   yearClasses: SchoolClass[]; refs: ReferenceCatalog | null; current: AnticipationPlan | null; onCancel: () => void; onSaved: () => Promise<void>}) {
   const monthly = fees.filter(f => f.periodicity === 'MONTHLY' && f.enabled);
   const [name, setName] = useState(current?.name ?? ''); const [fee, setFee] = useState(current?.fee_type_id ?? monthly[0]?.id ?? '');
-  const [scope, setScope] = useState<AnticipationPlan['scope_type']>(current?.scope_type ?? 'SCHOOL'); const [target, setTarget] = useState(current && current.scope_type !== 'SCHOOL' ? current.scope_ref : '');
+  const [scope, setScope] = useState<AnticipationPlan['scope_type']>(current?.scope_type ?? 'SCHOOL');
+  const [picked, setPicked] = useState<string[]>(current && current.scope_type !== 'SCHOOL' ? (current.scope_refs?.length ? current.scope_refs : [current.scope_ref]) : []);
   const [targets, setTargets] = useState<string[]>(current?.target_months ?? []); const [contribs, setContribs] = useState<string[]>(current?.contribution_months ?? []);
   const [mode, setMode] = useState<'OPTIONAL' | 'MANDATORY'>(current?.participation_mode ?? 'OPTIONAL'); const [effective, setEffective] = useState(current?.effective_from ?? year.start_date);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
@@ -72,13 +79,14 @@ function PlanForm({token, year, fees, sections, yearClasses, refs, current, onCa
     e.preventDefault();
     if (name.trim().length < 2) { setError('Donnez un nom au plan (2 caractères au moins).'); return; }
     if (!fee) { setError('Choisissez le frais mensuel concerné.'); return; }
-    if (scope !== 'SCHOOL' && !target) { setError('Choisissez la cible du plan.'); return; }
+    if (scope !== 'SCHOOL' && !picked.length) { setError('Cochez au moins une cible du plan.'); return; }
     if (!targets.length || !contribs.length) { setError('Sélectionnez au moins un mois cible et un mois de contribution.'); return; }
     if (targets.some(m => contribs.includes(m))) { setError('Un mois cible ne peut pas être aussi un mois de contribution.'); return; }
     try {
       setBusy(true); setError('');
       await putAnticipationPlan(token, {academic_year_id: year.id, plan_id: current?.id ?? null, name: name.trim(), fee_type_id: fee, target_months: targets, contribution_months: contribs,
-        participation_mode: mode, scope_type: scope, scope_ref: scope === 'SCHOOL' ? null : target, effective_from: effective, active: current?.active ?? true});
+        participation_mode: mode, scope_type: scope, scope_ref: scope === 'SCHOOL' ? null : picked[0], scope_refs: scope === 'SCHOOL' ? null : picked,
+        effective_from: effective, active: current?.active ?? true});
       toast.success(current ? 'Plan enregistré' : 'Plan créé'); await onSaved();
     } catch (err) { setError(friendlyError(err)); } finally { setBusy(false); }
   }
@@ -91,13 +99,19 @@ function PlanForm({token, year, fees, sections, yearClasses, refs, current, onCa
         <FormField label="Nom du plan *"><input value={name} maxLength={160} onChange={e => setName(e.target.value)}/></FormField>
         <FormField label="Frais mensuel *" hint={monthly.length ? undefined : 'Aucun frais mensuel actif : créez-le dans Types de frais.'}><select value={fee} disabled={locked} onChange={e => setFee(e.target.value)}>
           {monthly.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}</select></FormField>
-        <FormField label="Portée *"><select value={scope} disabled={locked} onChange={e => { setScope(e.target.value as AnticipationPlan['scope_type']); setTarget(''); }}>{SCOPES.map(([s, l]) => <option key={s} value={s}>{l}</option>)}</select></FormField>
-        {scope !== 'SCHOOL' && <FormField label="Cible *"><select value={target} disabled={locked} onChange={e => setTarget(e.target.value)}><option value="">Choisir…</option>{choices.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FormField>}
+        <FormField label="Portée *"><select value={scope} disabled={locked} onChange={e => { setScope(e.target.value as AnticipationPlan['scope_type']); setPicked([]); }}>{SCOPES.map(([s, l]) => <option key={s} value={s}>{l}</option>)}</select></FormField>
         <FormField label="Participation"><select value={mode} onChange={e => setMode(e.target.value as 'OPTIONAL' | 'MANDATORY')}>
           <option value="OPTIONAL">Facultative : le parent choisit</option><option value="MANDATORY">Obligatoire : adhésion au premier paiement selon le plan</option></select></FormField>
         <FormField label="Date d’effet"><input type="date" value={effective} min={year.start_date} max={year.end_date} onChange={e => setEffective(e.target.value)}/></FormField>
       </div>
     </fieldset>
+    {scope !== 'SCHOOL' && <fieldset disabled={busy || locked} className="planTargets"><legend>Cibles du plan <small>({picked.length} choisie{picked.length > 1 ? 's' : ''} sur {choices.length})</small></legend>
+      <div className="planTargetTools"><button type="button" className="linkBtn" onClick={() => setPicked(choices.map(([v]) => v))}>Tout cocher</button><button type="button" className="linkBtn" onClick={() => setPicked([])}>Tout décocher</button></div>
+      {choices.length ? <div className="sw-chips">{choices.map(([v, l]) => { const on = picked.includes(v); return <button key={v} type="button" className={`sw-chip ${on ? 'on' : ''}`} aria-pressed={on}
+        onClick={() => setPicked(p => on ? p.filter(x => x !== v) : [...p, v])}>{on ? '✓ ' : '+ '}{l}</button>; })}</div>
+        : <p className="policyHint">Aucune cible disponible pour cette portée : ouvrez d’abord les classes de l’année.</p>}
+      <p className="policyHint">{scope === 'CLASS' ? 'Exemple : seulement 1re primaire A et 2e primaire A.' : 'Le plan s’applique aux élèves de chaque cible cochée.'} Les autres élèves paient normalement, sans plan.</p>
+    </fieldset>}
     <fieldset disabled={busy || locked}><legend>Mois cibles (payés à l’avance)</legend>
       <div className="monthGrid">{SCHOOL_MONTHS.map(([m, l]) => <label key={m} className="checkField"><input type="checkbox" checked={targets.includes(m)} disabled={contribs.includes(m)} onChange={() => flip(targets, setTargets, m)}/> {l}</label>)}</div>
     </fieldset>

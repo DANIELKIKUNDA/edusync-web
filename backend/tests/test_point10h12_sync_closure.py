@@ -4,7 +4,8 @@ def read(p): return (ROOT/p).read_text(encoding='utf-8')
 def test_sync_frontend_consumes_keyset_and_outbox():
  a=read('frontend/src/api.ts'); u=read('frontend/src/sync_admin.tsx')
  assert 'syncPendingOutbox' in a and 'cursor_at' in a and 'cursor_id' in a
- assert 'Charger plus' in u and 'Outbox durable en attente' in u
+ # Plain-language rewrite (2026-10-24): same keyset paging, labels without jargon.
+ assert 'Afficher plus' in u and 'En attente d’envoi' in u and 'moreOut' in u and 'moreConf' in u
  assert 'window.prompt' not in u and 'window.confirm' not in u and 'window.alert' not in u
 def test_sync_conflict_resolution_is_permissioned_tenant_scoped_and_audited():
  s=read('backend/src/edusync/modules/sync/api/router.py')

@@ -9,18 +9,18 @@ import './documents.css';
 type Tab='history'|'catalog'|'identity';
 const SIZE=(n:number)=>n<1024?`${n} o`:n<1048576?`${(n/1024).toFixed(0)} Ko`:`${(n/1048576).toFixed(1)} Mo`;
 
-function History({token,canOpen}:{token:string;canOpen:boolean}){
- const [data,setData]=useState<{items:ArchivedDocument[];has_more:boolean;offset:number;limit:number;storage_available:boolean}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [q,setQ]=useState('');
+function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{token:string;canOpen:boolean;initialQuery?:string;codeFilter?:string;onClearCode?:()=>void}){
+ const [data,setData]=useState<{items:ArchivedDocument[];has_more:boolean;offset:number;limit:number;storage_available:boolean}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [q,setQ]=useState(initialQuery);
  useEffect(()=>{documentHistory(token).then(setData).catch(e=>setError(friendlyError(e)))},[token]);
  async function more(){if(!data)return;try{const n=await documentHistory(token,data.offset+data.limit);setData({...n,items:[...data.items,...n.items]})}catch(e){setError(friendlyError(e))}}
  async function open(d:ArchivedDocument){try{setBusy(d.id);const l=await documentLink(token,d.id);window.open(l.url,'_blank','noopener')}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
- const items=(data?.items||[]).filter(d=>!q||`${d.title} ${d.file_name||''}`.toLowerCase().includes(q.toLowerCase()));
+ const items=(data?.items||[]).filter(d=>(!codeFilter||d.document_code===codeFilter)&&(!q||`${d.title} ${d.file_name||''}`.toLowerCase().includes(q.toLowerCase())));
  if(!data&&!error)return <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>;
  return <section className="panel docPanel">
   {data&&!data.storage_available&&<div className="es-alert es-alert-bad" role="status">Le stockage des documents n’est pas disponible : les nouveaux exports restent téléchargeables mais ne sont pas archivés.</div>}
   {error&&<div className="error">{error}</div>}
-  <div className="docToolbar"><div className="docSearch"><NavGlyph g="search" size={16}/><input aria-label="Rechercher dans les documents générés" placeholder="Rechercher un document…" value={q} onChange={e=>setQ(e.target.value)}/></div><small>{data?.items.length||0} document(s) · la version la plus récente de chaque document</small></div>
-  {items.length===0?<div className="docEmpty"><NavGlyph g="doc" size={28}/><b>Aucun document généré pour l’instant</b><p>Chaque export PDF ou Excel réalisé dans EduSync apparaît ici automatiquement, avec son historique.</p></div>:
+  <div className="docToolbar"><div className="docSearch"><NavGlyph g="search" size={16}/><input aria-label="Rechercher dans les documents générés" placeholder="Rechercher un document…" value={q} onChange={e=>setQ(e.target.value)}/></div><small>{codeFilter?<>{items.length} document(s) de ce type · <button type="button" className="linkBtn" onClick={onClearCode}>tout afficher</button></>:`${data?.items.length||0} document(s) · la version la plus récente de chaque document`}</small></div>
+  {items.length===0?<div className="docEmpty"><NavGlyph g="doc" size={28}/><b>{codeFilter?'Aucun document de ce type pour l’instant':'Aucun document généré pour l’instant'}</b><p>Chaque export PDF ou Excel réalisé dans EduSync apparaît ici automatiquement, avec son historique.</p></div>:
   <div className="docList" role="list">{items.map(d=><article key={d.id} className="docRow" role="listitem">
    <span className={`docFmt ${d.format.toLowerCase()}`} aria-hidden="true"><NavGlyph g={d.format==='PDF'?'doc':'sheet'} size={18}/></span>
    <div className="docMain"><b>{d.title}</b><small>{d.file_name||d.document_code} · {SIZE(d.byte_size)}{d.generations>1?` · ${d.generations} versions`:''}</small></div>
@@ -31,7 +31,7 @@ function History({token,canOpen}:{token:string;canOpen:boolean}){
  </section>
 }
 
-function Catalog({token,permissions,schoolName}:{token:string;permissions:string[];schoolName:string}){
+function Catalog({token,permissions,schoolName,onOpenType}:{token:string;permissions:string[];schoolName:string;onOpenType?:(code:string)=>void}){
  const [items,setItems]=useState<DocumentCatalogItem[]>([]);const [error,setError]=useState('');const [q,setQ]=useState('');const [module,setModule]=useState('ALL');
  useEffect(()=>{getDocumentCatalog(token).then(x=>setItems(x.items)).catch(e=>setError(friendlyError(e)))},[token]);
  const modules=useMemo(()=>['ALL',...Array.from(new Set(items.map(x=>x.module)))],[items]);
@@ -43,7 +43,7 @@ function Catalog({token,permissions,schoolName}:{token:string;permissions:string
    <div className="docActions">{supportsManagedExportFolder()&&<button className="es-btn" onClick={()=>void chooseFolder()}><NavGlyph g="folder" size={16}/>Choisir un dossier</button>}{permissions.includes('documents.student_import_template.export')&&<button className="es-btn" onClick={()=>void template()}><NavGlyph g="download" size={16}/>Modèle d’import élèves</button>}</div></div>
   {error&&<div className="error">{error}</div>}
   <div className="docToolbar"><div className="docSearch"><NavGlyph g="search" size={16}/><input aria-label="Rechercher dans le catalogue" placeholder="Rechercher un document…" value={q} onChange={e=>setQ(e.target.value)}/></div><select aria-label="Filtrer par module" value={module} onChange={e=>setModule(e.target.value)}>{modules.map(m=><option key={m} value={m}>{m==='ALL'?'Tous les modules':m}</option>)}</select></div>
-  <div className="docGrid">{filtered.map(d=><article className="docCard" key={d.code}><span className={`docFmt ${d.formats.includes('PDF')?'pdf':'xlsx'}`} aria-hidden="true"><NavGlyph g={d.formats.includes('PDF')?'doc':'sheet'} size={18}/></span><div><small>{d.module}</small><h4>{d.label}</h4><p>{d.formats.join(' · ')}</p><em className={d.status.startsWith('WEB_IMPLEMENTED')?'pill ready':'pill'}>{d.status.startsWith('WEB_IMPLEMENTED')?'Disponible':'Mise en page à valider'}</em></div></article>)}</div>
+  <div className="docGrid">{filtered.map(d=><article className={`docCard ${onOpenType?'clickable':''}`} key={d.code} role={onOpenType?'button':undefined} tabIndex={onOpenType?0:undefined} title={onOpenType?'Voir les documents de ce type déjà générés':undefined} onClick={()=>onOpenType?.(d.code)} onKeyDown={e=>{if(onOpenType&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onOpenType(d.code)}}}><span className={`docFmt ${d.formats.includes('PDF')?'pdf':'xlsx'}`} aria-hidden="true"><NavGlyph g={d.formats.includes('PDF')?'doc':'sheet'} size={18}/></span><div><small>{d.module}</small><h4>{d.label}</h4><p>{d.formats.join(' · ')}</p><em className={d.status.startsWith('WEB_IMPLEMENTED')?'pill ready':'pill'}>{d.status.startsWith('WEB_IMPLEMENTED')?'Disponible':'Mise en page à valider'}</em></div></article>)}</div>
  </section>
 }
 
@@ -83,12 +83,12 @@ function Identity({token}:{token:string}){
 export default function DocumentsPage({token,permissions,schoolName}:{token:string;permissions:string[];schoolName:string}){
  const can=(p:string)=>permissions.includes(p);
  const tabs=([['history','Documents générés','doc',can('documents.history.read')],['catalog','Catalogue','folder',true],['identity','Logo et impression','image',can('settings.documents.manage')]] as const).filter(t=>t[3]);
- const [tab,setTab]=useState<Tab>(tabs[0]?.[0]||'catalog');
+ const [tab,setTab]=useState<Tab>(tabs[0]?.[0]||'catalog');const [code,setCode]=useState('');
  return <div className="docsPage">
-  <div className="settingsHeader"><div><h2>Documents</h2><p>Documents produits par EduSync pour {schoolName}, modèles et identité visuelle.</p></div></div>
+  <div className="settingsHeader docHero"><span className="docHeroIcon" aria-hidden="true"><NavGlyph g="folder" size={26}/></span><div><h2>Documents</h2><p>Tous les PDF et fichiers Excel produits par EduSync pour {schoolName} sont archivés ici, avec leurs versions. Le catalogue montre ce que l’école peut produire ; touchez un type pour retrouver ses documents.</p></div></div>
   <div className="es-tabs docTabs" role="tablist">{tabs.map(([k,l,i])=><button key={k} role="tab" aria-selected={tab===k} className={tab===k?'es-on':''} onClick={()=>setTab(k)}><NavGlyph g={i} size={16}/>{l}</button>)}</div>
-  {tab==='history'&&<History token={token} canOpen={can('documents.open')}/>}
-  {tab==='catalog'&&<Catalog token={token} permissions={permissions} schoolName={schoolName}/>}
+  {tab==='history'&&<History key={code} token={token} canOpen={can('documents.open')} codeFilter={code} onClearCode={()=>setCode('')}/>}
+  {tab==='catalog'&&<Catalog token={token} permissions={permissions} schoolName={schoolName} onOpenType={can('documents.history.read')?c=>{setCode(c);setTab('history')}:undefined}/>}
   {tab==='identity'&&<Identity token={token}/>}
  </div>
 }

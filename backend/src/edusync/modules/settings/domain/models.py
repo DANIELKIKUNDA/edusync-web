@@ -76,9 +76,12 @@ class ReadinessSnapshot:
 
     @property
     def percent(self) -> int:
-        if not self.items:
+        # A NOT_APPLICABLE item (e.g. external SMS for a school that sends none) is neither done nor to do: it never
+        # lowers the percentage (owner report 2026-10-24: « Tout est prêt » shown with 86 %).
+        counted = [x for x in self.items if x.state != "NOT_APPLICABLE"]
+        if not counted:
             return 100
-        return round(self.ready_count * 100 / len(self.items))
+        return round(sum(1 for x in counted if x.state == "READY") * 100 / len(counted))
 
 
 def compute_readiness(*, school_id: UUID, has_identity: bool, active_years: int,

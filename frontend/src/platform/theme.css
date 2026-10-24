@@ -178,3 +178,4 @@
 :root[data-theme=dark] .eduDialogActions button.ghost{background:transparent;color:#e7ecf5;border:1px solid #3a4766}
 :root[data-theme=dark] .eduDialogActions button[type=submit]:not(.danger){background:#6fa1ff;color:#0d1526}
 :root[data-theme=dark] .eduDialog textarea,:root[data-theme=dark] .eduDialog input{background:#0f1626;color:#e7ecf5;border-color:#2a3550}
+:root[data-theme=dark] .es-shell .moduleLoader{background:transparent}:root[data-theme=dark] .moduleLoader b{color:var(--es-ink,#e6ebf5)}:root[data-theme=dark] .moduleSpinner{border-color:rgba(255,255,255,.12);border-top-color:#6ea0ff}

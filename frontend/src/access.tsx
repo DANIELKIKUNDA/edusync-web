@@ -82,8 +82,10 @@ function Icon({name,size=20}:{name:string;size?:number}){
   return <svg className="uiIcon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{p[name]??p.shield}</svg>;
 }
 
-function Metric({icon,value,label,tone}:{icon:string;value:React.ReactNode;label:string;tone?:string}){
-  return <div className={`personMetric ${tone?`tone-${tone}`:''}`}><span className="metricIcon"><Icon name={icon}/></span><b className="metricNumber">{value}</b><span className="metricLabel">{label}</span></div>;
+// Every metric card opens what it counts (administrator finishing pass 2026-10-24).
+function Metric({icon,value,label,tone,onClick}:{icon:string;value:React.ReactNode;label:string;tone?:string;onClick?:()=>void}){
+  const body=<><span className="metricIcon"><Icon name={icon}/></span><b className="metricNumber">{value}</b><span className="metricLabel">{label}</span></>;
+  return onClick?<button type="button" className={`personMetric clickable ${tone?`tone-${tone}`:''}`} onClick={onClick}>{body}</button>:<div className={`personMetric ${tone?`tone-${tone}`:''}`}>{body}</div>;
 }
 
 export default function AccessPage({token,permissions,userName}:Props){
@@ -161,10 +163,10 @@ export default function AccessPage({token,permissions,userName}:Props){
 
     {canRead&&<div className="accessMetrics">
       {loading?[0,1,2,3].map(i=><div key={i} className="personMetric skeleton"><i/><b/><small/></div>):<>
-        <Metric icon="users" value={members.filter(m=>m.active).length} label="Membres actifs"/>
-        <Metric icon="layers" value={activeRoles.length} label={`Rôles · ${customCount} propre${customCount>1?'s':''} à l’école`} tone="violet"/>
-        <Metric icon="clock" value={temporary} label="Droits temporaires" tone="amber"/>
-        <Metric icon="history" value={recent} label="Changements · 30 jours" tone="green"/>
+        <Metric icon="users" value={members.filter(m=>m.active).length} label="Membres actifs" onClick={()=>{setTab('members');setStatus('active')}}/>
+        <Metric icon="layers" value={activeRoles.length} label={`Rôles · ${customCount} propre${customCount>1?'s':''} à l’école`} tone="violet" onClick={()=>setTab('roles')}/>
+        <Metric icon="clock" value={temporary} label="Droits temporaires" tone="amber" onClick={()=>{setTab('members');setStatus('all')}}/>
+        <Metric icon="history" value={recent} label="Changements · 30 jours" tone="green" onClick={()=>setTab('journal')}/>
       </>}
     </div>}
 

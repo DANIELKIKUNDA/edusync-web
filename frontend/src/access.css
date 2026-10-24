@@ -215,3 +215,5 @@
 }
 .memberDelivery{border:1px solid var(--line,#e2e8f0);border-radius:12px;padding:10px 12px;display:grid;gap:6px;margin:0}
 .memberDelivery legend{font-weight:600;padding:0 4px}
+
+.personMetric.clickable{font:inherit;text-align:inherit;cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}.personMetric.clickable:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(21,87,214,.45)}.personMetric.clickable:focus-visible{outline:3px solid #93b4ff;outline-offset:2px}

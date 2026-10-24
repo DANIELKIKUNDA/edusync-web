@@ -6,6 +6,8 @@
 //  * one rule for SEVERAL targets at once (e.g. the same amount for 7e and 8e EB);
 //  * a preview of the amount every open class will really pay, before anything is saved.
 // Saving never rewrites a paid instalment: applying the tariffs to the classes stays a distinct, explicit step.
+// Fewer clicks (owner, 2026-10-24): every mode only « Applique » its amounts to a waiting list; one « Tout enregistrer »
+// saves the whole list (several fees, primaire AND secondaire…) when the administrator leaves the assistant.
 import React, {useEffect, useMemo, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
@@ -14,6 +16,7 @@ import {
   createFeeType, listOptions, putTariffRule,
 } from './api';
 import {friendlyError} from './platform/errors';
+import {confirmAction} from './platform/dialogs';
 import {formatMoney} from './platform/format';
 import {Button} from './platform/ui';
 import './settings_wizards.css';
@@ -78,36 +81,79 @@ type Props = {token: string; year: AcademicYear; fees: FeeType[]; classes: Schoo
   tariffs: Tariff[]; can: (p: string) => boolean; onClose: () => void; onDone: () => Promise<void>; initialMode?: Mode};
 type Mode = 'grid' | 'rule' | 'regulatory';
 
+/** One rule waiting in the assistant's list. A regulatory fee that does not exist yet is created at save time. */
+export type BasketItem = {feeId?: string; feeCode?: string; feeLabel: string; createFee?: {code: string; label: string; periodicity: FeeType['periodicity']; regulatory: boolean};
+  rule: PlannedRule; effective: string; source: string; origin: 'grid' | 'rule' | 'regulatory'};
+const feeKey = (b: {feeId?: string; feeCode?: string}) => b.feeId ?? `code:${b.feeCode}`;
+
 export function TariffAssistant(props: Props) {
-  const {token, year, onClose} = props;
+  const {token, year, onClose, onDone} = props;
   const [mode, setMode] = useState<Mode>(props.initialMode ?? 'grid');
   const [options, setOptions] = useState<SchoolOption[]>([]);
   useEffect(() => { listOptions(token).then(setOptions).catch(() => setOptions([])); }, [token]);
-  const [busy, setBusy] = useState(false);
-  const close = busy ? () => {} : onClose;
+  const [busy, setBusy] = useState(false); const [progress, setProgress] = useState(''); const [error, setError] = useState('');
+  const [basket, setBasket] = useState<BasketItem[]>([]); const [showList, setShowList] = useState(false);
+  /** Replaces what the same origin already queued for the same fee(s), then adds the new rules. */
+  function addToBasket(items: BasketItem[], replace: {origin: BasketItem['origin']; feeKeys?: string[]}) {
+    setBasket(b => [...b.filter(x => !(x.origin === replace.origin && (!replace.feeKeys || replace.feeKeys.includes(feeKey(x))))), ...items]);
+    toast.success(`${items.length} règle(s) ajoutée(s) à la liste — enregistrez tout en quittant l’assistant`);
+  }
+  async function close() {
+    if (busy) return;
+    if (basket.length && !await confirmAction({title: 'Quitter sans enregistrer ?', message: `${basket.length} règle(s) appliquée(s) ne sont pas encore enregistrées et seront perdues.`, confirmLabel: 'Quitter sans enregistrer', danger: true})) return;
+    onClose();
+  }
+  async function saveAll() {
+    if (!basket.length) { onClose(); return; }
+    setBusy(true); setError('');
+    const byCode = new Map(props.fees.map(f => [f.code, f.id]));
+    let done = 0; let remaining = [...basket];
+    try {
+      for (const spec of [...new Map(basket.filter(b => !b.feeId && b.createFee && !byCode.has(b.createFee.code)).map(b => [b.createFee!.code, b.createFee!])).values()]) {
+        setProgress(`Création du frais ${spec.label}…`);
+        try { const f = await createFeeType(token, {code: spec.code, label: spec.label, periodicity: spec.periodicity, default_currency: 'CDF', regulatory: spec.regulatory}); byCode.set(spec.code, f.id); }
+        catch (e) { throw new Error(`${spec.label} : ${friendlyError(e)}`); }
+      }
+      for (const b of basket) {
+        setProgress(`${done + 1}/${basket.length} · ${b.feeLabel} — ${b.rule.label}`);
+        const feeId = b.feeId ?? byCode.get(b.feeCode ?? '');
+        try {
+          await putTariffRule(token, {academic_year_id: year.id, fee_type_id: feeId!, scope_type: b.rule.scope_type, scope_ref: b.rule.scope_type === 'SCHOOL' ? null : b.rule.scope_ref,
+            amount: b.rule.amount, currency: b.rule.currency, status: b.rule.status, effective_from: b.effective, source_reference: b.source.trim() || null});
+        } catch (e) { throw new Error(`${b.feeLabel} — ${b.rule.label} : ${friendlyError(e)}`); }
+        done++; remaining = remaining.slice(1);
+      }
+      toast.success(`${done} règle(s) tarifaire(s) enregistrée(s). Appliquez ensuite les barèmes aux classes.`);
+      await onDone(); onClose();
+    } catch (e) {
+      setBasket(remaining);
+      setError(`${e instanceof Error ? e.message : friendlyError(e)}${done ? ` — ${done} règle(s) enregistrée(s), les autres restent dans la liste.` : ''}`);
+      await onDone();
+    } finally { setBusy(false); setProgress(''); }
+  }
   const tabs: [Mode, string][] = [['grid', 'Grille par niveau'], ['rule', 'Règle guidée'], ['regulatory', 'Frais réglementaires']];
-  return <Shell title={`Assistant tarifaire — ${year.label}`} subtitle="Les montants sont enregistrés comme règles datées. La règle la plus précise s’applique : classe › niveau › groupe d’Humanités › section › école." onClose={close}
-    footer={<span className="sw-count">Les échéances des élèves ne changent qu’après « Appliquer les barèmes ».</span>}>
+  const fees = [...new Set(basket.map(b => b.feeLabel))];
+  return <Shell title={`Assistant tarifaire — ${year.label}`} subtitle="Remplissez, cliquez « Appliquer », passez au frais ou au mode suivant : tout est enregistré en une fois à la fin. La règle la plus précise s’applique : classe › niveau › groupe d’Humanités › section › école." onClose={() => void close()}
+    footer={<>
+      <span className="sw-count">{progress || (basket.length ? `${basket.length} règle(s) en attente · ${fees.length} frais` : 'Aucune règle en attente')}</span>
+      {basket.length > 0 && <Button variant="quiet" disabled={busy} onClick={() => setShowList(x => !x)}>{showList ? 'Masquer la liste' : 'Voir la liste'}</Button>}
+      <Button variant="secondary" disabled={busy} onClick={() => void close()}>{basket.length ? 'Quitter' : 'Fermer'}</Button>
+      <Button variant="primary" disabled={busy || !basket.length} onClick={() => void saveAll()}>{busy ? 'Enregistrement…' : `Tout enregistrer${basket.length ? ` (${basket.length})` : ''}`}</Button></>}>
+    {error && <div className="error" role="alert">{error}</div>}
+    {showList && basket.length > 0 && <div className="sw-preview ta-basket"><b>Règles en attente d’enregistrement</b><ul>
+      {basket.map((b, i) => <li key={i}><span>{b.feeLabel} — {b.rule.label}</span><span>{b.rule.amount === null || b.rule.status !== 'ACTIVE' ? 'En attente du barème officiel' : formatMoney(b.rule.amount, b.rule.currency)}
+        <button type="button" className="linkBtn" disabled={busy} onClick={() => setBasket(x => x.filter((_, j) => j !== i))} aria-label={`Retirer ${b.feeLabel} ${b.rule.label}`}>Retirer</button></span></li>)}</ul></div>}
     <div className="sw-seg ta-tabs" role="tablist">{tabs.map(([m, l]) => <button key={m} type="button" role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} disabled={busy} onClick={() => setMode(m)}>{l}</button>)}</div>
-    {mode === 'grid' && <GridMode {...props} options={options} busy={busy} setBusy={setBusy}/>}
-    {mode === 'rule' && <RuleMode {...props} options={options} busy={busy} setBusy={setBusy}/>}
-    {mode === 'regulatory' && <RegulatoryMode {...props} options={options} busy={busy} setBusy={setBusy}/>}
+    {mode === 'grid' && <GridMode {...props} options={options} busy={busy} basket={basket} addToBasket={addToBasket}/>}
+    {mode === 'rule' && <RuleMode {...props} options={options} busy={busy} basket={basket} addToBasket={addToBasket}/>}
+    {mode === 'regulatory' && <RegulatoryMode {...props} options={options} busy={busy} basket={basket} addToBasket={addToBasket}/>}
   </Shell>;
 }
 
-type ModeProps = Props & {options: SchoolOption[]; busy: boolean; setBusy: (b: boolean) => void};
-
-async function saveRules({token, year, feeId, rules, effective, source, onProgress}: {token: string; year: AcademicYear; feeId: string; rules: PlannedRule[]; effective: string; source: string; onProgress: (n: number) => void}) {
-  let done = 0;
-  for (const r of rules) {
-    try {
-      await putTariffRule(token, {academic_year_id: year.id, fee_type_id: feeId, scope_type: r.scope_type, scope_ref: r.scope_type === 'SCHOOL' ? null : r.scope_ref,
-        amount: r.amount, currency: r.currency, status: r.status, effective_from: effective, source_reference: source.trim() || null});
-    } catch (e) { throw new Error(`${r.label} : ${friendlyError(e)}${done ? ` (${done} règle(s) déjà enregistrée(s))` : ''}`); }
-    done++; onProgress(done);
-  }
-  return done;
-}
+type ModeProps = Props & {options: SchoolOption[]; busy: boolean; basket: BasketItem[];
+  addToBasket: (items: BasketItem[], replace: {origin: BasketItem['origin']; feeKeys?: string[]}) => void};
+/** Rules of this fee already waiting in the list (shown in the preview as « nouveau »). */
+const queued = (basket: BasketItem[], feeId: string, except?: BasketItem['origin']) => basket.filter(b => b.feeId === feeId && b.origin !== except).map(b => b.rule);
 
 function CommonFields({currency, setCurrency, effective, setEffective, source, setSource, year}: {currency: 'CDF' | 'USD'; setCurrency: (c: 'CDF' | 'USD') => void;
   effective: string; setEffective: (d: string) => void; source: string; setSource: (s: string) => void; year: AcademicYear}) {
@@ -137,12 +183,17 @@ function FeeSelect({fees, fee, setFee}: {fees: FeeType[]; fee: string; setFee: (
 }
 
 /** Desktop wizard tariff step, improved: one amount per row; an empty row creates nothing. */
-function GridMode({token, year, fees, classes, sections, refs, tariffs, can, onDone, onClose, options, busy, setBusy}: ModeProps) {
+function GridMode({year, fees, classes, sections, refs, tariffs, can, options, busy, basket, addToBasket}: ModeProps) {
   const [fee, setFee] = useState(fees.find(f => f.enabled !== false && f.periodicity === 'MONTHLY')?.id ?? '');
   const [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF'); const [effective, setEffective] = useState(year.start_date); const [source, setSource] = useState('');
   const [amounts, setAmounts] = useState<Record<string, string>>({}); const [pendingRows, setPendingRows] = useState<string[]>([]);
-  const [error, setError] = useState(''); const [done, setDone] = useState(0);
-  useEffect(() => { const f = fees.find(x => x.id === fee); if (f) setCurrency(f.default_currency); setAmounts({}); setPendingRows([]); }, [fee]);
+  const [error, setError] = useState('');
+  // Switching fee keeps what was already applied for it: the grid reopens with the queued amounts.
+  useEffect(() => { const f = fees.find(x => x.id === fee); if (f) setCurrency(f.default_currency);
+    const q = basket.filter(b => b.feeId === fee && b.origin === 'grid');
+    setAmounts(Object.fromEntries(q.map(b => [`${b.rule.scope_type}|${b.rule.scope_ref}`, b.rule.amount ?? ''])));
+    setPendingRows(q.filter(b => b.rule.status !== 'ACTIVE').map(b => `${b.rule.scope_type}|${b.rule.scope_ref}`));
+    if (q[0]) { setEffective(q[0].effective); setSource(q[0].source); } }, [fee]);
   const targets = useMemo(() => tariffTargets({year, classes, sections, refs, options}), [year, classes, sections, refs, options]);
   const groups: [string, Target[]][] = [['Base', targets.SCHOOL], ['Par section', targets.SECTION], ['Par niveau', targets.ACADEMIC_CLASS],
     ...(can('settings.tariff_groups.manage') && targets.OPTION_GROUP.length ? [['Humanités par groupe d’options', targets.OPTION_GROUP] as [string, Target[]]] : [])];
@@ -155,15 +206,15 @@ function GridMode({token, year, fees, classes, sections, refs, tariffs, can, onD
     return v.trim() && amountOk(v) ? [{scope_type: t.scope_type, scope_ref: t.scope_ref, label: t.label, amount: norm(v), currency, status: 'ACTIVE' as const}] : [];
   });
   const invalid = Object.entries(amounts).filter(([, v]) => v.trim() && !amountOk(v));
-  const rows = fee ? previewTariffs({year, classes, options, existing: feeRules, planned}) : [];
-  async function save() {
+  const rows = fee ? previewTariffs({year, classes, options, existing: feeRules, planned: [...queued(basket, fee, 'grid'), ...planned]}) : [];
+  function apply() {
     setError('');
     if (!fee) { setError('Choisissez d’abord le frais à tarifer.'); return; }
     if (invalid.length) { setError('Montant en chiffres, deux décimales au plus (ex. 15000 ou 12,50).'); return; }
     if (!planned.length) { setError('Saisissez au moins un montant (ou marquez une ligne « en attente du barème officiel »).'); return; }
     if (effective < year.start_date || effective > year.end_date) { setError(`La date d’effet doit être dans l’année ${year.label}.`); return; }
-    try { setBusy(true); setDone(0); const n = await saveRules({token, year, feeId: fee, rules: planned, effective, source, onProgress: setDone}); toast.success(`${n} règle(s) tarifaire(s) enregistrée(s)`); await onDone(); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : friendlyError(e)); await onDone(); } finally { setBusy(false); }
+    const label = fees.find(f => f.id === fee)?.label ?? 'Frais';
+    addToBasket(planned.map(rule => ({feeId: fee, feeLabel: label, rule, effective, source, origin: 'grid' as const})), {origin: 'grid', feeKeys: [fee]});
   }
   return <>
     {error && <div className="error" role="alert">{error}</div>}
@@ -179,18 +230,19 @@ function GridMode({token, year, fees, classes, sections, refs, tariffs, can, onD
       </fieldset>)}</div>
       <p className="sw-hint">Astuce : fixez le montant de toute l’école ou d’une section, puis seulement les niveaux qui diffèrent (par exemple la 6e primaire ou les finalistes). En Humanités, un montant par niveau l’emporte sur le groupe d’options : fixez « Humanités générales » et « techniques », puis « 4e Humanités » si son tarif est commun.</p>
       <Preview rows={rows} currency={currency}/>
-      <div className="formActions"><span className="sw-count">{planned.length} règle(s) à enregistrer{busy ? ` · ${done}/${planned.length}` : ''}</span>
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Annuler</Button><Button variant="primary" disabled={busy || !planned.length} onClick={() => void save()}>{busy ? 'Enregistrement…' : 'Enregistrer la grille'}</Button></div>
+      <div className="formActions"><span className="sw-count">{planned.length} ligne(s) remplie(s){basket.some(b => b.feeId === fee && b.origin === 'grid') ? ' · déjà appliquée, « Appliquer » remplace' : ''}</span>
+        <Button variant="primary" disabled={busy || !planned.length} onClick={apply}>Appliquer ce frais</Button></div>
+      <p className="sw-hint">Puis choisissez un autre frais en haut, ou un autre mode : tout s’enregistre en une fois avec « Tout enregistrer ».</p>
     </>}
   </>;
 }
 
 /** Desktop « Assistant de création du tarif » with its live advisor, for one or SEVERAL targets of the same scope. */
-function RuleMode({token, year, fees, classes, sections, refs, tariffs, can, onDone, onClose, options, busy, setBusy}: ModeProps) {
+function RuleMode({year, fees, classes, sections, refs, tariffs, can, options, busy, basket, addToBasket}: ModeProps) {
   const [fee, setFee] = useState(''); const [scope, setScope] = useState<TariffScope>('ACADEMIC_CLASS'); const [picked, setPicked] = useState<string[]>([]);
   const [amount, setAmount] = useState(''); const [status, setStatus] = useState<TariffStatus>('ACTIVE');
   const [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF'); const [effective, setEffective] = useState(year.start_date); const [source, setSource] = useState('');
-  const [error, setError] = useState(''); const [done, setDone] = useState(0);
+  const [error, setError] = useState('');
   useEffect(() => { const f = fees.find(x => x.id === fee); if (f) setCurrency(f.default_currency); }, [fee]);
   const targets = useMemo(() => tariffTargets({year, classes, sections, refs, options}), [year, classes, sections, refs, options]);
   const scopes = (Object.keys(SCOPE_LABEL) as TariffScope[]).filter(s => s !== 'OPTION_GROUP' || can('settings.tariff_groups.manage'));
@@ -198,18 +250,20 @@ function RuleMode({token, year, fees, classes, sections, refs, tariffs, can, onD
   const chosen = scope === 'SCHOOL' ? list : list.filter(t => picked.includes(t.scope_ref));
   const planned: PlannedRule[] = chosen.map(t => ({scope_type: t.scope_type, scope_ref: t.scope_ref, label: t.label, amount: amountOk(amount) ? norm(amount) : null, currency, status}));
   const feeRules = tariffs.filter(t => t.academic_year_id === year.id && t.fee_type_id === fee && t.enabled !== false);
-  const rows = fee ? previewTariffs({year, classes, options, existing: feeRules, planned}) : [];
-  const affected = rows.filter(r => r.planned).length;
+  const rows = fee ? previewTariffs({year, classes, options, existing: feeRules, planned: [...queued(basket, fee), ...planned]}) : [];
+  const own = new Set(planned.map(p => `${p.scope_type}|${p.scope_ref.toUpperCase()}`));
+  const affected = rows.filter(r => r.planned && r.scope && own.has(`${r.scope}|${(r.scope === 'CLASS' ? r.cls.id : r.scope === 'ACADEMIC_CLASS' ? r.cls.reference_code ?? '' : r.scope === 'SECTION' ? r.cls.section_id : r.scope === 'SCHOOL' ? '*' : options.find(o => o.id === r.cls.option_id)?.tariff_group_code ?? '').toUpperCase()}`)).length;
   const shadowed = fee && chosen.length ? previewTariffs({year, classes, options, existing: [], planned}).filter(r => r.planned).length - affected : 0;
-  async function save() {
+  function save() {
     setError('');
     if (!fee) { setError('Choisissez le frais.'); return; }
     if (!chosen.length) { setError('Cochez au moins une cible.'); return; }
     if (amount.trim() && !amountOk(amount)) { setError('Montant en chiffres, deux décimales au plus (ex. 15000 ou 12,50).'); return; }
     if (status === 'ACTIVE' && !amount.trim()) { setError('Un tarif actif doit avoir un montant. Sinon, choisissez « En attente du barème officiel ».'); return; }
     if (effective < year.start_date || effective > year.end_date) { setError(`La date d’effet doit être dans l’année ${year.label}.`); return; }
-    try { setBusy(true); setDone(0); const n = await saveRules({token, year, feeId: fee, rules: planned, effective, source, onProgress: setDone}); toast.success(`${n} règle(s) tarifaire(s) enregistrée(s)`); await onDone(); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : friendlyError(e)); await onDone(); } finally { setBusy(false); }
+    const label = fees.find(f => f.id === fee)?.label ?? 'Frais';
+    addToBasket(planned.map(rule => ({feeId: fee, feeLabel: label, rule, effective, source, origin: 'rule' as const})), {origin: 'rule', feeKeys: []});
+    setPicked([]); setAmount('');
   }
   return <>
     {error && <div className="error" role="alert">{error}</div>}
@@ -227,8 +281,8 @@ function RuleMode({token, year, fees, classes, sections, refs, tariffs, can, onD
     {fee && chosen.length > 0 && <p className="ta-advisor" role="status">{affected > 0 ? `Cette règle s’appliquera à ${affected} classe(s).` : 'Cette règle ne s’appliquera à aucune classe ouverte.'}
       {shadowed > 0 && ` ${shadowed} classe(s) gardent une règle plus précise déjà enregistrée.`}</p>}
     {fee && <Preview rows={rows} currency={currency}/>}
-    <div className="formActions"><span className="sw-count">{planned.length} règle(s){busy ? ` · ${done}/${planned.length}` : ''}</span>
-      <Button variant="secondary" onClick={onClose} disabled={busy}>Annuler</Button><Button variant="primary" disabled={busy || !planned.length || !fee} onClick={() => void save()}>{busy ? 'Enregistrement…' : 'Enregistrer'}</Button></div>
+    <div className="formActions"><span className="sw-count">{planned.length} règle(s)</span>
+      <Button variant="primary" disabled={busy || !planned.length || !fee} onClick={save}>Appliquer</Button></div>
   </>;
 }
 
@@ -254,7 +308,7 @@ const REG_REF: Record<string, {section?: string; level?: string; group?: string}
   'etat-gen': {group: 'GENERAL'}, 'etat-tec': {group: 'TECHNICAL'}, 'tenasosp-s8': {level: 'S8'}, 'tech-tec': {group: 'TECHNICAL'},
 };
 
-function RegulatoryMode({token, year, fees, classes, sections, refs, can, onDone, onClose, options, busy, setBusy}: ModeProps) {
+function RegulatoryMode({year, fees, classes, sections, refs, can, options, busy, basket, addToBasket}: ModeProps) {
   const targets = useMemo(() => tariffTargets({year, classes, sections, refs, options}), [year, classes, sections, refs, options]);
   const lines: (RegLine & {available: boolean; why?: string})[] = REGULATORY_LINES.map(l => {
     const r = REG_REF[l.key];
@@ -265,35 +319,23 @@ function RegulatoryMode({token, year, fees, classes, sections, refs, can, onDone
   });
   const [amounts, setAmounts] = useState<Record<string, string>>(() => Object.fromEntries(REGULATORY_LINES.map(l => [l.key, l.amount])));
   const [off, setOff] = useState<string[]>([]); const [effective, setEffective] = useState(year.start_date); const [source, setSource] = useState(REGULATORY_SOURCE);
-  const [error, setError] = useState(''); const [progress, setProgress] = useState('');
+  const [error, setError] = useState('');
   const chosen = lines.filter(l => l.available && !off.includes(l.key));
+  const applied = basket.some(b => b.origin === 'regulatory');
   const canCreateFees = can('settings.fee_types.manage');
   const missingFees = [...new Set(chosen.map(l => l.fee))].filter(code => !fees.some(f => f.code === code));
-  async function save() {
+  function save() {
     setError('');
     const bad = chosen.find(l => !amountOk(amounts[l.key] ?? ''));
     if (bad) { setError(`${REGULATORY_FEES[bad.fee].label} — ${bad.label} : montant en chiffres (ex. 12000).`); return; }
     if (missingFees.length && !canCreateFees) { setError('Les types de frais réglementaires manquent et votre rôle ne permet pas de les créer.'); return; }
     if (!chosen.length) { setError('Aucune ligne applicable à cette école.'); return; }
-    try {
-      setBusy(true);
-      const byCode = new Map(fees.map(f => [f.code, f.id]));
-      for (const code of missingFees) {
-        setProgress(`Création du frais ${REGULATORY_FEES[code].label}…`);
-        try { const f = await createFeeType(token, {code, label: REGULATORY_FEES[code].label, periodicity: REGULATORY_FEES[code].periodicity, default_currency: 'CDF', regulatory: REGULATORY_FEES[code].regulatory}); byCode.set(code, f.id); }
-        catch (e) { throw new Error(`${REGULATORY_FEES[code].label} : ${friendlyError(e)}`); }
-      }
-      let n = 0;
-      for (const l of chosen) {
-        setProgress(`${n + 1}/${chosen.length} · ${REGULATORY_FEES[l.fee].label} — ${l.label}`);
-        try {
-          await putTariffRule(token, {academic_year_id: year.id, fee_type_id: byCode.get(l.fee)!, scope_type: l.scope_type, scope_ref: l.ref, amount: norm(amounts[l.key]),
-            currency: 'CDF', status: 'ACTIVE', effective_from: effective, source_reference: source.trim() || null});
-        } catch (e) { throw new Error(`${REGULATORY_FEES[l.fee].label} — ${l.label} : ${friendlyError(e)}${n ? ` (${n} règle(s) déjà enregistrée(s))` : ''}`); }
-        n++;
-      }
-      toast.success(`Frais réglementaires configurés : ${n} règle(s). Appliquez ensuite les barèmes aux classes.`); await onDone(); onClose();
-    } catch (e) { setError(e instanceof Error ? e.message : friendlyError(e)); await onDone(); } finally { setBusy(false); setProgress(''); }
+    addToBasket(chosen.map(l => {
+      const fee = fees.find(f => f.code === l.fee);
+      return {feeId: fee?.id, feeCode: l.fee, feeLabel: REGULATORY_FEES[l.fee].label,
+        createFee: fee ? undefined : {code: l.fee, label: REGULATORY_FEES[l.fee].label, periodicity: REGULATORY_FEES[l.fee].periodicity, regulatory: REGULATORY_FEES[l.fee].regulatory},
+        rule: {scope_type: l.scope_type, scope_ref: l.ref, label: l.label, amount: norm(amounts[l.key]), currency: 'CDF' as const, status: 'ACTIVE' as const}, effective, source, origin: 'regulatory' as const};
+    }), {origin: 'regulatory'});
   }
   return <>
     {error && <div className="error" role="alert">{error}</div>}
@@ -310,7 +352,7 @@ function RegulatoryMode({token, year, fees, classes, sections, refs, can, onDone
       <label className="sw-input"><span>Applicable dès</span><input type="date" min={year.start_date} max={year.end_date} value={effective} onChange={e => setEffective(e.target.value)}/></label>
       <label className="sw-input"><span>Référence officielle</span><input value={source} maxLength={240} onChange={e => setSource(e.target.value)}/></label>
     </div>
-    <div className="formActions"><span className="sw-count">{progress || `${chosen.length} règle(s) à enregistrer`}</span>
-      <Button variant="secondary" onClick={onClose} disabled={busy}>Annuler</Button><Button variant="primary" disabled={busy || !chosen.length} onClick={() => void save()}>{busy ? 'Configuration…' : 'Configurer les frais réglementaires'}</Button></div>
+    <div className="formActions"><span className="sw-count">{chosen.length} règle(s){applied ? ' · déjà appliquées, « Appliquer » remplace' : ''}</span>
+      <Button variant="primary" disabled={busy || !chosen.length} onClick={save}>Appliquer les frais réglementaires</Button></div>
   </>;
 }

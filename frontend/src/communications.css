@@ -62,3 +62,45 @@
 @media (min-width:900px){.commGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (prefers-color-scheme:dark){.commPreview{background:#0f2747}.commPreview.warn,.commWallet.low,.commWalletRow div.low{background:#3a2a10;color:#ffd9a8}}
 .commSearch{width:100%;box-sizing:border-box;font:inherit;padding:10px 12px;border:1px solid var(--line,#cbd5e1);border-radius:10px;background:var(--surface,#fff);color:inherit}
+
+/* Administrator view (finishing pass 2026-10-24) */
+.commHero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center}
+.commHeroIcon{display:grid;place-items:center;width:52px;height:52px;border-radius:15px;background:#1557d6;color:#fff;box-shadow:0 10px 24px -12px rgba(21,87,214,.7)}
+.commTabs button{display:inline-flex;align-items:center;gap:8px}
+.commAdmin{display:grid;gap:16px}
+.commOverview{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.commTile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;padding:14px 16px;border-radius:16px;border:1px solid #e4e9f2;background:#fff;font:inherit;color:inherit;cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+.commTile:hover{transform:translateY(-2px);border-color:#c7d7fe;box-shadow:0 12px 26px -16px rgba(21,87,214,.5)}
+.commTile:focus-visible{outline:3px solid #93b4ff;outline-offset:2px}
+.commTile>span{grid-row:1/3;display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#eef4ff;color:#1557d6}
+.commTile b{font-size:16px;font-weight:800;overflow-wrap:anywhere}.commTile small{color:#667085;font-size:12.5px}
+.commTile.warn{border-color:#fedf89;background:#fffcf2}.commTile.warn>span{background:#fef0c7;color:#b54708}
+.commCard{scroll-margin-top:90px}
+.commCardHead{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;margin-bottom:6px}
+.commCardHead h3{margin:0}.commCardHead p{margin:2px 0 0;color:#667085;font-size:13.5px;line-height:1.45}
+.commCardIcon{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#f2f4f7;color:#344054}
+.commToggle{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border:1px solid #eef1f6;border-radius:14px;cursor:pointer}
+.commToggle.master{background:#f8fafc;border-color:#e4e9f2}
+.commToggle.muted{opacity:.55}
+.commToggleIcon{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:#eef4ff;color:#1557d6}
+.commToggleText{display:grid;gap:2px;min-width:0}.commToggleText small{color:#667085}
+.commToggleText .pill{justify-self:start;font-size:11.5px}
+.commToggle input[role=switch]{appearance:none;width:46px;height:26px;border-radius:999px;background:#d0d5dd;position:relative;cursor:pointer;transition:background .15s;flex:none;margin:0}
+.commToggle input[role=switch]::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.commToggle input[role=switch]:checked{background:#1557d6}.commToggle input[role=switch]:checked::after{transform:translateX(20px)}
+.commToggle input[role=switch]:disabled{cursor:not-allowed;opacity:.6}
+.commToggle input[role=switch]:focus-visible{outline:3px solid #93b4ff;outline-offset:2px}
+.commActions{display:flex;flex-wrap:wrap;gap:8px}
+.commActions .primaryBtn,.commActions .softBtn{width:auto;min-height:42px;padding:0 18px;display:inline-flex;align-items:center;gap:6px}
+.commRoles{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.commRoles li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid #eef1f6;border-radius:12px}
+.commRoles small{display:block;color:#667085}
+.commRoleIcon{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:#f2f6ff;color:#1557d6}
+.commEmpty{color:#667085}
+.pill.state-configured,.pill.state-ok{background:#ecfdf3;color:#05603a}.pill.state-simulated{background:#eef4ff;color:#1557d6}
+.pill.state-unavailable,.pill.state-not_configured,.pill.state-down{background:#fef3f2;color:#b42318}
+@media (max-width:720px){.commHero{grid-template-columns:auto minmax(0,1fr)}.commHero .commWallet{grid-column:1/-1;justify-self:start}}
+.pill.state-disabled,.pill.state-incomplete,.pill.state-refused{background:#fef3f2;color:#b42318}
+.commPage .commCard .commActions button,.commPage .commCard .commActions .primaryBtn,.commPage .commCard .commActions .softBtn{width:auto;flex:0 0 auto;min-height:42px;padding:0 20px;font-size:14px}
+.commAdmin #comm-senders{grid-column:1/-1}
+.commRoles{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}

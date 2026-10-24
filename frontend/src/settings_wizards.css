@@ -93,3 +93,6 @@ div.ta-row-name{display:grid;gap:0}
 .ta-preview li.ta-new span:last-child{color:var(--es-success,#05603a)}
 @media (max-width:560px){.ta-row{grid-template-columns:minmax(0,1fr) 110px}.ta-pending,.ta-unit{grid-column:1/-1}}
 .ta-close{font-size:24px;line-height:1;font-weight:400}
+.ta-basket ul{list-style:none;padding:0;margin:6px 0 0;display:grid;gap:2px;max-height:200px;overflow:auto}
+.ta-basket li{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;border-bottom:1px dotted var(--es-line,#eef1f6)}
+.ta-basket li span:last-child{display:flex;gap:10px;align-items:center;font-weight:650}

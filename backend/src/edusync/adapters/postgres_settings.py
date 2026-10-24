@@ -627,7 +627,8 @@ class PostgresSettingsRepository:
         if row is None: raise OptimisticConcurrencyError("Contribution modifiée par une autre session ou introuvable")
         return dict(_m(row))
 
-    def update_product(self, school_id:UUID, product_id:UUID, *, label:str,currency:str,unit_price:Decimal,stock_tracking:bool,enabled:bool,expected_version:int):
+    def update_product(self, school_id:UUID, product_id:UUID, *, label:str,currency:str,unit_price:Decimal,stock_tracking:bool,enabled:bool,expected_version:int,
+                       low_threshold:Decimal|None=None):
         if unit_price<=0: raise ValueError("Prix strictement positif requis")
         currency=currency.upper()
         if currency not in {'CDF','USD'}: raise ValueError("Devise invalide")
@@ -635,6 +636,9 @@ class PostgresSettingsRepository:
              WHERE id=:id AND school_id=:sid AND version=:expected RETURNING id,code,label,currency,unit_price,stock_tracking,enabled,version"""),
              {"id":product_id,"sid":school_id,"label":label.strip(),"currency":currency,"price":unit_price,"tracking":stock_tracking,"enabled":enabled,"expected":expected_version}).first()
         if row is None: raise OptimisticConcurrencyError("Article modifié par une autre session ou introuvable")
+        if low_threshold is not None and stock_tracking:
+            self.connection.execute(text("""INSERT INTO inventory_stock(school_id,product_id,quantity,low_threshold) VALUES(:sid,:pid,0,:low)
+                ON CONFLICT(school_id,product_id) DO UPDATE SET low_threshold=EXCLUDED.low_threshold,updated_at=now()"""),{"sid":school_id,"pid":product_id,"low":low_threshold})
         out=dict(_m(row));out['unit_price']=str(out['unit_price']);return out
 
     def copy_academic_year_configuration(self, school_id:UUID, *, source_year_id:UUID,target_year_id:UUID) -> dict[str,int]:
@@ -731,17 +735,61 @@ class PostgresSettingsRepository:
         return dict(_m(r))
 
     def list_products(self, school_id:UUID):
-        rows=self.connection.execute(text("SELECT id,code,label,currency,unit_price,stock_tracking,enabled,version FROM school_products WHERE school_id=:sid ORDER BY label"),{"sid":school_id}).all()
+        rows=self.connection.execute(text("""SELECT p.id,p.code,p.label,p.currency,p.unit_price,p.stock_tracking,p.enabled,p.version,
+                coalesce(s.quantity,0) AS quantity,coalesce(s.low_threshold,0) AS low_threshold,
+                (SELECT max(m.created_at) FROM inventory_stock_movements m WHERE m.school_id=p.school_id AND m.product_id=p.id) AS last_movement_at
+              FROM school_products p LEFT JOIN inventory_stock s ON s.school_id=p.school_id AND s.product_id=p.id
+             WHERE p.school_id=:sid ORDER BY p.label"""),{"sid":school_id}).all()
         out=[]
         for r in rows:
-            x=dict(_m(r)); x['unit_price']=str(x['unit_price']); out.append(x)
+            x=dict(_m(r))
+            for k in ('unit_price','quantity','low_threshold'): x[k]=str(x[k])
+            out.append(x)
         return out
 
-    def create_product(self, school_id:UUID,*,code:str,label:str,currency:str,unit_price:Decimal,stock_tracking:bool=False):
+    def move_product_stock(self, school_id:UUID, product_id:UUID, *, movement_type:str, delta:Decimal, reason:str,
+                           reference:str|None, user_id:UUID) -> dict[str,Any]:
+        """Traced stock movement of a sale article (inventory_stock_movements); the quantity never goes below zero."""
+        p=self.connection.execute(text("SELECT id,label,stock_tracking FROM school_products WHERE school_id=:sid AND id=:id FOR UPDATE"),
+                                  {"sid":school_id,"id":product_id}).first()
+        if p is None: raise LookupError("Article introuvable")
+        if not _m(p)['stock_tracking']: raise ValueError("Le stock de cet article n'est pas suivi : activez d'abord le suivi du stock")
+        self.connection.execute(text("""INSERT INTO inventory_stock(school_id,product_id,quantity) VALUES(:sid,:pid,0)
+            ON CONFLICT(school_id,product_id) DO NOTHING"""),{"sid":school_id,"pid":product_id})
+        cur=Decimal(str(self.connection.execute(text("SELECT quantity FROM inventory_stock WHERE school_id=:sid AND product_id=:pid FOR UPDATE"),
+                                                {"sid":school_id,"pid":product_id}).scalar_one()))
+        if cur+delta<0: raise ValueError(f"Correction impossible : seulement {cur.normalize()} en stock")
+        row=self.connection.execute(text("""UPDATE inventory_stock SET quantity=quantity+:d,updated_at=now(),version=version+1
+            WHERE school_id=:sid AND product_id=:pid RETURNING quantity,low_threshold"""),{"d":delta,"sid":school_id,"pid":product_id}).first()
+        self.connection.execute(text("""INSERT INTO inventory_stock_movements(id,school_id,product_id,movement_type,quantity_delta,reason,reference,actor_user_id)
+            VALUES(:id,:sid,:pid,:t,:d,:r,:ref,:u)"""),{"id":uuid4(),"sid":school_id,"pid":product_id,"t":movement_type,"d":delta,"r":reason,"ref":reference,"u":user_id})
+        return {"product_id":str(product_id),"quantity":str(_m(row)['quantity']),"low_threshold":str(_m(row)['low_threshold'])}
+
+    def enrollment_windows(self, school_id:UUID) -> dict[str,dict[str,str|None]]:
+        rows=self.connection.execute(text("SELECT id,enrollment_start,enrollment_end FROM academic_years WHERE school_id=:sid"),{"sid":school_id}).all()
+        return {str(_m(r)['id']):{"enrollment_start":_m(r)['enrollment_start'].isoformat() if _m(r)['enrollment_start'] else None,
+                                  "enrollment_end":_m(r)['enrollment_end'].isoformat() if _m(r)['enrollment_end'] else None} for r in rows}
+
+    def set_enrollment_window(self, school_id:UUID, year_id:UUID, start:date|None, end:date|None) -> dict[str,str|None]:
+        if start and end and start>end: raise ValueError("La fin des inscriptions doit suivre leur début")
+        self.connection.execute(text("UPDATE academic_years SET enrollment_start=:s,enrollment_end=:e WHERE school_id=:sid AND id=:id"),
+                                {"s":start,"e":end,"sid":school_id,"id":year_id})
+        return {"enrollment_start":start.isoformat() if start else None,"enrollment_end":end.isoformat() if end else None}
+
+    def create_product(self, school_id:UUID,*,code:str,label:str,currency:str,unit_price:Decimal,stock_tracking:bool=False,
+                       opening_quantity:Decimal=Decimal('0'),low_threshold:Decimal=Decimal('0'),user_id:UUID|None=None):
         if unit_price<=0: raise ValueError("Prix strictement positif requis")
         currency=currency.upper()
         if currency not in {'CDF','USD'}: raise ValueError("Devise invalide")
         r=self.connection.execute(text("""INSERT INTO school_products(id,school_id,code,label,currency,unit_price,stock_tracking)
             VALUES(:id,:sid,:code,:label,:currency,:price,:tracking)
             RETURNING id,code,label,currency,unit_price,stock_tracking,enabled,version"""),{"id":uuid4(),"sid":school_id,"code":code.strip().upper(),"label":label.strip(),"currency":currency,"price":unit_price,"tracking":stock_tracking}).first()
-        x=dict(_m(r)); x['unit_price']=str(x['unit_price']); return x
+        x=dict(_m(r)); x['unit_price']=str(x['unit_price'])
+        if stock_tracking:
+            # Stock card created with the article; the opening quantity is a traced receipt, never a silent value.
+            self.connection.execute(text("""INSERT INTO inventory_stock(school_id,product_id,quantity,low_threshold) VALUES(:sid,:pid,0,:low)
+                ON CONFLICT(school_id,product_id) DO UPDATE SET low_threshold=EXCLUDED.low_threshold"""),{"sid":school_id,"pid":x['id'],"low":low_threshold})
+            if opening_quantity>0:
+                self.move_product_stock(school_id,x['id'],movement_type='RECEIPT',delta=opening_quantity,reason='Stock initial',reference=None,user_id=user_id)
+        x['quantity']=str(opening_quantity if stock_tracking else Decimal('0'));x['low_threshold']=str(low_threshold)
+        return x
