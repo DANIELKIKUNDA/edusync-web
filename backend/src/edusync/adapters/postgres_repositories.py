@@ -91,6 +91,26 @@ class PostgresSchoolRepository:
             )
         school.version = int(row[0])
 
+    def save_identity(self, school: School) -> None:
+        """A school updates its own identity only (name, contacts, address, logo): never its code or status, which belong
+        to the platform. The tenant role holds UPDATE on exactly these columns (migration 0086)."""
+        expected = school.version
+        row = self.connection.execute(text("""
+            UPDATE schools
+               SET name=:name, logo_url=:logo_url, email=:email, phone=:phone, address=:address, city=:city, province=:province,
+                   updated_at=now(), version=version+1
+             WHERE id=:id AND version=:expected
+             RETURNING version, updated_at
+        """), {
+            "id": school.id, "name": school.name, "logo_url": school.logo_url, "email": school.email, "phone": school.phone,
+            "address": school.address, "city": school.city, "province": school.province, "expected": expected,
+        }).first()
+        if row is None:
+            raise OptimisticConcurrencyError(
+                f"École {school.id} modifiée par une autre session (version attendue {expected})"
+            )
+        school.version, school.updated_at = int(row[0]), row[1]
+
 
 @dataclass(slots=True)
 class PostgresUserRepository:

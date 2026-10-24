@@ -1,4 +1,4 @@
-import { friendlyHttpMessage, reportTechnical, UserFacingError } from './platform/errors';
+import { explainHttpError, friendlyHttpMessage, reportTechnical, UserFacingError } from './platform/errors';
 
 export type School={id:string;name:string;code:string;status:'ACTIVE'|'SUSPENDED'|'DISABLED';logo_url?:string|null;email?:string|null;phone?:string|null;version:number};
 export type PlatformLoginResult={access_token:string;token_type:'bearer';expires_in:number;scope:'PLATFORM';user:{id:string;email:string;full_name:string}};
@@ -17,7 +17,7 @@ export type ReferenceCatalog={sections:{code:string;label:string;sort_order:numb
 
 const API=import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
-async function errorDetail(r:Response, fallback:string){try{const b=await r.clone().json();reportTechnical(b,`HTTP ${r.status}`)}catch{/* réponse non JSON */}return r.status?friendlyHttpMessage(r.status):fallback}
+async function errorDetail(r:Response, fallback:string){let body:unknown=null;try{body=await r.clone().json();reportTechnical(body,`HTTP ${r.status}`)}catch{/* réponse non JSON */}return r.status?explainHttpError(r.status,body):fallback}
 function auth(token:string){return {'Authorization':`Bearer ${token}`,'Content-Type':'application/json'};}
 function mutationHeaders(token:string,extra:Record<string,string>={}){return {...auth(token),'Idempotency-Key':crypto.randomUUID(),...extra}}
 
