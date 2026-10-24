@@ -89,10 +89,17 @@ jobs:
           python ../tools/ci/rbac_snapshot.py snapshot /tmp/rbac_before.json --legacy
       - name: Migration 0085 puis preuve de non-régression
         working-directory: backend
+        # The proof covers the engine change of 0085 only. Later migrations may change standard-role baselines on purpose
+        # (owner decisions, e.g. 0090 CAISSIER ⊇ SECRÉTARIAT): they are checked against the canonical registry below.
+        env:
+          EDUSYNC_MIGRATE_UNTIL: 0085_school_rbac_policies
         run: |
           python scripts/provision_database.py
           python ../tools/ci/rbac_snapshot.py snapshot /tmp/rbac_after.json
           python ../tools/ci/rbac_snapshot.py compare /tmp/rbac_before.json /tmp/rbac_after.json
+      - name: Migrations suivantes (décisions du propriétaire sur les rôles)
+        working-directory: backend
+        run: python scripts/provision_database.py
       - name: Aucune dérive base ↔ registre canonique
         working-directory: backend
         run: python ../tools/ci/rbac_registry.py check
