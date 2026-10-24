@@ -89,7 +89,7 @@ def test_settings_centre_confirms_year_transitions_and_uploads_a_verified_logo()
     assert "await confirmAction(confirmText[action](y))" in years and "Préparer une nouvelle année" in years
     assert "URL du logo" not in app and "<LogoField token={token}" in app and "uploadSchoolLogo(token,f)" in app
     assert "async function changeStatus(c:SchoolClass" in app and "await confirmAction(ask)" in app  # state changes are confirmed
-    assert "settingsBack" in app and "edusyncSettingsDetail" in app  # phone: list of sections → section screen
+    assert "PageTrail parents={shown==='overview'" in app and "edusyncSettingsDetail" in app  # 2026-10-24: back = breadcrumb  # phone: list of sections → section screen
 
 
 def test_amounts_are_formatted_from_strings_never_through_floats():

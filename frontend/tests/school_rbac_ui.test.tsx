@@ -28,7 +28,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it('administrator: administration widgets only — no recovery chart, no student search', async () => {
   render(<HomePage token="t" me={base} schoolName="École A" userName="Admin" onNavigate={() => {}}/>);
-  expect(screen.getByText('Administrateur système école')).toBeTruthy();
+  expect(screen.getByText(/Administrateur système école/)).toBeTruthy();
   await waitFor(() => expect(screen.getByText('2 sans rôle')).toBeTruthy());
   expect(screen.getByText('2026-2027')).toBeTruthy();
   expect(screen.queryByText(/Évolution du recouvrement/)).toBeNull();

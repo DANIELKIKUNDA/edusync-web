@@ -82,9 +82,38 @@ function humanize(code: string) {
   return words ? words[0].toUpperCase() + words.slice(1) : code;
 }
 
+// School administration journal (2026-10-23): never show a technical code to an end user.
+const SCHOOL_ACTIONS: Record<string, string> = {
+  ACADEMIC_YEAR_ACTIVATED: 'Année scolaire activée', ACADEMIC_YEAR_ARCHIVED: 'Année scolaire archivée', ACADEMIC_YEAR_CLOSED: 'Année scolaire clôturée',
+  ACADEMIC_YEAR_CONFIGURATION_COPIED: 'Configuration reprise de l’année précédente', ACADEMIC_YEAR_CREATED: 'Année scolaire préparée',
+  ACADEMIC_YEAR_REOPENED: 'Année scolaire rouverte', ACADEMIC_YEAR_UPDATED: 'Année scolaire modifiée',
+  SETTINGS_ACTIVATE_ACADEMIC_YEAR: 'Année scolaire activée', SETTINGS_ADMISSION_CONDITION_ACTIVE: 'Condition d’admission activée ou suspendue',
+  SETTINGS_ADMISSION_REVIEW: 'Conditions d’admission revues', SETTINGS_ANTICIPATION_PLAN_ACTIVE: 'Plan anticipé activé ou suspendu',
+  SETTINGS_APPLY_TARIFFS: 'Barèmes appliqués aux classes', SETTINGS_CLASS_STATUS: 'Classe ouverte ou fermée',
+  SETTINGS_COPY_ACADEMIC_YEAR_CONFIGURATION: 'Configuration reprise de l’année précédente', SETTINGS_CREATE_ACADEMIC_YEAR: 'Année scolaire préparée',
+  SETTINGS_CREATE_CLASS: 'Classe ouverte', SETTINGS_CREATE_CONTRIBUTION: 'Contribution en nature créée', SETTINGS_CREATE_FEE_TYPE: 'Type de frais créé',
+  SETTINGS_FEE_TYPE_CREATED: 'Type de frais créé', SETTINGS_CREATE_PRODUCT: 'Article scolaire créé', SETTINGS_CREATE_TARIFF: 'Tarif créé',
+  SETTINGS_PUT_ADMISSION_CONDITION: 'Condition d’admission enregistrée', SETTINGS_PUT_ANTICIPATION_PLAN: 'Plan anticipé enregistré',
+  SETTINGS_PUT_BENEFIT_POLICY: 'Politique d’avantages enregistrée', SETTINGS_PUT_BILLING_POLICY: 'Mois de facturation enregistrés',
+  SETTINGS_PUT_PAYMENT_POLICY: 'Règles d’encaissement enregistrées', SETTINGS_PUT_TARIFF_RULE: 'Règle tarifaire enregistrée',
+  SETTINGS_UPDATE_ACADEMIC_YEAR: 'Année scolaire modifiée', SETTINGS_UPDATE_CLASS: 'Classe modifiée', SETTINGS_UPDATE_CONTRIBUTION: 'Contribution modifiée',
+  SETTINGS_UPDATE_FEE_TYPE: 'Type de frais modifié', SETTINGS_UPDATE_IDENTITY: 'Identité de l’école modifiée', SETTINGS_UPDATE_PRODUCT: 'Article modifié',
+  SETTINGS_UPDATE_TARIFF: 'Tarif modifié', SETTINGS_UPSERT_OPTION: 'Option enregistrée', SETTINGS_UPSERT_SECTION: 'Section enregistrée',
+  ACCESS_ROLE_ASSIGNED: 'Rôle attribué', ACCESS_ROLE_REVOKED: 'Rôle retiré', ACCESS_ROLE_CREATED: 'Rôle créé', ACCESS_ROLE_UPDATED: 'Rôle modifié',
+  ACCESS_ROLE_ARCHIVED: 'Rôle archivé', ACCESS_ROLE_POLICY_UPDATED: 'Rôle ajusté pour l’école', ACCESS_ROLE_CONVERTED: 'Rôle converti en rôle standard',
+  ACCESS_MEMBER_CREATED: 'Compte créé', ACCESS_MEMBER_ATTACHED: 'Compte rattaché', ACCESS_MEMBER_UPDATED: 'Membre modifié',
+  ACCESS_MEMBER_DEACTIVATED: 'Membre désactivé', ACCESS_MEMBER_ACTIVATED: 'Membre réactivé', ACCESS_MEMBER_CREDENTIALS_RESET: 'Mot de passe réinitialisé',
+  ACCESS_CHANGE_REQUESTED: 'Demande d’approbation', ACCESS_CHANGE_APPROVED: 'Demande approuvée', ACCESS_CHANGE_REJECTED: 'Demande refusée',
+  ACCESS_CHANGE_CANCELLED: 'Demande retirée', ACCESS_SOD_RULE_UPDATED: 'Règle de séparation des tâches modifiée',
+};
+
 export function auditActionLabel(code: string | null | undefined) {
   if (!code) return '—';
-  return ACTIONS[code] || humanize(code);
+  if (SCHOOL_ACTIONS[code]) return SCHOOL_ACTIONS[code];
+  if (ACTIONS[code]) return ACTIONS[code];
+  if (/^SETTINGS_/.test(code)) return 'Paramètre modifié';
+  if (/^ACCESS_/.test(code)) return 'Accès modifié';
+  return humanize(code);
 }
 
 export function resultLabel(code: string | null | undefined) {

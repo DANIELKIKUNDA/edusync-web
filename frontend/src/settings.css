@@ -128,3 +128,33 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .staffChildren{display:grid;gap:10px}.staffChild{display:grid;gap:6px;padding:10px 12px;border:1px solid #e5e9f1;border-radius:10px;background:#fff}
 .staffChildHead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}.staffChildHead>div{display:grid;gap:2px}
 .staffChild button{min-height:44px}.staffChild small{color:#475569}
+
+/* Settings — premium pass 2026-10-24: grouped navigation with status, overview as the home, own breadcrumb. */
+.sp-page{max-width:1280px}
+.sp-page .settingsHeader{display:block;margin:0;padding:0;border:0;background:none}
+.sp-progress{display:grid;justify-items:end;gap:2px;padding:10px 14px;border:1px solid var(--es-line,#e3e8f0);border-radius:14px;background:var(--es-surface,#fff)}
+.sp-progress b{font-size:24px;font-weight:820;letter-spacing:-.5px;color:var(--es-brand,#1557d6)}
+.sp-progress span{font-size:12.5px;color:var(--es-muted,#5b6578)}
+.sp-nav{display:grid;gap:14px;align-content:start;padding:10px!important}
+.sp-nav-group{display:grid;gap:2px}
+.sp-nav-group>p{margin:4px 10px 4px;font-size:11.5px;font-weight:780;letter-spacing:.06em;text-transform:uppercase;color:var(--es-muted,#7a8599)}
+.sp-nav button{min-height:44px;border-radius:11px}
+.sp-dot{flex:none;width:9px;height:9px;margin-left:auto;border-radius:50%;background:var(--es-line,#d5dbe6)}
+.sp-dot-ok{background:var(--es-ok,#127a46)}.sp-dot-todo{background:var(--es-bad,#b42318)}.sp-dot-warn{background:var(--es-warn,#c27803)}.sp-dot-brand{background:var(--es-brand,#1557d6)}
+.sp-home{display:grid;gap:22px;min-width:0}
+.sp-home .ui-grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.sp-page .settingsContent>.sp-home{padding:0}
+@media (max-width:720px){
+  .sp-page .settingsLayout .settingsNav{display:none!important}
+  .sp-page .settingsLayout.phoneHome .settingsContent{display:block!important}
+  .sp-progress{justify-items:start;flex-direction:row}
+  .sp-page .settingsHeader.phoneDetailHead{display:block}
+}
+.sp-nav button{display:flex!important;align-items:center;gap:10px;width:100%;height:auto;min-height:44px;padding:9px 10px!important;white-space:normal;font-size:13.5px}
+.sp-nav .settingsNavText{flex:1 1 auto;min-width:0}
+.sp-nav .settingsNavText b{display:block;font-weight:650;line-height:1.3}
+.sp-nav button.active{background:var(--es-brand-soft,#eaf1ff);color:var(--es-brand,#1557d6)}
+.sp-nav .sp-dot{margin-left:0}
+.sp-nav button{justify-content:flex-start;text-align:left}
+.sp-nav .settingsNavText{text-align:left;justify-items:start}
+@media (max-width:720px){.sp-page .phoneHome .sp-progress,.sp-page .settingsHeader:not(.phoneDetailHead) .sp-progress{display:none}}

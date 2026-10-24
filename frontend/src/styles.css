@@ -293,3 +293,19 @@ button.homeSearch{width:100%;text-align:left;font:inherit;cursor:pointer;border:
 .requestRow{display:flex;gap:16px;justify-content:space-between;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--es-line,#e3e8f0)}
 .requestRow>div:first-child{min-width:0;display:grid;gap:4px}.requestRow small{color:var(--es-muted,#5b6578)}
 @media (max-width:640px){.requestRow{flex-direction:column}}
+
+/* School home — premium pass 2026-10-24 (built on platform/ui.css) */
+.sh-home{max-width:1240px}
+.sh-search{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;border:1px solid var(--es-line,#d5dbe6);border-radius:14px;background:var(--es-surface,#fff);
+  color:var(--es-ink,#14213d);font:inherit;font-size:15px;font-weight:650;text-align:left;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.05);transition:border-color .16s,box-shadow .16s}
+.sh-search small{margin-left:auto;color:var(--es-muted,#5b6578);font-weight:500;font-size:13px}
+.sh-search:focus-visible{outline:3px solid var(--es-focus,#93b4ff);outline-offset:2px}
+@media (hover:hover) and (pointer:fine){.sh-search:hover{border-color:var(--es-brand-line,#b9cdf7);box-shadow:0 10px 28px -12px rgba(16,24,40,.18)}}
+.sh-readiness{padding:18px 18px 12px}
+.sh-readiness .ui-card-top{margin-bottom:4px}
+.sh-readiness-foot{display:flex;justify-content:flex-end;margin-top:6px}
+.sh-bars{display:flex;align-items:flex-end;gap:8px;height:92px;margin-top:10px}
+.sh-bars span{flex:1;display:grid;grid-template-rows:1fr auto;gap:4px;height:100%;min-width:0}
+.sh-bars i{align-self:end;display:block;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,var(--es-brand,#1557d6),var(--es-brand-line,#b9cdf7))}
+.sh-bars small{font-size:11px;color:var(--es-muted,#5b6578);text-align:center}
+@media (max-width:560px){.sh-search small{display:none}}

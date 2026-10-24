@@ -1,115 +1,142 @@
 import React,{useEffect,useState} from 'react';
 import {NavGlyph} from './platform/nav_icons';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
+import {auditActionLabel} from './platform/labels';
+import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
 import {cashCurrent,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
-  type AccessMe,type AccessWidget,type EffectifsCounts} from './api';
+  type AccessMe,type AccessWidget,type EffectifsCounts,type SettingsOverview} from './api';
 
-/* School home driven by capabilities (owner decision 9, 2026-10-23). The server (/access/me) lists the widgets this
-   member may see, each one declaring the capabilities it needs; nothing here infers a profile from a combination of
-   permissions or from a role name. The page answers « what must this person watch and do today », not « what
-   statistics exist ». Each card loads, fails and retries on its own: one card down never takes the page down. */
+/* School home driven by capabilities (owner decisions 9 of 2026-10-23 and the premium pass of 2026-10-24). The server
+   (/access/me) lists the widgets this member may see; nothing here infers a profile. Every card is the entry point to
+   its module (no « Voir » button), shows a useful figure AND the next recommended action, and loads / fails / retries
+   on its own. Built with the shared UI kit (platform/ui.tsx) reused by the other school modules. */
 
 type Props={token:string;me:AccessMe;schoolName:string;userName:string;onNavigate:(module:string)=>void;yearId?:string;yearLabel?:string};
 const n=(v:number)=>new Intl.NumberFormat('fr-FR').format(v);
 const money=(v:any)=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Number(v||0));
-const dateFr=(v?:string|null)=>v?new Date(v).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
-const ACTION:Record<string,string>={ACCESS_ROLE_ASSIGNED:'Rôle attribué',ACCESS_ROLE_REVOKED:'Rôle retiré',ACCESS_ROLE_CREATED:'Rôle créé',ACCESS_ROLE_UPDATED:'Rôle modifié',
-  ACCESS_ROLE_POLICY_UPDATED:'Rôle ajusté pour l’école',ACCESS_MEMBER_CREATED:'Compte créé',ACCESS_MEMBER_ATTACHED:'Compte rattaché',ACCESS_CHANGE_REQUESTED:'Demande d’approbation',
-  ACCESS_CHANGE_APPROVED:'Demande approuvée',ACCESS_MEMBER_DEACTIVATED:'Membre désactivé',ACCESS_MEMBER_ACTIVATED:'Membre réactivé',ACCESS_MEMBER_CREDENTIALS_RESET:'Mot de passe réinitialisé'};
+const ago=(v?:string|null)=>{if(!v)return '';const m=Math.round((Date.now()-new Date(v).getTime())/60000);if(m<1)return 'à l’instant';if(m<60)return `il y a ${m} min`;const h=Math.round(m/60);if(h<24)return `il y a ${h} h`;const d=Math.round(h/24);return d===1?'hier':`il y a ${d} jours`};
+const plural=(k:number,one:string,many:string)=>`${n(k)} ${k>1?many:one}`;
 
-function K({label,value,sub}:{label:string;value:React.ReactNode;sub?:string}){return <div className="homeKpi"><small>{label}</small><b>{value}</b>{sub&&<span>{sub}</span>}</div>}
-function Bars({rows}:{rows:Array<{label:string;value:number}>}){const max=Math.max(1,...rows.map(x=>x.value));return <div className="miniBars">{rows.map(x=><div key={x.label}><span>{x.label}</span><i><em style={{width:`${Math.max(3,x.value/max*100)}%`}}/></i><b>{x.value}%</b></div>)}</div>}
+/** Settings section opened by a readiness step (read once by the settings page). */
+export const SETTINGS_TARGET_KEY='edusync.settings.open';
+const READINESS_SECTION:Record<string,string>={IDENTITY:'identity',ACADEMIC_YEAR:'years',STRUCTURE:'structure',FEE_TYPES:'fees',TARIFFS:'tariffs',PAYMENT_POLICY:'payment',DOCUMENTS:'identity',ENROLLMENT_POLICY:'enrollment'};
+export function readinessSteps(o:SettingsOverview,open:(section:string)=>void):JourneyStep[]{
+  return o.readiness.items.filter(i=>i.state!=='NOT_APPLICABLE').map(i=>({key:i.code,label:i.label,detail:i.detail,
+    status:i.state==='READY'?'done':i.state==='TO_COMPLETE'?'todo':'check',priority:i.state==='TO_COMPLETE'&&i.blocking_only_for.length>0,
+    onClick:READINESS_SECTION[i.code]?()=>open(READINESS_SECTION[i.code]):undefined,actionLabel:i.state==='READY'?'Voir':'Compléter'}));
+}
 
-/** Loads one widget's data; its own loading / error / retry. */
 function useData<T>(load:()=>Promise<T>,deps:unknown[]){
   const [state,setState]=useState<{data?:T;error?:unknown;loading:boolean}>({loading:true});const [attempt,setAttempt]=useState(0);
   useEffect(()=>{let alive=true;setState(s=>({...s,loading:true,error:undefined}));load().then(data=>alive&&setState({data,loading:false})).catch(error=>alive&&setState({error,loading:false}));return()=>{alive=false}},[...deps,attempt]);
   return {...state,retry:()=>setAttempt(a=>a+1)};
 }
-
-function Card({w,onNavigate,wide,children}:{w:AccessWidget;onNavigate:(m:string)=>void;wide?:boolean;children:React.ReactNode}){
-  return <section className={`homePanel ${wide?'wide':''}`} data-widget={w.id}><div className="panelHead"><div><h3>{w.title}</h3></div>
-    <button type="button" className="ghost" onClick={()=>onNavigate(w.module)}>Voir</button></div><ScreenBoundary compact label={w.id}>{children}</ScreenBoundary></section>;
-}
-function Body<T>({s,children}:{s:{data?:T;error?:unknown;loading:boolean;retry:()=>void};children:(d:T)=>React.ReactNode}){
-  if(s.loading&&s.data===undefined)return <p className="muted">Chargement…</p>;
+type Loaded<T>=ReturnType<typeof useData<T>>;
+function Async<T>({s,children,lines=2}:{s:Loaded<T>;children:(d:T)=>React.ReactNode;lines?:number}){
+  if(s.loading&&s.data===undefined)return <Skeleton lines={lines}/>;
   if(s.error)return <ScreenError compact error={s.error} onRetry={s.retry}/>;
   return <>{children(s.data as T)}</>;
 }
 
-function AdminWidget({w,admin,onNavigate}:{w:AccessWidget;admin:ReturnType<typeof useData<Record<string,any>>>;onNavigate:(m:string)=>void}){
-  return <Card w={w} onNavigate={onNavigate}><Body s={admin}>{d=>{const x=d[w.id];
-    if(w.id==='access.members')return <><p className="bigFact">{n(x?.active??0)} <span>membres actifs</span></p>
-      <p>{x?.without_role?<b>{n(x.without_role)} sans rôle</b>:'Tous les membres ont un rôle'}{x?.expiring?` · ${n(x.expiring)} droit(s) expirant sous 30 jours`:''}{x?.inactive?` · ${n(x.inactive)} désactivé(s)`:''}</p></>;
-    if(w.id==='access.requests')return <p>{x?.pending?<b>{n(x.pending)} demande(s) à approuver</b>:'Aucune demande en attente'}{` · ${n(x?.adjusted_roles??0)} rôle(s) standard ajusté(s) pour l’école`}</p>;
-    if(w.id==='settings.academic_year')return x?.active?<p className="bigFact">{x.active} <span>année en cours</span></p>:<p><b>Aucune année active</b> — préparez et activez l’année scolaire.</p>;
-    if(w.id==='settings.structure')return <p className="bigFact">{n(x?.sections??0)} <span>section(s)</span> · {n(x?.classes??0)} <span>classe(s) de l’année active</span></p>;
-    if(w.id==='audit.recent')return (x??[]).length?<ul className="homeList">{x.map((e:any,i:number)=><li key={i}><b>{ACTION[e.action]??e.action}</b><small>{dateFr(e.at)}{e.actor?` · ${e.actor}`:''}</small></li>)}</ul>:<p className="muted">Aucune action récente.</p>;
-    return null}}</Body></Card>;
+const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent','sync.devices']);
+const ICON:Record<string,string>={'access.members':'users','access.requests':'shield','settings.academic_year':'calendar','settings.structure':'layers','audit.recent':'clock',
+  'sync.devices':'sync','cash.today':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','finance.recovery':'finance',
+  'finance.by_fee':'tag','inventory.stock':'box','inventory.counts':'checkCircle'};
+
+function AdminCard({w,d,index,go}:{w:AccessWidget;d:Loaded<Record<string,any>>;index:number;go:()=>void}){
+  const x=d.data?.[w.id];const loading=d.loading&&!d.data;
+  if(d.error)return <Card level="info" icon={ICON[w.id]} title={w.title} index={index}><ScreenError compact error={d.error} onRetry={d.retry}/></Card>;
+  const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
+  if(loading)return <Card level="info" {...common}><Skeleton lines={2}/></Card>;
+  switch(w.id){
+    case 'access.members':{const without=x?.without_role??0;return <Card level={without?'priority':'info'} tone={without?'warn':undefined} {...common} value={n(x?.active??0)} unit="membres actifs"
+      badge={without?<StatusBadge tone="warn">{plural(without,'sans rôle','sans rôle')}</StatusBadge>:<StatusBadge tone="ok">Tous ont un rôle</StatusBadge>}
+      hint={without?<><b>Attribuez un rôle</b> aux {plural(without,'membre','membres')} sans accès.</>:[x?.expiring?plural(x.expiring,'droit expire sous 30 jours','droits expirent sous 30 jours'):'',x?.inactive?plural(x.inactive,'compte désactivé','comptes désactivés'):''].filter(Boolean).join(' · ')||'Aucune action requise.'}/>}
+    case 'access.requests':{const p=x?.pending??0;return <Card level={p?'priority':'info'} tone={p?'warn':undefined} {...common} value={n(p)} unit={p>1?'demandes à approuver':'demande à approuver'}
+      badge={p?<StatusBadge tone="warn">À traiter</StatusBadge>:undefined} hint={p?<><b>Approuvez ou refusez</b> — un second gestionnaire doit décider.</>:`${plural(x?.adjusted_roles??0,'rôle standard ajusté','rôles standards ajustés')} pour l’école.`}/>}
+    case 'settings.academic_year':return x?.active?<Card level="info" tone="ok" {...common} value={x.active} badge={<StatusBadge tone="ok">En cours</StatusBadge>} hint="Année de travail de l’établissement."/>
+      :<Card level="priority" tone="todo" {...common} value="Aucune" unit="année active" badge={<StatusBadge tone="todo">À compléter</StatusBadge>} hint={<><b>Préparez puis activez</b> l’année scolaire.</>}/>;
+    case 'settings.structure':{const c=x?.classes??0;return <Card level={c?'info':'priority'} tone={c?undefined:'todo'} {...common} value={n(c)} unit={`classe${c>1?'s':''} · ${plural(x?.sections??0,'section','sections')}`}
+      hint={c?'Classes ouvertes pour l’année active.':<><b>Ouvrez les classes</b> de l’année active.</>}/>}
+    case 'sync.devices':return <Card level="secondary" {...common} hint="État des appareils, des envois en attente et des conflits de synchronisation."/>;
+    case 'audit.recent':{const items:any[]=x??[];return <Card level="secondary" wide {...common}>{items.length?<ul className="ui-list">{items.slice(0,5).map((e,i)=><li key={i}><b>{auditActionLabel(e.action)}</b><small>{e.actor?`${e.actor} · `:''}{ago(e.at)}</small></li>)}</ul>
+      :<EmptyState icon="clock" title="Aucune action récente" text="Les changements d’accès et de paramétrage apparaîtront ici."/>}</Card>}
+    default:return null;
+  }
 }
 
-function Readiness({w,token,onNavigate}:{w:AccessWidget;token:string;onNavigate:(m:string)=>void}){
+function Readiness({token,open,go}:{token:string;open:(section:string)=>void;go:()=>void}){
   const s=useData(()=>getSettingsOverview(token),[token]);
-  return <Card w={w} onNavigate={onNavigate} wide><Body s={s}>{o=>{const todo=o.readiness.items.filter(i=>i.state==='TO_COMPLETE'||i.state==='TO_CONFIRM');
-    return <><p className="bigFact">{o.readiness.percent}% <span>du paramétrage</span></p>{todo.length?<ul className="homeList">{todo.slice(0,5).map(i=><li key={i.code}><b>{i.label}</b><small>{i.detail}</small></li>)}</ul>:<p>Paramétrage complet.</p>}</>}}</Body></Card>;
-}
-function CashToday({w,token,onNavigate}:{w:AccessWidget;token:string;onNavigate:(m:string)=>void}){
-  const s=useData(()=>cashCurrent(token),[token]);
-  return <Card w={w} onNavigate={onNavigate}><Body s={s}>{d=>{const c:any=d.session;return c?<div className="homeKpis"><K label="Ma caisse" value={c.status==='OPEN'?'OUVERTE':'FERMÉE'} sub={c.business_date}/><K label="Entrées CDF" value={money(c.cdf?.receipts)}/><K label="Solde théorique CDF" value={money(c.cdf?.expected_cash)}/></div>:<p>Aucune caisse ouverte aujourd’hui.</p>}}</Body></Card>;
-}
-function Headcounts({w,token,yearId,onNavigate}:{w:AccessWidget;token:string;yearId?:string;onNavigate:(m:string)=>void}){
-  const s=useData<EffectifsCounts>(()=>getEffectifsCounts(token,'section','ALL',yearId),[token,yearId]);
-  return <Card w={w} onNavigate={onNavigate} wide><Body s={s}>{c=><><div className="homeKpis"><K label="Inscrits" value={n(c.total.enrolled.total)}/><K label="Actifs" value={n(c.total.active.total)}/><K label="Abandons" value={n(c.total.abandoned.total)}/><K label="Transferts / sorties" value={n(c.total.transferred.total)}/></div>
-    <div className="compactTable"><div className="tr th"><span>Section</span><span>Inscrits</span><span>Actifs</span><span>Abandons</span></div>{c.items.map(x=><div className="tr" key={x.code}><b>{x.label}</b><span>{n(x.enrolled.total)}</span><span>{n(x.active.total)}</span><span>{n(x.abandoned.total)}</span></div>)}</div></>}</Body></Card>;
-}
-function Movements({w,token,yearId,onNavigate}:{w:AccessWidget;token:string;yearId?:string;onNavigate:(m:string)=>void}){
-  const s=useData(()=>getEffectifsMovements(token,'ALL',{yearId,limit:6}),[token,yearId]);
-  return <Card w={w} onNavigate={onNavigate}><Body s={s}>{d=>(d.items??[]).length?<ul className="homeList">{d.items.map((m:any,i:number)=><li key={i}><b>{m.student_name??m.label??m.kind}</b><small>{m.kind_label??m.kind} · {m.occurred_on??''}</small></li>)}</ul>:<p className="muted">Aucun mouvement récent.</p>}</Body></Card>;
-}
-function Recovery({w,token,yearId,onNavigate}:{w:AccessWidget;token:string;yearId?:string;onNavigate:(m:string)=>void}){
-  const s=useData(()=>recoveryMonthly(token,yearId,'CDF'),[token,yearId]);
-  return <Card w={w} onNavigate={onNavigate} wide><Body s={s}>{(r:any)=><>{r?.total&&<div className="homeKpis"><K label="Attendu net" value={`${money(r.total.expected)} CDF`}/><K label="Régularisé" value={`${money(r.total.regularized_total)} CDF`}/><K label="Recouvrement" value={`${r.total.recovery_rate}%`} sub={`Reste ${money(r.total.remaining)} CDF`}/></div>}
-    {(r?.items??[]).length?<Bars rows={r.items.map((x:any)=>({label:x.month_label,value:Number(x.recovery_rate||0)}))}/>:<p className="muted">Aucune donnée de recouvrement pour cette année.</p>}</>}</Body></Card>;
-}
-function ByFee({w,token,yearId,onNavigate}:{w:AccessWidget;token:string;yearId?:string;onNavigate:(m:string)=>void}){
-  const s=useData(()=>feeTrackingOverview(token,yearId,'CDF'),[token,yearId]);
-  return <Card w={w} onNavigate={onNavigate} wide><Body s={s}>{(d:any)=><div className="compactTable"><div className="tr th"><span>Famille</span><span>Attendu net</span><span>Régularisé</span><span>Reste</span></div>{(d?.items??[]).slice(0,6).map((x:any,i:number)=><div className="tr" key={x.category_id??i}><b>{x.category_label??x.label}</b><span>{money(x.net_expected)} CDF</span><span>{money(x.regularized)} CDF</span><span>{money(x.remaining)} CDF</span></div>)}</div>}</Body></Card>;
-}
-function Stock({w,token,onNavigate}:{w:AccessWidget;token:string;onNavigate:(m:string)=>void}){
-  const s=useData(()=>stewardshipDashboard(token),[token]);
-  return <Card w={w} onNavigate={onNavigate}><Body s={s}>{(d:any)=>(d?.low_stock??[]).length?<ul className="homeList">{d.low_stock.slice(0,6).map((x:any)=><li key={x.id}><b>{x.label}</b><small>{x.quantity} {x.unit} · seuil {x.low_threshold}</small></li>)}</ul>:<p>Aucun stock sous son seuil d’alerte.</p>}</Body></Card>;
-}
-function Counts({w,token,onNavigate}:{w:AccessWidget;token:string;onNavigate:(m:string)=>void}){
-  const s=useData(()=>stewardshipCounts(token),[token]);
-  return <Card w={w} onNavigate={onNavigate}><Body s={s}>{(d:any)=>{const open=(d?.items??[]).filter((x:any)=>x.status!=='VALIDATED');return open.length?<p><b>{open.length} inventaire(s) en cours</b></p>:<p>Aucun inventaire en cours.</p>}}</Body></Card>;
+  return <Card level="priority" wide title="Mise en service de l’établissement" icon="checkCircle" className="sh-readiness">
+    <Async s={s} lines={4}>{o=>{const steps=readinessSteps(o,open);
+      return <><ProgressJourney percent={o.readiness.percent} title={o.readiness.percent>=100?'Paramétrage complet':'Votre parcours de paramétrage'} steps={steps} max={4} showDone={!steps.some(x=>x.status==='todo'||x.status==='check')}/>
+        <div className="sh-readiness-foot"><Button variant="quiet" icon="settings" onClick={go}>Tout le paramétrage</Button></div></>}}</Async>
+  </Card>;
 }
 
-const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent']);
+function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void}){
+  const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
+  switch(w.id){
+    case 'cash.today':return <CashToday common={common} token={token}/>;
+    case 'checkout.quick':return <Card level="priority" {...common} hint={<><b>Nouvel encaissement</b> : retrouvez l’élève ou la famille, puis encaissez en quelques secondes.</>}/>;
+    case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId}/>;
+    case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
+    case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
+    case 'finance.by_fee':return <ByFee common={common} token={token} yearId={yearId}/>;
+    case 'inventory.stock':return <Stock common={common} token={token}/>;
+    case 'inventory.counts':return <Counts common={common} token={token}/>;
+    default:return null;
+  }
+}
+type Common={icon:string;title:string;onClick:()=>void;index:number;ariaLabel:string};
+function CashToday({common,token}:{common:Common;token:string}){const s=useData(()=>cashCurrent(token),[token]);
+  return <Card level="priority" {...common}><Async s={s}>{d=>{const c:any=d.session;return c?<><p className="ui-card-value">{money(c.cdf?.expected_cash)}<small>CDF en caisse</small></p>
+    <p className="ui-card-hint"><StatusBadge tone={c.status==='OPEN'?'ok':'neutral'}>{c.status==='OPEN'?'Ouverte':'Fermée'}</StatusBadge> Entrées {money(c.cdf?.receipts)} CDF · Solde théorique CDF</p></>
+    :<p className="ui-card-hint"><b>Ouvrez votre caisse</b> pour commencer à encaisser.</p>}}</Async></Card>}
+function Headcounts({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData<EffectifsCounts>(()=>getEffectifsCounts(token,'section','ALL',yearId),[token,yearId]);
+  return <Card level="info" {...common}><Async s={s}>{c=><><p className="ui-card-value">{n(c.total.active.total)}<small>élèves actifs</small></p>
+    <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p></>}</Async></Card>}
+function Movements({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>getEffectifsMovements(token,'ALL',{yearId,limit:5}),[token,yearId]);
+  return <Card level="secondary" {...common}><Async s={s}>{(d:any)=>(d.items??[]).length?<ul className="ui-list">{d.items.map((m:any,i:number)=><li key={i}><b>{m.student_name??m.label??m.kind}</b><small>{m.kind_label??m.kind}</small></li>)}</ul>
+    :<p className="ui-card-hint">Aucun mouvement récent.</p>}</Async></Card>}
+function Recovery({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>recoveryMonthly(token,yearId,'CDF'),[token,yearId]);
+  return <Card level="info" wide {...common}><Async s={s} lines={3}>{(r:any)=>r?.total?<><p className="ui-card-value">{r.total.recovery_rate}%<small>de recouvrement</small></p>
+    <p className="ui-card-hint">Régularisé {money(r.total.regularized_total)} CDF sur {money(r.total.expected)} CDF · reste <b>{money(r.total.remaining)} CDF</b></p>
+    {(r.items??[]).length>0&&<div className="sh-bars" aria-hidden="true">{r.items.map((x:any)=><span key={x.month_label} title={`${x.month_label} : ${x.recovery_rate}%`}><i style={{height:`${Math.max(4,Number(x.recovery_rate||0))}%`}}/><small>{String(x.month_label).slice(0,3)}</small></span>)}</div>}</>
+    :<p className="ui-card-hint">Aucune donnée de recouvrement pour cette année.</p>}</Async></Card>}
+function ByFee({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>feeTrackingOverview(token,yearId,'CDF'),[token,yearId]);
+  return <Card level="secondary" {...common}><Async s={s}>{(d:any)=><ul className="ui-list">{(d?.items??[]).slice(0,5).map((x:any,i:number)=><li key={x.category_id??i}><b>{x.category_label??x.label}</b><small>reste {money(x.remaining)} CDF</small></li>)}</ul>}</Async></Card>}
+function Stock({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipDashboard(token),[token]);
+  return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const low=d?.low_stock??[];return low.length?<><p className="ui-card-value">{n(low.length)}<small>article(s) sous le seuil</small></p><ul className="ui-list">{low.slice(0,3).map((x:any)=><li key={x.id}><b>{x.label}</b><small>{x.quantity} {x.unit}</small></li>)}</ul></>
+    :<p className="ui-card-hint">Aucun stock sous son seuil d’alerte.</p>}}</Async></Card>}
+function Counts({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipCounts(token),[token]);
+  return <Card level="secondary" {...common}><Async s={s}>{(d:any)=>{const open=(d?.items??[]).filter((x:any)=>x.status!=='VALIDATED');return open.length?<p className="ui-card-hint"><b>{open.length} inventaire(s) en cours</b> à terminer.</p>:<p className="ui-card-hint">Aucun inventaire en cours.</p>}}</Async></Card>}
+
 export default function HomePage({token,me,schoolName,userName,onNavigate,yearId,yearLabel}:Props){
   const needsAdmin=me.widgets.some(w=>ADMIN_WIDGETS.has(w.id));
-  const admin=useData(()=>needsAdmin?getAccessDashboard(token):Promise.resolve({}),[token,needsAdmin]);
+  const admin=useData(()=>needsAdmin?getAccessDashboard(token):Promise.resolve({} as Record<string,any>),[token,needsAdmin]);
+  const openSettings=(section:string)=>{try{sessionStorage.setItem(SETTINGS_TARGET_KEY,section)}catch{/* facultatif */}onNavigate('settings')};
   const search=me.actions.find(a=>a.id==='students.search');
-  const widget=(w:AccessWidget)=>{
-    if(ADMIN_WIDGETS.has(w.id))return <AdminWidget key={w.id} w={w} admin={admin} onNavigate={onNavigate}/>;
-    switch(w.id){
-      case 'settings.readiness':return <Readiness key={w.id} w={w} token={token} onNavigate={onNavigate}/>;
-      case 'cash.today':return <CashToday key={w.id} w={w} token={token} onNavigate={onNavigate}/>;
-      case 'checkout.quick':return <Card key={w.id} w={w} onNavigate={onNavigate}><p>Retrouvez l’élève ou la famille, puis encaissez en quelques secondes.</p><button type="button" className="primaryBtn compact" onClick={()=>onNavigate('finance')}>Nouvel encaissement</button></Card>;
-      case 'headcounts.summary':return <Headcounts key={w.id} w={w} token={token} yearId={yearId} onNavigate={onNavigate}/>;
-      case 'headcounts.movements':return <Movements key={w.id} w={w} token={token} yearId={yearId} onNavigate={onNavigate}/>;
-      case 'finance.recovery':return <Recovery key={w.id} w={w} token={token} yearId={yearId} onNavigate={onNavigate}/>;
-      case 'finance.by_fee':return <ByFee key={w.id} w={w} token={token} yearId={yearId} onNavigate={onNavigate}/>;
-      case 'inventory.stock':return <Stock key={w.id} w={w} token={token} onNavigate={onNavigate}/>;
-      case 'inventory.counts':return <Counts key={w.id} w={w} token={token} onNavigate={onNavigate}/>;
-      case 'sync.devices':return <Card key={w.id} w={w} onNavigate={onNavigate}><p>État des appareils et des synchronisations de l’école.</p></Card>;
-      default:return null;
-    }
-  };
-  return <div className="homeCockpit">
-    <div className="homeTop"><div><small>{me.role_label}</small><h2>{schoolName}</h2><p>{userName}{yearLabel?` · année consultée ${yearLabel}`:''} · ce que vous devez suivre aujourd’hui, selon vos droits</p></div>
-      <div className="homeActions">{me.actions.filter(a=>a.id!=='students.search').slice(0,2).map(a=><button key={a.id} type="button" className="ghost" onClick={()=>onNavigate(a.module)}>{a.label}</button>)}</div></div>
-    {search&&<button type="button" className="homeSearch" onClick={()=>onNavigate('students')}><NavGlyph g="search" size={17}/> {search.label} : nom, matricule ou famille…</button>}
-    {me.widgets.length?<div className="homeGrid">{me.widgets.map(widget)}</div>
-      :<div className="homeFuture">Votre rôle ne comporte encore aucun tableau de suivi. Les modules auxquels vous avez accès sont dans le menu.</div>}
+  const shortcuts=me.actions.filter(a=>a.id!=='students.search');
+  const today=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const first=userName.split(' ')[0];
+  const readiness=me.widgets.find(w=>w.id==='settings.readiness');
+  const figures=me.widgets.filter(w=>w.id!=='settings.readiness'&&w.id!=='audit.recent');
+  const journal=me.widgets.find(w=>w.id==='audit.recent');
+  let index=0;
+  const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
+    ?<AdminCard w={w} d={admin} index={index++} go={()=>onNavigate(w.module)}/>
+    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>onNavigate(w.module)}/>}</ScreenBoundary>;
+  return <div className="ui-page sh-home">
+    <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`Bonjour ${first}`}
+      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — voici ce qui demande votre attention aujourd’hui.</>}
+      actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':'chevronRight'}
+        onClick={()=>a.id==='settings.open'?openSettings('overview'):onNavigate(a.module)}>{a.label}</Button>)}/>
+    {search&&<button type="button" className="sh-search" onClick={()=>onNavigate('students')}><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille</small></button>}
+    {me.widgets.length===0?<EmptyState icon="home" title="Aucun suivi pour votre rôle" text="Les modules auxquels vous avez accès sont dans le menu."/>:<>
+      {readiness&&<ScreenBoundary compact label="readiness"><Readiness token={token} open={openSettings} go={()=>openSettings('overview')}/></ScreenBoundary>}
+      {figures.length>0&&<Section title="À suivre" id="sh-follow"><div className="ui-grid">{figures.map(render)}</div></Section>}
+      {journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
+    </>}
   </div>;
 }

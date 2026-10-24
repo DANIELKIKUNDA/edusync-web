@@ -32,4 +32,4 @@ def test_release():
 def test_settings_loading_is_permission_aware():
     assert "safe(can('settings.products.read')" in APP
     assert "safe(can('settings.contributions.read')" in APP
-    assert "parameterTabs.filter" in APP
+    assert "const allowed=(key:TabKey)=>" in APP and "g.keys.filter(allowed)" in APP  # grouped, permission-aware (2026-10-24)
