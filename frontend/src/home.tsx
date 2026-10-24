@@ -1,9 +1,10 @@
 import React,{useEffect,useState} from 'react';
 import {NavGlyph} from './platform/nav_icons';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
+import {RecoveryChart} from './platform/recovery_chart';
 import {auditActionLabel} from './platform/labels';
 import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
-import {cashCurrent,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
+import {cashCurrent,cashJournal,checkoutProducts,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
   type AccessMe,type AccessWidget,type EffectifsCounts,type SettingsOverview} from './api';
 
 /* School home driven by capabilities (owner decisions 9 of 2026-10-23 and the premium pass of 2026-10-24). The server
@@ -41,7 +42,7 @@ function Async<T>({s,children,lines=2}:{s:Loaded<T>;children:(d:T)=>React.ReactN
 const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent','sync.devices']);
 const ICON:Record<string,string>={'access.members':'users','access.requests':'shield','settings.academic_year':'calendar','settings.structure':'layers','audit.recent':'clock',
   'sync.devices':'sync','cash.today':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','finance.recovery':'finance',
-  'finance.by_fee':'tag','inventory.stock':'box','inventory.counts':'checkCircle'};
+  'finance.by_fee':'tag','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart'};
 
 function AdminCard({w,d,index,go}:{w:AccessWidget;d:Loaded<Record<string,any>>;index:number;go:()=>void}){
   const x=d.data?.[w.id];const loading=d.loading&&!d.data;
@@ -79,6 +80,9 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
   switch(w.id){
     case 'cash.today':return <CashToday common={common} token={token}/>;
     case 'checkout.quick':return <Card level="priority" {...common} hint={<><b>Nouvel encaissement</b> : retrouvez l’élève ou la famille, puis encaissez en quelques secondes.</>}/>;
+    case 'cash.receipts':return <CashReceipts common={common} token={token}/>;
+    case 'enrollments.today':return <Enrollments common={common} token={token}/>;
+    case 'products.watch':return <ProductsWatch common={common} token={token}/>;
     case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
@@ -93,17 +97,31 @@ function CashToday({common,token}:{common:Common;token:string}){const s=useData(
   return <Card level="priority" {...common}><Async s={s}>{d=>{const c:any=d.session;return c?<><p className="ui-card-value">{money(c.cdf?.expected_cash)}<small>CDF en caisse</small></p>
     <p className="ui-card-hint"><StatusBadge tone={c.status==='OPEN'?'ok':'neutral'}>{c.status==='OPEN'?'Ouverte':'Fermée'}</StatusBadge> Entrées {money(c.cdf?.receipts)} CDF · Solde théorique CDF</p></>
     :<p className="ui-card-hint"><b>Ouvrez votre caisse</b> pour commencer à encaisser.</p>}}</Async></Card>}
+// Desk cards (each role its own home, owner 2026-10-24): what the cashier-secretary needs at the counter.
+function CashReceipts({common,token}:{common:Common;token:string}){
+  const s=useData(async()=>{const c=await cashCurrent(token);const session:any=c.session;if(!session)return {session:null,items:[] as any[]};const j=await cashJournal(token,session.id);return {session,items:j.items}},[token]);
+  return <Card level="info" wide {...common}><Async s={s} lines={3}>{d=>{if(!d.session)return <p className="ui-card-hint"><b>Ouvrez votre caisse</b> : les encaissements du jour s’afficheront ici.</p>;
+    const receipts=d.items.filter((i:any)=>i.kind==='RECEIPT');const sum=(cur:string)=>receipts.filter((i:any)=>i.currency===cur).reduce((a:number,i:any)=>a+Number(i.amount||0),0);
+    return <><p className="ui-card-value">{n(receipts.length)}<small>{receipts.length>1?'reçus aujourd’hui':'reçu aujourd’hui'}</small></p>
+      <p className="ui-card-hint">{money(sum('CDF'))} CDF{sum('USD')?` · ${money(sum('USD'))} USD`:''} encaissés{d.items.length>receipts.length?` · ${d.items.length-receipts.length} dépense(s)`:''}</p>
+      {receipts.length>0&&<ul className="ui-list">{[...receipts].reverse().slice(0,4).map((i:any,k:number)=><li key={k}><b>{i.reference}</b><small>{money(i.amount)} {i.currency} · {new Date(i.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</small></li>)}</ul>}</>}}</Async></Card>}
+function Enrollments({common,token}:{common:Common;token:string}){const s=useData(()=>getSchoolingSummary(token),[token]);
+  return <Card level="info" {...common}><Async s={s}>{(d:any)=><><p className="ui-card-value">{n(d.new_enrollments??0)}<small>{(d.new_enrollments??0)>1?'nouvelles inscriptions':'nouvelle inscription'}</small></p>
+    <p className="ui-card-hint">{n(d.active_students??0)} élèves actifs{d.families_to_complete?<> · <b>{plural(d.families_to_complete,'contact à compléter','contacts à compléter')}</b></>:''}</p></>}</Async></Card>}
+function ProductsWatch({common,token}:{common:Common;token:string}){const s=useData(()=>checkoutProducts(token),[token]);
+  return <Card level="secondary" {...common}><Async s={s}>{(d:any)=>{const items:any[]=(d?.items??[]).filter((p:any)=>p.stock_tracking);
+    const out=items.filter(p=>Number(p.stock_quantity||0)<=0);const low=items.filter(p=>Number(p.stock_quantity||0)>0&&Number(p.low_threshold||0)>0&&Number(p.stock_quantity)<=Number(p.low_threshold));
+    return out.length||low.length?<><p className="ui-card-value">{n(out.length+low.length)}<small>article(s) à signaler</small></p><ul className="ui-list">{[...low,...out].slice(0,3).map(p=><li key={p.id}><b>{p.label}</b><small>{Number(p.stock_quantity||0)<=0?'Rupture':`Stock bas : ${Number(p.stock_quantity).toLocaleString('fr-FR')}`}</small></li>)}</ul></>
+      :<p className="ui-card-hint">Tous les articles en vente sont disponibles.</p>}}</Async></Card>}
 function Headcounts({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData<EffectifsCounts>(()=>getEffectifsCounts(token,'section','ALL',yearId),[token,yearId]);
   return <Card level="info" {...common}><Async s={s}>{c=><><p className="ui-card-value">{n(c.total.active.total)}<small>élèves actifs</small></p>
     <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p></>}</Async></Card>}
 function Movements({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>getEffectifsMovements(token,'ALL',{yearId,limit:5}),[token,yearId]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=>(d.items??[]).length?<ul className="ui-list">{d.items.map((m:any,i:number)=><li key={i}><b>{m.student_name??m.label??m.kind}</b><small>{m.kind_label??m.kind}</small></li>)}</ul>
     :<p className="ui-card-hint">Aucun mouvement récent.</p>}</Async></Card>}
-function Recovery({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>recoveryMonthly(token,yearId,'CDF'),[token,yearId]);
-  return <Card level="info" wide {...common}><Async s={s} lines={3}>{(r:any)=>r?.total?<><p className="ui-card-value">{r.total.recovery_rate}%<small>de recouvrement</small></p>
-    <p className="ui-card-hint">Régularisé {money(r.total.regularized_total)} CDF sur {money(r.total.expected)} CDF · reste <b>{money(r.total.remaining)} CDF</b></p>
-    {(r.items??[]).length>0&&<div className="sh-bars" aria-hidden="true">{r.items.map((x:any)=><span key={x.month_label} title={`${x.month_label} : ${x.recovery_rate}%`}><i style={{height:`${Math.max(4,Number(x.recovery_rate||0))}%`}}/><small>{String(x.month_label).slice(0,3)}</small></span>)}</div>}</>
-    :<p className="ui-card-hint">Aucune donnée de recouvrement pour cette année.</p>}</Async></Card>}
+// Real recovery chart (owner, 2026-10-24): rate and amounts per due period, aligned, one currency at a time.
+function Recovery({common,token,yearId}:{common:Common;token:string;yearId?:string}){
+  return <Card level="info" wide icon={common.icon} title={common.title} index={common.index}><RecoveryChart token={token} yearId={yearId} onOpen={common.onClick}/></Card>}
 function ByFee({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>feeTrackingOverview(token,yearId,'CDF'),[token,yearId]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=><ul className="ui-list">{(d?.items??[]).slice(0,5).map((x:any,i:number)=><li key={x.category_id??i}><b>{x.category_label??x.label}</b><small>reste {money(x.remaining)} CDF</small></li>)}</ul>}</Async></Card>}
 function Stock({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipDashboard(token),[token]);
@@ -114,6 +132,7 @@ function Counts({common,token}:{common:Common;token:string}){const s=useData(()=
 
 export default function HomePage({token,me,schoolName,userName,onNavigate,yearId,yearLabel}:Props){
   const needsAdmin=me.widgets.some(w=>ADMIN_WIDGETS.has(w.id));
+  const desk=me.widgets.some(w=>w.id==='cash.today'||w.id==='checkout.quick');
   const admin=useData(()=>needsAdmin?getAccessDashboard(token):Promise.resolve({} as Record<string,any>),[token,needsAdmin]);
   const openSettings=(section:string)=>{try{sessionStorage.setItem(SETTINGS_TARGET_KEY,section)}catch{/* facultatif */}onNavigate('settings')};
   const search=me.actions.find(a=>a.id==='students.search');
@@ -129,8 +148,8 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
     :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>onNavigate(w.module)}/>}</ScreenBoundary>;
   return <div className="ui-page sh-home">
     <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`Bonjour ${first}`}
-      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — voici ce qui demande votre attention aujourd’hui.</>}
-      actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':'chevronRight'}
+      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
+      actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':'chevronRight'}
         onClick={()=>a.id==='settings.open'?openSettings('overview'):onNavigate(a.module)}>{a.label}</Button>)}/>
     {search&&<button type="button" className="sh-search" onClick={()=>onNavigate('students')}><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille</small></button>}
     {me.widgets.length===0?<EmptyState icon="home" title="Aucun suivi pour votre rôle" text="Les modules auxquels vous avez accès sont dans le menu."/>:<>

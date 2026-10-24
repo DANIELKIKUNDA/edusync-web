@@ -327,3 +327,4 @@ button.homeSearch{width:100%;text-align:left;font:inherit;cursor:pointer;border:
 .cashCloseBox button.primaryBtn:hover{background:#1149b8}
 button.softBtn{border:1px solid #d0d5dd;background:#fff;color:#344054}
 .cashExpenseBox button.softBtn{justify-self:start}
+.recoveryChartCard{margin:12px 0;padding:18px;border:1px solid #e4e9f2;border-radius:18px;background:#fff}:root[data-theme=dark] .recoveryChartCard{background:var(--es-surface,#121a2b);border-color:var(--es-line,#24304a)}

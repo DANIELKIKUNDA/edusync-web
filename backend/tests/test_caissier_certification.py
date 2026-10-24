@@ -33,3 +33,21 @@ def test_setup_widgets_need_a_settings_manager():
 def test_personnel_never_waits_for_a_summary_it_cannot_read():
     assert "(summary||can('personnel.summary.read'))&&<div className=\"personMetrics\">" in PERSONNEL
     assert "permissions.includes('personnel.summary.read')?'overview':'directory'" in PERSONNEL
+
+
+def test_each_role_has_its_own_home():
+    """Owner 2026-10-24: « chaque rôle doit avoir son propre tableau de bord ». Administration cards need a management
+    right (a cashier only reads the year / structure through the secretariat baseline); the desk has its own cards."""
+    import json
+    from edusync.modules.access.application.projection import WIDGETS, ACTIONS, _allowed
+    reg = json.loads((ROOT / "contracts/CAPABILITY_REGISTRY.json").read_text(encoding="utf-8"))
+    roles = reg["standard_roles"]
+    def home(role):
+        caps = set(roles[role]["capabilities"])
+        return {w["id"] for w in WIDGETS if _allowed(w, caps)}, {a["id"] for a in ACTIONS if _allowed(a, caps)}
+    cash_w, cash_a = home("CAISSIER"); admin_w, _ = home("ADMIN_SYSTEME_ECOLE")
+    assert {"cash.today", "cash.receipts", "enrollments.today", "products.watch"} <= cash_w
+    assert not ({"settings.readiness", "settings.academic_year", "settings.structure", "sync.devices", "access.members"} & cash_w)
+    assert {"checkout.new", "enrollments.new"} <= cash_a and "settings.open" not in cash_a
+    assert {"settings.readiness", "settings.academic_year", "settings.structure", "sync.devices", "access.members"} <= admin_w
+    assert cash_w != admin_w

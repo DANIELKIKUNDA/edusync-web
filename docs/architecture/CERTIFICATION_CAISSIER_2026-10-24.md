@@ -25,6 +25,19 @@ Caissier), l’import du personnel au Gestionnaire.
 | Dépense de caisse | Confirmation explicite, dépense enregistrée et tracée |
 | Clôture | Montant compté, « Journée de caisse clôturée » |
 
+## Accueil propre au caissier (demande du propriétaire : « chaque rôle doit avoir son propre tableau de bord »)
+
+- Les cartes d’administration (année scolaire, structure, synchronisation, comptes) exigent désormais un droit de
+  **gestion** : le caissier ne les voit plus, même s’il peut lire ces informations.
+- Accueil du guichet : Ma caisse du jour, Encaisser rapidement, **Encaissements du jour** (nombre de reçus, montants
+  par devise, derniers reçus), **Inscriptions** (nouvelles inscriptions, contacts à compléter), **Articles à surveiller**
+  (ruptures et stocks bas), Effectifs, Évolution du recouvrement ; raccourcis **Nouvel encaissement** et **Nouvelle
+  inscription** ; sous-titre « votre guichet du jour ».
+- **Graphique d’évolution du recouvrement** (accueil et onglet Recouvrement) : taux par échéance (mois et tranches de
+  l’État) en haut, montants attendus / régularisés en bas, alignés sur les mêmes échéances (jamais deux échelles sur un
+  même graphique), une devise à la fois (CDF / USD), bulle détaillée au survol (taux, régularisé, attendu, reste, élèves
+  concernés), vue tableau, version mobile.
+
 ## Défauts trouvés et corrigés pendant la certification
 
 - **Aperçu du reçu vide (staging et production)** : la politique de sécurité du site (CSP) n’autorisait pas le PDF

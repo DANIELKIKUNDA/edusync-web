@@ -33,7 +33,11 @@ await step('01 connexion caissier', async () => { await p.goto('http://localhost
 await step('02 accueil : outils du guichet, pas de paramétrage', async () => {
   await p.getByRole('button', {name: 'Nouvel encaissement'}).first().waitFor();
   if (await p.getByText('Mise en service de l’établissement').count()) throw new Error('le bloc de mise en service est affiché au caissier');
-  if (await p.getByRole('button', {name: 'Compléter le paramétrage'}).count()) throw new Error('raccourci de paramétrage affiché au caissier'); });
+  if (await p.getByRole('button', {name: 'Compléter le paramétrage'}).count()) throw new Error('raccourci de paramétrage affiché au caissier');
+  // Each role its own home (owner, 2026-10-24): desk cards, no administration cards.
+  for (const t of ['Ma caisse du jour', 'Encaissements du jour', 'Inscriptions', 'Articles à surveiller']) await p.getByText(t, {exact: true}).first().waitFor();
+  for (const t of ['Structure : sections et classes', 'Appareils et synchronisation', 'Comptes et accès']) if (await p.getByText(t, {exact: true}).count()) throw new Error(`carte d’administration affichée au caissier : ${t}`);
+  await p.getByRole('button', {name: 'Nouvelle inscription'}).first().waitFor(); });
 await step('03 menu : droits du secrétariat présents', async () => {
   for (const m of ['Élèves & inscriptions', 'Centre financier', 'Personnel', 'Effectifs & dépôts', 'Communication']) await nav().getByRole('button', {name: m, exact: true}).waitFor(); });
 

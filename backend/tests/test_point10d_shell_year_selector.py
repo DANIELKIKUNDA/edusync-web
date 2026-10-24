@@ -15,4 +15,6 @@ def test_year_context_reaches_read_models():
  assert 'yearId={selectedYearId||undefined}' in a
  assert 'getEffectifsOverview(token,scope,yearId)' in e
  assert "getEffectifsCounts(token,'section','ALL',yearId)" in h
- assert "recoveryMonthly(token,yearId,'CDF')" in h
+ # Recovery chart (2026-10-24): the home passes the selected year to the chart, which reads it per currency.
+ c=(ROOT/'frontend/src/platform/recovery_chart.tsx').read_text(encoding='utf-8')
+ assert "<RecoveryChart token={token} yearId={yearId}" in h and "recoveryMonthly(token, yearId, currency)" in c
