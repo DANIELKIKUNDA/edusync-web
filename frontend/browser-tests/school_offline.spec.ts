@@ -37,7 +37,10 @@ test('école : fermée puis rouverte en mode avion, reste connectée en lecture 
   expect(await page.evaluate(k=>localStorage.getItem(k),KEY)).not.toMatch(/online-fixture-token|access_token|Bearer/);
   await expect.poll(()=>page.evaluate(async()=>{const r=await fetch('/api/v1/settings/overview');return r.ok;})).toBe(true);
 
-  // 3-5. close the app completely, airplane mode, reopen
+  // 3-5. close the app completely, airplane mode, reopen — only once the service worker controls the page and has the
+  // application shell in cache (closing earlier is a first visit cut short, not an offline reopening)
+  await expect.poll(()=>page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)return false;
+    for(const name of await caches.keys())if(await (await caches.open(name)).match('/'))return true;return false;}),{timeout:15000}).toBe(true);
   await page.close();
   offline=true;await context.setOffline(true);
   const reopened=await context.newPage();

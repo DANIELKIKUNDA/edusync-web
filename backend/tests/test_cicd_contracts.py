@@ -70,3 +70,20 @@ def test_ci_secret_scanner_is_clean():
     import sys
     r = subprocess.run([sys.executable, str(ROOT / "tools/ci/secret_patterns.py")], capture_output=True, text=True, cwd=ROOT)
     assert r.returncode == 0, r.stdout[-500:]
+
+
+def test_ci_never_installs_a_python_package_outside_the_lock():
+    """Security audit 2026-10-24: the backend job re-installed pypdf==6.19.0 (11 CVE) over the locked 6.21.2 — the audits
+    read the lock, not what the CI installs. Every package installed for the application or its tests is constrained
+    by backend/requirements.lock; only the audit tool itself (pip-audit, pinned) is installed on its own."""
+    import re
+    lock = dict(line.strip().split("==", 1) for line in (ROOT / "backend" / "requirements.lock").read_text(encoding="utf-8").splitlines()
+                if "==" in line and not line.lstrip().startswith("#"))
+    lock = {k.lower(): v.split(";")[0].strip() for k, v in lock.items()}
+    workflows = "\n".join(p.read_text(encoding="utf-8") for p in (ROOT / ".github" / "workflows").glob("*.yml"))
+    for line in re.findall(r"^\s*pip install [^\n]+$", workflows, re.M):
+        if "pip-audit==" in line or "--upgrade pip" in line:
+            continue
+        assert "-c requirements.lock" in line or "-c backend/requirements.lock" in line, line.strip()
+        for name, version in re.findall(r"([A-Za-z0-9_.-]+)==([0-9][^\s]*)", line):
+            assert lock.get(name.lower()) == version, f"{name}=={version} differs from the lock ({lock.get(name.lower())})"
