@@ -37,7 +37,8 @@ WIDGETS: list[dict] = [
     # Administration / configuration — « what must the administrator watch and do today »
     {"id": "access.members", "title": "Comptes et accès", "module": "access", "priority": 10, "all": ("access.users.read",)},
     {"id": "access.requests", "title": "Demandes d’approbation", "module": "access", "priority": 11, "all": ("access.roles.manage",)},
-    {"id": "settings.readiness", "title": "Paramétrage de l’établissement", "module": "settings", "priority": 12, "all": ("settings.school_identity.read",)},
+    # Setup journey and its shortcut only for whoever can change the settings (2026-10-24: a cashier only reads them).
+    {"id": "settings.readiness", "title": "Paramétrage de l’établissement", "module": "settings", "priority": 12, "all": ("settings.school_identity.update",)},
     {"id": "settings.academic_year", "title": "Année scolaire", "module": "settings", "priority": 13, "all": ("settings.academic_year.read",)},
     {"id": "settings.structure", "title": "Structure : sections et classes", "module": "settings", "priority": 14, "all": ("settings.structure.read",)},
     {"id": "audit.recent", "title": "Dernières actions administratives", "module": "access", "priority": 15, "all": ("audit.school.read",)},
@@ -58,7 +59,7 @@ ACTIONS: list[dict] = [
     {"id": "students.search", "label": "Rechercher un élève", "module": "students", "all": ("students.read",)},
     {"id": "checkout.new", "label": "Nouvel encaissement", "module": "finance", "all": ("finance.checkout.collect",)},
     {"id": "members.create", "label": "Ajouter un utilisateur", "module": "access", "all": ("access.users.create",)},
-    {"id": "settings.open", "label": "Compléter le paramétrage", "module": "settings", "all": ("settings.school_identity.read",)},
+    {"id": "settings.open", "label": "Compléter le paramétrage", "module": "settings", "all": ("settings.school_identity.update",)},
     {"id": "inventory.open", "label": "Ouvrir l’intendance", "module": "stewardship", "all": ("inventory.stock.read",)},
 ]
 

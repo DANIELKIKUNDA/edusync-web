@@ -319,3 +319,11 @@ button.homeSearch{width:100%;text-align:left;font:inherit;cursor:pointer;border:
 @keyframes es-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.moduleSpinner{animation-duration:2.4s}}
 .sessionRestore .moduleLoader{min-height:auto}
+.schoolingHero{padding:22px 24px!important;align-items:center}@media (max-width:720px){.schoolingHero{padding:18px!important;align-items:flex-start}}
+.enrollmentWizard .enrollPeriodNotice{margin:0 20px 12px}
+/* Cash desk buttons (cashier certification 2026-10-24): never the browser default look */
+.cashCloseBox button,.cashExpenseBox button{min-height:44px;padding:0 20px;border-radius:12px;font:inherit;font-size:14.5px;font-weight:700;cursor:pointer}
+.cashCloseBox button.primaryBtn{border:0;background:#1557d6;color:#fff;box-shadow:0 8px 20px -10px rgba(21,87,214,.8)}
+.cashCloseBox button.primaryBtn:hover{background:#1149b8}
+button.softBtn{border:1px solid #d0d5dd;background:#fff;color:#344054}
+.cashExpenseBox button.softBtn{justify-self:start}
