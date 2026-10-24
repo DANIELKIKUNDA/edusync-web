@@ -5306,9 +5306,9 @@
    "prerequisites": [],
    "outputs": [],
    "sensitive": false,
-   "notes": "",
+   "notes": "Activée le 2026-10-24 (migration 0088, parité Paramètres passe 3).",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false
@@ -5398,9 +5398,9 @@
    "prerequisites": [],
    "outputs": [],
    "sensitive": false,
-   "notes": "",
+   "notes": "Activée le 2026-10-24 (migration 0088, parité Paramètres passe 3).",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false
@@ -5653,9 +5653,9 @@
     "ZIP"
    ],
    "sensitive": false,
-   "notes": "",
+   "notes": "Activée le 2026-10-24 (migration 0088, parité Paramètres passe 3).",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false
@@ -5676,9 +5676,9 @@
    "prerequisites": [],
    "outputs": [],
    "sensitive": false,
-   "notes": "",
+   "notes": "Activée le 2026-10-24 (migration 0088, parité Paramètres passe 3).",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false

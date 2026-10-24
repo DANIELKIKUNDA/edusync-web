@@ -18,6 +18,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from edusync.modules.documents.application.identity import signatory_line
 from edusync.modules.documents.application.object_store import logo_stream
 from edusync.modules.finance_reports.domain.periodic import money_in_words
 
@@ -52,6 +53,8 @@ def _story(school: dict[str, Any], r: dict[str, Any], width: float, narrow: bool
     st = _styles(narrow)
     contacts = " · ".join(str(x) for x in (school.get("address"), school.get("city"), school.get("phone")) if x)
     ident = [Paragraph(escape(str(school.get("name") or "École")), st["school"])]
+    if school.get("motto"):                         # Desktop identity « devise / mention »
+        ident.append(Paragraph(f"<i>{escape(str(school['motto']))}</i>", st["meta"]))
     if contacts:
         ident.append(Paragraph(escape(contacts), st["meta"]))
     logo = logo_stream(school)
@@ -88,6 +91,9 @@ def _story(school: dict[str, Any], r: dict[str, Any], width: float, narrow: bool
     # N3-G / G-DOC-1 — Desktop receipt block « MONTANT EN LETTRES » (money_in_words).
     words = money_in_words(r["amount"], r["currency"])
     story += [Paragraph("MONTANT EN LETTRES :", st["bold"]), Paragraph(escape(words[:1].upper() + words[1:] + "."), st["cell"]), Spacer(1, 3 * mm)]
+    signer = signatory_line(school)              # Desktop save_document_settings signatory
+    if signer:
+        story += [Paragraph("Signature et cachet", st["foot"]), Spacer(1, 9 * mm), Paragraph(escape(signer), st["meta"]), Spacer(1, 2 * mm)]
     story.append(Paragraph("Montant enregistré dans la caisse de l'école. Conservez ce reçu.", st["foot"]))
     story.append(Paragraph("Édité par EduSync", st["foot"]))
     return story

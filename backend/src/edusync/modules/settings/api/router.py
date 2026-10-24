@@ -101,6 +101,8 @@ class IdentityPatch(BaseModel):
     address:str|None=Field(default=None,max_length=500)
     city:str|None=Field(default=None,max_length=120)
     province:str|None=Field(default=None,max_length=120)
+    # Desktop identity « devise / mention » (settings parity pass 3): printed under the school name on documents.
+    motto:str|None=Field(default=None,max_length=160)
 
 
 @router.get('/overview')
@@ -110,7 +112,8 @@ def overview(actor:ActorContext=Depends(require_school_actor),services:AppServic
         repo=PostgresSettingsRepository(conn); snap,bootstrap=repo.readiness(actor.school_id)
         school=PostgresSchoolRepository(conn).get(actor.school_id)
         return {
-            'school':{'id':str(school.id),'code':school.code,'name':school.name,'email':school.email,'phone':school.phone,'logo_url':school.logo_url,'address':school.address,'city':school.city,'province':school.province,'version':school.version},
+            'school':{'id':str(school.id),'code':school.code,'name':school.name,'email':school.email,'phone':school.phone,'logo_url':school.logo_url,'address':school.address,'city':school.city,'province':school.province,'version':school.version,
+                      'motto':conn.execute(text('SELECT motto FROM schools WHERE id=:sid'),{'sid':str(actor.school_id)}).scalar_one_or_none()},
             'readiness':{'percent':snap.percent,'global_blocking':False,'items':[{'code':x.code,'label':x.label,'state':x.state,'detail':x.detail,'blocking_only_for':list(x.blocking_only_for)} for x in snap.items]},
             'bootstrap':bootstrap,
         }
@@ -136,8 +139,13 @@ def update_identity(body:IdentityPatch,response:Response,if_match:str|None=Heade
             if school.version!=expected: raise OptimisticConcurrencyError('Identité école modifiée par une autre session')
             old={'name':school.name,'email':school.email,'phone':school.phone,'logo_url':school.logo_url,'address':school.address,'city':school.city,'province':school.province,'version':school.version}
             school.name=body.name.strip();school.email=body.email;school.phone=body.phone;school.logo_url=body.logo_url;school.address=body.address;school.city=body.city;school.province=body.province
+            old['motto']=conn.execute(text('SELECT motto FROM schools WHERE id=:sid'),{'sid':str(school.id)}).scalar_one_or_none()
             schools.save_identity(school)
-            new={'name':school.name,'email':school.email,'phone':school.phone,'logo_url':school.logo_url,'address':school.address,'city':school.city,'province':school.province,'version':school.version}
+            # Column-level grant of migration 0088. A client that does not send the motto (older screen, setup assistant)
+            # keeps it; an explicit empty value clears it.
+            motto=((body.motto or '').strip() or None) if 'motto' in body.model_fields_set else old['motto']
+            conn.execute(text('UPDATE schools SET motto=:m WHERE id=:sid'),{'m':motto,'sid':str(school.id)})
+            new={'name':school.name,'email':school.email,'phone':school.phone,'logo_url':school.logo_url,'address':school.address,'city':school.city,'province':school.province,'version':school.version,'motto':motto}
             _audit_and_outbox(conn,request_actor,action='SCHOOL_IDENTITY_UPDATED',entity_type='School',entity_id=school.id,old=old,new=new)
             return 200,new
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_UPDATE_IDENTITY',payload=payload,action=action)
@@ -832,3 +840,119 @@ def _jsonable(value):
         if isinstance(value,datetime.datetime):return value.isoformat()
     except Exception:pass
     return value
+
+
+# --- Settings parity pass 3 (2026-10-24): numbering, school data export / test, diagnostic ---------------------------
+# Desktop golden master: « numérotation automatique », _backup_now, _test_backup, _export_diagnostic.
+from edusync.modules.settings.application import school_maintenance as _maint
+
+
+def _audit_direct(conn, actor: ActorContext, action: str, new: dict) -> None:
+    """Read-only operations (export, test, diagnostic) are evidence too: audit only, no outbox event."""
+    PostgresAuditRepository(conn).append(AuditRecord(action=action, entity_type='School', entity_id=actor.school_id, actor_user_id=actor.user_id,
+        membership_id=actor.membership_id, school_id=actor.school_id, source=actor.source, old_data=None, new_data=new,
+        reason=None, correlation_id=actor.correlation_id, idempotency_key=None))
+
+
+def _platform_backup(services: AppServices) -> dict:
+    from edusync.modules.platform_health.api.router import backup_component
+    b = backup_component(services)
+    return {'state': b.get('state'), 'detail': b.get('detail'), 'finished_at': (b.get('backup') or {}).get('finished_at'),
+            'restore_verified': bool((b.get('backup') or {}).get('restore_verified')), 'offsite': bool((b.get('backup') or {}).get('offsite'))}
+
+
+@router.get('/numbering')
+def numbering(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, 'settings.school_identity.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        return _maint.numbering(conn, actor.school_id)
+
+
+@router.get('/backups/status')
+def backups_status(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, 'settings.backups.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        last = conn.execute(text("""SELECT occurred_at AS created_at, new_json FROM audit_events WHERE school_id=:sid AND action IN ('SCHOOL_DATA_EXPORTED','SCHOOL_DATA_EXPORT_TESTED')
+            ORDER BY occurred_at DESC LIMIT 1"""), {'sid': str(actor.school_id)}).mappings().first()
+    return _jsonable({'platform': _platform_backup(services), 'last_school_copy': dict(last) if last else None,
+                      'restore': 'La restauration d’une école est réalisée par l’équipe de la plateforme EduSync, sur demande de la direction.'})
+
+
+@router.post('/backups/export')
+def backups_export(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, 'settings.backups.create')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        data, manifest = _maint.export_school_data(conn, actor.school_id, generated_by=str(actor.user_id))
+        check = _maint.verify_export(data)
+        if not check['ok']:
+            raise HTTPException(status_code=500, detail='La copie générée n’a pas passé le contrôle d’intégrité : ' + '; '.join(check['problems']))
+        _audit_direct(conn, actor, 'SCHOOL_DATA_EXPORTED', {'tables': check['tables'], 'total_rows': check['total_rows'], 'sha256': check['sha256'], 'size_bytes': check['size_bytes']})
+    name = f"sauvegarde_{manifest['school']['code'] or 'ecole'}_{manifest['generated_at'][:10]}.zip"
+    return Response(data, media_type='application/zip', headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
+                    'Content-Disposition': f'attachment; filename="{name}"', 'X-Export-Sha256': check['sha256']})
+
+
+@router.post('/backups/test')
+def backups_test(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, 'settings.backups.test')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        data, _manifest = _maint.export_school_data(conn, actor.school_id, generated_by=str(actor.user_id))
+        check = _maint.verify_export(data)
+        _audit_direct(conn, actor, 'SCHOOL_DATA_EXPORT_TESTED', {k: check[k] for k in ('ok', 'tables', 'total_rows', 'sha256', 'size_bytes')})
+    return check
+
+
+def _diagnostic(conn, actor: ActorContext, services: AppServices) -> dict:
+    snap, _bootstrap = PostgresSettingsRepository(conn).readiness(actor.school_id)
+    readiness = {'percent': snap.percent, 'items': [{'code': x.code, 'label': x.label, 'state': x.state} for x in snap.items]}
+    return _maint.diagnostic(conn, actor.school_id, readiness=readiness, backup=_platform_backup(services))
+
+
+@router.get('/diagnostics')
+def diagnostics(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, 'settings.diagnostics.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        return _jsonable(_diagnostic(conn, actor, services))
+
+
+@router.get('/diagnostics/report.txt')
+def diagnostics_report(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, 'settings.diagnostics.export')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        d = _diagnostic(conn, actor, services)
+        _audit_direct(conn, actor, 'SCHOOL_DIAGNOSTIC_EXPORTED', {'app_version': d['app_version'], 'schema_version': d['schema_version']})
+    return Response(_maint.diagnostic_text(d).encode('utf-8'), media_type='text/plain; charset=utf-8',
+                    headers={'Cache-Control': 'private, no-store', 'Content-Disposition': f'attachment; filename="diagnostic_{d["generated_at"][:10]}.txt"'})
+
+
+class DocumentSettingsPut(BaseModel):
+    signatory_name:str|None=Field(default=None,max_length=120)
+    signatory_title:str|None=Field(default=None,max_length=120)
+    show_school_logo:bool=True
+
+
+@router.get('/document-settings')
+def document_settings(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Desktop _build_documents: signatory printed on documents and « show the school logo » (receipt numbering, format
+    and copies stay in the Documents module, next to the cash desk)."""
+    _need(actor, 'settings.documents.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        r = conn.execute(text("SELECT signatory_name,signatory_title,show_school_logo,version FROM school_print_settings WHERE school_id=:sid"), {'sid': str(actor.school_id)}).mappings().first()
+    return dict(r) if r else {'signatory_name': None, 'signatory_title': None, 'show_school_logo': True, 'version': 0}
+
+
+@router.put('/document-settings')
+def put_document_settings(body: DocumentSettingsPut, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    _need(actor, 'settings.documents.manage')
+    values = {'sid': str(actor.school_id), 'n': (body.signatory_name or '').strip() or None, 't': (body.signatory_title or '').strip() or None,
+              'l': body.show_school_logo, 'u': str(actor.user_id)}
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        old = conn.execute(text("SELECT signatory_name,signatory_title,show_school_logo FROM school_print_settings WHERE school_id=:sid"), {'sid': str(actor.school_id)}).mappings().first()
+        row = conn.execute(text("""INSERT INTO school_print_settings(school_id,signatory_name,signatory_title,show_school_logo,updated_by) VALUES(:sid,:n,:t,:l,:u)
+            ON CONFLICT(school_id) DO UPDATE SET signatory_name=EXCLUDED.signatory_name,signatory_title=EXCLUDED.signatory_title,show_school_logo=EXCLUDED.show_school_logo,
+            updated_by=EXCLUDED.updated_by,updated_at=now(),version=school_print_settings.version+1
+            RETURNING signatory_name,signatory_title,show_school_logo,version"""), values).mappings().one()
+        PostgresAuditRepository(conn).append(AuditRecord(action='DOCUMENT_SETTINGS_UPDATED', entity_type='SchoolPrintSettings', entity_id=actor.school_id,
+            actor_user_id=actor.user_id, membership_id=actor.membership_id, school_id=actor.school_id, source=actor.source,
+            old_data=dict(old) if old else None, new_data=dict(row), reason=None, correlation_id=actor.correlation_id, idempotency_key=None))
+    return dict(row)

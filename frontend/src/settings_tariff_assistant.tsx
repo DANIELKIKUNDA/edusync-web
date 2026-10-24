@@ -67,7 +67,8 @@ export function previewTariffs({year, classes, options, existing, planned}: {yea
 }
 
 function Shell({title, subtitle, onClose, children, footer}: {title: string; subtitle: string; onClose: () => void; children: React.ReactNode; footer: React.ReactNode}) {
-  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  // Capture + stop: opened above the setup assistant, Escape closes this dialog only, never both.
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }; window.addEventListener('keydown', k, true); return () => window.removeEventListener('keydown', k, true); }, [onClose]);
   return createPortal(<div className="sw-backdrop" onClick={onClose}><div className="sw-dialog sw-wide" role="dialog" aria-modal="true" aria-label={title} onClick={e => e.stopPropagation()}>
     <header className="sw-head"><div><h3>{title}</h3><p>{subtitle}</p></div><button type="button" className="sw-close ta-close" aria-label="Fermer" onClick={onClose}>+</button></header>
     <div className="sw-body">{children}</div><footer className="sw-foot">{footer}</footer></div></div>, document.body);

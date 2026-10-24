@@ -4,7 +4,7 @@ export type School={id:string;name:string;code:string;status:'ACTIVE'|'SUSPENDED
 export type PlatformLoginResult={access_token:string;token_type:'bearer';expires_in:number;scope:'PLATFORM';user:{id:string;email:string;full_name:string}};
 export type SchoolLoginResult={access_token:string;token_type:'bearer';expires_in:number;scope:'SCHOOL';user:{id:string;email:string;full_name:string};school:{id:string;code:string;name:string};permissions:string[]};
 export type ReadinessItem={code:string;label:string;state:'READY'|'TO_CONFIRM'|'TO_COMPLETE'|'NOT_APPLICABLE';detail:string;blocking_only_for:string[]};
-export type SettingsOverview={school:{id:string;code:string;name:string;email?:string|null;phone?:string|null;logo_url?:string|null;address?:string|null;city?:string|null;province?:string|null;version:number};readiness:{percent:number;global_blocking:false;items:ReadinessItem[]};bootstrap?:{suggested_year_code?:string|null;internal_notifications_enabled:boolean;external_sms_enabled:boolean;version:number}|null};
+export type SettingsOverview={school:{id:string;code:string;name:string;email?:string|null;phone?:string|null;logo_url?:string|null;address?:string|null;city?:string|null;province?:string|null;motto?:string|null;version:number};readiness:{percent:number;global_blocking:false;items:ReadinessItem[]};bootstrap?:{suggested_year_code?:string|null;internal_notifications_enabled:boolean;external_sms_enabled:boolean;version:number}|null};
 export type AcademicYear={id:string;code:string;label:string;start_date:string;end_date:string;status:'PREPARED'|'ACTIVE'|'CLOSED'|'ARCHIVED';version:number};
 export type SchoolSection={id:string;code:string;label:string;enabled:boolean;version:number};
 export type SchoolClass={id:string;academic_year_id:string;section_id:string;option_id?:string|null;reference_code?:string|null;code:string;label:string;enabled:boolean;status?:'ACTIVE'|'INACTIVE'|'ARCHIVED';student_count?:number;academic_year_status?:string;version:number;section_code?:string;section_label?:string;academic_year_code?:string;academic_year_label?:string};
@@ -77,7 +77,7 @@ export async function platformBootstrapAdmin(token:string,schoolId:string,input:
 
 export async function getSettingsOverview(token:string):Promise<SettingsOverview>{const r=await fetch(`${API}/settings/overview`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Paramètres indisponibles'));return r.json();}
 export async function getReferenceCatalog(token:string):Promise<ReferenceCatalog>{const r=await fetch(`${API}/settings/reference-catalog`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Référentiel indisponible'));return r.json();}
-export async function updateSchoolIdentity(token:string,input:{name:string;email?:string|null;phone?:string|null;logo_url?:string|null;address?:string|null;city?:string|null;province?:string|null},version:number){const r=await fetch(`${API}/settings/identity`,{method:'PATCH',headers:mutationHeaders(token,{'If-Match':String(version)}),body:JSON.stringify(input)});if(!r.ok)throw new Error(await errorDetail(r,'Mise à jour impossible'));return r.json();}
+export async function updateSchoolIdentity(token:string,input:{name:string;email?:string|null;phone?:string|null;logo_url?:string|null;address?:string|null;city?:string|null;province?:string|null;motto?:string|null},version:number){const r=await fetch(`${API}/settings/identity`,{method:'PATCH',headers:mutationHeaders(token,{'If-Match':String(version)}),body:JSON.stringify(input)});if(!r.ok)throw new Error(await errorDetail(r,'Mise à jour impossible'));return r.json();}
 
 export async function listAcademicYears(token:string):Promise<AcademicYear[]>{const r=await fetch(`${API}/settings/academic-years`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Années indisponibles'));return r.json();}
 // Shell year selector: every school member may see the years (non-sensitive), unlike year administration.
@@ -470,3 +470,21 @@ export type AccessMe={membership_id:string;school_id:string;role_label:string;pe
   navigation:AccessNav[];widgets:AccessWidget[];actions:AccessAction[]};
 export async function getAccessMe(token:string):Promise<AccessMe>{const r=await fetch(`${API}/access/me`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Espace indisponible'));return r.json()}
 export async function getAccessDashboard(token:string):Promise<Record<string,any>>{const r=await fetch(`${API}/access/dashboard`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Tableau de bord indisponible'));return r.json()}
+
+// Settings parity pass 3 (2026-10-24): document signatory, numbering, school data copy, diagnostic.
+export type DocumentSettings={signatory_name:string|null;signatory_title:string|null;show_school_logo:boolean;version:number};
+export async function getDocumentSettings(token:string){return json<DocumentSettings>(await fetch(`${API}/settings/document-settings`,{headers:auth(token)}),'Réglages des documents indisponibles')}
+export async function putDocumentSettings(token:string,body:{signatory_name:string|null;signatory_title:string|null;show_school_logo:boolean}){return json<DocumentSettings>(await fetch(`${API}/settings/document-settings`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Réglages des documents impossibles à enregistrer')}
+export type Numbering={student:string;family:string;receipt:string};
+export async function getNumbering(token:string){return json<Numbering>(await fetch(`${API}/settings/numbering`,{headers:auth(token)}),'Numérotation indisponible')}
+export type PlatformBackup={state:string;detail:string;finished_at?:string|null;restore_verified:boolean;offsite:boolean};
+export type BackupStatus={platform:PlatformBackup;last_school_copy:{created_at:string;new_json:{total_rows?:number;tables?:number;sha256?:string;ok?:boolean}}|null;restore:string};
+export async function getBackupStatus(token:string){return json<BackupStatus>(await fetch(`${API}/settings/backups/status`,{headers:auth(token)}),'État des sauvegardes indisponible')}
+export async function exportSchoolData(token:string):Promise<{blob:Blob;filename:string;sha256:string}>{const r=await fetch(`${API}/settings/backups/export`,{method:'POST',headers:mutationHeaders(token)});if(!r.ok)throw new Error(await errorDetail(r,'Copie des données impossible'));
+  const name=/filename="([^"]+)"/.exec(r.headers.get('Content-Disposition')??'')?.[1]??'sauvegarde_ecole.zip';return {blob:await r.blob(),filename:name,sha256:r.headers.get('X-Export-Sha256')??''}}
+export type BackupTest={ok:boolean;problems:string[];tables:number;total_rows:number;skipped_tables:string[];size_bytes:number;sha256:string};
+export async function testSchoolData(token:string){return json<BackupTest>(await fetch(`${API}/settings/backups/test`,{method:'POST',headers:mutationHeaders(token)}),'Test de la copie impossible')}
+export type Diagnostic={generated_at:string;app_version:string;schema_version:string|null;database:string;school_code:string|null;academic_year:{label:string;status:string}|null;
+  volumes:{key:string;label:string;count:number|null}[];readiness:{percent:number;items:{code:string;label:string;state:string}[]}|null;backup:PlatformBackup|null};
+export async function getDiagnostic(token:string){return json<Diagnostic>(await fetch(`${API}/settings/diagnostics`,{headers:auth(token)}),'Diagnostic indisponible')}
+export async function diagnosticReport(token:string):Promise<Blob>{const r=await fetch(`${API}/settings/diagnostics/report.txt`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Rapport de diagnostic indisponible'));return r.blob()}

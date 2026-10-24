@@ -353,7 +353,8 @@ def _school_identity(conn,school_id:UUID)->dict[str,Any]:
     school=PostgresSchoolRepository(conn).get(school_id)
     if not school:return {'name':'École'}
     logo_key=conn.execute(text("SELECT logo_object_key FROM school_branding WHERE school_id=:sid"),{'sid':str(school_id)}).scalar_one_or_none()
-    return {'id':str(school_id),'name':school.name,'logo_object_key':logo_key,'email':school.email,'phone':school.phone,'address':school.address,'city':school.city,'province':school.province}
+    from edusync.modules.documents.application.identity import apply_document_preferences   # motto, signatory, logo choice
+    return apply_document_preferences(conn,{'id':str(school_id),'name':school.name,'logo_object_key':logo_key,'email':school.email,'phone':school.phone,'address':school.address,'city':school.city,'province':school.province})
 
 def _school_name(conn,school_id:UUID)->str:
     return _school_identity(conn,school_id).get('name') or 'École'
