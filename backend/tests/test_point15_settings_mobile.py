@@ -30,6 +30,6 @@ def test_release():
     assert '0.52.0-point17-environment-closure' in (ROOT/'frontend/package.json').read_text()
 
 def test_settings_loading_is_permission_aware():
-    assert "safe(can('settings.products.read')" in APP
-    assert "safe(can('settings.contributions.read')" in APP
+    assert "load('products',can('settings.products.read')" in APP  # partial reload, still permission-aware (2026-10-24)
+    assert "can('settings.contributions.read')" in APP
     assert "const allowed=(key:TabKey)=>" in APP and "g.keys.filter(allowed)" in APP  # grouped, permission-aware (2026-10-24)

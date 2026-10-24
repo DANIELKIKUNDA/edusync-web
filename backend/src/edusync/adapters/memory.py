@@ -17,6 +17,7 @@ class MemorySchoolRepository:
         return next((x for x in self.items.values() if x.code == code), None)
     def list(self) -> list[School]: return sorted(self.items.values(), key=lambda x: x.name.casefold())
     def save(self, school: School) -> None: self.items[school.id] = school
+    def save_identity(self, school: School) -> None: school.version += 1; self.items[school.id] = school
 
 
 class MemoryAuditRepository:

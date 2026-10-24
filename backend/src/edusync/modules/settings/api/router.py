@@ -55,7 +55,13 @@ def _expected(if_match: str | None) -> int:
 
 def _error(exc: Exception):
     if isinstance(exc, LookupError): raise HTTPException(status_code=404,detail=str(exc)) from exc
-    if isinstance(exc,(ValueError,OptimisticConcurrencyError,IdempotencyConflict,IntegrityError)):
+    if isinstance(exc,IntegrityError):
+        # never the raw SQL text: a uniqueness / reference violation explained in the user's terms
+        raw=str(getattr(exc,'orig',exc)).lower()
+        msg=('Cet élément existe déjà : un autre porte le même code ou le même nom.' if 'unique' in raw or 'duplicate' in raw
+             else 'Enregistrement refusé : un élément lié est introuvable ou encore utilisé.')
+        raise HTTPException(status_code=409,detail=msg) from exc
+    if isinstance(exc,(ValueError,OptimisticConcurrencyError,IdempotencyConflict)):
         raise HTTPException(status_code=409,detail=str(exc)) from exc
     if isinstance(exc,IdempotencyInProgress):
         raise HTTPException(status_code=409,detail=str(exc),headers={"Retry-After":"1"}) from exc
@@ -130,7 +136,7 @@ def update_identity(body:IdentityPatch,response:Response,if_match:str|None=Heade
             if school.version!=expected: raise OptimisticConcurrencyError('Identité école modifiée par une autre session')
             old={'name':school.name,'email':school.email,'phone':school.phone,'logo_url':school.logo_url,'address':school.address,'city':school.city,'province':school.province,'version':school.version}
             school.name=body.name.strip();school.email=body.email;school.phone=body.phone;school.logo_url=body.logo_url;school.address=body.address;school.city=body.city;school.province=body.province
-            schools.save(school)
+            schools.save_identity(school)
             new={'name':school.name,'email':school.email,'phone':school.phone,'logo_url':school.logo_url,'address':school.address,'city':school.city,'province':school.province,'version':school.version}
             _audit_and_outbox(conn,request_actor,action='SCHOOL_IDENTITY_UPDATED',entity_type='School',entity_id=school.id,old=old,new=new)
             return 200,new
@@ -299,6 +305,11 @@ def put_option(code:str,body:OptionPut,response:Response,idempotency_key:str|Non
             old=conn.execute(text("SELECT section_id,code,label,tariff_group_code,enabled,version FROM school_options WHERE school_id=:s AND code=:c"),
                              {"s":actor.school_id,"c":body.code.strip().upper()}).first()
             old=None if old is None else _jsonable(dict(old._mapping))
+            if old is None:
+                # Owner decision 2026-10-24 (desktop parity): study options exist only in the Secondaire (Humanités).
+                sec=conn.execute(text("SELECT code FROM school_sections WHERE school_id=:s AND id=:id"),{"s":actor.school_id,"id":body.section_id}).scalar()
+                if sec is None: raise LookupError('Section introuvable')
+                if str(sec).upper()!='SECONDAIRE': raise ValueError('Les options n’existent qu’en Secondaire (Humanités) : la Maternelle et le Primaire n’en ont pas.')
             # Desktop set_option_tariff_group: the Humanities tariff group is its own action and capability; an update that
             # does not send it keeps the current group.
             if 'tariff_group_code' not in body.model_fields_set: data['tariff_group_code']=(old or {}).get('tariff_group_code')
@@ -307,6 +318,9 @@ def put_option(code:str,body:OptionPut,response:Response,idempotency_key:str|Non
             payload=_jsonable(out);_audit_and_outbox(conn,request_actor,action='SCHOOL_OPTION_UPSERTED',entity_type='SchoolOption',entity_id=UUID(str(out['id'])),old=old,new=payload);return 200,payload
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_UPSERT_OPTION',payload=body.model_dump(mode='json'),action=action);return result.body
     except Exception as exc:_error(exc)
+
+
+HUMANITIES_REFERENCES={'H1','H2','H3','H4'}
 
 
 class ClassCreate(BaseModel):
@@ -336,6 +350,8 @@ def create_class(body:ClassCreate,response:Response,idempotency_key:str|None=Hea
     _need(actor,'settings.classes.create');key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
+            if body.option_id is not None and (body.reference_code or '').upper() not in HUMANITIES_REFERENCES:
+                raise ValueError('Une option ne s’applique qu’aux classes des Humanités (1re à 4e Humanités).')
             out=PostgresSettingsRepository(conn).create_class(actor.school_id,**body.model_dump());out=_jsonable(out)
             _audit_and_outbox(conn,request_actor,action='SCHOOL_CLASS_CREATED',entity_type='SchoolClass',entity_id=UUID(out['id']),old=None,new=out);return 201,out
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_CREATE_CLASS',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
