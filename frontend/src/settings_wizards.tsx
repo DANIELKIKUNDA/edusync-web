@@ -55,18 +55,65 @@ export const PRODUCT_PRESETS=[{label:'Pull scolaire'},{label:'Uniforme scolaire'
 
 const LETTERS='ABCDEFGHIJ';
 export type PlannedClass={key:string;section:SchoolSection;reference:{code:string;label:string};option?:SchoolOption;suffix:string;code:string;label:string};
+/** Parallels are chosen PER LEVEL (owner request 2026-10-24: 1re, 2e and 3e primaire may have A and B while the other
+    levels stay single). Key = reference code (« P1 »), or « H1:CG » for one Humanités option; default 1. A plain number
+    applies to every level. */
+export type Parallels=number|Record<string,number>;
+export const MAX_PARALLELS=8;
+const clampParallels=(n:number)=>Math.max(1,Math.min(MAX_PARALLELS,Math.floor(Number(n)||1)));
+export function parallelCount(parallels:Parallels,ref:string,option?:string):number{
+  if(typeof parallels==='number')return clampParallels(parallels);
+  return clampParallels((option?parallels[`${ref}:${option}`]:undefined)??parallels[ref]??1);
+}
 /** Classes to open: one per reference class × option (Humanités) × parallel letter; existing codes are skipped. */
 export function planClasses({sections,refs,options,picked,parallels,optionIds,existing}:{sections:SchoolSection[];refs:ReferenceCatalog;options:SchoolOption[];picked:string[];
-  parallels:number;optionIds:string[];existing:Set<string>}):PlannedClass[]{
-  const out:PlannedClass[]=[];const suffixes=parallels<=1?['']:LETTERS.slice(0,parallels).split('');
+  parallels:Parallels;optionIds:string[];existing:Set<string>}):PlannedClass[]{
+  const out:PlannedClass[]=[];
   for(const code of picked){const ref=refs.classes.find(r=>r.code===code);const section=sections.find(s=>s.code===ref?.section_code);if(!ref||!section)continue;
     const opts=HUMANITIES.has(code)?options.filter(o=>optionIds.includes(o.id)):[undefined];
-    for(const option of opts)for(const suffix of suffixes){
+    for(const option of opts){const n=parallelCount(parallels,code,option?.code);const base=[ref.code,option?.code].filter(Boolean).join('_').slice(0,61).toUpperCase();
+      // A level already split in A, B… is never given an extra class without letter; an existing class without letter
+      // counts as the first one when parallels are added (« 4e primaire » + B, never a second « 4e primaire A »).
+      const hasSuffixed=LETTERS.split('').some(l=>existing.has(`${base}_${l}`));
+      const suffixes=n<=1?(hasSuffixed?[]:['']):LETTERS.slice(existing.has(base)?1:0,n).split('');
+      for(const suffix of suffixes){
       const c=[ref.code,option?.code,suffix].filter(Boolean).join('_').slice(0,64);
       if(existing.has(c.toUpperCase()))continue;
       out.push({key:c,section,reference:ref,option,suffix,code:c,label:[ref.label,option?.label,suffix].filter(Boolean).join(' ')});
-    }}
+    }}}
   return out;
+}
+
+function Stepper({value,onChange,label}:{value:number;onChange:(n:number)=>void;label:string}){
+  return <span className="sw-stepper" role="group" aria-label={label}>
+    <button type="button" aria-label={`Une classe de moins — ${label}`} disabled={value<=1} onClick={()=>onChange(value-1)}>−</button>
+    <output aria-live="polite">{value}<small>{value>1?` (${LETTERS.slice(0,value).split('').join(', ')})`:' seule'}</small></output>
+    <button type="button" aria-label={`Une classe de plus — ${label}`} disabled={value>=MAX_PARALLELS} onClick={()=>onChange(value+1)}>+</button></span>;
+}
+
+/** Parallels already open for the year, per level (« P1 ») or Humanités option (« H1:CG »): the starting point of the grid. */
+export function existingParallels(classes:SchoolClass[],yearId:string,options:SchoolOption[]):Record<string,number>{
+  const out:Record<string,number>={};
+  for(const c of classes){if(c.academic_year_id!==yearId||!c.reference_code||(c.status??(c.enabled?'ACTIVE':'INACTIVE'))==='ARCHIVED')continue;
+    const ref=c.reference_code.toUpperCase();const opt=options.find(o=>o.id===c.option_id)?.code;const k=opt&&HUMANITIES.has(ref)?`${ref}:${opt}`:ref;out[k]=(out[k]??0)+1}
+  return out;
+}
+
+/** One row per level: include it or not, and its own number of parallel classes (per option in the Humanités). */
+export function ParallelsGrid({levels,picked,setPicked,counts,setCounts,options}:{levels:{code:string;label:string}[];picked:string[];setPicked:(p:string[])=>void;
+  counts:Record<string,number>;setCounts:(c:Record<string,number>)=>void;options:SchoolOption[]}){
+  const setAll=(n:number)=>{const next:Record<string,number>={};for(const l of levels){if(HUMANITIES.has(l.code))for(const o of options)next[`${l.code}:${o.code}`]=n;else next[l.code]=n}setCounts(next)};
+  const put=(k:string,n:number)=>setCounts({...counts,[k]:n});
+  return <div className="sw-levels">
+    <div className="sw-levels-head"><span>Niveau</span><span className="sw-levels-quick">Tout mettre à <button type="button" onClick={()=>setAll(1)}>1</button><button type="button" onClick={()=>setAll(2)}>2</button></span></div>
+    {levels.map(l=>{const on=picked.includes(l.code);const hum=HUMANITIES.has(l.code);
+      return <div key={l.code} className={`sw-level ${on?'':'off'}`}>
+        <label className="sw-level-name"><input type="checkbox" checked={on} onChange={e=>setPicked(e.target.checked?[...picked,l.code]:picked.filter(x=>x!==l.code))}/>{l.label}</label>
+        {on&&(!hum?<Stepper label={l.label} value={parallelCount(counts,l.code)} onChange={n=>put(l.code,n)}/>
+          :options.length?<div className="sw-level-options">{options.map(o=><div key={o.id}><span>{o.label}</span><Stepper label={`${l.label} ${o.label}`} value={parallelCount(counts,l.code,o.code)} onChange={n=>put(`${l.code}:${o.code}`,n)}/></div>)}</div>
+          :<small className="sw-hint">Cochez au moins une option des Humanités.</small>)}
+      </div>})}
+  </div>;
 }
 
 function Modal({title,subtitle,onClose,children,footer,wide}:{title:string;subtitle?:string;onClose:()=>void;children:React.ReactNode;footer:React.ReactNode;wide?:boolean}){
@@ -105,7 +152,7 @@ export function ClassBatchDialog({token,year,sections,refs,options,classes,onClo
   const refList=refs.classes.filter(r=>r.section_code===section?.code).sort((a,b)=>a.sort_order-b.sort_order);
   const [picked,setPicked]=useState<string[]>([]);
   useEffect(()=>{setPicked(refList.map(r=>r.code))},[sectionId]);
-  const [parallels,setParallels]=useState(1);
+  const [parallels,setParallels]=useState<Record<string,number>>(()=>existingParallels(classes,year.id,options));
   const secOptions=options.filter(o=>o.section_id===sectionId&&o.enabled);
   const [optionIds,setOptionIds]=useState<string[]>([]);
   useEffect(()=>{setOptionIds(secOptions.map(o=>o.id))},[sectionId,options.length]);
@@ -118,16 +165,16 @@ export function ClassBatchDialog({token,year,sections,refs,options,classes,onClo
       catch(e){setError(`${p.label} : ${friendlyError(e)}`);break}}
     setBusy(false);if(ok){toast.success(`${ok} classe${ok>1?'s':''} ouverte${ok>1?'s':''} en ${year.label}`);await onDone()}if(ok===plan.length)onClose();
   }
-  return <Modal wide title={`Ouvrir des classes — ${year.label}`} subtitle="Cochez les classes, choisissez le nombre de classes parallèles : les noms et les codes sont générés automatiquement." onClose={busy?()=>{}:onClose}
+  return <Modal wide title={`Ouvrir des classes — ${year.label}`} subtitle="Pour chaque niveau, choisissez son propre nombre de classes parallèles : les noms et les codes sont générés automatiquement." onClose={busy?()=>{}:onClose}
     footer={<><span className="sw-count">{plan.length?`${plan.length} classe${plan.length>1?'s':''} à créer`:'Aucune nouvelle classe'}{busy?` · ${done}/${plan.length}`:''}</span>
       <Button variant="secondary" onClick={onClose} disabled={busy}>Annuler</Button><Button variant="primary" icon="plus" disabled={busy||!plan.length||(humanities&&!optionIds.length&&secOptions.length>0)} onClick={()=>void run()}>{busy?'Création…':'Créer les classes'}</Button></>}>
     {error&&<div className="error" role="alert">{error}</div>}
     <div className="sw-field"><span>Section</span><div className="sw-seg">{enabled.map(s=><button key={s.id} type="button" className={s.id===sectionId?'on':''} aria-pressed={s.id===sectionId} onClick={()=>setSectionId(s.id)}>{s.label}</button>)}</div></div>
-    <div className="sw-field"><span>Classes de référence</span><div className="sw-chips">{refList.map(r=>{const on=picked.includes(r.code);return <button key={r.code} type="button" className={`sw-chip ${on?'on':''}`} aria-pressed={on} onClick={()=>setPicked(p=>on?p.filter(x=>x!==r.code):[...p,r.code])}>{on?<NavGlyph g="check" size={14}/>:<NavGlyph g="plus" size={14}/>}{r.label}</button>})}</div></div>
-    <div className="sw-field"><span>Classes parallèles par niveau</span><div className="sw-seg">{[1,2,3,4,5].map(n=><button key={n} type="button" className={parallels===n?'on':''} aria-pressed={parallels===n} onClick={()=>setParallels(n)}>{n===1?'Une seule':`${n} (${LETTERS.slice(0,n).split('').join(', ')})`}</button>)}</div>
-      <small className="sw-hint">Exemple : « 2 » ouvre 1re primaire A et 1re primaire B. Vous pourrez ajouter d’autres parallèles plus tard : les classes déjà ouvertes ne sont jamais recréées.</small></div>
     {humanities&&<div className="sw-field"><span>Options des Humanités</span>{secOptions.length?<div className="sw-chips">{secOptions.map(o=>{const on=optionIds.includes(o.id);return <button key={o.id} type="button" className={`sw-chip ${on?'on':''}`} aria-pressed={on} onClick={()=>setOptionIds(p=>on?p.filter(x=>x!==o.id):[...p,o.id])}>{on?<NavGlyph g="check" size={14}/>:<NavGlyph g="plus" size={14}/>}{o.label}</button>})}</div>
       :<p className="error">Aucune option ouverte en Secondaire : ouvrez d’abord les options (Commerciale et gestion, Scientifique…) dans la section Secondaire.</p>}</div>}
+    <div className="sw-field"><span>Niveaux et classes parallèles</span>
+      <ParallelsGrid levels={refList} picked={picked} setPicked={setPicked} counts={parallels} setCounts={setParallels} options={secOptions.filter(o=>optionIds.includes(o.id))}/>
+      <small className="sw-hint">Exemple : 2 en 1re, 2e et 3e primaire ouvre « 1re primaire A » et « 1re primaire B »… ; les autres niveaux restent à une seule classe. Les classes déjà ouvertes ne sont jamais recréées : passer de 2 à 3 ajoute seulement la classe C.</small></div>
     <div className="sw-preview"><b>Aperçu</b>{plan.length?<ul>{plan.slice(0,40).map(p=><li key={p.key}>{p.label}</li>)}{plan.length>40&&<li>… et {plan.length-40} autres</li>}</ul>:<p className="sw-hint">Toutes les classes cochées sont déjà ouvertes pour {year.label}.</p>}</div>
   </Modal>;
 }
@@ -147,7 +194,11 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
   useEffect(()=>{if(!year&&next)setYear({label:next.label,start:next.start_date,end:next.end_date})},[next]);
   const [wantedSections,setWantedSections]=useState<string[]>([]);
   useEffect(()=>{setWantedSections(sections.filter(s=>s.enabled).map(s=>s.code))},[sections.length]);
-  const [parallels,setParallels]=useState(1);
+  const [parallels,setParallels]=useState<Record<string,number>>({});
+  const levels=useMemo(()=>refs.classes.filter(r=>sections.some(x=>x.enabled&&x.code===r.section_code)).sort((a,b)=>a.sort_order-b.sort_order),[refs,sections]);
+  const [pickedLevels,setPickedLevels]=useState<string[]>([]);
+  useEffect(()=>{setPickedLevels(levels.map(l=>l.code))},[levels.length]);
+  useEffect(()=>{if(active)setParallels(p=>({...existingParallels(classes,active.id,options),...p}))},[classes.length,options.length,active?.id]);
   const steps=['École & année','Sections','Options','Classes','Terminé'];
   async function guard(fn:()=>Promise<void>){try{setBusy(true);setError('');await fn();setStep(s=>s+1)}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
   const saveIdentityAndYear=()=>guard(async()=>{
@@ -162,7 +213,7 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
     else if(!want&&have?.enabled)await putSection(token,{code:r.code,label:r.label,enabled:false,expected_version:have.version})}await reload()});
   const sec=sections.find(s=>s.code===OPTIONS_SECTION&&s.enabled);
   const openClasses=()=>guard(async()=>{const {y,s,o,c}=await reload();const yr=y.find(x=>x.status==='ACTIVE')??y.find(x=>x.status==='PREPARED');if(!yr)throw new Error('Préparez d’abord une année scolaire (étape 1).');
-    const enabled=s.filter(x=>x.enabled);const picked=refs.classes.filter(r=>enabled.some(x=>x.code===r.section_code)).map(r=>r.code);
+    const enabled=s.filter(x=>x.enabled);const picked=refs.classes.filter(r=>enabled.some(x=>x.code===r.section_code)&&pickedLevels.includes(r.code)).map(r=>r.code);
     const plan=planClasses({sections:enabled,refs,options:o,picked,parallels,optionIds:o.filter(x=>x.enabled).map(x=>x.id),existing:new Set(c.filter(x=>x.academic_year_id===yr.id).map(x=>x.code.toUpperCase()))});
     for(const p of plan)await createClass(token,{academic_year_id:yr.id,section_id:p.section.id,reference_code:p.reference.code,code:p.code,label:p.label,option_id:p.option?.id??null});
     toast.success(plan.length?`${plan.length} classe(s) ouverte(s)`:'Toutes les classes étaient déjà ouvertes');await reload()});
@@ -186,8 +237,9 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
       <small className="sw-hint">Une section décochée n’efface rien : ses classes existantes restent dans l’historique.</small></div>}
     {step===2&&(sec?<OptionCatalog token={token} section={sec} options={options} canManage={can('settings.options.manage')} onChanged={async()=>{await reload()}}/>
       :<p className="sw-hint">Pas de section Secondaire : aucune option à configurer. Continuez.</p>)}
-    {step===3&&<div className="sw-field"><span>Classes parallèles par niveau</span><div className="sw-seg">{[1,2,3].map(n=><button key={n} type="button" className={parallels===n?'on':''} aria-pressed={parallels===n} onClick={()=>setParallels(n)}>{n===1?'Une seule classe':`${n} classes (${LETTERS.slice(0,n).split('').join(', ')})`}</button>)}</div>
-      <small className="sw-hint">L’assistant ouvre toutes les classes standards des sections choisies ({sections.filter(s=>s.enabled).map(s=>s.label).join(', ')||'aucune'}) et, pour les Humanités, une classe par option ouverte. Les classes déjà ouvertes ne sont jamais recréées.</small></div>}
+    {step===3&&<div className="sw-field"><span>Niveaux organisés et classes parallèles</span>
+      <ParallelsGrid levels={levels} picked={pickedLevels} setPicked={setPickedLevels} counts={parallels} setCounts={setParallels} options={options.filter(o=>o.enabled)}/>
+      <small className="sw-hint">Chaque niveau a son propre nombre de classes : par exemple 2 en 1re, 2e et 3e primaire, une seule ailleurs. Décochez un niveau que l’école n’organise pas. Les classes déjà ouvertes ne sont jamais recréées.</small></div>}
     {step===4&&<div className="sw-finish"><NavGlyph g="checkCircle" size={34}/><b>L’essentiel est configuré</b><p>Il reste à définir les types de frais, les tarifs, les conditions d’inscription et les règles d’encaissement : le parcours de paramétrage vous y conduit étape par étape.</p></div>}
   </Modal>;
 }

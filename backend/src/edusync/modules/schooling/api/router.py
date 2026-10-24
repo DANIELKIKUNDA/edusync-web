@@ -239,7 +239,8 @@ def enrollment_benefits(actor:ActorContext=Depends(require_school_actor),service
             # Desktop: large family limit = free or max beneficiaries; staff child limit = max or free beneficiaries.
             limit=(free or most) if p['benefit_type']=='LARGE_FAMILY' else (most or free)
             return {"min_children":int(p.get('min_children') or 0),"beneficiary_limit":limit,
-                    "discount_percent":"100" if free>0 else str(p.get('discount_percent') or 0),"fee_code":p.get('applies_to_fee_code') or 'SCOLARITE'}
+                    "discount_percent":"100" if free>0 else str(p.get('discount_percent') or 0),"fee_code":p.get('applies_to_fee_code') or 'SCOLARITE',
+                    "fee_codes":list(p.get('applies_to_fee_codes') or [p.get('applies_to_fee_code') or 'SCOLARITE'])}
         large=repo.benefit_policy(actor.school_id,year['id'],'LARGE_FAMILY');staff=repo.benefit_policy(actor.school_id,year['id'],'STAFF_CHILD')
         members=[] if not staff else [dict(r._mapping) for r in conn.execute(text("""SELECT id,trim(concat_ws(' ',last_name,middle_name,first_name)) AS full_name,employee_no
             FROM staff_members WHERE school_id=:s AND status='ACTIVE' ORDER BY last_name,first_name"""),{"s":actor.school_id}).all()]

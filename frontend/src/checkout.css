@@ -71,3 +71,10 @@
 /* N3-D — fonds anticipés */
 .fundsPanel{display:grid;gap:10px;margin-top:14px;padding:12px;border:1px solid #dbe3ef;border-radius:12px;background:#fff}
 .fundActions{display:flex;gap:6px;flex-wrap:wrap}.fundActions button{min-height:44px}
+/* Decisions on several fees / instalments at once (settings parity 2026-10-24) */
+.decisionForm .feeChecks{display:grid;gap:6px;min-width:0}
+.decisionForm .feeChecks>span{font-weight:600;font-size:13px}
+.decisionForm .feeChecks>span small{font-weight:400;color:#5b6475}
+.decisionForm .feeCheckGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 12px}
+.decisionForm .feeCheckGrid label.checkField{display:flex;align-items:center;gap:8px;font-weight:400;overflow-wrap:anywhere}
+.decisionForm .feeCheckGrid input{min-height:0;width:18px;height:18px;flex:none}
