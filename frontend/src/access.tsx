@@ -78,6 +78,8 @@ function Icon({name,size=20}:{name:string;size?:number}){
     chevron:<><path d="m9 6 6 6-6 6"/></>,
     userPlus:<><path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></>,
     power:<><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></>,
+    mail:<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></>,
+    user:<><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></>,
   };
   return <svg className="uiIcon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{p[name]??p.shield}</svg>;
 }
@@ -254,7 +256,7 @@ export default function AccessPage({token,permissions,userName}:Props){
     {assignFor&&<AssignDialog token={token} member={assignFor} roles={activeRoles} scopes={scopes} canScope={canScope}
       onClose={()=>setAssignFor(null)} onSaved={async()=>{setAssignFor(null);await load()}}/>}
     {adding&&<AddMemberDialog token={token} roles={activeRoles} canAssign={canAssign} onClose={()=>setAdding(false)}
-      onDone={async r=>{setAdding(false);if(r.temporary_password)setSecret({title:'Compte créé',name:r.full_name,email:r.email,password:r.temporary_password});else if(r.invitation_sent)toast.success(`Invitation envoyée à ${r.email} : lien valable 48 heures, utilisable une seule fois.`);else toast.success(r.attached_existing_account?`${r.full_name} a déjà un compte EduSync : il est rattaché à votre école et se connecte avec ses identifiants habituels.`:'Membre ajouté');await load()}}/>}
+      onDone={async r=>{setAdding(false);setTab('members');setStatus('active');setQ('');if(r.temporary_password)setSecret({title:'Compte créé',name:r.full_name,email:r.email,password:r.temporary_password});else if(r.invitation_sent)toast.success(`Invitation envoyée à ${r.email} : lien valable 48 heures, utilisable une seule fois.`);else toast.success(r.attached_existing_account?`${r.full_name} a déjà un compte EduSync : il est rattaché à votre école et se connecte avec ses identifiants habituels.`:'Membre ajouté');await load()}}/>}
     {secret&&<SecretDialog {...secret} onClose={()=>setSecret(null)}/>}
     {confirm&&<ReasonDialog {...confirm} onClose={()=>setConfirm(null)}/>}
     </>,document.body)}
@@ -411,31 +413,73 @@ function MemberSheet({member,canAssign,canUpdate,canActivate,canReset,token,onCl
 
 type CreatedMember={membership_id:string;email:string;full_name:string;created:boolean;attached_existing_account:boolean;temporary_password:string|null;invitation_sent?:boolean};
 
+// « Ajouter un membre » (premium pass 2026-10-24): own layout (no generic label styles), sticky head and foot, scrolling
+// body, role chosen on cards with search, access mode on two cards, one-click reasons, live summary. Same API and rules.
+const REASONS = ['Arrivée dans l’équipe', 'Remplacement', 'Nouvelle fonction', 'Stage', 'Renfort temporaire'];
 function AddMemberDialog({token,roles,canAssign,onClose,onDone}:{token:string;roles:Role[];canAssign:boolean;onClose:()=>void;onDone:(r:CreatedMember)=>Promise<void>}){
-  const [email,setEmail]=useState(''),[name,setName]=useState(''),[roleId,setRoleId]=useState(''),[reason,setReason]=useState('Arrivée dans l’équipe'),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [email,setEmail]=useState(''),[name,setName]=useState(''),[roleId,setRoleId]=useState(''),[reason,setReason]=useState(REASONS[0]),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [delivery,setDelivery]=useState<'TEMPORARY_PASSWORD'|'INVITATION'>('TEMPORARY_PASSWORD');
-  const [touched,setTouched]=useState(false);
+  const [touched,setTouched]=useState(false);const [q,setQ]=useState('');
   const emailOk=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()),nameOk=name.trim().length>=3,reasonOk=reason.trim().length>=3;
-  useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose]);
+  useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!busy)onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose,busy]);
+  const usable=roles.filter(r=>r.status==='ACTIVE');
+  const shown=usable.filter(r=>!q.trim()||`${r.label} ${r.description}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const groups:[string,Role[]][]=[['Rôles propres à l’école',shown.filter(r=>r.kind==='SCHOOL_CUSTOM')],['Rôles standards EduSync',shown.filter(r=>r.kind==='SCHOOL_STANDARD')]];
+  const role=usable.find(r=>r.id===roleId);
   async function save(e:React.FormEvent){e.preventDefault();setTouched(true);setError('');if(!emailOk||!nameOk||!reasonOk)return;
     try{setBusy(true);const r=await send<CreatedMember>(token,'POST','members',{email:email.trim().toLowerCase(),full_name:name.trim(),role_id:roleId||null,reason:reason.trim(),delivery});await onDone(r)}
     catch(err){setError(err instanceof Error?err.message:friendlyError(err))}finally{setBusy(false)}}
-  return <div className="wizardBackdrop" onClick={onClose}><form className="accountSecurityDialog addMemberDialog" role="dialog" aria-modal="true" aria-label="Ajouter un membre" onClick={e=>e.stopPropagation()} onSubmit={save} noValidate>
-    <div className="modalHead"><div><h3>Ajouter un membre</h3><p>Un compte est créé avec un mot de passe provisoire, affiché une seule fois. Si l’adresse a déjà un compte EduSync, il est simplement rattaché à votre école.</p></div><button type="button" aria-label="Fermer" onClick={onClose}>×</button></div>
-    <label>Adresse e-mail *<input type="email" inputMode="email" autoComplete="off" value={email} onChange={e=>setEmail(e.target.value)} aria-invalid={touched&&!emailOk} placeholder="prenom.nom@ecole.cd" autoFocus/>{touched&&!emailOk&&<small className="fieldError">Saisissez une adresse e-mail valide.</small>}</label>
-    <label>Nom complet *<input autoComplete="off" value={name} onChange={e=>setName(e.target.value)} aria-invalid={touched&&!nameOk} maxLength={180}/>{touched&&!nameOk&&<small className="fieldError">Indiquez le nom complet (3 caractères minimum).</small>}</label>
-    {canAssign&&<label>Premier rôle<select value={roleId} onChange={e=>setRoleId(e.target.value)}><option value="">Aucun pour l’instant</option>
-      <optgroup label="Rôles propres à l’école">{roles.filter(r=>r.kind==='SCHOOL_CUSTOM').map(r=><option key={r.id} value={r.id}>{r.label}</option>)}</optgroup>
-      <optgroup label="Rôles standards EduSync">{roles.filter(r=>r.kind==='SCHOOL_STANDARD').map(r=><option key={r.id} value={r.id}>{r.label}</option>)}</optgroup></select>
-      <small className="fieldHint">Attribué sur toute l’école. Vous pourrez le limiter à une section ou une classe ensuite.</small></label>}
-    <label>Motif *<input value={reason} onChange={e=>setReason(e.target.value)} aria-invalid={touched&&!reasonOk}/></label>
-    <fieldset className="memberDelivery"><legend>Accès du nouveau compte</legend>
-      <label className="toggleLine"><input type="radio" name="delivery" checked={delivery==='TEMPORARY_PASSWORD'} onChange={()=>setDelivery('TEMPORARY_PASSWORD')}/> Mot de passe provisoire, affiché une seule fois</label>
-      <label className="toggleLine"><input type="radio" name="delivery" checked={delivery==='INVITATION'} onChange={()=>setDelivery('INVITATION')}/> Invitation par e-mail (lien valable 48 h, aucun mot de passe envoyé)</label>
-    </fieldset>
-    {error&&<div className="error" role="alert">{error}</div>}
-    <div className="modalActions"><button type="button" className="ghost" onClick={onClose}>Annuler</button><button disabled={busy}>{busy?'Création…':'Ajouter'}</button></div>
-  </form></div>;
+  return createPortal(<div className="am-backdrop" onClick={()=>{if(!busy)onClose()}}>
+    <form className="am-dialog" role="dialog" aria-modal="true" aria-labelledby="am-title" onClick={e=>e.stopPropagation()} onSubmit={save} noValidate>
+      <header className="am-head"><span className="am-headIcon" aria-hidden="true"><Icon name="userPlus" size={22}/></span>
+        <div><h3 id="am-title">Ajouter un membre</h3><p>Créez son accès à l’école. Si l’adresse a déjà un compte EduSync, il est simplement rattaché à votre école.</p></div>
+        <button type="button" className="am-close" aria-label="Fermer" disabled={busy} onClick={onClose}><Icon name="x" size={18}/></button></header>
+      <div className="am-body">
+        <section className="am-section"><h4><span>1</span>Qui est-ce ?</h4>
+          <div className="am-grid">
+            <div className={`am-field ${touched&&!nameOk?'invalid':''}`}><label htmlFor="am-name">Nom complet *</label>
+              <div className="am-input"><Icon name="user" size={17}/><input id="am-name" autoComplete="off" value={name} onChange={e=>setName(e.target.value)} maxLength={180} placeholder="Ex. Grâce Mutombo" autoFocus/></div>
+              {touched&&!nameOk&&<small className="am-error">Indiquez le nom complet (3 caractères minimum).</small>}</div>
+            <div className={`am-field ${touched&&!emailOk?'invalid':''}`}><label htmlFor="am-email">Adresse e-mail *</label>
+              <div className="am-input"><Icon name="mail" size={17}/><input id="am-email" type="email" inputMode="email" autoComplete="off" value={email} onChange={e=>setEmail(e.target.value)} placeholder="prenom.nom@ecole.cd"/></div>
+              {touched&&!emailOk?<small className="am-error">Saisissez une adresse e-mail valide.</small>:<small className="am-hint">Elle sert d’identifiant de connexion.</small>}</div>
+          </div>
+        </section>
+        {canAssign&&<section className="am-section"><h4><span>2</span>Quel rôle ? <small>facultatif, modifiable ensuite</small></h4>
+          <div className="am-input am-search"><Icon name="search" size={16}/><input aria-label="Rechercher un rôle" value={q} onChange={e=>setQ(e.target.value)} placeholder="Rechercher : caissier, secrétariat, préfet…"/></div>
+          <div className="am-roles" role="radiogroup" aria-label="Premier rôle">
+            <button type="button" role="radio" aria-checked={roleId===''} className={`am-role ${roleId===''?'on':''}`} onClick={()=>setRoleId('')}>
+              <span className="am-roleIcon"><Icon name="clock" size={16}/></span><span><b>Aucun pour l’instant</b><small>Le membre ne voit rien tant qu’un rôle ne lui est pas attribué.</small></span></button>
+            {groups.map(([title,list])=>list.length>0&&<React.Fragment key={title}><p className="am-groupTitle">{title}</p>
+              {list.map(r=><button key={r.id} type="button" role="radio" aria-checked={roleId===r.id} className={`am-role ${roleId===r.id?'on':''}`} onClick={()=>setRoleId(r.id)}>
+                <span className="am-roleIcon"><Icon name={r.kind==='SCHOOL_CUSTOM'?'key':'shield'} size={16}/></span>
+                <span><b>{r.label}</b><small>{r.description||`${r.capabilities.length} droit(s)`}</small></span>
+                <em>{r.holders?`${r.holders} membre(s)`:'Nouveau'}</em></button>)}</React.Fragment>)}
+            {shown.length===0&&q.trim()&&<p className="am-hint">Aucun rôle ne correspond à « {q.trim()} ».</p>}
+          </div>
+          <small className="am-hint">Le rôle est attribué sur toute l’école ; vous pourrez le limiter à une section ou une classe depuis la fiche du membre.</small>
+        </section>}
+        <section className="am-section"><h4><span>{canAssign?3:2}</span>Comment se connecte-t-il ?</h4>
+          <div className="am-options" role="radiogroup" aria-label="Accès du nouveau compte">
+            <button type="button" role="radio" aria-checked={delivery==='TEMPORARY_PASSWORD'} className={`am-option ${delivery==='TEMPORARY_PASSWORD'?'on':''}`} onClick={()=>setDelivery('TEMPORARY_PASSWORD')}>
+              <span className="am-optionIcon"><Icon name="key" size={20}/></span><b>Mot de passe provisoire</b><small>Affiché une seule fois ici ; vous le remettez en main propre. Il le change à sa première connexion.</small></button>
+            <button type="button" role="radio" aria-checked={delivery==='INVITATION'} className={`am-option ${delivery==='INVITATION'?'on':''}`} onClick={()=>setDelivery('INVITATION')}>
+              <span className="am-optionIcon"><Icon name="mail" size={20}/></span><b>Invitation par e-mail</b><small>Un lien valable 48 h lui permet de choisir son mot de passe. Aucun mot de passe n’est envoyé.</small></button>
+          </div>
+        </section>
+        <section className="am-section"><h4><span>{canAssign?4:3}</span>Motif <small>inscrit au journal des accès</small></h4>
+          <div className="am-chips">{REASONS.map(x=><button key={x} type="button" className={`am-chip ${reason===x?'on':''}`} aria-pressed={reason===x} onClick={()=>setReason(x)}>{x}</button>)}</div>
+          <div className={`am-field ${touched&&!reasonOk?'invalid':''}`}><div className="am-input"><Icon name="edit" size={16}/><input aria-label="Motif" value={reason} onChange={e=>setReason(e.target.value)} maxLength={240}/></div>
+            {touched&&!reasonOk&&<small className="am-error">Indiquez le motif (3 caractères minimum).</small>}</div>
+        </section>
+        {error&&<div className="error" role="alert">{error}</div>}
+      </div>
+      <footer className="am-foot">
+        <span className="am-summary">{nameOk?<><b>{name.trim()}</b>{role?` · ${role.label}`:' · sans rôle'} · {delivery==='INVITATION'?'invitation e-mail':'mot de passe provisoire'}</>:'Complétez le nom et l’adresse e-mail'}</span>
+        <button type="button" className="am-btn ghost" disabled={busy} onClick={onClose}>Annuler</button>
+        <button className="am-btn primary" disabled={busy}><Icon name="userPlus" size={16}/>{busy?'Création…':'Ajouter le membre'}</button>
+      </footer>
+    </form></div>,document.body);
 }
 
 /** Temporary password shown once (creation or reset). It must be handed over through a safe channel. */
