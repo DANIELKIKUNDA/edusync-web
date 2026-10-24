@@ -10,8 +10,8 @@ saisit jamais un code interne**.
 
 | Rubrique | Desktop | Web — passe 1 (PR #11) | Web — passe 2 (cette branche) | Reste à faire |
 |---|---|---|---|---|
-| Vue d’ensemble | Assistant intelligent, progression, prochain matricule | Assistant de mise en service + parcours | Assistant : **niveaux à cocher et parallèles par niveau** (repart des classes déjà ouvertes) | Prochain matricule (pas d’API) ; étape « tarifs » dans l’assistant de mise en service (l’assistant tarifaire est dans l’onglet Tarifs) |
-| École & identité | Nom, contacts, adresse, devise / mention, logo | Enregistrement réparé (0086), logo, erreurs expliquées | — | « Devise / mention » (nouvelle colonne à décider) |
+| Vue d’ensemble | Assistant intelligent, progression, prochain matricule | Assistant de mise en service + parcours | Assistant : **niveaux à cocher et parallèles par niveau** (repart des classes déjà ouvertes) | ✅ passe 3 : étape **Frais & tarifs** (frais courants en un clic + assistant tarifaire) ; **numérotation automatique** affichée (prochain matricule élève, code famille, reçu) |
+| École & identité | Nom, contacts, adresse, devise / mention, logo | Enregistrement réparé (0086), logo, erreurs expliquées | — | ✅ passe 3 : **devise / mention** (migration 0088), imprimée sous le nom sur reçus et rapports ; jamais effacée par un écran qui ne l’envoie pas |
 | Années scolaires | Créer, reprendre, activer, clôturer, archiver | Code généré | — | — |
 | Structure & classes | Options en Humanités seulement, lot de classes, parallèles | Lot de classes, **même nombre de parallèles pour tous les niveaux** | **Parallèles choisies niveau par niveau** (et option par option en Humanités) : ex. 2 en 1re, 2e, 3e primaire, 1 ailleurs. Une classe sans lettre compte comme la première ; un niveau déjà en A/B ne reçoit jamais de classe sans lettre | — |
 | Types de frais | 11 modèles + personnalisé, modification depuis la ligne | Modèles + frais personnalisé | **Modifier** (nom, périodicité, devise, réglementaire) et **désactiver / réactiver** un frais depuis sa ligne | — |
@@ -21,8 +21,8 @@ saisit jamais un code interne**.
 | Exonérations individuelles | Décisions financières | Décision sur un frais, **code à taper** | **Plusieurs frais ou plusieurs échéances cochés** (une décision traçable par frais), pour tout élève, sans être enfant du personnel ni pris en charge | — |
 | Encaissement | Acomptes, modes, fonds et plans anticipés | Présent | — | — |
 | Contributions / Articles | Modèles, codes générés | Modèles, codes générés | — | — |
-| Documents & sauvegardes | Préfixes, copies, signataire, sauvegarde / restauration | Lien vers Documents | — | Préfixes / signataire / copies côté web ; sauvegarde à la demande (capacités PLANNED) |
-| Assistance technique | Export du diagnostic | — | — | Capacités `settings.diagnostics.*` PLANNED |
+| Documents & sauvegardes | Préfixes, copies, signataire, sauvegarde / restauration | Lien vers Documents | — | ✅ passe 3 : onglet **Documents & signature** (signataire, fonction, afficher le logo — appliqués à tous les PDF) ; préfixes, format et copies déjà dans le module Documents. Onglet **Sauvegardes & diagnostic** : état de la sauvegarde quotidienne du serveur, **copie vérifiée des données de l’école** (ZIP + SHA-256, sans comptes ni audit) et **test de copie**. Restauration : par la plateforme (capacité `settings.backups.restore` laissée PLANNED) |
+| Assistance technique | Export du diagnostic | — | — | ✅ passe 3 : **diagnostic** affiché et exportable (versions, volumes, paramétrage, sauvegarde), sans nom, téléphone ni montant |
 
 ## Ce qu’EduSync web fait de plus que le desktop
 
@@ -43,3 +43,17 @@ Affichage mobile (390 px) vérifié, sans défilement horizontal.
 
 Non prouvé en navigateur dans cette passe : la décision d’exonération sur plusieurs frais (l’école de test n’a pas
 d’élève inscrit). Elle est couverte par la vérification des types et par le test du modèle de lecture côté serveur.
+
+## Passe 3 (« ajoute tout ce qui reste », 24/10/2026)
+
+- Migration `0088` : `schools.motto` (droit de mise à jour sur cette seule colonne), signataire / fonction / logo dans
+  `school_print_settings`, lecture seule de `schema_migrations` pour le diagnostic, et passage à ACTIVE de
+  `settings.backups.create`, `settings.backups.test`, `settings.diagnostics.read`, `settings.diagnostics.export`.
+  Ces droits étaient déjà attribués par le propriétaire au seul rôle « Administrateur système école » : aucune
+  attribution nouvelle ; les droits effectifs sont inchangés (le registre ne change que leur visibilité).
+- Sur le web, la base est partagée et sauvegardée chaque jour par la plateforme : une école ne copie donc jamais un
+  fichier de base. « Sauvegarder maintenant » télécharge une copie contrôlée de **ses propres** données ; « Tester »
+  la reconstruit et revérifie chaque empreinte et chaque nombre de lignes.
+- Parcours administrateur réel (`frontend/browser-tests/local_settings_parity3.mjs`) : **12/12**. La copie téléchargée
+  a été ouverte et revérifiée : 45 tables, toutes les empreintes justes, aucun mot de passe, jeton ni secret.
+- Reste, à la demande du propriétaire, **après** les paramètres : l’impression directe (sans fenêtre) des reçus.

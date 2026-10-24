@@ -191,3 +191,13 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .feeEdit .formActions{margin-left:auto}
 .feeRowActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cardsList article.muted{opacity:.7}
+/* Settings parity pass 3: numbering, backups, diagnostic */
+.numberingGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin:8px 0 0}
+.numberingGrid>div{border:1px solid #e5e9f1;border-radius:10px;padding:8px 10px;min-width:0}
+.numberingGrid dt{font-size:12px;color:#5b6475}
+.numberingGrid dd{margin:2px 0 0;font-weight:750;font-size:15px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.maintenance .benefitCard{display:grid;gap:6px}
+.mtLine{margin:0;font-size:13.5px}
+.mtOk{padding:10px 12px;border-radius:10px;background:#ecfdf3;color:#05603a;font-size:13.5px}
+.mtVolumes{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px}
+.mtVolumes li{display:flex;justify-content:space-between;gap:8px;font-size:13px;border-bottom:1px dotted #e5e9f1;padding:3px 0}

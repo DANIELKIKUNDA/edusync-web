@@ -47,6 +47,8 @@ def periodic_report_pdf(*, school: dict[str, Any], report: dict[str, Any], perio
         except Exception:
             pass
     story.append(Paragraph(escape(school.get("name") or "École"), school_style))
+    if school.get("motto"):                         # Desktop identity « devise / mention »
+        story.append(Paragraph(f"<i>{escape(school['motto'])}</i>", meta_style))
     contact = " · ".join(x for x in [school.get("address"), school.get("phone")] if x)
     if contact:
         story.append(Paragraph(escape(contact), meta_style))
@@ -69,7 +71,10 @@ def periodic_report_pdf(*, school: dict[str, Any], report: dict[str, Any], perio
                                ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F9FAFB")]), ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#F2F4F7")),
                                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("ALIGN", (4, 1), (-1, -1), "RIGHT")]))
     story.append(table); story.append(Spacer(1, 12 * mm))
-    signature = Table([[Paragraph("Visa / cachet de l’école", meta_style), Paragraph("Signature du responsable financier", meta_style)], ["", ""]],
+    from edusync.modules.documents.application.identity import signatory_line
+    signer = signatory_line(school)                # Desktop save_document_settings signatory (name — title)
+    signature = Table([[Paragraph("Visa / cachet de l’école", meta_style), Paragraph("Signature du responsable financier", meta_style)],
+                       ["", Paragraph(escape(signer), meta_style) if signer else ""]],
                       colWidths=[85 * mm, 85 * mm], rowHeights=[5 * mm, 15 * mm])
     signature.setStyle(TableStyle([("ALIGN", (1, 0), (1, -1), "RIGHT"), ("LINEABOVE", (0, 1), (0, 1), 0.4, colors.HexColor("#98A2B3")),
                                    ("LINEABOVE", (1, 1), (1, 1), 0.4, colors.HexColor("#98A2B3"))]))

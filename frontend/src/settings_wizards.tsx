@@ -1,13 +1,14 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
-import {activateAcademicYear,createAcademicYear,createClass,listAcademicYears,listClasses,listOptions,listSections,putOption,putSection,updateSchoolIdentity,
-  type AcademicYear,type ReferenceCatalog,type SchoolClass,type SchoolOption,type SchoolSection,type SettingsOverview} from './api';
+import {activateAcademicYear,createAcademicYear,createClass,createFeeType,listAcademicYears,listClasses,listFeeTypes,listOptions,listSections,listTariffs,putOption,putSection,updateSchoolIdentity,
+  type FeeType,type Tariff,type AcademicYear,type ReferenceCatalog,type SchoolClass,type SchoolOption,type SchoolSection,type SettingsOverview} from './api';
 import {friendlyError} from './platform/errors';
 import {Button,StatusBadge} from './platform/ui';
 import {NavGlyph} from './platform/nav_icons';
 import {suggestNextYear} from './platform/format';
 import './settings_wizards.css';
+import {TariffAssistant} from './settings_tariff_assistant';
 
 /* Settings assistants (2026-10-24), ported from the desktop (configuration_wizard.py, settings_page.py):
    - the user never types an internal code: codes are generated from the label (autoCode) and kept unique;
@@ -186,7 +187,12 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
   const [step,setStep]=useState(0);const [busy,setBusy]=useState(false);const [error,setError]=useState('');
   const [identity,setIdentity]=useState({name:school?.name??'',phone:school?.phone??'',email:school?.email??'',address:school?.address??'',city:school?.city??'',province:school?.province??''});
   const [years,setYears]=useState<AcademicYear[]>([]);const [sections,setSections]=useState<SchoolSection[]>([]);const [options,setOptions]=useState<SchoolOption[]>([]);const [classes,setClasses]=useState<SchoolClass[]>([]);
-  async function reload(){const [y,s,o,c]=await Promise.all([listAcademicYears(token).catch(()=>[]),listSections(token).catch(()=>[]),listOptions(token).catch(()=>[]),listClasses(token).catch(()=>[])]);setYears(y);setSections(s);setOptions(o);setClasses(c);return {y,s,o,c}}
+  const [fees,setFees]=useState<FeeType[]>([]);const [tariffs,setTariffs]=useState<Tariff[]>([]);const [tariffAssistant,setTariffAssistant]=useState(false);
+  async function reload(){const [y,s,o,c,f,t]=await Promise.all([listAcademicYears(token).catch(()=>[]),listSections(token).catch(()=>[]),listOptions(token).catch(()=>[]),listClasses(token).catch(()=>[]),
+    can('settings.fee_types.read')?listFeeTypes(token).catch(()=>[]):Promise.resolve([] as FeeType[]),can('settings.tariffs.read')?listTariffs(token).catch(()=>[]):Promise.resolve([] as Tariff[])]);
+    setYears(y);setSections(s);setOptions(o);setClasses(c);setFees(f);setTariffs(t);return {y,s,o,c}}
+  // Desktop configuration wizard « tarifs » step (settings parity pass 3): the usual fees in one click, then the tariff assistant.
+  async function addFee(code:string,label:string,periodicity:FeeType['periodicity'],regulatory:boolean){try{setBusy(true);setError('');await createFeeType(token,{code,label,periodicity,default_currency:'CDF',regulatory});await reload()}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
   useEffect(()=>{void reload()},[]);
   const next=useMemo(()=>suggestNextYear(years.map(y=>y.code)),[years]);
   const active=years.find(y=>y.status==='ACTIVE')??years.find(y=>y.status==='PREPARED');
@@ -199,7 +205,7 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
   const [pickedLevels,setPickedLevels]=useState<string[]>([]);
   useEffect(()=>{setPickedLevels(levels.map(l=>l.code))},[levels.length]);
   useEffect(()=>{if(active)setParallels(p=>({...existingParallels(classes,active.id,options),...p}))},[classes.length,options.length,active?.id]);
-  const steps=['École & année','Sections','Options','Classes','Terminé'];
+  const steps=['École & année','Sections','Options','Classes','Frais & tarifs','Terminé'];
   async function guard(fn:()=>Promise<void>){try{setBusy(true);setError('');await fn();setStep(s=>s+1)}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
   const saveIdentityAndYear=()=>guard(async()=>{
     if(identity.name.trim().length<2)throw new Error('Indiquez le nom officiel de l’école.');
@@ -220,12 +226,13 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
   const finish=async()=>{await onDone();onClose()};
   const field=(k:keyof typeof identity,label:string,type='text')=><label className="sw-input"><span>{label}</span><input type={type} value={identity[k]} onChange={e=>setIdentity(v=>({...v,[k]:e.target.value}))}/></label>;
   return <Modal wide title="Assistant de mise en service" subtitle="Configurez l’établissement dans le bon ordre. Les codes techniques sont générés pour vous." onClose={busy?()=>{}:onClose}
-    footer={<>{step>0&&step<4&&<Button variant="quiet" onClick={()=>setStep(s=>s-1)} disabled={busy}>Retour</Button>}<span className="sw-count">Étape {Math.min(step+1,5)} sur 5</span>
+    footer={<>{step>0&&step<5&&<Button variant="quiet" onClick={()=>setStep(s=>s-1)} disabled={busy}>Retour</Button>}<span className="sw-count">Étape {Math.min(step+1,6)} sur 6</span>
       {step===0&&<Button variant="primary" disabled={busy} onClick={()=>void saveIdentityAndYear()}>{busy?'Enregistrement…':'Enregistrer et continuer'}</Button>}
       {step===1&&<Button variant="primary" disabled={busy||!wantedSections.length} onClick={()=>void saveSections()}>{busy?'Enregistrement…':'Enregistrer les sections'}</Button>}
       {step===2&&<Button variant="primary" onClick={()=>setStep(3)}>Continuer</Button>}
       {step===3&&<Button variant="primary" icon="plus" disabled={busy} onClick={()=>void openClasses()}>{busy?'Ouverture…':'Ouvrir les classes'}</Button>}
-      {step===4&&<Button variant="primary" onClick={()=>void finish()}>Terminer</Button>}</>}>
+      {step===4&&<Button variant="primary" onClick={()=>setStep(5)}>Continuer</Button>}
+      {step===5&&<Button variant="primary" onClick={()=>void finish()}>Terminer</Button>}</>}>
     <ol className="sw-steps">{steps.map((s,i)=><li key={s} className={i<step?'done':i===step?'on':''}><span>{i<step?<NavGlyph g="check" size={13}/>:i+1}</span>{s}</li>)}</ol>
     {error&&<div className="error" role="alert">{error}</div>}
     {step===0&&<div className="sw-grid">{field('name','Nom officiel *')}{field('phone','Téléphone','tel')}{field('email','E-mail','email')}{field('address','Adresse')}{field('city','Ville')}{field('province','Province')}
@@ -240,6 +247,13 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
     {step===3&&<div className="sw-field"><span>Niveaux organisés et classes parallèles</span>
       <ParallelsGrid levels={levels} picked={pickedLevels} setPicked={setPickedLevels} counts={parallels} setCounts={setParallels} options={options.filter(o=>o.enabled)}/>
       <small className="sw-hint">Chaque niveau a son propre nombre de classes : par exemple 2 en 1re, 2e et 3e primaire, une seule ailleurs. Décochez un niveau que l’école n’organise pas. Les classes déjà ouvertes ne sont jamais recréées.</small></div>}
-    {step===4&&<div className="sw-finish"><NavGlyph g="checkCircle" size={34}/><b>L’essentiel est configuré</b><p>Il reste à définir les types de frais, les tarifs, les conditions d’inscription et les règles d’encaissement : le parcours de paramétrage vous y conduit étape par étape.</p></div>}
+    {step===4&&<div className="sw-field"><span>Frais organisés par l’école</span>
+      <div className="sw-chips">{FEE_PRESETS.map(f=>{const have=fees.some(x=>x.code===f.code);return <button key={f.code} type="button" className={`sw-chip ${have?'on':''}`} aria-pressed={have} title={f.hint}
+        disabled={have||busy||!can('settings.fee_types.manage')} onClick={()=>void addFee(f.code,f.label,f.periodicity,!!f.regulatory)}>{have?<NavGlyph g="check" size={14}/>:<NavGlyph g="plus" size={14}/>}{f.label}</button>})}</div>
+      <small className="sw-hint">Un clic crée le frais ; les frais propres à l’école se créent ensuite dans « Types de frais ». Puis fixez les montants : grille par niveau, frais réglementaires, aperçu de ce que chaque classe paiera.</small>
+      {active&&can('settings.tariffs.manage')?<div><Button variant="secondary" icon="plus" disabled={!fees.length} onClick={()=>setTariffAssistant(true)}>Ouvrir l’assistant tarifaire</Button>{tariffs.some(t=>t.academic_year_id===active.id)&&<small className="sw-hint"> {tariffs.filter(t=>t.academic_year_id===active.id).length} règle(s) tarifaire(s) déjà enregistrée(s).</small>}</div>
+        :<small className="sw-hint">Les montants se fixent dans « Tarifs & barèmes » une fois l’année préparée.</small>}
+      {tariffAssistant&&active&&<TariffAssistant token={token} year={active} fees={fees} classes={classes} sections={sections} refs={refs} tariffs={tariffs} can={can} onClose={()=>setTariffAssistant(false)} onDone={async()=>{await reload()}}/>}</div>}
+    {step===5&&<div className="sw-finish"><NavGlyph g="checkCircle" size={34}/><b>L’essentiel est configuré</b><p>Il reste à vérifier les conditions d’inscription, les avantages et les règles d’encaissement, puis à appliquer les barèmes aux classes : le parcours de paramétrage vous y conduit étape par étape.</p></div>}
   </Modal>;
 }

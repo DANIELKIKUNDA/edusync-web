@@ -58,7 +58,8 @@ from edusync.modules.documents.application.object_store import archive_generated
 
 def _school(c, sid):
     r = c.execute(text("SELECT s.id,s.name,s.phone,s.address,s.city,b.logo_object_key FROM schools s LEFT JOIN school_branding b ON b.school_id=s.id WHERE s.id=:s"), {'s': str(sid)}).mappings().first()
-    return {**dict(r), 'id': str(r['id'])} if r else {'name': 'École'}
+    from edusync.modules.documents.application.identity import apply_document_preferences   # motto, signatory, logo choice
+    return apply_document_preferences(c, {**dict(r), 'id': str(r['id'])}) if r else {'name': 'École'}
 
 
 def _jsonable(v):

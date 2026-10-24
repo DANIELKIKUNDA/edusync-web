@@ -237,8 +237,10 @@ class PostgresFinanceCheckoutRepository:
  def receipt_copies(self,school_id:UUID,payment_id:UUID)->int:
   return int(self.conn.execute(text('SELECT count(*) FROM finance_receipt_prints WHERE school_id=:sid AND payment_id=:pid'),{'sid':str(school_id),'pid':str(payment_id)}).scalar_one())
  def print_settings(self,school_id:UUID)->dict:
-  r=self.conn.execute(text('SELECT receipt_policy,receipt_format,receipt_prefix,receipt_copies,report_prefix,version FROM school_print_settings WHERE school_id=:sid'),{'sid':str(school_id)}).mappings().first()
-  return dict(r) if r else {'receipt_policy':'NONE','receipt_format':'A5','receipt_prefix':'REC','receipt_copies':1,'report_prefix':'RAP','version':0}
+  r=self.conn.execute(text('''SELECT receipt_policy,receipt_format,receipt_prefix,receipt_copies,report_prefix,signatory_name,signatory_title,show_school_logo,version
+   FROM school_print_settings WHERE school_id=:sid'''),{'sid':str(school_id)}).mappings().first()
+  return dict(r) if r else {'receipt_policy':'NONE','receipt_format':'A5','receipt_prefix':'REC','receipt_copies':1,'report_prefix':'RAP',
+   'signatory_name':None,'signatory_title':None,'show_school_logo':True,'version':0}
  def next_receipt_number(self,school_id:UUID)->str:
   # Desktop next_receipt_no (parity lot L7): PREFIX-YEAR-000123, one atomic counter per calendar year, consumed inside the
   # payment transaction (a rollback gives the number back).

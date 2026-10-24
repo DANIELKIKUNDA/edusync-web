@@ -46,7 +46,9 @@ class PostgresEffectifsRepository:
 
     def school_identity(self,school_id:UUID)->dict[str,Any]:
         r=self.connection.execute(text("SELECT s.id,s.name,s.code,s.email,s.phone,s.address,s.city,s.province,b.logo_object_key FROM schools s LEFT JOIN school_branding b ON b.school_id=s.id WHERE s.id=:sid"),{"sid":school_id}).first()
-        return dict(r._mapping) if r else {"name":"EduSync École"}
+        if not r: return {"name":"EduSync École"}
+        from edusync.modules.documents.application.identity import apply_document_preferences   # motto, signatory, logo choice
+        return apply_document_preferences(self.connection,dict(r._mapping))
 
     def year(self,school_id:UUID,year_id:UUID|None=None)->dict[str,Any]|None:
         if year_id:
