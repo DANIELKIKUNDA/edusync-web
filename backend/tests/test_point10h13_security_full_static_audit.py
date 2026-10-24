@@ -12,7 +12,7 @@ SRC=ROOT/'src'/'edusync'
 PUBLIC_AUTH={'login','refresh_session','logout','logout_all','setup_status','create_first_manager','open_signed_document',
              'mfa_verify','mfa_enroll_start','mfa_enroll_confirm','first_password_change',
              # Account links (external messaging 2026-10): authenticated by a single-use hashed token / neutral answer.
-             'forgot_password','reset_password','invitation_details','accept_invitation',
+             'forgot_password','reset_password','invitation_details','inspect_invitation','accept_invitation',   # inspect: same as invitation_details, token in the body (2026-10-24)
              # Change of space (lot 2026-10): authenticated by the persistent device-session cookie like refresh (live session,
              # active user, user version), the target re-checked server-side, same-origin check on the switch, audited.
              'my_contexts','switch_space'}

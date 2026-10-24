@@ -29,6 +29,7 @@ from edusync.modules.iam.application import platform_mfa
 from edusync.modules.iam.application import account_links
 from edusync.shared.infrastructure.mfa import DIGITS as MFA_DIGITS, ISSUER as MFA_ISSUER, STEP_SECONDS as MFA_PERIOD
 
+log = logging.getLogger("edusync.iam")
 router = APIRouter(tags=["Authentification"])
 # Unknown accounts still pay one Argon2 verification so response time does not reveal which emails exist.
 _DUMMY_PASSWORD_HASH = hash_password(new_session_token()[0])
@@ -618,6 +619,37 @@ def invitation_details(token: str, response: Response, services: AppServices = D
     return {"valid": True, "full_name": row["full_name"], "school_name": row["school_name"]}
 
 
+class LinkTokenInput(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+
+
+def _invitation_scope(conn, row) -> str:
+    """PLATFORM when the invitation targets a platform member (no school), SCHOOL otherwise. Both choose a password:
+    the platform then asks for the 6-digit code at the first sign-in (enrolment), schools follow their own policy."""
+    if row["school_id"]:
+        return "SCHOOL"
+    member = conn.execute(text("""SELECT 1 FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
+        WHERE a.user_id=:u AND a.school_id IS NULL AND a.active AND r.level='PLATFORM' LIMIT 1"""), {"u": str(row["user_id"])}).first()
+    return "PLATFORM" if member else "SCHOOL"
+
+
+@router.post("/invitations/inspect")
+def inspect_invitation(body: LinkTokenInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
+    """Same answer as GET /invitations/{token}, but the token travels in the body, never in a request line or a log
+    (fix 2026-10-24: activation from the installed Android PWA). Expired, used, revoked and unknown links share one
+    neutral refusal."""
+    _assert_same_origin(request, services)
+    response.headers["Cache-Control"] = "no-store"
+    with services.platform_db.platform_transaction() as conn:
+        row = account_links.peek(conn, account_links.INVITATION, body.token)
+        scope = _invitation_scope(conn, row) if row else None
+    if row is None:
+        log.info("invitation.inspect", extra={"result": "refused"})
+        raise HTTPException(status_code=404, detail=account_links.NEUTRAL_REFUSAL)
+    log.info("invitation.inspect", extra={"result": "valid", "scope": scope})
+    return {"valid": True, "full_name": row["full_name"], "school_name": row["school_name"], "scope": scope}
+
+
 @router.post("/invitations/accept")
 def accept_invitation(body: LinkPasswordInput, request: Request, response: Response, services: AppServices = Depends(get_services)):
     """The invited person chooses a password: the account becomes usable; the link cannot be used again."""
@@ -630,7 +662,11 @@ def accept_invitation(body: LinkPasswordInput, request: Request, response: Respo
         conn.execute(text("""UPDATE users SET password_hash=:p, version=version+1, must_change_password=false, password_set_by='SELF' WHERE id=:u"""),
                      {"p": hash_password(body.new_password), "u": str(token["user_id"])})
         _security_audit(conn, user_id=token["user_id"], action="INVITATION_ACCEPTED", school_id=token["school_id"])
-    return {"activated": True}
+        # The person just proved possession of the link: the sign-in form is pre-filled with the address (fix 2026-10-24).
+        email = conn.execute(text("SELECT email::text FROM users WHERE id=:u"), {"u": str(token["user_id"])}).scalar_one()
+        scope = _invitation_scope(conn, token)
+    log.info("invitation.accept", extra={"result": "activated", "scope": scope})
+    return {"activated": True, "email": email, "scope": scope}
 
 
 @router.post('/refresh')

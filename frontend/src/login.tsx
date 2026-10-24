@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {AccountLinkCard,ForgotPasswordCard,takeAccountLink,type AccountLink} from './account_links';
+import {AccountLinkCard,ForgotPasswordCard,type AccountLink} from './account_links';
 import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
@@ -146,7 +146,7 @@ function MfaEnrollment({step,onDone,onRestart}:{step:MfaStep;onDone:(r:any)=>voi
   <div className="lg-head"><span className="lg-step">Sécurité du compte · Étape {progress} sur 3</span>
    <div className="mfa-progress" aria-hidden="true">{[1,2,3].map(i=><i key={i} className={i<=progress?'mfa-on':''}/>)}</div>
    <h1 id="mfa-en-title" ref={heading} tabIndex={-1}>{stage==='scan'?'Activer la validation en deux étapes':stage==='confirm'?'Confirmer avec un premier code':'Conservez vos codes de secours'}</h1>
-   <p>{stage==='scan'?'Les comptes de la plateforme EduSync peuvent créer, suspendre et administrer des écoles. Un code de votre téléphone sera désormais demandé à chaque nouvelle connexion, en plus du mot de passe.'
+   <p>{stage==='scan'?'Les comptes de la plateforme EduSync peuvent créer, suspendre et administrer des écoles. Un code de votre téléphone sera désormais demandé pour confirmer vos accès à la plateforme.'
     :stage==='confirm'?'Saisissez le code à 6 chiffres que votre application affiche maintenant pour EduSync.'
     :'Si vous perdez votre téléphone, ces codes vous permettront de vous connecter. Ils ne seront plus jamais affichés.'}</p></div>
   {stage==='scan'&&<>
@@ -203,7 +203,7 @@ function PasswordChangeScreen({token,email,onChanged,onRestart}:{token:string;em
  </form>
 }
 
-export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user:PlatformIdentity)=>void;onSchool:(s:Saved)=>void}){
+export function SecureLogin({onPlatform,onSchool,initialLink,onLinkHandled}:{onPlatform:(token:string,user:PlatformIdentity)=>void;onSchool:(s:Saved)=>void;initialLink?:AccountLink|null;onLinkHandled?:()=>void}){
  const [serverError,setServerError]=useState('');
  const [setup,setSetup]=useState<SetupStatus|null>(null);const [created,setCreated]=useState('');
  const [choice,setChoice]=useState<LoginContext[]|null>(null);const [busy,setBusy]=useState('');const [atelier,setAtelier]=useState(false);
@@ -211,7 +211,9 @@ export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user
  const [mfa,setMfa]=useState<MfaStep|null>(null);
  const [pwdStep,setPwdStep]=useState<{token:string;email:string}|null>(null);const lastEmail=useRef('');
  // Account links e-mailed by EduSync: the single-use token is read from the fragment once, then removed from the URL.
- const [accountLink,setAccountLink]=useState<AccountLink|null>(()=>takeAccountLink());const [forgot,setForgot]=useState(false);
+ const [accountLink,setAccountLink]=useState<AccountLink|null>(initialLink??null);const [forgot,setForgot]=useState(false);
+ // A new link received while this screen is open (PWA already open: hashchange) replaces the current one.
+ useEffect(()=>{if(initialLink){setAccountLink(initialLink);setForgot(false)}},[initialLink]);
  const {register,handleSubmit,setValue,reset,formState:{errors,isSubmitting}}=useForm<Form>({resolver:zodResolver(schema),defaultValues:{email:'',password:''}});
  useEffect(()=>{let alive=true;setupStatus().then(s=>{if(alive)setSetup(s)}).catch(()=>{/* serveur injoignable : la connexion affichera l’erreur */});return()=>{alive=false}},[]);
  useEffect(()=>()=>{pending.current=null},[]);
@@ -239,7 +241,7 @@ export function SecureLogin({onPlatform,onSchool}:{onPlatform:(token:string,user
   <div className="lg-pane" role="main">
    {showSetup&&setup?<FirstRunSetup status={setup} onCreated={email=>{setCreated(email);setValue('email',email)}}/>:
    blockedSetup?<div className="lg-card"><div className="lg-head"><span className="lg-step">Première installation</span><h1>Installation à finaliser</h1><p>Aucun Manager Système n’existe encore. Sur ce serveur, il est créé par l’opérateur (code d’installation ou script d’administration).</p></div></div>:
-   accountLink?<AccountLinkCard link={accountLink} onDone={message=>{setAccountLink(null);if(message)setCreated(message)}}/>:
+   accountLink?<AccountLinkCard link={accountLink} onDone={(message,email)=>{setAccountLink(null);onLinkHandled?.();if(email)setValue('email',email);if(message)setCreated(message)}}/>:
    forgot?<ForgotPasswordCard onBack={()=>setForgot(false)}/>:
    pwdStep?<PasswordChangeScreen token={pwdStep.token} email={pwdStep.email} onChanged={afterPasswordChange} onRestart={back}/>:
    mfa?(mfa.mfa_enrollment_required?<MfaEnrollment step={mfa} onDone={finish} onRestart={back}/>:<MfaChallenge step={mfa} onDone={finish} onRestart={back}/>):

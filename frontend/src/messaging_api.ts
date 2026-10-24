@@ -70,7 +70,7 @@ export const platformTestStatus = (t: string, id: string) => call<{items: any[]}
 export const forgotPassword = (email: string) => post<{detail: string}>(null, '/auth/password/forgot', {email}, false);
 export const resetPassword = (token: string, new_password: string) => post<{changed: boolean}>(null, '/auth/password/reset', {token, new_password}, false);
 export const invitationDetails = (token: string) => call<{full_name: string; school_name: string | null}>(null, `/auth/invitations/${encodeURIComponent(token)}`, {}, 'Lien invalide ou expiré');
-export const acceptInvitation = (token: string, new_password: string) => post<{activated: boolean}>(null, '/auth/invitations/accept', {token, new_password}, false);
+export const acceptInvitation = (token: string, new_password: string) => post<{activated: boolean; email?: string; scope?: 'PLATFORM' | 'SCHOOL'}>(null, '/auth/invitations/accept', {token, new_password}, false);
 
 export const STATUS_LABEL: Record<string, string> = {
   QUEUED: 'En file', PROCESSING: 'En cours', SENT: 'Envoyé', DELIVERED: 'Distribué', FAILED_RETRYABLE: 'Nouvel essai prévu',
