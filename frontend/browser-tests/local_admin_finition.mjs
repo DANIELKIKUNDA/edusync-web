@@ -94,5 +94,16 @@ await step('70 documents : une carte du catalogue ouvre ses documents', async ()
 await step('80 accès & rôles : une carte chiffrée ouvre ce qu’elle compte', async () => { await module('Accès & rôles');
   await p.locator('.personMetric.clickable', {hasText: 'Rôles'}).click(); await p.getByRole('tab', {name: /Rôles/, selected: true}).waitFor(); });
 
+await step('85 accès & rôles : ajouter un membre avec le formulaire premium', async () => {
+  await p.getByRole('button', {name: 'Ajouter un membre'}).click(); const d = p.getByRole('dialog', {name: 'Ajouter un membre'});
+  await d.getByLabel('Nom complet *').fill(`Membre Finition ${RUN}`); await d.getByLabel('Adresse e-mail *').fill(`finition-${RUN.toLowerCase()}@example.test`);
+  await d.getByLabel('Rechercher un rôle').fill('secr'); await d.getByRole('radio', {name: /Secrétariat/}).click();
+  await d.getByRole('radio', {name: /Mot de passe provisoire/}).click(); await d.getByRole('button', {name: 'Remplacement'}).click();
+  await d.getByText(/Membre Finition .* · Secrétariat · mot de passe provisoire/).waitFor();
+  await d.getByRole('button', {name: 'Ajouter le membre'}).click();
+  await p.getByText('Mot de passe provisoire — il ne sera plus jamais affiché :').waitFor({timeout: 20000});
+  await p.getByLabel('J’ai noté ou transmis ce mot de passe').check(); await p.getByRole('button', {name: 'Terminer'}).click();
+  await p.getByText(`Membre Finition ${RUN}`).first().waitFor({timeout: 15000}); });
+
 console.log(`\n${failures} échec(s) · erreurs HTTP : ${http.filter(x => !x.includes('/auth/') && !x.includes('/branding/logo')).join(', ') || 'aucune'}`);
 await b.close(); process.exit(failures ? 1 : 0);
