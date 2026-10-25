@@ -1,0 +1,28 @@
+/* Situation financière in the pupil file (2026-10-25) */
+.sf-root{display:grid;gap:10px;margin-top:6px;min-width:0}
+.sf-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.sf-head h4{margin:0}.sf-head small{color:#667085}.sf-head .sf-link{margin-left:auto}
+.sf-link{border:0;background:none;padding:0;font:inherit;font-size:13px;font-weight:700;color:#1557d6;cursor:pointer}
+.sf-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.sf-sum>div{display:grid;gap:3px;padding:12px 14px;border-radius:14px;border:1px solid #e4e7ec;background:#fff}
+.sf-sum>div.due{border-color:#fecdca;background:#fffbfa}.sf-sum>div.ok{border-color:#a6f4c5;background:#f6fef9}
+.sf-sum span{font-size:11.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;color:#667085}
+.sf-sum b{font-size:22px;font-variant-numeric:tabular-nums}.sf-sum .due b{color:#b42318}.sf-sum .ok b{color:#05603a}
+.sf-sum small{font-size:12px;color:#667085}
+.sf-sum em{display:block;height:6px;border-radius:999px;background:#eaecf0;overflow:hidden;margin-top:4px}.sf-sum em i{display:block;height:100%;background:#2a78d6}
+.sf-tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sf-tabs button{min-height:36px;padding:0 12px;border:1px solid #e4e7ec;border-radius:10px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:#475467;cursor:pointer}
+.sf-tabs button.on{background:#eef4ff;border-color:#c7d7fe;color:#1149b8}
+.sf-only{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:13px;color:#475467}
+.sf-table{display:grid;border:1px solid #eaecf0;border-radius:12px;overflow:auto;max-height:360px}
+.sf-row{display:grid;grid-template-columns:minmax(170px,2fr) 70px repeat(3,minmax(90px,1fr));gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid #f2f4f7;font-size:13px;min-width:520px}
+.sf-row:last-child{border-bottom:0}.sf-row>span{min-width:0;font-variant-numeric:tabular-nums}
+.sf-row>span:first-child{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.sf-row b{font-weight:650}
+.sf-pay{grid-template-columns:minmax(110px,1fr) minmax(130px,1.2fr) 100px minmax(100px,1fr) 90px}
+.sf-pay.void{color:#98a2b3;text-decoration:line-through}.sf-pay.void .sf-chip{text-decoration:none}
+.sf-th{position:sticky;top:0;background:#f9fafb;z-index:1}.sf-th span{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:#667085}
+.sf-chip{font-style:normal;font-size:11px;font-weight:750;padding:2px 8px;border-radius:999px}
+.sf-chip.ok{background:#ecfdf3;color:#05603a}.sf-chip.part{background:#fffaeb;color:#b54708}.sf-chip.due{background:#fef3f2;color:#b42318}
+.sf-due{color:#b42318;font-weight:700}
+.sf-empty{margin:0;padding:12px;color:#667085;font-size:13px}
+.sf-skel{display:grid;gap:8px}.sf-skel i{display:block;height:16px;border-radius:6px;background:linear-gradient(90deg,#f2f4f7 25%,#e4e7ec 50%,#f2f4f7 75%);background-size:200% 100%;animation:sf-sh 1.2s linear infinite}
+@keyframes sf-sh{to{background-position:-200% 0}}

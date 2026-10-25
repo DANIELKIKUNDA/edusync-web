@@ -113,3 +113,47 @@ def summary_pdf(*,school,title,year_label,currency,rows,total,first='Libellé'):
     data=[[first,'Redev.','En ordre','Non ordre','Attendu','Caisse','Hors caisse','Régul. total','Reste','Taux']]
     for r in [*rows,total]:data.append([r.get('label') or r.get('month_label'),r.get('debtors',''),r.get('in_order',''),r.get('not_in_order',''),_m(r.get('expected')),_m(r.get('cash_collected')),_m(r.get('outside_cash')),_m(r.get('regularized_total')),_m(r.get('remaining')),f"{r.get('recovery_rate',0)} %"])
     t=Table(data,repeatRows=1);t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1F4E78')),('TEXTCOLOR',(0,0),(-1,0),colors.white),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#D9EAF7')),('GRID',(0,0),(-1,-1),.3,colors.HexColor('#CBD5E1')),('FONTSIZE',(0,0),(-1,-1),6.5)]));story.append(t);doc.build(story);return out.getvalue()
+
+
+# ---------------------------------------------------------------- 2026-10-25 — Suivi financier : liste à emporter en classe
+def followup_pdf(*, school, year_label, data, only_not_in_order=True):
+    """Printable list for the person who goes into the classroom: pupils not in order (or all), what they owe, which periods."""
+    rows = [r for r in data["rows"] if r["status"] in ("PARTIAL", "NONE")] if only_not_in_order else [r for r in data["rows"] if r["status"] != "NA"]
+    out = BytesIO(); doc = SimpleDocTemplate(out, pagesize=A4, rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24); st = getSampleStyleSheet()
+    small = ParagraphStyle("s", parent=st["Normal"], fontSize=8, leading=10)
+    title = "ÉLÈVES NON EN ORDRE" if only_not_in_order else "SITUATION DES ÉLÈVES"
+    story = [Paragraph(school.get("name", "École"), st["Title"]), Paragraph(f"{title} — {data['class_label']}", st["Heading2"]),
+             Paragraph(f"{data['title']} · Année {year_label} · Devise {data['currency']} · {data['counts']['in_order']} en ordre, {data['counts']['not_in_order']} non en ordre sur {data['counts']['students']}", st["Normal"]), Spacer(1, 8)]
+    table = [["N°", "Matricule", "Élève", "Reste dû", "Périodes non réglées", "Situation", "Obs."]]
+    for i, r in enumerate(rows, 1):
+        table.append([str(i), r["matricule"] or "", Paragraph(r["student_name"] or "", small), _m(r["remaining"]), Paragraph(", ".join(r["missing"]) or "—", small), r["status_label"], ""])
+    if len(table) == 1:
+        table.append(["", "", "Tous les élèves sont en ordre.", "", "", "", ""])
+    t = Table(table, repeatRows=1, colWidths=[24, 62, 150, 62, 150, 52, 44])
+    t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E78")), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                           ("FONTSIZE", (0, 0), (-1, -1), 8), ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#c8d1dc")), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                           ("ALIGN", (3, 1), (3, -1), "RIGHT"), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f8fc")])]))
+    story += [t, Spacer(1, 10), Paragraph(f"Reste à recouvrer : {_m(data['remaining'])} {data['currency']} · Taux {data['rate']} %", st["Normal"])]
+    doc.build(story); return out.getvalue()
+
+
+def followup_xlsx(*, school, year_label, data):
+    wb = Workbook(); ws = wb.active; ws.title = "Suivi financier"
+    headers = ["N°", "Matricule", "Élève", "Situation", "Dû", "Réglé", "Reste dû", "Périodes non réglées"]
+    for row, value, size in ((1, school.get("name", "École"), 15), (2, f"SUIVI FINANCIER — {data['class_label']}", 12), (3, f"{data['title']} · Année {year_label} · {data['currency']}", 10)):
+        ws.merge_cells(f"A{row}:H{row}"); ws[f"A{row}"] = value; ws[f"A{row}"].font = Font(size=size, bold=row < 3); ws[f"A{row}"].alignment = Alignment(horizontal="center")
+    for j, h in enumerate(headers, 1):
+        c = ws.cell(5, j, h); c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="1F4E78"); c.alignment = Alignment(horizontal="center")
+    rows = [r for r in data["rows"] if r["status"] != "NA"]
+    for i, r in enumerate(rows, 6):
+        vals = [i - 5, r["matricule"], r["student_name"], r["status_label"], float(Decimal(r["due"])), float(Decimal(r["settled"])), float(Decimal(r["remaining"])), ", ".join(r["missing"])]
+        for j, v in enumerate(vals, 1):
+            ws.cell(i, j, v)
+        for j in (5, 6, 7):
+            ws.cell(i, j).number_format = "#,##0.00"
+        if r["status"] != "OK":
+            ws.cell(i, 4).font = Font(bold=True, color="B42318")
+    for j, w in enumerate([6, 14, 34, 14, 14, 14, 14, 44], 1):
+        ws.column_dimensions[get_column_letter(j)].width = w
+    ws.freeze_panes = "A6"; ws.auto_filter.ref = f"A5:H{max(5, 5 + len(rows))}"; ws.sheet_view.showGridLines = False
+    neutralize_formulas(wb); out = BytesIO(); wb.save(out); return out.getvalue()

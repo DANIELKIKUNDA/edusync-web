@@ -8,11 +8,11 @@ def test_global_cash_is_permission_separated_and_currency_separated():
  assert "('CDF','USD')" in s
  assert "expected_cash" in s
 def test_cash_ui_is_table_first_not_card_wall():
- s=read('frontend/src/finance.tsx')
+ s=read('frontend/src/finance.tsx')+read('frontend/src/cash_desk.tsx')  # 2026-10-25: the cash desk moved to cash_desk.tsx
  assert 'Situation globale des caisses' in s
  assert '<table className="cashSummaryTable">' in s
  assert 'Fond initial' in s and 'Entrées' in s and 'Sorties' in s and 'Solde théorique' in s
- assert 'cashDaySummary(token,day)' in s
+ assert 'cashDaySummary(token, day)' in s
 def test_anticipation_collection_has_single_checkout_path():
  s=read('frontend/src/finance.tsx')
  assert 'Paiement selon un plan anticipé' in s and 'Paiement avec avance' not in s

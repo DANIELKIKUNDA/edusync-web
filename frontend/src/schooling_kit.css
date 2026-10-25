@@ -127,3 +127,5 @@ button.kp-row{cursor:pointer;transition:background .12s}button.kp-row:hover{back
 .ki-workspace,.ki-root,.kp-directory{grid-template-columns:minmax(0,1fr)}
 .ki-workspace>*,.ki-root>*,.kp-directory>*{min-width:0;max-width:100%}
 .ki-workspace>:not(.ki-root){overflow-x:auto}
+.ki-prepare.noyear{grid-template-columns:minmax(0,1fr) auto}
+@media (max-width:900px){.ki-prepare.noyear{grid-template-columns:1fr}}

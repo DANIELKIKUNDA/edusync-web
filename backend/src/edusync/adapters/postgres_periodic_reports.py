@@ -21,6 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
+from edusync.shared.domain.fee_codes import canonical_fee_code, is_tuition_code
 from edusync.modules.finance_reports.domain.periodic import MONTH_CODE_NAMES, PERIOD_LABELS, REPORT_PROFILES
 
 CENT = Decimal("0.01")
@@ -32,7 +33,7 @@ def money(v) -> Decimal:
 
 
 def _scolarite(code: str) -> bool:
-    return code == "SCOLARITE" or code.startswith("SCOLARITE_")
+    return is_tuition_code(code)
 
 
 class PostgresPeriodicReportsRepository:
@@ -56,9 +57,10 @@ class PostgresPeriodicReportsRepository:
         out = []
         for r in rows:
             d = dict(r)
-            keys = {d["fee_code"]}
+            code = canonical_fee_code(d["fee_code"])          # Web MINERVAL reads as Desktop SCOLARITE
+            keys = {code}
             if d["period_code"] in MONTH_CODE_NAMES:
-                keys.add(f"{d['fee_code']}_{MONTH_CODE_NAMES[d['period_code']]}")
+                keys.add(f"{code}_{MONTH_CODE_NAMES[d['period_code']]}")
             d["keys"] = keys
             d["observation_label"] = (f"{d['fee_label']} — {d['period_label']}" if d["period_label"] else d["fee_label"]).strip()
             out.append(d)
@@ -274,7 +276,7 @@ class PostgresPeriodicReportsRepository:
                 GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount, 0) AS balance, fc.due_date
               FROM finance_charges fc WHERE fc.school_id=:s AND fc.enrollment_id=:e AND fc.status='ACTIVE'
              ORDER BY fc.due_date NULLS FIRST, fc.created_at"""), {"s": school_id, "e": st["enrollment_id"]}).mappings().all()]
-        payments = [dict(r) for r in self.c.execute(text("""SELECT p.receipt_number AS receipt_no, p.created_at AS paid_at, p.payment_mode AS mode, p.amount, p.currency,
+        payments = [dict(r) for r in self.c.execute(text("""SELECT CAST(p.id AS text) AS payment_id, p.receipt_number AS receipt_no, p.created_at AS paid_at, p.payment_mode AS mode, p.amount, p.currency,
                 CASE WHEN r.reversal_type='ANNULATION' THEN 'ANNULE' WHEN r.reversal_type='REMBOURSEMENT' THEN 'REMBOURSE' ELSE 'VALIDE' END AS status
               FROM finance_payments p LEFT JOIN finance_payment_reversals r ON r.payment_id=p.id
              WHERE p.school_id=:s AND p.enrollment_id=:e ORDER BY p.created_at DESC"""), {"s": school_id, "e": st["enrollment_id"]}).mappings().all()]

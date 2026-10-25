@@ -1,5 +1,7 @@
+import {explainHttpError} from './platform/errors';
 // N3-G — periodic financial reports and analyses copied from the Desktop golden master (terrain.financial_report_rows,
 // register_generated_report, documents.export_periodic_financial_report_pdf/xlsx, operations.analysis_*).
+import {previewPdf} from './document_io';
 import React, {useEffect, useState} from 'react';
 import {toast} from 'sonner';
 import {ProductSalesReport} from './schooling_parity_ui';
@@ -8,7 +10,8 @@ import {formatMoney} from './platform/format';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const auth = (token: string) => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
-async function detail(r: Response, fallback: string) { try { const j = await r.json(); return typeof j.detail === 'string' ? j.detail : fallback; } catch { return fallback; } }
+// Server refusals go through the shared explainer (translated, remembered by friendlyError) — 2026-10-25.
+async function detail(r: Response, fallback: string) { let body: unknown = null; try { body = await r.json(); } catch { /* non JSON */ } return r.status ? explainHttpError(r.status, body) : fallback; }
 async function getJson<T>(token: string, path: string, fallback: string): Promise<T> { const r = await fetch(`${API}${path}`, {headers: auth(token)}); if (!r.ok) throw new Error(await detail(r, fallback)); return r.json(); }
 async function getBlob(token: string, path: string, init: RequestInit = {}, fallback = 'Document indisponible'): Promise<Response> {
   const r = await fetch(`${API}${path}`, {...init, headers: {...auth(token), ...(init.headers ?? {})}}); if (!r.ok) throw new Error(await detail(r, fallback)); return r;
@@ -39,7 +42,7 @@ export function PeriodicReports({token, can}: {token: string; can: (p: string) =
   async function run() { try { setError(''); setReport(await getJson<Report>(token, `/finance/reports/periodic${qs({profile_code: profile, period_type: type, start: a, end: b})}`, 'Rapport indisponible')); } catch (e) { setError(friendlyError(e)); } }
   async function officialPdf() {
     try { setBusy(true); const r = await getBlob(token, '/finance/reports/periodic/pdf', {method: 'POST', body: JSON.stringify({profile_code: profile, period_type: type, start: a, end: b}), headers: {'Idempotency-Key': crypto.randomUUID()}});
-      const n = r.headers.get('X-Report-Number'); window.open(URL.createObjectURL(await r.blob()), '_blank', 'noopener'); toast.success(`Rapport officiel ${n ?? ''} généré`);
+      const n = r.headers.get('X-Report-Number'); previewPdf(await r.blob()); toast.success(`Rapport officiel ${n ?? ''} généré`);
       if (can('finance.reports.history.read')) setGenerated((await getJson<{items: any[]}>(token, '/finance/reports/generated', '')).items); }
     catch (e) { setError(friendlyError(e)); } finally { setBusy(false); }
   }
@@ -93,5 +96,5 @@ export function FinanceAnalyses({token, can}: {token: string; can: (p: string) =
 }
 
 export async function openStudentAccountPdf(token: string, studentId: string) {
-  try { const r = await getBlob(token, `/finance/reports/students/${studentId}/account.pdf`); window.open(URL.createObjectURL(await r.blob()), '_blank', 'noopener'); } catch (e) { toast.error(friendlyError(e)); }
+  try { const r = await getBlob(token, `/finance/reports/students/${studentId}/account.pdf`); previewPdf(await r.blob()); } catch (e) { toast.error(friendlyError(e)); }
 }

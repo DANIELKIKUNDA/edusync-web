@@ -19,6 +19,15 @@ def need_plan_view(a):
 def search(q:str=Query(...,min_length=1),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.checkout.search')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return {'items':PostgresFinanceCheckoutRepository(conn).search(actor.school_id,q)}
+@router.get('/offline-pack')
+def offline_pack(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Cash desk without network (owner decision 2026-10-25): pupils of the active year + payable charges, read-only.
+ Payments recorded offline are sent later with their Idempotency-Key; the server re-checks everything at that time."""
+ need(actor,'finance.checkout.offline_cash');need(actor,'finance.checkout.search');need(actor,'finance.checkout.balance.read')
+ from datetime import datetime,timezone
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  people,balances=PostgresFinanceCheckoutRepository(conn).offline_pack(actor.school_id)
+ return _jsonable_any({'generated_at':datetime.now(timezone.utc).isoformat(),'people':people,'balances':balances})
 @router.get('/family/{family_id}/children')
 def children(family_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.checkout.search')

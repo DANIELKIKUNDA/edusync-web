@@ -1,6 +1,7 @@
 /* Point 5B — professional document I/O.
    PDF printing always previews first. Exports can use one school-selected folder and overwrite
    the same logical file instead of creating browser duplicates. */
+import {UserFacingError} from './platform/errors';
 export type ExportLocation={school:string;academicYear?:string;module:string;category:string;filename:string};
 type DirHandle=any;
 let rootHandle:DirHandle|null=null;
@@ -20,6 +21,9 @@ export async function exportManaged(blob:Blob,loc:ExportLocation):Promise<'manag
     const f=await d.getFileHandle(clean(loc.filename),{create:true}); const w=await f.createWritable(); await w.write(blob); await w.close(); return 'managed';
    }catch(e){console.warn('EduSync managed export unavailable, browser fallback',e)}
  }
- const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=clean(loc.filename);a.click();setTimeout(()=>URL.revokeObjectURL(u),30_000);return 'download';
+ // The link is attached to the page before the click: a detached link is not always honoured by the browser (2026-10-25).
+ const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=clean(loc.filename);a.rel='noopener';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(u)},30_000);return 'download';
 }
-export function previewPdf(blob:Blob){const u=URL.createObjectURL(blob);const w=window.open(u,'_blank','noopener,noreferrer');if(!w)throw new Error('Le navigateur a bloqué l’ouverture du PDF. Autorisez les fenêtres EduSync.');setTimeout(()=>URL.revokeObjectURL(u),120_000)}
+// window.open(…,'noopener') ALWAYS returns null (HTML spec), even when the tab opened: every PDF preview then reported a
+// false « blocked » error shown as the generic sentence (owner report 2026-10-25). Open normally, then cut the opener.
+export function previewPdf(blob:Blob){const u=URL.createObjectURL(blob);const w=window.open(u,'_blank');if(!w){URL.revokeObjectURL(u);throw new UserFacingError('Le navigateur a bloqué l’ouverture du PDF. Autorisez les fenêtres EduSync pour ce site, puis réessayez.','POPUP_BLOCKED')}try{w.opener=null}catch{/* other origin */}setTimeout(()=>URL.revokeObjectURL(u),120_000)}

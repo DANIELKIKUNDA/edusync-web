@@ -2,6 +2,7 @@
 // close_cash_day, reopen_cash_day, daily_financial_report; app/services/documents.py: cash journal and daily report PDFs).
 // Web transposition (owner decision 2026-10-15): individual sessions stay; the school's day is closed globally by the
 // superior authority (GESTIONNAIRE); a cashier corrects only his own payment while his session is open.
+import {previewPdf} from './document_io';
 import React, {useEffect, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
@@ -22,8 +23,8 @@ export function CashExpenseForm({token, onDone}: {token: string; onDone: () => P
     if (!await confirmAction({title: 'Enregistrer cette dépense ?', message: `${money(amount.replace(',', '.'), currency)} sortiront de votre caisse. Une dépense enregistrée ne se supprime pas.`, confirmLabel: 'Enregistrer'})) return;
     try {
       setBusy(true); setError('');
-      await cashExpense(token, {category: category.trim(), amount: amount.replace(',', '.'), currency, reason: reason.trim(), reference: reference.trim() || null});
-      toast.success('Dépense enregistrée'); setCategory(''); setAmount(''); setReason(''); setReference(''); await onDone();
+      const res: any = await cashExpense(token, {category: category.trim(), amount: amount.replace(',', '.'), currency, reason: reason.trim(), reference: reference.trim() || null});
+      toast.success(res?.offline_queued ? 'Hors connexion : dépense enregistrée sur cet appareil, envoyée automatiquement' : 'Dépense enregistrée'); setCategory(''); setAmount(''); setReason(''); setReference(''); await onDone();
     } catch (err) { setError(friendlyError(err)); } finally { setBusy(false); }
   }
   return <form className="cashExpenseBox compact" onSubmit={submit} noValidate>
@@ -67,7 +68,7 @@ export function useReversal(token: string, onDone: () => Promise<void> | void): 
 }
 
 async function openPdf(token: string, kind: 'journal' | 'report', day: string) {
-  try { const b = await cashDayPdf(token, kind, day); window.open(URL.createObjectURL(b), '_blank', 'noopener'); }
+  try { const b = await cashDayPdf(token, kind, day); previewPdf(b); }
   catch (e) { toast.error(friendlyError(e)); }
 }
 

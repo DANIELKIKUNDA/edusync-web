@@ -2141,9 +2141,9 @@
    ],
    "outputs": [],
    "sensitive": false,
-   "notes": "",
-   "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "notes": "Décision du propriétaire 2026-10-25 : l'école fonctionne sans internet puis synchronise (paquet hors ligne de la caisse, migration 0093).",
+   "role_assignment": "OWNER_DECIDED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false

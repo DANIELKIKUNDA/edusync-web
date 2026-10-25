@@ -36,6 +36,17 @@ class PostgresFinanceCheckoutRepository:
    a=adj.get(str(r['id']),{}); payable_net=max(Decimal('0'),Decimal(str(r['net_amount']))-Decimal(str(a.get('decisions',0)))-Decimal(str(a.get('outside_cash',0))))
    out.append(DueCharge(UUID(str(r['id'])),r['label'],r['currency'],payable_net,Decimal(str(r['paid_amount'])),r['periodicity'],r['period_label'],r['period_order'],r.get('sequence_group'),r.get('sequence_order')))
   return out
+ def offline_pack(self,school_id:UUID,limit:int=3000):
+  """Owner decision 2026-10-25 (« le système doit fonctionner sans internet puis synchroniser »): everything the cash desk
+  needs to keep collecting without network — the pupils of the active year (same shape as search) and, per enrollment,
+  the charges still payable with the SAME eligibility as balance() (months in order, required predecessors)."""
+  people=[dict(r) for r in self.conn.execute(text('''SELECT s.id student_id,s.family_id,s.matricule,s.last_name,s.middle_name,s.first_name,f.display_name family_name,f.phone,
+   e.id enrollment_id,c.label class_label,y.label academic_year,y.status academic_year_status
+   FROM enrollments e JOIN academic_years y ON y.id=e.academic_year_id AND y.status='ACTIVE' JOIN students s ON s.id=e.student_id AND s.school_id=e.school_id
+   JOIN families f ON f.id=s.family_id JOIN school_classes c ON c.id=e.class_id
+   WHERE e.school_id=:sid AND e.status='VALIDATED' ORDER BY s.last_name,s.middle_name,s.first_name LIMIT :lim'''),{'sid':str(school_id),'lim':limit}).mappings().all()]
+  balances={str(p['enrollment_id']):self.charges(school_id,p['enrollment_id']) for p in people}
+  return people,balances
  def charges(self,school_id:UUID,enrollment_id:UUID):
   rows=self.conn.execute(text('''SELECT id,label,currency,net_amount,paid_amount,periodicity,period_label,period_order,sequence_group,sequence_order FROM finance_charges WHERE school_id=:sid AND enrollment_id=:eid AND status='ACTIVE' ORDER BY currency,coalesce(period_order,0),due_date NULLS LAST,label'''),{'sid':str(school_id),'eid':str(enrollment_id)}).mappings().all()
   charges=self._cash_payable(school_id,rows); elig=sequential_eligibility(charges)

@@ -85,3 +85,46 @@ def summary(kind:str,year_id:UUID|None=None,class_id:UUID|None=None,section_id:U
 @router.get('/summary/{kind}.{fmt}')
 def summary_export(kind:str,fmt:str,year_id:UUID|None=None,class_id:UUID|None=None,section_id:UUID|None=None,period_order:int|None=Query(None,ge=1,le=12),currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     need(actor,'finance.recovery.monthly.read');need(actor,'finance.views.vf01.export');y,s,rows,total,title=_summary_load(actor,services,kind,year_id,currency,class_id,section_id,period_order);data=summary_pdf(school=s,title=title,year_label=y['label'],currency=currency,rows=rows,total=total) if fmt=='pdf' else summary_xlsx(school=s,title=title,year_label=y['label'],currency=currency,rows=rows,total=total);archive_generated_tx(services,actor,data=data,fmt='PDF' if fmt=='pdf' else 'XLSX',required_capability='finance.recovery.monthly.read',document_code=f'finance.recovery.summary.{kind}.{currency}',title=title.capitalize(),file_name=f'synthese_{kind}_{currency}.{fmt}',academic_year_id=y['id']);return StreamingResponse(BytesIO(data),media_type='application/pdf' if fmt=='pdf' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+# ---------------------------------------------------------------- 2026-10-25 — Suivi financier d'un frais (en ordre / non en ordre)
+from edusync.modules.finance_recovery.domain.followup import class_followup as _followup, default_column as _default_column, fee_groups as _fee_groups
+from edusync.modules.finance_recovery.application.documents import followup_pdf as _followup_pdf, followup_xlsx as _followup_xlsx
+
+
+def _followup_load(actor, services, class_id, year_id, currency, column, cumulative):
+    y, school, reg = _register_load(actor, services, year_id, class_id, currency)
+    col = column or _default_column(reg)
+    if not col:
+        return y, school, {"class_label": reg["class_label"], "currency": currency, "fees": [], "data": None}
+    try:
+        data = _followup(reg, col, cumulative)
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
+    return y, school, {"class_label": reg["class_label"], "currency": currency, "fees": _fee_groups(reg["columns"]), "data": data}
+
+
+@router.get('/followup')
+def followup(class_id: UUID, column: str | None = Query(None, max_length=200), cumulative: bool = True, year_id: UUID | None = None,
+             currency: str = Query('CDF', pattern='^(CDF|USD)$'), actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.recovery.monthly.read')
+    y, _, out = _followup_load(actor, services, class_id, year_id, currency, column, cumulative)
+    return {'academic_year': {'id': str(y['id']), 'label': y['label']}, **out}
+
+
+@router.get('/followup.{fmt}')
+def followup_export(fmt: str, class_id: UUID, column: str | None = Query(None, max_length=200), cumulative: bool = True, all_students: bool = False,
+                    year_id: UUID | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
+                    actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    if fmt not in ('pdf', 'xlsx'): raise HTTPException(404, 'Format inconnu')
+    need(actor, 'finance.recovery.monthly.read'); need(actor, 'finance.views.vf01.export')
+    y, school, out = _followup_load(actor, services, class_id, year_id, currency, column, cumulative)
+    if not out['data']: raise HTTPException(409, 'Aucun frais généré pour cette classe')
+    d = out['data']; name = f"suivi_{(d['class_label'] or 'classe').replace(' ', '_')}_{d['period_label'].replace(' ', '_')}"
+    if fmt == 'pdf':
+        data = _followup_pdf(school=school, year_label=y['label'], data=d, only_not_in_order=not all_students); media = 'application/pdf'
+    else:
+        data = _followup_xlsx(school=school, year_label=y['label'], data=d); media = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    archive_generated_tx(services, actor, data=data, fmt=fmt.upper(), required_capability='finance.views.vf01.export', document_code='finance.recovery.followup',
+                         title=f"Suivi financier {d['class_label']} — {d['title']}", file_name=f"{name}.{fmt}")
+    return StreamingResponse(BytesIO(data), media_type=media, headers={'Content-Disposition': f'{"inline" if fmt == "pdf" else "attachment"}; filename="{name}.{fmt}"'})

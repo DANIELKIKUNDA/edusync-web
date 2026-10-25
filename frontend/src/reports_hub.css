@@ -1,0 +1,17 @@
+/* Rapports (2026-10-25) */
+.rh-root{display:grid;gap:14px;min-width:0}
+.rh-tabs{display:flex;gap:6px;padding:5px;border-radius:16px;background:#f2f4f7;overflow-x:auto;scrollbar-width:none}
+.rh-tabs button{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 14px;border:0;border-radius:12px;background:none;font:inherit;font-size:13.5px;font-weight:700;color:#475467;cursor:pointer;white-space:nowrap}
+.rh-tabs button.on{background:#fff;color:#1149b8;box-shadow:0 1px 3px rgba(16,24,40,.12)}
+.rh-card{display:grid;gap:12px;padding:18px;border:1px solid #e4e9f2;border-radius:18px;background:#fff;min-width:0}
+.rh-card h4{margin:0;font-size:16px}.rh-card p{margin:4px 0 0;color:#475467;font-size:13.5px}
+.rh-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}.rh-row.spread{justify-content:space-between;align-items:center}
+.rh-field{display:grid;gap:4px}.rh-field span{font-size:11.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;color:#667085}
+.rh-field input{min-height:42px;border:1px solid #d0d5dd;border-radius:10px;padding:0 10px;font:inherit}
+.rh-btn{display:inline-flex;align-items:center;gap:7px;min-height:42px;padding:0 16px;border:1px solid #d0d5dd;border-radius:11px;background:#fff;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.rh-btn.primary{background:#1557d6;border-color:#1557d6;color:#fff}.rh-btn:disabled{opacity:.55;cursor:not-allowed}
+.rh-search{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 10px;border:1px solid #d0d5dd;border-radius:10px;color:#667085}.rh-search input{border:0;outline:0;font:inherit;font-size:13.5px}
+.rh-table{display:grid;border:1px solid #eaecf0;border-radius:12px;overflow:auto;max-height:520px}
+.rh-tr{display:grid;grid-template-columns:110px minmax(120px,1fr) 110px 100px 100px 130px;gap:10px;padding:9px 12px;border-bottom:1px solid #f2f4f7;font-size:13px;min-width:640px}.rh-tr:last-child{border-bottom:0}
+.rh-th{position:sticky;top:0;background:#f9fafb}.rh-th span{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:#667085}
+.rh-empty{margin:0;padding:18px;text-align:center;color:#667085}

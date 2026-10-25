@@ -42,8 +42,10 @@ await step('03 menu : droits du secrétariat présents', async () => {
   for (const m of ['Élèves & inscriptions', 'Centre financier', 'Personnel', 'Effectifs & dépôts', 'Communication']) await nav().getByRole('button', {name: m, exact: true}).waitFor(); });
 
 await step('10 caisse : ouverture', async () => { await module('Centre financier'); await finTab('Caisse');
-  const open = p.getByRole('button', {name: 'Ouvrir ma caisse'}); if (await open.count()) { await open.click(); }
-  await p.getByText('OUVERTE').first().waitFor({timeout: 15000}); });
+  // Caisse 2026-10-25: opening through a dialog (fond initial), the state reads « Ouverte depuis HH:MM ».
+  await p.locator('.cd-hero h3').filter({hasNotText: 'Chargement'}).waitFor({timeout: 20000});
+  const open = p.getByRole('button', {name: 'Ouvrir ma caisse'}); if (await open.count()) { await open.first().click(); await p.getByRole('dialog', {name: 'Ouvrir ma caisse'}).getByRole('button', {name: 'Ouvrir ma caisse'}).click(); }
+  await p.locator('.cd-hero.open').waitFor({timeout: 15000}); });
 
 await step('20 inscription d’un élève (droit du secrétariat)', async () => { await module('Élèves & inscriptions');
   await p.getByRole('button', {name: 'Nouvelle inscription'}).click(); const w = p.locator('.enrollmentWizard');
@@ -80,16 +82,22 @@ await step('40 vente d’un article scolaire', async () => { await module('Centr
   const msg = await p.locator('.checkoutMessage').first().innerText(); if (!/REC-|enregistr|vendu|reçu/i.test(msg)) throw new Error(`message inattendu : ${msg.slice(0, 120)}`); });
 
 await step('50 caisse : dépense justifiée', async () => { await finTab('Caisse');
-  const box = p.locator('form.cashExpenseBox'); await box.getByLabel('Catégorie').fill('Fournitures'); await box.getByLabel('Montant').fill('1000');
+  await p.getByRole('button', {name: 'Nouvelle dépense'}).click(); const box = p.getByRole('dialog', {name: 'Nouvelle dépense'}).locator('form.cashExpenseBox'); await box.getByLabel('Catégorie').fill('Fournitures'); await box.getByLabel('Montant').fill('1000');
   await box.getByLabel('Motif').fill('Craies pour les classes'); await box.getByRole('button', {name: 'Enregistrer la dépense'}).click();
   await p.getByText('Enregistrer cette dépense ?').waitFor(); await p.getByRole('button', {name: 'Enregistrer', exact: true}).click();
   await p.getByText(/Dépense enregistrée/i).first().waitFor({timeout: 15000}); });
 await step('51 caisse : clôture au montant compté', async () => {
-  const cdf = p.getByLabel('Compté CDF'); await cdf.fill((await cdf.getAttribute('placeholder')) ?? '0');
-  const usd = p.getByLabel('Compté USD'); await usd.fill((await usd.getAttribute('placeholder')) ?? '0');
-  await p.getByRole('button', {name: 'Clôturer ma caisse'}).click();
-  const confirm = p.getByRole('button', {name: /Clôturer|Confirmer/}).last(); if (await p.getByRole('dialog').count()) await confirm.click();
-  await p.getByText(/Fermée|FERMÉE|clôturée/i).first().waitFor({timeout: 20000}); });
+  await p.getByRole('button', {name: 'Clôturer ma caisse'}).click(); const dlg = p.getByRole('dialog', {name: 'Clôturer ma caisse'});
+  const cdf = dlg.getByLabel('Compté CDF'); await cdf.fill((await cdf.getAttribute('placeholder')) ?? '0');
+  const usd = dlg.getByLabel('Compté USD'); await usd.fill((await usd.getAttribute('placeholder')) ?? '0');
+  await dlg.getByRole('button', {name: 'Clôturer ma caisse'}).click(); await dlg.waitFor({state: 'detached', timeout: 20000});
+  await p.locator('.cd-hero.closed').waitFor({timeout: 20000});
+  // Past sessions: the session just closed is listed and its journal exports (PDF preview + Excel download).
+  await p.locator('button.cd-sess').first().filter({hasText: 'Clôturée'}).waitFor({timeout: 15000}); await p.locator('button.cd-sess').first().click(); const s = p.getByRole('dialog', {name: /Caisse du/});
+  await s.getByText('Clôturée').first().waitFor({timeout: 10000});
+  await s.getByRole('button', {name: 'Journal PDF'}).click(); await p.waitForTimeout(1500);
+  const dl = p.waitForEvent('download', {timeout: 15000}).catch(() => null); await s.getByRole('button', {name: 'Excel'}).click(); await p.waitForTimeout(1500); await dl;
+  await s.getByRole('button', {name: 'Fermer', exact: true}).last().click(); });
 
 console.log(`\n${failures} échec(s) · erreurs HTTP : ${http.join(', ') || 'aucune'}`);
 await b.close(); process.exit(failures ? 1 : 0);

@@ -190,3 +190,105 @@ def day_report_pdf(day:str|None=Query(None),actor:ActorContext=Depends(require_s
  data=daily_report_pdf(school_name=name,report=r)
  archive_generated_tx(services,actor,data=data,fmt='PDF',required_capability='finance.reports.daily.generate',document_code='finance.reports.daily',title=f"Rapport financier journalier du {r['day']}",file_name=f"rapport_journalier_{r['day']}.pdf")
  return _Stream(_BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="rapport_journalier_{r["day"]}.pdf"'})
+
+
+# ---------------------------------------------------------------- 2026-10-25 — owner: « voir les caisses passées et exporter la caisse »
+# (Desktop CashPage: day by day navigation, journal PDF). A cashier sees and exports HIS sessions; finance.cash.other.read
+# extends to every cashier of the school. Read-only: nothing here changes a session.
+from edusync.modules.finance_cash.application.documents import session_journal_xlsx as _session_xlsx, sessions_xlsx as _sessions_xlsx
+
+
+def _period(start, end):
+    a, z = _day(start), _day(end)
+    z = z or _date.today(); a = a or z.replace(day=1)
+    if a > z: raise HTTPException(422, 'La date de début doit précéder la date de fin')
+    if (z - a).days > 366: raise HTTPException(422, 'Période trop longue : un an au maximum')
+    return a, z
+
+
+def _cashiers(c, services, sessions):
+    """Cashier display name per session: the user who opened it (finance_cash_events OPEN)."""
+    ids = [str(x['id']) for x in sessions]
+    if not ids: return sessions
+    rows = c.execute(text("SELECT DISTINCT ON (cash_session_id) cash_session_id, actor_user_id FROM finance_cash_events WHERE cash_session_id=ANY(CAST(:ids AS uuid[])) AND event_type='OPEN' ORDER BY cash_session_id, created_at"), {'ids': ids}).all()
+    opener = {str(r[0]): r[1] for r in rows}
+    ops = [{'user_id': opener.get(str(x['id']))} for x in sessions]
+    _names(services, ops)
+    for x, o in zip(sessions, ops): x['cashier_name'] = o.get('user_name') or '—'
+    return sessions
+
+
+def _list_sessions(c, services, actor, start, end, status, membership_id, limit, offset):
+    other = 'finance.cash.other.read' in actor.permissions
+    a, z = _period(start, end)
+    # Fixed SQL, optional filters as parameters (no interpolated SQL in routes — security audit).
+    params = {'sid': str(actor.school_id), 'a': a, 'z': z, 'mid': str(actor.membership_id), 'all': other,
+              'st': status if status in ('OPEN', 'CLOSED') else None, 'm': str(membership_id) if (other and membership_id) else None}
+    where = """school_id=:sid AND business_date BETWEEN :a AND :z AND (CAST(:all AS boolean) OR membership_id=CAST(:mid AS uuid))
+               AND (CAST(:st AS text) IS NULL OR status=CAST(:st AS text)) AND (CAST(:m AS uuid) IS NULL OR membership_id=CAST(:m AS uuid))"""
+    total = c.execute(text("SELECT count(*) FROM finance_cash_sessions WHERE " + where), params).scalar_one()
+    rows = c.execute(text("SELECT * FROM finance_cash_sessions WHERE " + where + " ORDER BY business_date DESC, opened_at DESC LIMIT :l OFFSET :o"), {**params, 'l': limit, 'o': offset}).mappings().all()
+    return a, z, total, _cashiers(c, services, [projection(c, dict(r)) for r in rows])
+
+
+@router.get('/sessions')
+def sessions_history(start: str | None = Query(None), end: str | None = Query(None), status: str | None = Query(None, pattern='^(OPEN|CLOSED)$'),
+                     membership_id: UUID | None = None, limit: int = Query(31, ge=1, le=200), offset: int = Query(0, ge=0),
+                     actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.cash.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+        a, z, total, items = _list_sessions(c, services, actor, start, end, status, membership_id, limit, offset)
+    tot = {cur: {k: str(sum((Decimal(x[cur.lower()][k] or 0) for x in items), Decimal('0'))) for k in ('receipts', 'expenses', 'reversals', 'expected_cash')} for cur in ('CDF', 'USD')}
+    return {'start': a.isoformat(), 'end': z.isoformat(), 'total': total, 'items': items, 'page_totals': tot, 'all_cashiers': 'finance.cash.other.read' in actor.permissions}
+
+
+@router.get('/sessions.xlsx')
+def sessions_history_xlsx(start: str | None = Query(None), end: str | None = Query(None), status: str | None = Query(None, pattern='^(OPEN|CLOSED)$'),
+                          membership_id: UUID | None = None, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.cash.read'); need(actor, 'finance.cash.journal.export')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+        a, z, _, items = _list_sessions(c, services, actor, start, end, status, membership_id, 200, 0); name = _school_name(c, actor.school_id)
+        data = _sessions_xlsx(school_name=name, start=a.isoformat(), end=z.isoformat(), sessions=items)
+    archive_generated_tx(services, actor, data=data, fmt='XLSX', required_capability='finance.cash.journal.export', document_code='finance.cash.sessions',
+                         title=f"Historique des caisses du {a} au {z}", file_name=f"caisses_{a}_{z}.xlsx")
+    return _Stream(_BytesIO(data), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition': f'attachment; filename="caisses_{a}_{z}.xlsx"'})
+
+
+def _session_export(c, services, actor, session_id):
+    r = one(c, 'SELECT * FROM finance_cash_sessions WHERE id=:id AND school_id=:sid', {'id': str(session_id), 'sid': str(actor.school_id)})
+    if not r: raise HTTPException(404, 'Caisse introuvable')
+    if str(r['membership_id']) != str(actor.membership_id) and 'finance.cash.other.read' not in actor.permissions:
+        raise HTTPException(403, 'Cette caisse appartient à un autre caissier')
+    session = _cashiers(c, services, [projection(c, r)])[0]
+    ops = PostgresCashIntegrityRepository(c).session_operations(actor.school_id, session_id)
+    return session, _names(services, ops), _school_name(c, actor.school_id)
+
+
+@router.get('/{session_id}/journal.pdf')
+def session_journal_pdf(session_id: UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.cash.read'); need(actor, 'finance.cash.journal.export')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+        session, ops, name = _session_export(c, services, actor, session_id)
+    totals = []
+    for cur in ('CDF', 'USD'):
+        x = session[cur.lower()]; out = Decimal(x['expenses']) + Decimal(x['reversals'])
+        if Decimal(x['receipts']) or out or Decimal(x['opening']):
+            totals.append({'currency': cur, 'entries': x['receipts'], 'outflows': str(out), 'net': x['expected_cash']})
+    day = str(session['business_date'])
+    report = {'day': day, 'closed': session['status'] == 'CLOSED', 'totals': totals, 'operations': [{**o, 'user_name': o.get('user_name') or session['cashier_name']} for o in ops]}
+    data = cash_journal_pdf(school_name=name, report=report, title=f"JOURNAL DE CAISSE — {session['cashier_name']} — {day}")
+    archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='finance.cash.journal.export', document_code='finance.cash.session_journal',
+                         title=f"Journal de caisse de {session['cashier_name']} du {day}", file_name=f"journal_caisse_{day}.pdf")
+    return _Stream(_BytesIO(data), media_type='application/pdf', headers={'Content-Disposition': f'inline; filename="journal_caisse_{day}.pdf"'})
+
+
+@router.get('/{session_id}/journal.xlsx')
+def session_journal_xlsx_route(session_id: UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.cash.read'); need(actor, 'finance.cash.journal.export')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+        session, ops, name = _session_export(c, services, actor, session_id)
+    day = str(session['business_date'])
+    data = _session_xlsx(school_name=name, session=session, cashier=session['cashier_name'], operations=ops)
+    archive_generated_tx(services, actor, data=data, fmt='XLSX', required_capability='finance.cash.journal.export', document_code='finance.cash.session_journal',
+                         title=f"Journal de caisse de {session['cashier_name']} du {day}", file_name=f"journal_caisse_{day}.xlsx")
+    return _Stream(_BytesIO(data), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition': f'attachment; filename="journal_caisse_{day}.xlsx"'})

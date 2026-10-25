@@ -25,7 +25,9 @@ def test_parser_rejects_arbitrary_excel_and_tampered_headers():
  with pytest.raises(ValueError,match='Structure'):read_official_xlsx(bio.getvalue(),'STAFF')
 
 def test_frontend_only_accepts_official_xlsx_and_explains_model_flow():
- for f in ('schooling_import.tsx','personnel.tsx','finance.tsx'):
+ # 2026-10-25: pupils and staff share the guided stepper of schooling_import.tsx (personnel.tsx mounts StaffImportPro).
+ assert '<StaffImportPro' in (ROOT/'frontend/src/personnel.tsx').read_text(encoding='utf-8')
+ for f in ('schooling_import.tsx','finance.tsx'):
   s=(ROOT/'frontend/src'/f).read_text(encoding='utf-8')
   assert 'accept=".xlsx"' in s
  assert 'studentImportTemplate(token, year)' in (ROOT/'frontend/src/schooling_import.tsx').read_text(encoding='utf-8')
