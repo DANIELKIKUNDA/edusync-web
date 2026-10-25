@@ -55,7 +55,7 @@ export function CashDeskPro({token, can, schoolName}: {token: string; can: (p: s
         <span>Solde théorique {c === 'CDF' ? 'FC' : 'USD'}</span><b>{money(x.expected_cash, c)}</b>
         <small>Fond {money(x.opening, c)} · Entrées {money(x.receipts, c)} · Sorties {money(outflow(x), c)}</small></div>; })}</div>}
       <div className="cd-actions">
-        {!current && can('finance.cash.open') && <button type="button" className="cd-btn primary" onClick={() => setDialog('open')}><NavGlyph g="key" size={18}/>Ouvrir ma caisse</button>}
+        {loaded && !err && !current && can('finance.cash.open') && <button type="button" className="cd-btn primary" onClick={() => setDialog('open')}><NavGlyph g="key" size={18}/>Ouvrir ma caisse</button>}
         {current && can('finance.cash.expense.create') && <button type="button" className="cd-btn" onClick={() => setDialog('expense')}><NavGlyph g="minus" size={18}/>Nouvelle dépense</button>}
         {current && can('finance.cash.journal.export') && <><button type="button" className="cd-btn" onClick={() => void exportSession(token, current.id, 'pdf', schoolName)}><NavGlyph g="doc" size={18}/>Journal PDF</button>
           <button type="button" className="cd-btn" onClick={() => void exportSession(token, current.id, 'xlsx', schoolName, current.business_date)}><NavGlyph g="sheet" size={18}/>Excel</button></>}
@@ -105,7 +105,7 @@ function OpenDialog({token, onClose, onDone}: {token: string; onClose: () => voi
   const bad = !validAmount(cdf) || !validAmount(usd);
   async function go() { if (bad) { setErr('Montants en chiffres (0 si la caisse est vide).'); return; }
     try { setBusy(true); setErr(''); await cashOpen(token, cdf.replace(',', '.'), usd.replace(',', '.')); toast.success('Caisse ouverte : vous pouvez encaisser.'); await onDone(); }
-    catch (e) { setErr(friendlyError(e)); } finally { setBusy(false); } }
+    catch (e) { const m = friendlyError(e); if (/déjà ouverte/i.test(m)) { toast.info('Votre caisse était déjà ouverte : elle est affichée.'); await onDone(); return; } setErr(m); } finally { setBusy(false); } }
   return <Modal title="Ouvrir ma caisse" sub="Indiquez l’argent présent dans la caisse au départ (fond initial)." onClose={onClose}
     foot={<><button type="button" className="cd-btn" onClick={onClose}>Annuler</button><button type="button" className="cd-btn primary" disabled={busy || bad} onClick={() => void go()}>{busy ? 'Ouverture…' : 'Ouvrir ma caisse'}</button></>}>
     {err && <div className="error" role="alert">{err}</div>}

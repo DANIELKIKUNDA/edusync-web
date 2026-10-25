@@ -68,7 +68,7 @@ const drawerLabels = () => p.evaluate(() => { const close = document.querySelect
   while (box && box.querySelectorAll('button[aria-label]').length < 4) box = box.parentElement;
   return box ? [...box.querySelectorAll('button[aria-label]')].map(e => e.getAttribute('aria-label')) : []; });
 const modules = (WIDTH < 900 ? await drawerLabels() : await nav().locator('button[aria-label]').evaluateAll(es => es.map(e => e.getAttribute('aria-label'))))
-  .filter(n => n && !/menu|Compte|Réduire|Fermer|Notifications|modules|ouvrir|%/i.test(n));
+  .filter(n => n && !/menu|Compte|Réduire|Fermer|Notifications|modules|ouvrir|Aller|%/i.test(n));
 if (WIDTH < 900) await closeOverlays();
 console.log(`Rôle ${acc.email.split('@')[0].replace(/./g, '•')} · ${WIDTH}px · modules : ${modules.join(', ')}`);
 // A card or a button may lead to another module (home cards do, by design): every step first comes back to the module
@@ -77,7 +77,12 @@ const currentModule = async () => (WIDTH < 900 ? '' : await nav().locator('butto
 async function goModule(m) {
   if (WIDTH >= 900 && await currentModule() === m) return true;
   await openMenu();
-  const target = WIDTH < 900 ? p.locator(`button[aria-label="${m}"]`).filter({visible: true}).last() : nav().getByRole('button', {name: m, exact: true});
+  if (WIDTH < 900) {   // phone: the drawer buttons carry the module text (no aria-label); the first one really clickable wins
+    const all = p.getByRole('button', {name: m, exact: true}).filter({visible: true});
+    for (let i = 0; i < await all.count(); i++) { try { await all.nth(i).click({trial: true, timeout: 800}); await all.nth(i).click(); await p.waitForTimeout(900); return true; } catch { /* covered */ } }
+    add('NAVIGATION', `module ${m} inaccessible`); return false;
+  }
+  const target = nav().getByRole('button', {name: m, exact: true});
   try { await target.click({timeout: 5000}); await p.waitForTimeout(900); return true; } catch { add('NAVIGATION', `module ${m} inaccessible`); return false; }
 }
 async function clickTab(name) { const tb = p.locator(TAB_SEL).filter({visible: true, hasText: name}).first(); try { await tb.click({timeout: 3000}); return true; } catch { return false; } }

@@ -29,6 +29,7 @@ const finTab = async t => { await p.locator('.financeTabs button', {hasText: t})
 await step('01 connexion', async () => { await p.goto('http://localhost:5180/'); await p.getByLabel('Adresse e-mail').fill(acc.email); await p.getByLabel('Mot de passe', {exact: true}).fill(acc.password);
   await p.getByRole('button', {name: 'Se connecter'}).click(); await p.locator('.es-shell').waitFor({timeout: 30000}); });
 await step('02 caisse ouverte', async () => { await module('Centre financier'); await finTab('Caisse');
+  await p.locator('.cd-hero h3').filter({hasNotText: 'Chargement'}).waitFor({timeout: 20000});
   const open = p.getByRole('button', {name: 'Ouvrir ma caisse'}); if (await open.count()) { await open.first().click(); await p.getByRole('dialog', {name: 'Ouvrir ma caisse'}).getByRole('button', {name: 'Ouvrir ma caisse'}).click(); }
   await p.locator('.cd-hero.open').waitFor({timeout: 15000}); await p.getByText('Caisses passées').waitFor(); });
 

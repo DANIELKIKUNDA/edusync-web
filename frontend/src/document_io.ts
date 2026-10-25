@@ -21,7 +21,8 @@ export async function exportManaged(blob:Blob,loc:ExportLocation):Promise<'manag
     const f=await d.getFileHandle(clean(loc.filename),{create:true}); const w=await f.createWritable(); await w.write(blob); await w.close(); return 'managed';
    }catch(e){console.warn('EduSync managed export unavailable, browser fallback',e)}
  }
- const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=clean(loc.filename);a.click();setTimeout(()=>URL.revokeObjectURL(u),30_000);return 'download';
+ // The link is attached to the page before the click: a detached link is not always honoured by the browser (2026-10-25).
+ const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=clean(loc.filename);a.rel='noopener';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(u)},30_000);return 'download';
 }
 // window.open(…,'noopener') ALWAYS returns null (HTML spec), even when the tab opened: every PDF preview then reported a
 // false « blocked » error shown as the generic sentence (owner report 2026-10-25). Open normally, then cut the opener.

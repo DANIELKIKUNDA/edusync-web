@@ -43,6 +43,7 @@ await step('03 menu : droits du secrétariat présents', async () => {
 
 await step('10 caisse : ouverture', async () => { await module('Centre financier'); await finTab('Caisse');
   // Caisse 2026-10-25: opening through a dialog (fond initial), the state reads « Ouverte depuis HH:MM ».
+  await p.locator('.cd-hero h3').filter({hasNotText: 'Chargement'}).waitFor({timeout: 20000});
   const open = p.getByRole('button', {name: 'Ouvrir ma caisse'}); if (await open.count()) { await open.first().click(); await p.getByRole('dialog', {name: 'Ouvrir ma caisse'}).getByRole('button', {name: 'Ouvrir ma caisse'}).click(); }
   await p.locator('.cd-hero.open').waitFor({timeout: 15000}); });
 
