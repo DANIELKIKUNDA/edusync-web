@@ -80,7 +80,8 @@ await step('50 accueil : la recherche ouvre une vraie recherche', async () => { 
 
 await step('60 effectifs : indicateurs cliquables et répartition', async () => { await module('Effectifs & dépôts');
   await p.locator('.fx2Kpis button', {hasText: 'Abandons & transferts'}).click(); await p.waitForTimeout(700);
-  if (await p.getByRole('tab', {name: 'Mouvements'}).count()) { await p.getByRole('tab', {name: 'Mouvements'}).click(); await p.locator('.fx2Chips button', {hasText: 'Transferts'}).click(); await p.waitForTimeout(700); }
+  // Owner decision 2026-10-25 (migration 0091): the cashier reads the movements journal.
+  await p.getByRole('tab', {name: 'Mouvements', selected: true}).waitFor({timeout: 8000}); await p.locator('.fx2Chips button', {hasText: 'Transferts'}).click(); await p.waitForTimeout(700);
   await p.getByRole('tab', {name: 'Par classe'}).click(); await p.waitForTimeout(1000);
   if (await p.locator('.fx2BarRow').count()) { await p.locator('.fx2BarRow').first().hover(); await p.locator('.fx2Tip').waitFor(); await p.locator('.fx2BarRow').first().click(); await p.waitForTimeout(300); }
   await p.getByText('Total général').count(); });
