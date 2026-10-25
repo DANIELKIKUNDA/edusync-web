@@ -56,6 +56,30 @@ class PostgresCashIntegrityRepository:
         return self.c.execute(text("SELECT CURRENT_DATE")).scalar_one()
 
     # ---------- daily report (Desktop daily_financial_report / cash_day_summary) ----------
+    def session_operations(self, school_id: UUID, session_id: UUID) -> list[dict[str, Any]]:
+        """Operations of ONE cash session (2026-10-25, « exporter la caisse »): the movements its theoretical balance is made
+        of — receipts, advance funds received, expenses, counter-operations — same shape as day_operations."""
+        rows = self.c.execute(text("""
+            SELECT p.created_at, 'ENTREE' AS direction,
+                   CASE WHEN EXISTS (SELECT 1 FROM finance_product_sales ps WHERE ps.payment_id=p.id) THEN 'VENTE_ARTICLE' ELSE 'PAIEMENT_ELEVE' END AS source,
+                   p.amount, p.currency, p.payment_mode AS mode, p.receipt_number AS reference, NULL::text AS reason, p.actor_user_id AS user_id,
+                   concat_ws(' ', st.last_name, st.middle_name, st.first_name) AS party,
+                   EXISTS (SELECT 1 FROM finance_payment_reversals x WHERE x.payment_id=p.id) AS reversed
+              FROM finance_payments p LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students st ON st.id=e.student_id
+             WHERE p.school_id=:s AND p.cash_session_id=:cs
+            UNION ALL
+            SELECT e.created_at, 'SORTIE', 'DEPENSE_JOURNALIERE', e.amount, e.currency, 'CASH', coalesce(e.reference, e.label), coalesce(e.reason, e.label),
+                   e.actor_user_id, e.label, false
+              FROM finance_cash_expenses e WHERE e.school_id=:s AND e.cash_session_id=:cs
+            UNION ALL
+            SELECT r.performed_at, 'SORTIE', r.reversal_type, r.amount, r.currency, p.payment_mode, p.receipt_number, r.reason, r.performed_by, NULL, false
+              FROM finance_payment_reversals r JOIN finance_payments p ON p.id=r.payment_id WHERE r.school_id=:s AND r.cash_session_id=:cs
+            UNION ALL
+            SELECT f.received_at, 'ENTREE', 'FONDS_ANTICIPE', f.amount, f.currency, f.mode, f.receipt_number, NULL, f.received_by, NULL, false
+              FROM finance_advance_funds f WHERE f.school_id=:s AND f.origin_type='PAYMENT_ADVANCE' AND f.cash_session_id=:cs
+            ORDER BY 1"""), {"s": school_id, "cs": session_id}).mappings().all()
+        return [dict(r) for r in rows]
+
     def day_operations(self, school_id: UUID, day: date) -> list[dict[str, Any]]:
         rows = self.c.execute(text("""
             SELECT p.created_at, 'ENTREE' AS direction,

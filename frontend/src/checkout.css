@@ -78,3 +78,17 @@
 .decisionForm .feeCheckGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 12px}
 .decisionForm .feeCheckGrid label.checkField{display:flex;align-items:center;gap:8px;font-weight:400;overflow-wrap:anywhere}
 .decisionForm .feeCheckGrid input{min-height:0;width:18px;height:18px;flex:none}
+
+/* 2026-10-25 — owner: « l'encaissement demande de défiler pour voir les boutons cachés ». Point-of-sale pattern: the
+   amount, the payment mode, the total and « Encaisser maintenant » stay pinned at the bottom of the screen while the
+   list of fees scrolls above. */
+.checkoutPay{position:sticky;bottom:8px;z-index:20;display:grid;gap:10px;margin-top:14px;padding:12px;border-radius:18px;background:rgba(255,255,255,.96);
+  border:1px solid #dbe3ef;box-shadow:0 -10px 30px -12px rgba(15,23,42,.25);backdrop-filter:blur(6px)}
+.checkoutPay .advancePanel{margin:0!important;padding:0!important;border:0;background:none}
+.checkoutPay .checkoutFooter{margin:0}
+@media (min-width:900px){
+  .checkoutPay{grid-template-columns:minmax(260px,1fr) minmax(320px,auto);align-items:stretch}
+  .checkoutPay .checkoutFooter{flex-direction:row!important;align-items:center!important}
+  .checkoutPay .collectActions{width:auto}
+}
+@media (max-width:899px){.checkoutPay{bottom:calc(70px + env(safe-area-inset-bottom,0px))}}

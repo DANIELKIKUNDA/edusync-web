@@ -276,7 +276,7 @@ class PostgresPeriodicReportsRepository:
                 GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount, 0) AS balance, fc.due_date
               FROM finance_charges fc WHERE fc.school_id=:s AND fc.enrollment_id=:e AND fc.status='ACTIVE'
              ORDER BY fc.due_date NULLS FIRST, fc.created_at"""), {"s": school_id, "e": st["enrollment_id"]}).mappings().all()]
-        payments = [dict(r) for r in self.c.execute(text("""SELECT p.receipt_number AS receipt_no, p.created_at AS paid_at, p.payment_mode AS mode, p.amount, p.currency,
+        payments = [dict(r) for r in self.c.execute(text("""SELECT CAST(p.id AS text) AS payment_id, p.receipt_number AS receipt_no, p.created_at AS paid_at, p.payment_mode AS mode, p.amount, p.currency,
                 CASE WHEN r.reversal_type='ANNULATION' THEN 'ANNULE' WHEN r.reversal_type='REMBOURSEMENT' THEN 'REMBOURSE' ELSE 'VALIDE' END AS status
               FROM finance_payments p LEFT JOIN finance_payment_reversals r ON r.payment_id=p.id
              WHERE p.school_id=:s AND p.enrollment_id=:e ORDER BY p.created_at DESC"""), {"s": school_id, "e": st["enrollment_id"]}).mappings().all()]

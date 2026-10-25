@@ -1,0 +1,35 @@
+/* Suivi financier (2026-10-25) */
+.ff-root{display:grid;gap:14px;min-width:0}
+.ff-head h3{margin:2px 0 4px;font-size:20px}.ff-head p{margin:0;color:#475467;font-size:13.5px}
+.ff-eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#1557d6}
+.ff-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:14px;border:1px solid #e4e9f2;border-radius:16px;background:#fff}
+.ff-field{display:grid;gap:4px;min-width:140px}.ff-field.grow{flex:1 1 240px}
+.ff-field span{font-size:11.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;color:#667085}
+.ff-field select{min-height:42px;border:1px solid #d0d5dd;border-radius:10px;padding:0 10px;font:inherit;font-size:14px;background:#fff}
+.ff-periods{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.ff-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ff-chips button{min-height:36px;padding:0 13px;border:1px solid #d0d5dd;border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:#344054;cursor:pointer}
+.ff-chips button.on{background:#1557d6;border-color:#1557d6;color:#fff}
+.ff-seg{display:inline-flex;padding:3px;border-radius:12px;background:#f2f4f7}
+.ff-seg button{border:0;background:none;min-height:34px;padding:0 12px;border-radius:9px;font:inherit;font-size:13px;font-weight:700;color:#475467;cursor:pointer}
+.ff-seg button.on{background:#fff;color:#1149b8;box-shadow:0 1px 3px rgba(16,24,40,.12)}
+.ff-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.ff-kpis button{display:grid;justify-items:start;gap:2px;padding:14px 16px;border:1px solid #e4e7ec;border-radius:16px;background:#fff;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.ff-kpis b{font-size:26px;font-variant-numeric:tabular-nums}.ff-kpis span{font-weight:750;font-size:13.5px}.ff-kpis small{color:#667085;font-size:12px}
+.ff-kpis .not b{color:#b42318}.ff-kpis .ok b{color:#05603a}.ff-kpis button.on{border-color:#1557d6;box-shadow:0 0 0 3px rgba(21,87,214,.12)}
+.ff-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.ff-bar>div{flex:1 1 260px;font-size:14px}.ff-bar small{color:#667085}
+.ff-search{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 10px;border:1px solid #d0d5dd;border-radius:10px;color:#667085;background:#fff}.ff-search input{border:0;outline:0;font:inherit;font-size:13.5px;min-width:150px}
+.ff-btn{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 14px;border:1px solid #d0d5dd;border-radius:11px;background:#fff;font:inherit;font-size:13.5px;font-weight:700;color:#344054;cursor:pointer}
+.ff-btn.primary{background:#1557d6;border-color:#1557d6;color:#fff}.ff-btn:disabled{opacity:.5;cursor:not-allowed}
+.ff-table{display:grid;border:1px solid #eaecf0;border-radius:14px;overflow:auto;max-height:620px;background:#fff}
+.ff-row{display:grid;grid-template-columns:minmax(200px,1.6fr) 110px minmax(120px,.8fr) minmax(200px,2fr);gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid #f2f4f7;font-size:13.5px;min-width:660px}
+.ff-row:last-child{border-bottom:0}.ff-row>span{display:grid;min-width:0;font-variant-numeric:tabular-nums}.ff-row small{color:#667085;font-size:12px}
+.ff-row.none{background:#fffbfa}.ff-row.partial{background:#fffdf5}
+.ff-th{position:sticky;top:0;z-index:1;background:#f9fafb}.ff-th span{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:#667085}
+.ff-chip{justify-self:start;font-style:normal;font-size:11.5px;font-weight:750;padding:2px 9px;border-radius:999px}
+.ff-chip.ok{background:#ecfdf3;color:#05603a}.ff-chip.partial{background:#fffaeb;color:#b54708}.ff-chip.none{background:#fef3f2;color:#b42318}
+.ff-due{color:#b42318;font-weight:700}.ff-missing{color:#475467;font-size:12.5px}
+.ff-none{margin:0;padding:22px;text-align:center;color:#667085}
+.ff-empty{display:grid;justify-items:center;gap:4px;padding:36px;border:1px dashed #d0d5dd;border-radius:16px;color:#667085;text-align:center}.ff-empty b{color:#344054}
+.ff-skel{display:grid;gap:8px}.ff-skel i{display:block;height:18px;border-radius:6px;background:linear-gradient(90deg,#f2f4f7 25%,#e4e7ec 50%,#f2f4f7 75%);background-size:200% 100%;animation:ff-sh 1.2s linear infinite}
+@keyframes ff-sh{to{background-position:-200% 0}}

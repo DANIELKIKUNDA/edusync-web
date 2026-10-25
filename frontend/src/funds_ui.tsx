@@ -1,6 +1,7 @@
 // N3-D — fonds anticipés copied from the Desktop golden master (app/db/operations.py: receive / allocate /
 // reverse_advance_fund, documents.py: export_advance_receipt_pdf). A fund is money received BEFORE any imputation: it is
 // kept as an available amount and imputed later. It is NOT a payment plan (Plan anticipé ≠ Fonds anticipé).
+import {previewPdf} from './document_io';
 import React, {useEffect, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
@@ -15,7 +16,7 @@ const money = (v: string | number, c: string) => formatMoney(String(v), c);
 const MODE: Record<string, string> = {CASH: 'Espèces', MOBILE_MONEY: 'Mobile Money', BANQUE: 'Banque', AUTRE: 'Autre'};
 
 export async function openFundReceipt(token: string, id: string) {
-  try { const b = await advanceFundReceipt(token, id); window.open(URL.createObjectURL(b), '_blank', 'noopener'); } catch (e) { toast.error(friendlyError(e)); }
+  try { const b = await advanceFundReceipt(token, id); previewPdf(b); } catch (e) { toast.error(friendlyError(e)); }
 }
 
 /** Cash desk: the active pupil's funds — receive, impute, print the fund receipt. */

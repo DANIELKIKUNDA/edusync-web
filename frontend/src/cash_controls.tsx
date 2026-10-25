@@ -2,6 +2,7 @@
 // close_cash_day, reopen_cash_day, daily_financial_report; app/services/documents.py: cash journal and daily report PDFs).
 // Web transposition (owner decision 2026-10-15): individual sessions stay; the school's day is closed globally by the
 // superior authority (GESTIONNAIRE); a cashier corrects only his own payment while his session is open.
+import {previewPdf} from './document_io';
 import React, {useEffect, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
@@ -67,7 +68,7 @@ export function useReversal(token: string, onDone: () => Promise<void> | void): 
 }
 
 async function openPdf(token: string, kind: 'journal' | 'report', day: string) {
-  try { const b = await cashDayPdf(token, kind, day); window.open(URL.createObjectURL(b), '_blank', 'noopener'); }
+  try { const b = await cashDayPdf(token, kind, day); previewPdf(b); }
   catch (e) { toast.error(friendlyError(e)); }
 }
 
