@@ -1,5 +1,6 @@
 import {cachedPlatformRead, cacheablePath, getPlatformAuthState, knownContext, rememberPlatformRead, setPlatformAuthState} from './offline_session';
 import {UserFacingError} from './errors';
+import {applyLocalPayment, enqueueWrite, loadPack, offlineWriteKind, searchPack} from '../offline/outbox';
 export type ConnectivityState='ONLINE'|'DEGRADED'|'SUSPECTED_OFFLINE'|'OFFLINE'|'RECOVERING';
 type Snapshot={state:ConnectivityState;failures:number;successes:number;since:number;lastSuccess?:number;lastFailure?:number};
 export const nativeFetch=globalThis.fetch.bind(globalThis);let snap:Snapshot={state:'ONLINE',failures:0,successes:0,since:Date.now(),lastSuccess:Date.now()};
@@ -40,19 +41,48 @@ export async function resilientFetch(input:RequestInfo|URL,init?:RequestInit):Pr
   const method=(init?.method||(input instanceof Request?input.method:'GET')).toUpperCase();
   const scope=knownContext()?.scope||null;
   const read=method==='GET';
-  // Platform AND school: a known (signed-in) context without network is read-only, whatever its offline policy.
   const offline=knownContext() && (navigator.onLine===false || getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED');
+  const school=knownContext()?.kind==='SCHOOL';
+  const replay=new Headers(init?.headers).get('X-EduSync-Replay')==='outbox';
+  // School space (owner decision 2026-10-25): enrollment, re-enrollment and payments do not depend on the network —
+  // the write is kept in the device outbox with its Idempotency-Key and replayed later. The platform stays read-only.
+  const queueable=school && !read && !replay && !!offlineWriteKind(url.pathname);
+  if(offline && queueable)return queueWrite(url,method,init);
   if(offline && !['GET','HEAD','OPTIONS'].includes(method) && !/\/auth\/(refresh|logout)$/.test(url.pathname))
-    throw new UserFacingError('Hors connexion — lecture seule. Cette action nécessite une connexion au serveur.','OFFLINE_READ_ONLY');
+    throw new UserFacingError(school?'Hors connexion : cette action-là demande le réseau. Les inscriptions, les encaissements et les dépenses, eux, continuent sans connexion.':'Hors connexion — lecture seule. Cette action nécessite une connexion au serveur.','OFFLINE_READ_ONLY');
   if(offline && read && !/\/auth\//.test(url.pathname)){
+    const local=school?await packRead(url):null;if(local)return local;
     const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
     throw new UserFacingError('Cette donnée n’est pas disponible hors connexion. Réessayez au retour du réseau.','OFFLINE_NOT_CACHED');
   }
   try{const response=await resilientApiFetch(input,init);if(read)await rememberPlatformRead(url,response,scope);return response;}
-  catch(error){if(read && scope && knownContext()?.scope===scope && cacheablePath(url.pathname)){
+  catch(error){
+    // Connection lost during the write: the server may or may not have it — replaying the SAME key later is safe.
+    if(queueable && !(error instanceof UserFacingError)){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');return queueWrite(url,method,init);}
+    if(read && scope && knownContext()?.scope===scope && cacheablePath(url.pathname)){
     setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
+    const local=school?await packRead(url):null;if(local)return local;
     const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
   }throw error;}
+}
+/** Synthetic 202 « recorded on this device » answer; callers test `offline_queued`. */
+async function queueWrite(url:URL,method:string,init?:RequestInit):Promise<Response>{
+  const body=typeof init?.body==='string'?init.body:'{}';
+  const key=new Headers(init?.headers).get('Idempotency-Key')||crypto.randomUUID();
+  const op=await enqueueWrite(url.pathname,method,body,key);
+  try{const b=JSON.parse(body);
+    if(/\/finance\/checkout\/collect$/.test(url.pathname))await applyLocalPayment(b.enrollment_id,b.charge_ids??[],b.amount);
+    if(/\/finance\/checkout\/family-collect$/.test(url.pathname))for(const l of b.lines??[])await applyLocalPayment(l.enrollment_id,l.charge_ids??[],l.amount);
+  }catch{/* local copy only */}
+  return new Response(JSON.stringify({offline_queued:true,operation_id:op.id,label:op.label,queued_at:op.createdAt,receipt_number:null,allocations:[]}),{status:202,headers:{'Content-Type':'application/json'}});
+}
+/** Offline answers for the cash desk from the offline pack (pupils of the year + payable charges, updated locally). */
+async function packRead(url:URL):Promise<Response|null>{
+  const pack=await loadPack().catch(()=>null);if(!pack)return null;
+  const json=(v:unknown)=>new Response(JSON.stringify(v),{status:200,headers:{'Content-Type':'application/json','X-EduSync-Offline':'pack'}});
+  if(url.pathname==='/api/v1/finance/checkout/search')return json({items:searchPack(pack,url.searchParams.get('q')||'')});
+  const m=url.pathname.match(/^\/api\/v1\/finance\/checkout\/balance\/([0-9a-f-]{36})$/);if(m)return json({items:pack.balances[m[1]]??[]});
+  return null;
 }
 async function attempt(input:RequestInfo|URL,init:RequestInit|undefined,write:boolean):Promise<Response>{const max=retryable(input,init)?3:1;let last:unknown;for(let i=0;i<max;i++){if(i>0&&write)setActivity({retrying:true});try{const controller=new AbortController();const timeout=window.setTimeout(()=>controller.abort(),12_000+8_000*i);let r=await nativeFetch(input,{...init,credentials:init?.credentials??'include',signal:init?.signal??controller.signal});clearTimeout(timeout);const url=typeof input==='string'?input:input instanceof URL?input.toString():input.url;if(r.status===401&&!url.includes('/auth/login')&&!url.includes('/auth/refresh')){const token=await renewAccess();if(token){const h=new Headers(init?.headers||(input instanceof Request?input.headers:undefined));h.set('Authorization',`Bearer ${token}`);r=await nativeFetch(input,{...init,headers:h,credentials:'include'})}}r=await withStepUp(r,input,init);if(r.status===403&&r.headers.get('X-EduSync-Space')==='WITHDRAWN')window.dispatchEvent(new CustomEvent('edusync:space-check'));if(r.status>=500){failure();if(i<max-1){await sleep([1200,2600,5200][i]+Math.random()*500);continue}}else success();return r}catch(e){last=e;failure();if(i<max-1){await sleep([1200,2600,5200][i]+Math.random()*500);continue}}}throw last instanceof Error?last:new Error('network')}
 /* Step-up (owner decision 2026-10-13): a sensitive platform action answered 403 MFA_STEP_UP_REQUIRED asks the user for a

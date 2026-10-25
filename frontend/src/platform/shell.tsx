@@ -1,3 +1,4 @@
+import {subscribeOutbox, type OutboxState} from '../offline/outbox';
 import React, {useEffect, useId, useRef, useState, useMemo} from 'react';
 import {NavGlyph} from './nav_icons';
 import {windowTitle, VerticalNavigation} from './navigation';
@@ -44,15 +45,21 @@ export function StatusChip({compact = false}: {compact?: boolean}) {
   const [, tick] = useState(0);
   useEffect(() => subscribeConnectivity(s => setState(s.state)), []);
   useEffect(() => subscribeActivity(a => { setAct(a); window.setTimeout(() => tick(x => x + 1), 4200); }), []);
+  // School outbox (2026-10-25): operations recorded on this device while offline, sent automatically later.
+  const [box, setBox] = useState<OutboxState>({pending: 0, conflicts: 0, syncing: false});
+  useEffect(() => subscribeOutbox(setBox), []);
   const recentOk = act.last === 'ok' && Date.now() - act.at < 4000;
   const recentFail = act.last === 'failed' && Date.now() - act.at < 60000;
   let tone = 'ok', icon = 'wifi', label = 'En ligne', detail = 'Connexion au serveur EduSync active.';
-  if (state === 'OFFLINE') { tone = 'bad'; icon = 'wifiOff'; label = 'Hors ligne'; detail = 'Pas de connexion au serveur. Les enregistrements reprendront quand la connexion reviendra ; rien n’est envoyé en attendant.'; }
+  if (state === 'OFFLINE') { tone = 'bad'; icon = 'wifiOff'; label = 'Hors ligne'; detail = 'Pas de connexion au serveur. Inscriptions, encaissements et dépenses sont gardés sur cet appareil et envoyés automatiquement au retour de la connexion.'; }
   else if (state === 'SUSPECTED_OFFLINE' || state === 'DEGRADED') { tone = 'warn'; icon = 'wifi'; label = connectivityLabel(state); detail = 'Le réseau répond mal. EduSync réessaie automatiquement les opérations sûres.'; }
   else if (state === 'RECOVERING') { tone = 'warn'; icon = 'sync'; label = 'Reconnexion…'; detail = 'La connexion revient, vérification en cours.'; }
   if (act.pending > 0) { tone = act.retrying ? 'warn' : 'busy'; icon = act.retrying ? 'sync' : 'cloudUp'; label = act.retrying ? 'Nouvel essai d’envoi…' : 'Enregistrement…'; detail = `${act.pending} opération(s) en cours d’envoi au serveur.`; }
   else if (recentFail) { tone = 'bad'; icon = 'alert'; label = 'Envoi non confirmé'; detail = 'La dernière opération n’a pas pu être confirmée par le serveur. Réessayez : EduSync empêche les doublons.'; }
   else if (recentOk) { tone = 'ok'; icon = 'checkCircle'; label = 'Enregistré'; detail = 'La dernière opération a été enregistrée sur le serveur.'; }
+  if (box.syncing) { tone = 'busy'; icon = 'sync'; label = `Synchronisation… ${box.pending}`; detail = 'Envoi des opérations gardées sur cet appareil, dans l’ordre, sans doublon.'; }
+  else if (box.pending > 0) { tone = 'warn'; icon = 'cloudUp'; label = state === 'OFFLINE' ? `Hors ligne · ${box.pending} en attente` : `${box.pending} à synchroniser`; detail = `${box.pending} opération(s) gardée(s) sur cet appareil, envoyée(s) automatiquement dès que le serveur répond.`; }
+  else if (box.conflicts > 0 && state !== 'OFFLINE') { tone = 'bad'; icon = 'alert'; label = `${box.conflicts} à vérifier`; detail = 'Des opérations ont été refusées par le serveur à la synchronisation : voir Synchronisation › À vérifier.'; }
   return <span className={`es-status es-${tone} ${compact ? 'es-status-compact' : ''}`} role="status" aria-live="polite" title={detail}>
     <NavGlyph g={icon} size={15}/><span className={compact ? 'es-sr' : ''}>{label}</span>
   </span>;

@@ -23,8 +23,8 @@ export function CashExpenseForm({token, onDone}: {token: string; onDone: () => P
     if (!await confirmAction({title: 'Enregistrer cette dépense ?', message: `${money(amount.replace(',', '.'), currency)} sortiront de votre caisse. Une dépense enregistrée ne se supprime pas.`, confirmLabel: 'Enregistrer'})) return;
     try {
       setBusy(true); setError('');
-      await cashExpense(token, {category: category.trim(), amount: amount.replace(',', '.'), currency, reason: reason.trim(), reference: reference.trim() || null});
-      toast.success('Dépense enregistrée'); setCategory(''); setAmount(''); setReason(''); setReference(''); await onDone();
+      const res: any = await cashExpense(token, {category: category.trim(), amount: amount.replace(',', '.'), currency, reason: reason.trim(), reference: reference.trim() || null});
+      toast.success(res?.offline_queued ? 'Hors connexion : dépense enregistrée sur cet appareil, envoyée automatiquement' : 'Dépense enregistrée'); setCategory(''); setAmount(''); setReason(''); setReference(''); await onDone();
     } catch (err) { setError(friendlyError(err)); } finally { setBusy(false); }
   }
   return <form className="cashExpenseBox compact" onSubmit={submit} noValidate>

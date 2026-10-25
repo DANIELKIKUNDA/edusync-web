@@ -120,8 +120,10 @@ export function ReenrollWizard({token, classes, refOrder, levelLabels, onClose, 
     if (!pupil) return; if (!classId) { setError('Choisissez la nouvelle classe.'); return; }
     if (!pupil.gender || pupil.gender === 'X') { setError('Le sexe de l’élève est à compléter dans sa fiche avant la réinscription.'); return; }
     try { setBusy(true); setError('');
-      await enrollFamily(token, {family_id: pupil.family_id, household_confidence: 'CERTAIN', children: [{student_id: pupil.id, class_id: classId, gender: pupil.gender as 'M' | 'F', origin: 'REENROLLMENT'} as any]});
-      toast.success(`${fullName(pupil)} est réinscrit(e) en ${classes.find(c => c.id === classId)?.label ?? 'nouvelle classe'}`); await onDone(); onClose();
+      const res = await enrollFamily(token, {family_id: pupil.family_id, household_confidence: 'CERTAIN', children: [{student_id: pupil.id, class_id: classId, gender: pupil.gender as 'M' | 'F', origin: 'REENROLLMENT'} as any]});
+      const target = classes.find(c => c.id === classId)?.label ?? 'nouvelle classe';
+      if (res?.offline_queued) toast.success(`Hors connexion : réinscription de ${fullName(pupil)} en ${target} enregistrée sur cet appareil`, {description: 'Envoyée automatiquement au retour de la connexion.'});
+      else toast.success(`${fullName(pupil)} est réinscrit(e) en ${target}`); await onDone(); onClose();
     } catch (e) { setError(friendlyError(e)); } finally { setBusy(false); }
   }
   return <div className="kp-backdrop" onClick={() => { if (!busy) onClose(); }}>

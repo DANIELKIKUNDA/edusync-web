@@ -1,3 +1,4 @@
+import {DeviceOutbox} from './offline/device_outbox';
 // Synchronisation & appareils (administrator finishing pass 2026-10-24) — same data and capabilities as before
 // (sync.status.read, sync.device.register / revoke, sync.conflicts.read / resolve), explained in plain French:
 // what waits to be sent, which devices are trusted, which cases need a decision. Every count card opens its section.
@@ -61,6 +62,7 @@ export default function SyncAdminPage({token, permissions}: Props) {
   const pending = data.status?.pending_outbox ?? outbox.length;
   const toHandle = review.length;
   return <div className="syncAdmin syncPremium">
+    <DeviceOutbox/>
     <header className="syncHero">
       <span className="syncHeroIcon" aria-hidden="true"><NavGlyph g="sync" size={26}/></span>
       <div><small>Fonctionnement hors connexion</small><h2>Synchronisation &amp; appareils</h2>

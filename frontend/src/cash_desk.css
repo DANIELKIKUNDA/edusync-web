@@ -57,3 +57,4 @@ button.cd-row{cursor:pointer}button.cd-row:hover{background:#f8faff}button.cd-ro
 .cd-srow{display:grid;grid-template-columns:70px repeat(6,minmax(90px,1fr));gap:8px;padding:8px 12px;border-bottom:1px solid #f2f4f7;font-size:13px;font-variant-numeric:tabular-nums;min-width:640px}.cd-srow:last-child{border-bottom:0}
 .cd-note{margin:0;padding:10px 12px;border-radius:12px;background:#fffaeb;color:#93370d;font-size:13.5px}
 @media (max-width:760px){.cd-hero{grid-template-columns:1fr}.cd-btn{flex:1 1 auto;justify-content:center}.cd-backdrop{padding:0;place-items:end stretch}.cd-modal{border-radius:20px 20px 0 0;max-height:94dvh}}
+.cd-pending{background:#fffaeb}.cd-pending>span:nth-child(3){color:#b54708;font-weight:700}

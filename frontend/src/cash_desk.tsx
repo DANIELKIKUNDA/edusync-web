@@ -7,6 +7,7 @@ import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
 import {cashClose, cashCurrent, cashDaySummary, cashJournal, cashOpen, cashSessionJournalFile, cashSessions, cashSessionsXlsx, type CashSession, type CashSessionRow, type CashSessionsPage} from './api';
 import {CashExpenseForm, SchoolDayPanel, useReversal} from './cash_controls';
+import {listOutbox} from './offline/outbox';
 import {exportManaged, previewPdf} from './document_io';
 import {friendlyError} from './platform/errors';
 import {formatMoney} from './platform/format';
@@ -39,9 +40,24 @@ export function CashDeskPro({token, can, schoolName}: {token: string; can: (p: s
   const [dialog, setDialog] = useState<'open' | 'expense' | 'close' | null>(null);
   const [err, setErr] = useState('');
   async function refresh() {
-    try { const c = (await cashCurrent(token)).session; setCurrent(c); setJournal(c ? await cashJournal(token, c.id) : null); setErr(''); }
-    catch (e) { setErr(friendlyError(e)); } finally { setLoaded(true); }
+    // Offline (2026-10-25): the cash desk keeps working — operations waiting in the device outbox are merged into what
+    // the server last said (opening / closing / payments / expenses recorded here), marked « en attente ».
+    const pend = (await listOutbox().catch(() => [])).filter(r => r.status === 'PENDING');
+    const lastCash = pend.filter(r => r.kind === 'CASH_OPEN' || r.kind === 'CASH_CLOSE').pop();
+    let c: CashSession | null = null, failed: unknown = null;
+    try { c = (await cashCurrent(token)).session; } catch (e) { failed = e; }
+    if (lastCash?.kind === 'CASH_CLOSE') c = null;
+    else if (lastCash?.kind === 'CASH_OPEN' && !c) { const b = JSON.parse(lastCash.body || '{}'); const z = (o: string) => ({opening: o, receipts: '0', expenses: '0', reversals: '0', expected_cash: o});
+      c = {id: 'offline', membership_id: '', business_date: lastCash.createdAt.slice(0, 10), opened_at: lastCash.createdAt, status: 'OPEN', cdf: z(String(b.opening_cdf ?? '0')), usd: z(String(b.opening_usd ?? '0'))} as CashSession; }
+    setCurrent(c); setErr(failed && !c && !lastCash ? friendlyError(failed) : '');
+    let j: Awaited<ReturnType<typeof cashJournal>> | null = null;
+    if (c && c.id !== 'offline') { try { j = await cashJournal(token, c.id); } catch { /* offline, not cached */ } }
+    if (c) { const local = pend.filter(r => r.kind === 'PAYMENT' || r.kind === 'SALE' || r.kind === 'EXPENSE').map(r => { const b = JSON.parse(r.body || '{}');
+        return {created_at: r.createdAt, kind: r.kind === 'EXPENSE' ? 'EXPENSE' : 'RECEIPT', reference: `En attente · ${r.label}`, amount: String(b.amount ?? (b.lines ?? []).reduce((t: number, l: any) => t + Number(l.amount || 0), 0)), currency: b.currency ?? b.lines?.[0]?.currency ?? 'CDF', pending: true}; });
+      j = {session: j?.session ?? c, items: [...(j?.items ?? []), ...local] as any}; }
+    setJournal(j); setLoaded(true);
   }
+  useEffect(() => { const h = () => { void refresh(); }; window.addEventListener('edusync:outbox', h); return () => window.removeEventListener('edusync:outbox', h); }, [token]);
   useEffect(() => { void refresh(); }, [token]);
   const [askReversal, reversalNode] = useReversal(token, refresh);
 
@@ -92,7 +108,7 @@ function SessionJournal({items, canReverse, onReverse, title}: {items: Awaited<R
     <div className="cd-tools"><div className="cd-seg" role="group" aria-label="Sens">{([['ALL', 'Tout'], ['IN', 'Entrées'], ['OUT', 'Sorties']] as const).map(([k, l]) => <button key={k} type="button" aria-pressed={dir === k} className={dir === k ? 'on' : ''} onClick={() => setDir(k)}>{l}</button>)}</div>
       <label className="cd-search"><NavGlyph g="search" size={15}/><input value={q} onChange={e => setQ(e.target.value)} placeholder="Reçu, libellé…" aria-label="Rechercher un mouvement"/></label></div></header>
     <div className="cd-table" role="table" aria-label={title}><div className="cd-row cd-th" role="row"><span>Heure</span><span>Opération</span><span>Référence</span><span>Montant</span><span/></div>
-      {rows.map((x: any, i) => <div className={`cd-row${x.reversed ? ' void' : ''}`} role="row" key={i}>
+      {rows.map((x: any, i) => <div className={`cd-row${x.reversed ? ' void' : ''}${x.pending ? ' cd-pending' : ''}`} role="row" key={i}>
         <span>{new Date(x.created_at).toLocaleTimeString('fr-FR')}</span>
         <span><em className={`cd-chip ${x.kind === 'RECEIPT' ? 'in' : 'out'}`}>{x.kind === 'RECEIPT' ? (x.reversed ? 'Entrée contre-opérée' : 'Entrée') : KIND[x.kind] ?? x.kind}</em></span>
         <span>{x.reference}</span><span className={x.kind === 'RECEIPT' ? 'cd-in' : 'cd-out'}>{x.kind === 'RECEIPT' ? '+' : '−'}{money(x.amount, x.currency)}</span>
@@ -104,7 +120,7 @@ function OpenDialog({token, onClose, onDone}: {token: string; onClose: () => voi
   const [cdf, setCdf] = useState('0'); const [usd, setUsd] = useState('0'); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const bad = !validAmount(cdf) || !validAmount(usd);
   async function go() { if (bad) { setErr('Montants en chiffres (0 si la caisse est vide).'); return; }
-    try { setBusy(true); setErr(''); await cashOpen(token, cdf.replace(',', '.'), usd.replace(',', '.')); toast.success('Caisse ouverte : vous pouvez encaisser.'); await onDone(); }
+    try { setBusy(true); setErr(''); const res: any = await cashOpen(token, cdf.replace(',', '.'), usd.replace(',', '.')); toast.success(res?.offline_queued ? 'Hors connexion : ouverture de caisse enregistrée sur cet appareil. Vous pouvez encaisser.' : 'Caisse ouverte : vous pouvez encaisser.'); await onDone(); }
     catch (e) { const m = friendlyError(e); if (/déjà ouverte/i.test(m)) { toast.info('Votre caisse était déjà ouverte : elle est affichée.'); await onDone(); return; } setErr(m); } finally { setBusy(false); } }
   return <Modal title="Ouvrir ma caisse" sub="Indiquez l’argent présent dans la caisse au départ (fond initial)." onClose={onClose}
     foot={<><button type="button" className="cd-btn" onClick={onClose}>Annuler</button><button type="button" className="cd-btn primary" disabled={busy || bad} onClick={() => void go()}>{busy ? 'Ouverture…' : 'Ouvrir ma caisse'}</button></>}>
@@ -122,8 +138,8 @@ function CloseDialog({token, session, onClose, onDone}: {token: string; session:
   async function go() {
     if (!L.CDF.ok || !L.USD.ok) { setErr('Montants comptés en chiffres.'); return; }
     if (gap && note.trim().length < 3) { setErr('Il y a un écart : expliquez-le dans la note (3 caractères au moins).'); return; }
-    try { setBusy(true); setErr(''); await cashClose(token, fromCents(L.CDF.counted), fromCents(L.USD.counted), note.trim() || undefined);
-      toast.success(gap ? 'Caisse clôturée avec un écart noté.' : 'Caisse clôturée : comptage conforme.'); await onDone(); }
+    try { setBusy(true); setErr(''); const res: any = await cashClose(token, fromCents(L.CDF.counted), fromCents(L.USD.counted), note.trim() || undefined);
+      toast.success(res?.offline_queued ? 'Hors connexion : clôture enregistrée sur cet appareil, envoyée après les encaissements du jour.' : gap ? 'Caisse clôturée avec un écart noté.' : 'Caisse clôturée : comptage conforme.'); await onDone(); }
     catch (e) { setErr(friendlyError(e)); } finally { setBusy(false); }
   }
   return <Modal title="Clôturer ma caisse" sub="Comptez l’argent réellement présent. Laissez vide si le montant est exactement le solde théorique." onClose={onClose}

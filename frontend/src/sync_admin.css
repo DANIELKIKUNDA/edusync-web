@@ -45,3 +45,12 @@ button.syncKpi:focus-visible{outline:3px solid #93b4ff;outline-offset:2px}
 .syncPremium .linkBtn.danger{color:#b42318}
 .syncPremium .linkBtn:hover{text-decoration:underline}
 .syncPremium .linkBtn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Sur cet appareil — school outbox (2026-10-25) */
+.ob-panel{display:grid;gap:10px;padding:16px 18px;border:1px solid #e4e9f2;border-radius:18px;background:#fff;margin-bottom:14px}
+.ob-panel>header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}.ob-panel h3{margin:0}.ob-panel p{margin:4px 0 0;color:#475467;font-size:13.5px}
+.ob-panel h4{margin:6px 0 0;font-size:14px}.ob-panel ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ob-panel li{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #eaecf0;border-radius:12px}.ob-panel li.bad{border-color:#fecdca;background:#fffbfa}
+.ob-panel li>div{display:grid;flex:1;min-width:0}.ob-panel li small{color:#667085;font-size:12.5px}
+.ob-dot{width:10px;height:10px;border-radius:50%;flex:none}.ob-dot.wait{background:#f79009}.ob-dot.bad{background:#f04438}
+.ob-actions{display:flex;gap:6px}
