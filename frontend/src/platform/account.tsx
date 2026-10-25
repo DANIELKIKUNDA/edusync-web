@@ -91,10 +91,10 @@ export function ProfileDialog({name, email, context, detail, onClose, platform, 
 }
 
 /** Personal settings on this device, separate from school-wide configuration. */
-export function PreferencesDialog({theme, onTheme, reducedMotion, onReducedMotion, token, pushScope, platform, onClose}: {
+export function PreferencesDialog({theme, onTheme, reducedMotion, onReducedMotion, token, pushScope, platform, canPush = true, onClose}: {
   theme?: ThemePref; onTheme?: (t: ThemePref) => void;
   reducedMotion: boolean; onReducedMotion: (value: boolean) => void;
-  token: string; pushScope: string; platform: boolean; onClose: () => void;
+  token: string; pushScope: string; platform: boolean; canPush?: boolean; onClose: () => void;
 }) {
   return <Modal title="Préférences" subtitle="Réglages personnels sur cet appareil." onClose={onClose}>
     {platform && theme && onTheme ? <fieldset className="es-pref-group">
@@ -115,7 +115,7 @@ export function PreferencesDialog({theme, onTheme, reducedMotion, onReducedMotio
         <span className="es-pref-text"><b>Réduire les animations</b><small>Limiter les mouvements et transitions de l’interface.</small></span>
       </label>
     </fieldset>
-    <DeviceNotificationPreference token={token} scope={pushScope} platform={platform}/>
+    {canPush ? <DeviceNotificationPreference token={token} scope={pushScope} platform={platform}/> : <p className="es-hint">Les notifications push ne sont pas disponibles avec les droits de ce compte.</p>}
     <p className="es-hint">L’affichage est conservé pour ce compte sur cet appareil. Langue : français.</p>
     <p className="es-hint es-version">Version d’EduSync : <b>{shortBuild(CURRENT_BUILD)}</b></p>
     <div className="es-modal-foot"><button type="button" className="es-btn es-btn-primary" onClick={onClose}>Terminé</button></div>
