@@ -104,3 +104,15 @@
 .commPage .commCard .commActions button,.commPage .commCard .commActions .primaryBtn,.commPage .commCard .commActions .softBtn{width:auto;flex:0 0 auto;min-height:42px;padding:0 20px;font-size:14px}
 .commAdmin #comm-senders{grid-column:1/-1}
 .commRoles{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+/* Modèles de messages (2026-10-25) */
+.ctpl{display:grid;gap:14px}
+.ctpl-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:12px}.ctpl-head h3{margin:0}.ctpl-head p{margin:4px 0 0;color:#475467;font-size:13.5px;max-width:640px}
+.ctpl-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.ctpl-item{display:grid;gap:6px;text-align:left;padding:14px;border:1px solid #e4e7ec;border-radius:14px;background:#fff;font:inherit;color:inherit;cursor:pointer}
+.ctpl-item:hover:not(:disabled){border-color:#b2ccff;background:#f8faff}.ctpl-item:disabled{cursor:default}
+.ctpl-item span{display:grid}.ctpl-item small{color:#667085;font-size:12px}.ctpl-item p{margin:0;font-size:13px;color:#344054;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ctpl-empty{display:grid;gap:6px;justify-items:start;padding:16px;border:1px dashed #d0d5dd;border-radius:14px;color:#667085;margin:0}
+.ctpl-starters{display:flex;flex-wrap:wrap;gap:6px}.ctpl-starters button,.ctpl-vars button{min-height:34px;padding:0 12px;border:1px solid #c7d7fe;border-radius:999px;background:#eef4ff;color:#1149b8;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.ctpl-vars{display:flex;flex-wrap:wrap;gap:6px}
+.ctpl-preview{padding:12px;border-radius:12px;background:#f9fafb;border:1px solid #eaecf0}.ctpl-preview small{color:#667085;font-weight:700}.ctpl-preview p{margin:4px 0 0;white-space:pre-wrap}
+.ctpl-editor{width:min(720px,96vw)}

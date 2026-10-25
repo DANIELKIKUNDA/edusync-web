@@ -1,3 +1,4 @@
+import {explainHttpError} from './platform/errors';
 // N3-F — staff children finance copied from the Desktop golden master (app/db/staff_finance.py): finance mode, open
 // charges, payroll deduction confirmed as a NON-CASH settlement (no payment, no receipt, no cash operation), cancellation
 // with a reason. Superior authority: GESTIONNAIRE (owner decision 2026-10-15).
@@ -9,7 +10,8 @@ import {formatMoney} from './platform/format';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';  // same base as api.ts
 const auth = (token: string) => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
-async function detail(r: Response, fallback: string) { try { const j = await r.json(); return typeof j.detail === 'string' ? j.detail : fallback; } catch { return fallback; } }
+// Server refusals go through the shared explainer (translated, remembered by friendlyError) — 2026-10-25.
+async function detail(r: Response, fallback: string) { let body: unknown = null; try { body = await r.json(); } catch { /* non JSON */ } return r.status ? explainHttpError(r.status, body) : fallback; }
 async function get<T>(token: string, path: string, fallback: string): Promise<T> { const r = await fetch(`${API}${path}`, {headers: auth(token)}); if (!r.ok) throw new Error(await detail(r, fallback)); return r.json(); }
 async function send<T>(token: string, method: string, path: string, body: unknown, fallback: string): Promise<T> {
   const r = await fetch(`${API}${path}`, {method, headers: {...auth(token), 'Idempotency-Key': crypto.randomUUID()}, body: JSON.stringify(body)});

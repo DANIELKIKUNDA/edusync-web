@@ -47,7 +47,7 @@ def test_session_journal_pdf_has_a_title_per_cashier():
 def test_routes_are_read_only_and_scoped_to_own_sessions():
     for route in ("@router.get('/sessions')", "@router.get('/sessions.xlsx')", "@router.get('/{session_id}/journal.pdf')", "@router.get('/{session_id}/journal.xlsx')"):
         assert route in ROUTER
-    assert "('' if other else ' AND membership_id=:mid')" in ROUTER                      # a cashier sees HIS sessions
+    assert "(CAST(:all AS boolean) OR membership_id=CAST(:mid AS uuid))" in ROUTER                      # a cashier sees HIS sessions
     assert "Cette caisse appartient à un autre caissier" in ROUTER and "need(actor, 'finance.cash.journal.export')" in ROUTER
     assert "Période trop longue : un an au maximum" in ROUTER
     assert "def session_operations" in REPO and "r.cash_session_id=:cs" in REPO and "e.cash_session_id=:cs" in REPO

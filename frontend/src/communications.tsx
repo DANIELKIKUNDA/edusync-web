@@ -1,3 +1,4 @@
+import {CommTemplates} from './comm_templates';
 // Centre de communication de l'école (EXTERNAL_MESSAGING_ARCHITECTURE.md §7) — mobile first.
 // Composer → aperçu (destinataires, numéros invalides, doublons, unités SMS, solde après envoi) → confirmation.
 // Le serveur accepte l'envoi (« En file ») puis le worker envoie : l'écran n'affiche jamais « Envoyé » avant le serveur.
@@ -14,7 +15,7 @@ import {NavGlyph} from './platform/nav_icons';
 import './communications.css';
 
 type Props = {token: string; permissions: string[]; schoolId: string; schoolName: string; onNavigate?: (module: string) => void};
-type Tab = 'compose' | 'history' | 'settings';
+type Tab = 'templates' | 'compose' | 'history' | 'settings';
 const AUD_LABEL: Record<Draft['audience_type'], string> = {INDIVIDUAL: 'Un élève (ses responsables)', CLASS: 'Une classe', SECTION: 'Une section', SCHOOL: 'Toute l’école'};
 const AUD_CAP: Record<Draft['audience_type'], string> = {INDIVIDUAL: 'communications.send.individual', CLASS: 'communications.send.class',
   SECTION: 'communications.send.section', SCHOOL: 'communications.send.all_parents'};
@@ -28,26 +29,35 @@ const fmt = (iso?: string | null) => iso ? new Date(iso).toLocaleString('fr-FR',
 
 export default function CommunicationsPage({token, permissions, schoolId, schoolName, onNavigate}: Props) {
   const can = (p: string) => permissions.includes(p);
-  const [tab, setTab] = useState<Tab>(can('communications.compose') ? 'compose' : can('communications.history.read') ? 'history' : 'settings');
+  // 2026-10-25: « Écrire » only for a role that may SEND to an audience; templates for the roles that prepare messages;
+  // « Réglages » only with notifications.internal.configure, otherwise « Cet appareil » (own push notifications).
+  const canSend = permissions.some(p => p.startsWith('communications.send.'));
+  const compose = can('communications.compose') && canSend;
+  const templates = can('communications.templates.manage') || (can('communications.compose') && can('communications.read'));
+  const configure = can('notifications.internal.configure');
+  const [tab, setTab] = useState<Tab>(compose ? 'compose' : templates ? 'templates' : can('communications.history.read') ? 'history' : 'settings');
   const [ready, setReady] = useState<Readiness | null>(null);
   const [error, setError] = useState('');
   const reload = () => readiness(token).then(setReady).catch(e => setError(friendlyError(e)));
   useEffect(() => { void reload(); }, [token]);
   return <section className="commPage">
     <header className="commHero"><span className="commHeroIcon" aria-hidden="true"><NavGlyph g="message" size={26}/></span><div><div className="eyebrow">COMMUNICATION</div><h2>Centre de communication</h2>
-      <p>{can('communications.compose') ? `Écrivez aux familles et au personnel de ${schoolName} par SMS, e-mail ou notification. Une panne d’un fournisseur ne bloque jamais l’école.`
+      <p>{compose ? `Écrivez aux familles et au personnel de ${schoolName} par SMS, e-mail ou notification. Une panne d’un fournisseur ne bloque jamais l’école.`
+        : templates ? `Préparez les modèles de relance et de confirmation de paiement de ${schoolName}, et suivez les messages envoyés. L’envoi aux familles est réservé aux rôles qui en ont le droit.`
         : `Vous décidez ici comment ${schoolName} communique : canaux autorisés, solde SMS, notifications de cet appareil. Les messages aux familles sont rédigés par les rôles qui en ont le droit.`}</p></div>
       {ready && <div className={`commWallet ${ready.wallet.low ? 'low' : ''}`} aria-label="Solde SMS"><b>{ready.wallet.available}</b><small>SMS disponibles</small>
         {ready.wallet.reserved > 0 && <small>{ready.wallet.reserved} réservés</small>}</div>}
     </header>
-    {(can('communications.compose') || can('communications.history.read')) && <nav className="commTabs" role="tablist">
-      {can('communications.compose') && <button role="tab" aria-selected={tab === 'compose'} className={tab === 'compose' ? 'active' : ''} onClick={() => setTab('compose')}><NavGlyph g="message" size={16}/>Écrire un message</button>}
+    {(compose || templates || can('communications.history.read')) && <nav className="commTabs" role="tablist">
+      {compose && <button role="tab" aria-selected={tab === 'compose'} className={tab === 'compose' ? 'active' : ''} onClick={() => setTab('compose')}><NavGlyph g="message" size={16}/>Écrire un message</button>}
+      {templates && <button role="tab" aria-selected={tab === 'templates'} className={tab === 'templates' ? 'active' : ''} onClick={() => setTab('templates')}><NavGlyph g="doc" size={16}/>Modèles de messages</button>}
       {can('communications.history.read') && <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}><NavGlyph g="clock" size={16}/>Historique</button>}
-      <button role="tab" aria-selected={tab === 'settings'} className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}><NavGlyph g="sliders" size={16}/>Réglages</button>
+      <button role="tab" aria-selected={tab === 'settings'} className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}><NavGlyph g={configure ? 'sliders' : 'phone'} size={16}/>{configure ? 'Réglages' : 'Cet appareil'}</button>
     </nav>}
     {error && <div className="error" role="alert">{error}</div>}
     {tab === 'compose' && ready && <Composer token={token} can={can} ready={ready} schoolId={schoolId} onSent={() => { void reload(); }}/>}
     {tab === 'history' && <History token={token} can={can}/>}
+    {tab === 'templates' && <CommTemplates token={token} can={can}/>}
     {tab === 'settings' && ready && <Settings token={token} can={can} ready={ready} schoolId={schoolId} onChange={reload} onNavigate={onNavigate}/>}
   </section>;
 }

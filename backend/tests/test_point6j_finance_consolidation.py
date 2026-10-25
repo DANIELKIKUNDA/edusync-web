@@ -18,7 +18,7 @@ def test_fee_tracking_is_read_only_projection_and_recovery_owns_recovery_views()
         assert x in rec
 
 def test_cash_and_reports_are_separate_responsibilities():
-    f=read('frontend/src/finance.tsx')
+    f=read('frontend/src/finance.tsx')+read('frontend/src/cash_desk.tsx')  # 2026-10-25: the cash desk moved to cash_desk.tsx
     assert 'Situation globale des caisses' in f and 'Solde théorique global' in f
     assert 'ReportsDesk' in f and 'CashDesk' in f
     assert "can('finance.cash.other.read')" in f
@@ -36,5 +36,5 @@ def test_advance_funds_not_daily_finance_tab_but_domain_preserved():
     assert 'finance.advance_funds' in cat
 
 def test_currency_separation_is_explicit_in_cash_ui():
-    f=read('frontend/src/finance.tsx')
+    f=read('frontend/src/finance.tsx')+read('frontend/src/cash_desk.tsx')  # 2026-10-25: the cash desk moved to cash_desk.tsx
     assert "row('CDF'" in f and "row('USD'" in f

@@ -221,12 +221,13 @@ def _cashiers(c, services, sessions):
 def _list_sessions(c, services, actor, start, end, status, membership_id, limit, offset):
     other = 'finance.cash.other.read' in actor.permissions
     a, z = _period(start, end)
-    where = "school_id=:sid AND business_date BETWEEN :a AND :z" + ('' if other else ' AND membership_id=:mid')
-    params = {'sid': str(actor.school_id), 'a': a, 'z': z, 'mid': str(actor.membership_id)}
-    if status in ('OPEN', 'CLOSED'): where += ' AND status=:st'; params['st'] = status
-    if other and membership_id: where += ' AND membership_id=:m'; params['m'] = str(membership_id)
-    total = c.execute(text(f"SELECT count(*) FROM finance_cash_sessions WHERE {where}"), params).scalar_one()
-    rows = c.execute(text(f"SELECT * FROM finance_cash_sessions WHERE {where} ORDER BY business_date DESC, opened_at DESC LIMIT :l OFFSET :o"), {**params, 'l': limit, 'o': offset}).mappings().all()
+    # Fixed SQL, optional filters as parameters (no interpolated SQL in routes — security audit).
+    params = {'sid': str(actor.school_id), 'a': a, 'z': z, 'mid': str(actor.membership_id), 'all': other,
+              'st': status if status in ('OPEN', 'CLOSED') else None, 'm': str(membership_id) if (other and membership_id) else None}
+    where = """school_id=:sid AND business_date BETWEEN :a AND :z AND (CAST(:all AS boolean) OR membership_id=CAST(:mid AS uuid))
+               AND (CAST(:st AS text) IS NULL OR status=CAST(:st AS text)) AND (CAST(:m AS uuid) IS NULL OR membership_id=CAST(:m AS uuid))"""
+    total = c.execute(text("SELECT count(*) FROM finance_cash_sessions WHERE " + where), params).scalar_one()
+    rows = c.execute(text("SELECT * FROM finance_cash_sessions WHERE " + where + " ORDER BY business_date DESC, opened_at DESC LIMIT :l OFFSET :o"), {**params, 'l': limit, 'o': offset}).mappings().all()
     return a, z, total, _cashiers(c, services, [projection(c, dict(r)) for r in rows])
 
 

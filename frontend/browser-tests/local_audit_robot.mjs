@@ -61,23 +61,36 @@ await p.goto('http://localhost:5180/'); await p.getByLabel('Adresse e-mail').fil
 await p.getByRole('button', {name: 'Se connecter'}).click(); await p.locator('.es-shell').waitFor({timeout: 30000});
 const nav = () => p.getByRole('complementary', {name: 'Navigation principale'});
 const openMenu = async () => { if (WIDTH < 900) { await p.getByRole('button', {name: 'Tous les modules'}).click(); await p.waitForTimeout(500); } };
+await p.waitForFunction(() => document.querySelectorAll('aside button[aria-current], aside nav button').length > 2, null, {timeout: 20000}).catch(() => {}); await p.waitForTimeout(1500);
 await openMenu();
 const modules = (await (WIDTH < 900 ? p.locator('button[aria-label]').filter({visible: true}) : nav().locator('button[aria-label]')).evaluateAll(es => es.map(e => e.getAttribute('aria-label'))))
   .filter(n => n && !/menu|Compte|Réduire|Fermer/i.test(n));
 if (WIDTH < 900) await closeOverlays();
 console.log(`Rôle ${acc.email.split('@')[0].replace(/./g, '•')} · ${WIDTH}px · modules : ${modules.join(', ')}`);
-for (const m of modules) {
+// A card or a button may lead to another module (home cards do, by design): every step first comes back to the module
+// under inspection, then re-opens its tab, so each module is really explored and labelled correctly.
+const currentModule = async () => (WIDTH < 900 ? '' : await nav().locator('button[aria-current=page]').getAttribute('aria-label').catch(() => '')) || '';
+async function goModule(m) {
+  if (WIDTH >= 900 && await currentModule() === m) return true;
   await openMenu();
   const target = WIDTH < 900 ? p.getByRole('button', {name: m, exact: true}).filter({visible: true}).last() : nav().getByRole('button', {name: m, exact: true});
-  try { await target.click({timeout: 5000}); } catch { add('NAVIGATION', `module ${m} inaccessible`); continue; }
-  await inspect(m); await pressSafeButtons(m); await openFirstRow(m);
+  try { await target.click({timeout: 5000}); await p.waitForTimeout(900); return true; } catch { add('NAVIGATION', `module ${m} inaccessible`); return false; }
+}
+async function clickTab(name) { const tb = p.locator(TAB_SEL).filter({visible: true, hasText: name}).first(); try { await tb.click({timeout: 3000}); return true; } catch { return false; } }
+for (const m of modules) {
+  if (!(await goModule(m))) continue;
+  screen = m; await inspect(m); await pressSafeButtons(m); if (m !== 'Accueil') await openFirstRow(m);
+  await goModule(m);
   const tabs = [...new Set(await visibleNames(TAB_SEL))].slice(0, 14);
   for (const t of tabs) {
-    const tb = p.locator(TAB_SEL).filter({visible: true, hasText: t}).first(); try { await tb.click({timeout: 3000}); } catch { continue; }
+    await goModule(m); if (!(await clickTab(t))) continue;
     await inspect(`${m} › ${t}`); await pressSafeButtons(`${m} › ${t}`); await openFirstRow(`${m} › ${t}`);
-    const subs = [...new Set(await visibleNames(TAB_SEL))].filter(s => !tabs.includes(s)).slice(0, 10);
-    for (const s of subs) { const sb = p.locator(TAB_SEL).filter({visible: true, hasText: s}).first(); try { await sb.click({timeout: 3000}); } catch { continue; }
-      await inspect(`${m} › ${t} › ${s}`); await pressSafeButtons(`${m} › ${t} › ${s}`); await openFirstRow(`${m} › ${t} › ${s}`); }
+    await goModule(m); await clickTab(t);
+    const subs = [...new Set(await visibleNames(TAB_SEL))].filter(x => !tabs.includes(x)).slice(0, 10);
+    for (const sub of subs) {
+      await goModule(m); await clickTab(t); if (!(await clickTab(sub))) continue;
+      await inspect(`${m} › ${t} › ${sub}`); await pressSafeButtons(`${m} › ${t} › ${sub}`); await openFirstRow(`${m} › ${t} › ${sub}`);
+    }
   }
   await closeOverlays();
 }

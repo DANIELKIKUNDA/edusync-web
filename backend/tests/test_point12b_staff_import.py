@@ -8,8 +8,9 @@ def test_staff_import_backend_contract():
  for x in ["/staff/template.xlsx","/staff/analyze","/staff/batches/{batch_id}/execute","FOR UPDATE","Idempotency-Key obligatoire","STAFF_IMPORT_ANALYZED","STAFF_IMPORT_EXECUTED","Maximum 5 000 agents"]: assert x in s
  assert "employee_no" in s and "POSSIBLE_DUPLICATE" in s and "EMPLOYEE_NO_EXISTS" in s
 def test_staff_import_frontend_contract():
- s=(ROOT/'frontend/src/personnel.tsx').read_text();a=(ROOT/'frontend/src/api.ts').read_text()
- for x in ['migration.staff.analyze','migration.staff.execute','Import du personnel','Télécharger le modèle','Importer définitivement']: assert x in s
+ # 2026-10-25: the staff import uses the shared guided stepper (schooling_import.tsx, StaffImportPro).
+ s=(ROOT/'frontend/src/personnel.tsx').read_text(encoding='utf-8')+(ROOT/'frontend/src/schooling_import.tsx').read_text(encoding='utf-8');a=(ROOT/'frontend/src/api.ts').read_text(encoding='utf-8')
+ for x in ['migration.staff.execute','Importer le personnel','Modèle Excel','Importer définitivement']: assert x in s
  for x in ['staffImportTemplate','analyzeStaffImport','executeStaffImport']: assert x in a
 def test_provisioner_includes_0034():
  assert '0034_staff_import_staging.sql' in (ROOT/'backend/scripts/provision_database.py').read_text()

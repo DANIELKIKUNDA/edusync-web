@@ -5,7 +5,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
-import {cashClose, cashCurrent, cashJournal, cashOpen, cashSessionJournalFile, cashSessions, cashSessionsXlsx, type CashSession, type CashSessionRow, type CashSessionsPage} from './api';
+import {cashClose, cashCurrent, cashDaySummary, cashJournal, cashOpen, cashSessionJournalFile, cashSessions, cashSessionsXlsx, type CashSession, type CashSessionRow, type CashSessionsPage} from './api';
 import {CashExpenseForm, SchoolDayPanel, useReversal} from './cash_controls';
 import {exportManaged, previewPdf} from './document_io';
 import {friendlyError} from './platform/errors';
@@ -67,7 +67,7 @@ export function CashDeskPro({token, can, schoolName}: {token: string; can: (p: s
     {!current && loaded && <p className="cd-hint">Ouvrez votre caisse pour encaisser et enregistrer des dépenses. Vos caisses précédentes restent consultables ci-dessous.</p>}
 
     <PastSessions token={token} can={can} schoolName={schoolName} reloadKey={current?.status ?? 'none'}/>
-    {(can('finance.cash.day.close') || can('finance.cash.other.read')) && <details className="cd-super"><summary>Supervision de la journée de l’école</summary><SchoolDayPanel token={token} can={can} day={iso(new Date())}/></details>}
+    {(can('finance.cash.day.close') || can('finance.cash.other.read')) && <Supervision token={token} can={can}/>}
 
     {dialog === 'open' && <OpenDialog token={token} onClose={() => setDialog(null)} onDone={async () => { setDialog(null); await refresh(); }}/>}
     {dialog === 'expense' && <Modal title="Nouvelle dépense" sub="La dépense sort de votre caisse et reste dans le journal (elle ne se supprime pas)." onClose={() => setDialog(null)} foot={<span className="cd-muted">Échap pour fermer</span>}>
@@ -200,4 +200,21 @@ function SessionDrawer({token, can, session: row, schoolName, onClose}: {token: 
     {err && <div className="error" role="alert">{err}</div>}
     {j ? <SessionJournal items={j.items} canReverse={false} title="Journal"/> : !err && <div className="cd-skel"><i/><i/></div>}
   </Modal>;
+}
+
+/** Supervisors (finance.cash.other.read): every cashier's session of a day, then the school's day (closure, PDFs). */
+function Supervision({token, can}: {token: string; can: (p: string) => boolean}) {
+  const [day, setDay] = useState(iso(new Date())); const [global, setGlobal] = useState<any>(null); const [err, setErr] = useState('');
+  useEffect(() => { if (!can('finance.cash.other.read')) return; setErr(''); cashDaySummary(token, day).then(setGlobal).catch(e => setErr(friendlyError(e))); }, [token, day]);
+  const row = (currency: Cur, x: any) => <tr key={currency}><th>{currency}</th><td>{money(x.opening, currency)}</td><td>{money(x.receipts, currency)}</td>
+    <td>{money(fromCents(cents(x.expenses) + cents(x.reversals) + cents(x.supervisor_reversals)), currency)}</td><td><b>{money(x.expected_cash, currency)}</b></td></tr>;
+  return <section className="cd-card cd-superCard">
+    <header className="cd-cardHead"><div><h4>Supervision des caisses</h4><small>Contrôle autorisé : toutes les caisses de l’école pour la journée choisie.</small></div>
+      <label className="cd-field inline"><span>Journée</span><input type="date" value={day} max={iso(new Date())} onChange={e => setDay(e.target.value)}/></label></header>
+    {err && <div className="error" role="alert">{err}</div>}
+    {can('finance.cash.other.read') && global && <div className="cashGlobal"><b>Situation globale des caisses</b> <small>{global.open_count} ouverte(s) · {global.closed_count} clôturée(s)</small>
+      <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Devise</th><th>Fonds initiaux</th><th>Entrées</th><th>Sorties</th><th>Solde théorique global</th></tr></thead>
+        <tbody>{row('CDF', global.currencies.CDF)}{row('USD', global.currencies.USD)}</tbody></table></div></div>}
+    <SchoolDayPanel token={token} can={can} day={day}/>
+  </section>;
 }
