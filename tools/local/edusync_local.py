@@ -232,8 +232,9 @@ def start(profile: str, open_browser: bool) -> None:
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin",
             "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()", "Cross-Origin-Opener-Policy": "same-origin",
         }
-        cfg.write_text("export default {preview:{host:'127.0.0.1',port:%d,strictPort:true,headers:%s,proxy:{'/api':'http://127.0.0.1:%d','/health':'http://127.0.0.1:%d'}}};\n"
-                       % (PORTS["app"], json.dumps(headers), PORTS["api"], PORTS["api"]), encoding="utf-8")
+        # /health-api is the app's connectivity probe (nginx: location /health-api → backend /health).
+        cfg.write_text("export default {preview:{host:'127.0.0.1',port:%d,strictPort:true,headers:%s,proxy:{'/api':'http://127.0.0.1:%d','/health-api':{target:'http://127.0.0.1:%d',rewrite:()=>'/health'},'/health':'http://127.0.0.1:%d'}}};\n"
+                       % (PORTS["app"], json.dumps(headers), PORTS["api"], PORTS["api"], PORTS["api"]), encoding="utf-8")
         spawn("app", ["node", str(ROOT / "frontend" / "node_modules" / "vite" / "bin" / "vite.js"), "preview", str(ROOT / "frontend"), "--config", str(cfg)])
         wait(lambda: http_ok(f"http://127.0.0.1:{PORTS['app']}/"), 60, "L’interface")
         say("Interface : prête")

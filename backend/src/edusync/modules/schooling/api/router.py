@@ -192,10 +192,10 @@ def summary(actor:ActorContext=Depends(require_school_actor),services:AppService
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return _jsonable(PostgresSchoolingRepository(conn).summary(actor.school_id,scopes=scopes))
 
 @router.get('/students')
-def students(q:str|None=None,class_id:UUID|None=None,section_id:UUID|None=None,academic_year_id:UUID|None=None,gender:Literal['M','F']|None=None,status:str|None=None,all_years:bool=False,limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def students(q:str|None=None,class_id:UUID|None=None,section_id:UUID|None=None,academic_year_id:UUID|None=None,gender:Literal['M','F']|None=None,status:str|None=None,all_years:bool=False,option_id:UUID|None=None,limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'students.read');scopes=_scopes(actor,'students.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        rows=PostgresSchoolingRepository(conn).list_students(actor.school_id,scopes=scopes,q=q,class_id=class_id,section_id=section_id,academic_year_id=academic_year_id,gender=gender,status=status,all_years=all_years,limit=min(limit+1,500),offset=offset); has_more=len(rows)>limit; return {'items':_jsonable(rows[:limit]),'limit':limit,'offset':offset,'has_more':has_more}
+        rows=PostgresSchoolingRepository(conn).list_students(actor.school_id,scopes=scopes,q=q,class_id=class_id,section_id=section_id,academic_year_id=academic_year_id,gender=gender,status=status,all_years=all_years,option_id=option_id,limit=min(limit+1,500),offset=offset); has_more=len(rows)>limit; return {'items':_jsonable(rows[:limit]),'limit':limit,'offset':offset,'has_more':has_more}
 
 @router.get('/students/{student_id}')
 def student_profile(student_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -378,32 +378,32 @@ def _export_filters(repo:PostgresSchoolingRepository,*,q:str|None,academic_year_
     return out
 
 @router.get('/exports/students.pdf')
-def export_students_pdf(q:str|None=None,academic_year_id:UUID|None=None,section_id:UUID|None=None,class_id:UUID|None=None,status:str|None=None,gender:Literal['M','F']|None=None,all_years:bool=False,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def export_students_pdf(q:str|None=None,academic_year_id:UUID|None=None,section_id:UUID|None=None,class_id:UUID|None=None,status:str|None=None,gender:Literal['M','F']|None=None,all_years:bool=False,option_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'students.directory.export');scopes=_scopes(actor,'students.directory.export')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        repo=PostgresSchoolingRepository(conn);rows=repo.list_students(actor.school_id,scopes=scopes,q=q,class_id=class_id,section_id=section_id,academic_year_id=academic_year_id,gender=gender,status=status,all_years=all_years,limit=1000,offset=0)
+        repo=PostgresSchoolingRepository(conn);rows=repo.list_students(actor.school_id,scopes=scopes,q=q,class_id=class_id,section_id=section_id,academic_year_id=academic_year_id,gender=gender,status=status,all_years=all_years,option_id=option_id,limit=1000,offset=0)
         filters=[]
         if all_years: filters.append('Périmètre : tout l’historique')
         else:
             year=repo.active_year(actor.school_id) if academic_year_id is None else conn.execute(text('SELECT label FROM academic_years WHERE school_id=:sid AND id=:id'),{'sid':actor.school_id,'id':academic_year_id}).mappings().first()
             filters.append(f"Année : {(year or {}).get('label','Année sélectionnée')}")
-        filters += [f"Section : {'sélectionnée' if section_id else 'Toutes'}",f"Classe : {'sélectionnée' if class_id else 'Toutes'}",f"Statut : {status or 'Tous'}",f"Sexe : {gender or 'M/F'}"]
+        filters += [f"Section : {'sélectionnée' if section_id else 'Toutes'}",f"Classe : {'sélectionnée' if class_id else 'Toutes'}",f"Option : {'sélectionnée' if option_id else 'Toutes'}",f"Statut : {status or 'Tous'}",f"Sexe : {gender or 'M/F'}"]
         if q:filters.append(f'Recherche : {q}')
         data=student_directory_pdf(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
         archive_generated(conn,actor,data=data,fmt='PDF',required_capability='students.directory.export',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.pdf',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="annuaire_eleves.pdf"'})
 
 @router.get('/exports/students.xlsx')
-def export_students_xlsx(q:str|None=None,academic_year_id:UUID|None=None,section_id:UUID|None=None,class_id:UUID|None=None,status:str|None=None,gender:Literal['M','F']|None=None,all_years:bool=False,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def export_students_xlsx(q:str|None=None,academic_year_id:UUID|None=None,section_id:UUID|None=None,class_id:UUID|None=None,status:str|None=None,gender:Literal['M','F']|None=None,all_years:bool=False,option_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'students.directory.export');scopes=_scopes(actor,'students.directory.export')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        repo=PostgresSchoolingRepository(conn);rows=repo.list_students(actor.school_id,scopes=scopes,q=q,class_id=class_id,section_id=section_id,academic_year_id=academic_year_id,gender=gender,status=status,all_years=all_years,limit=1000,offset=0)
+        repo=PostgresSchoolingRepository(conn);rows=repo.list_students(actor.school_id,scopes=scopes,q=q,class_id=class_id,section_id=section_id,academic_year_id=academic_year_id,gender=gender,status=status,all_years=all_years,option_id=option_id,limit=1000,offset=0)
         filters=[]
         if all_years:filters.append('Périmètre : tout l’historique')
         else:
             year=repo.active_year(actor.school_id) if academic_year_id is None else conn.execute(text('SELECT label FROM academic_years WHERE school_id=:sid AND id=:id'),{'sid':actor.school_id,'id':academic_year_id}).mappings().first()
             filters.append(f"Année : {(year or {}).get('label','Année sélectionnée')}")
-        filters += [f"Section : {'sélectionnée' if section_id else 'Toutes'}",f"Classe : {'sélectionnée' if class_id else 'Toutes'}",f"Statut : {status or 'Tous'}",f"Sexe : {gender or 'M/F'}"]
+        filters += [f"Section : {'sélectionnée' if section_id else 'Toutes'}",f"Classe : {'sélectionnée' if class_id else 'Toutes'}",f"Option : {'sélectionnée' if option_id else 'Toutes'}",f"Statut : {status or 'Tous'}",f"Sexe : {gender or 'M/F'}"]
         if q:filters.append(f'Recherche : {q}')
         data=student_directory_xlsx(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
         archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='students.directory.export',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.xlsx',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
