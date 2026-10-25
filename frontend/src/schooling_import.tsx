@@ -54,14 +54,14 @@ export function ImportStepper({cfg, schoolName, canExecute, onDone}: {cfg: Confi
   }
   async function analyze() {
     if (!file || !ready) return; setBusy(true); setErr('');
-    try { const a = await cfg.analyze(file, year); setAnalysis(a); setFilter(a.error_rows ? 'ERROR' : a.warning_rows ? 'WARNING' : 'ALL');
+    try { const a = await cfg.analyze(file, year); setAnalysis(a); window.dispatchEvent(new CustomEvent('edusync:import-changed')); setFilter(a.error_rows ? 'ERROR' : a.warning_rows ? 'WARNING' : 'ALL');
       toast[a.error_rows ? 'error' : 'success'](a.error_rows ? `${a.error_rows} ligne(s) en erreur : corrigez le fichier` : `${a.total_rows} ligne(s) analysée(s), prêtes à vérifier`); }
     catch (e) { setErr(friendlyError(e)); } finally { setBusy(false); }
   }
   async function execute() {
     if (!analysis) return; setBusy(true); setErr('');
     try { const r = await cfg.execute(analysis.batch_id, analysis.warning_rows > 0); const n = r?.imported_rows ?? r?.imported ?? analysis.valid_rows + analysis.warning_rows;
-      setDone({imported: n}); toast.success(`Import terminé : ${n} ${cfg.noun} enregistré(s)`); await onDone(); }
+      setDone({imported: n}); window.dispatchEvent(new CustomEvent('edusync:import-changed')); toast.success(`Import terminé : ${n} ${cfg.noun} enregistré(s)`); await onDone(); }
     catch (e) { const m = friendlyError(e); setErr(m); toast.error(m); } finally { setBusy(false); }
   }
   function restart() { setFile(null); setAnalysis(null); setDone(null); setAccept(false); setErr(''); if (input.current) input.current.value = ''; }
