@@ -163,6 +163,15 @@
 }
 @media (max-width:389.98px){.es-update-label{display:none}.es-update-btn{width:34px;padding:0;justify-content:center}}
 @media (prefers-reduced-motion:reduce){.es-update,.es-update-spin{animation:none}}
+/* An explicit personal choice also applies when the operating system has animations enabled. */
+:root[data-edusync-reduce-motion=true] *,
+:root[data-edusync-reduce-motion=true] *::before,
+:root[data-edusync-reduce-motion=true] *::after {
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: .01ms !important;
+}
 .es-update-bar{display:none}
 @media (max-width:767.98px){
   .es-update-chip{display:none}
