@@ -60,7 +60,7 @@ const TAB_SEL = '[role=tab], .financeTabs button, .schoolingTabs button, .subTab
 await p.goto('http://localhost:5180/'); await p.getByLabel('Adresse e-mail').fill(acc.email); await p.getByLabel('Mot de passe', {exact: true}).fill(acc.password);
 await p.getByRole('button', {name: 'Se connecter'}).click(); await p.locator('.es-shell').waitFor({timeout: 30000});
 const nav = () => p.getByRole('complementary', {name: 'Navigation principale'});
-const openMenu = async () => { if (WIDTH < 900) { await p.getByRole('button', {name: 'Tous les modules'}).click(); await p.waitForTimeout(500); } };
+const openMenu = async () => { if (WIDTH >= 900) return; if (await p.locator('.es-drawer-backdrop').isVisible().catch(() => false)) return; await p.getByRole('button', {name: 'Tous les modules'}).click({timeout: 5000}).catch(() => {}); await p.waitForTimeout(500); };
 await p.waitForFunction(() => document.querySelectorAll('aside button[aria-current], aside nav button').length > 2, null, {timeout: 20000}).catch(() => {}); await p.waitForTimeout(1500);
 await openMenu();
 const modules = (await (WIDTH < 900 ? p.locator('button[aria-label]').filter({visible: true}) : nav().locator('button[aria-label]')).evaluateAll(es => es.map(e => e.getAttribute('aria-label'))))

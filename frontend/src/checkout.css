@@ -92,3 +92,7 @@
   .checkoutPay .collectActions{width:auto}
 }
 @media (max-width:899px){.checkoutPay{bottom:calc(70px + env(safe-area-inset-bottom,0px))}}
+/* Recouvrement 2026-10-25: chart folded under the tables */
+.recoveryChartFold{margin-top:12px;border:1px solid #e4e9f2;border-radius:16px;background:#fff;padding:10px 14px}
+.recoveryChartFold>summary{cursor:pointer;font-weight:750;color:#1557d6;padding:4px 0}
+.recoveryChartFold[open]>summary{margin-bottom:10px}
