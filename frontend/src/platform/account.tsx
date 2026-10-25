@@ -11,6 +11,7 @@ import {friendlyError, UserFacingError} from './errors';
 import {NavGlyph} from './nav_icons';
 import {initialsOf} from './shell';
 import {THEME_OPTIONS, type ThemePref} from './theme';
+import {DeviceNotificationPreference} from './device_preferences';
 import {CURRENT_BUILD, shortBuild} from './updates';
 
 export function Modal({title, subtitle, onClose, children, wide}: {title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; wide?: boolean}) {
@@ -89,10 +90,14 @@ export function ProfileDialog({name, email, context, detail, onClose, platform, 
   </Modal>;
 }
 
-/** Preferences of the account: theme (light / dark / system). Applied immediately, kept on this device. */
-export function PreferencesDialog({theme, onTheme, onClose}: {theme: ThemePref; onTheme: (t: ThemePref) => void; onClose: () => void}) {
-  return <Modal title="Préférences" subtitle="Réglages d’affichage de votre compte." onClose={onClose}>
-    <fieldset className="es-pref-group">
+/** Personal settings on this device, separate from school-wide configuration. */
+export function PreferencesDialog({theme, onTheme, reducedMotion, onReducedMotion, token, pushScope, platform, onClose}: {
+  theme?: ThemePref; onTheme?: (t: ThemePref) => void;
+  reducedMotion: boolean; onReducedMotion: (value: boolean) => void;
+  token: string; pushScope: string; platform: boolean; onClose: () => void;
+}) {
+  return <Modal title="Préférences" subtitle="Réglages personnels sur cet appareil." onClose={onClose}>
+    {platform && theme && onTheme ? <fieldset className="es-pref-group">
       <legend>Thème</legend>
       <div className="es-pref-options" role="radiogroup" aria-label="Thème">
         {THEME_OPTIONS.map(o => <label key={o.value} className={`es-pref-option ${theme === o.value ? 'es-on' : ''}`}>
@@ -101,10 +106,19 @@ export function PreferencesDialog({theme, onTheme, onClose}: {theme: ThemePref; 
           <span className="es-pref-text"><b>{o.label}</b><small>{o.hint}</small></span>
         </label>)}
       </div>
+    </fieldset> : <p className="es-hint">L’espace École conserve actuellement son thème clair.</p>}
+    <fieldset className="es-pref-group">
+      <legend>Accessibilité</legend>
+      <label className={`es-pref-option ${reducedMotion ? 'es-on' : ''}`}>
+        <input type="checkbox" checked={reducedMotion} onChange={e => onReducedMotion(e.target.checked)}/>
+        <span className="es-pref-icon" aria-hidden="true"><NavGlyph g="eye" size={20}/></span>
+        <span className="es-pref-text"><b>Réduire les animations</b><small>Limiter les mouvements et transitions de l’interface.</small></span>
+      </label>
     </fieldset>
-    <p className="es-hint">Le choix est appliqué tout de suite et conservé sur cet appareil pour votre compte, même après une déconnexion. Langue : français.</p>
+    <DeviceNotificationPreference token={token} scope={pushScope} platform={platform}/>
+    <p className="es-hint">L’affichage est conservé pour ce compte sur cet appareil. Langue : français.</p>
     <p className="es-hint es-version">Version d’EduSync : <b>{shortBuild(CURRENT_BUILD)}</b></p>
-    <div className="es-modal-foot"><OnlineActionButton className="es-btn es-btn-primary" onClick={onClose}>Terminé</OnlineActionButton></div>
+    <div className="es-modal-foot"><button type="button" className="es-btn es-btn-primary" onClick={onClose}>Terminé</button></div>
   </Modal>;
 }
 
