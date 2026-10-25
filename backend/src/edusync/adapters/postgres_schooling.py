@@ -187,7 +187,7 @@ class PostgresSchoolingRepository:
         stmt=_bind_scope(text(f"SELECT s.id FROM students s WHERE s.school_id=:sid AND {where}"),params)
         return {r[0] for r in self.connection.execute(stmt,{"sid":school_id,**params}).all()}
 
-    def list_students(self, school_id:UUID, *, scopes:tuple[tuple[str,str|None],...], q:str|None=None, class_id:UUID|None=None, status:str|None=None, academic_year_id:UUID|None=None, section_id:UUID|None=None, gender:str|None=None, all_years:bool=False, limit:int=200, offset:int=0)->list[dict[str,Any]]:
+    def list_students(self, school_id:UUID, *, scopes:tuple[tuple[str,str|None],...], q:str|None=None, class_id:UUID|None=None, status:str|None=None, academic_year_id:UUID|None=None, section_id:UUID|None=None, gender:str|None=None, all_years:bool=False, limit:int=200, offset:int=0, option_id:UUID|None=None)->list[dict[str,Any]]:
         where,params=_student_scope_where(scopes);conditions=["s.school_id=:sid",where];args={"sid":school_id,**params}
         if all_years:
             enrollment_join="""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' ORDER BY ay1.start_date DESC,e1.enrolled_on DESC LIMIT 1) e ON true"""
@@ -201,12 +201,14 @@ class PostgresSchoolingRepository:
         if q and q.strip():conditions.append("(s.matricule ILIKE :q OR concat_ws(' ',s.last_name,s.middle_name,s.first_name) ILIKE :q OR f.display_name ILIKE :q OR coalesce(f.phone,'') ILIKE :q OR EXISTS(SELECT 1 FROM family_guardians fgq JOIN guardians gq ON gq.id=fgq.guardian_id WHERE fgq.family_id=s.family_id AND fgq.active AND (gq.full_name ILIKE :q OR coalesce(gq.phone,'') ILIKE :q)))");args['q']=f"%{q.strip()}%"
         if class_id:conditions.append("e.class_id=:class_id");args['class_id']=class_id
         if section_id:conditions.append("sc.section_id=:section_id");args['section_id']=section_id
+        # Directory filtered by Humanités option (students module pass 2026-10-25, Desktop parity of the class filters).
+        if option_id:conditions.append("sc.option_id=:option_id");args['option_id']=option_id
         if status:conditions.append("s.status=:status");args['status']=status
         if gender in {'M','F'}:conditions.append("s.gender=:gender");args['gender']=gender
         stmt=text(f"""SELECT s.*,f.code family_code,f.display_name family_name,f.phone family_phone,f.contact_status,
           e.id enrollment_id,e.academic_year_id,e.class_id,e.status enrollment_status,e.enrollment_kind,e.enrolled_on,
           ay.code academic_year_code,ay.label academic_year_label,
-          sc.label class_label,sc.code class_code,ss.id section_id,ss.code section_code,ss.label section_label,
+          sc.label class_label,sc.code class_code,sc.option_id class_option_id,sc.reference_code class_reference_code,ss.id section_id,ss.code section_code,ss.label section_label,
           (SELECT g.full_name FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id WHERE fg.school_id=s.school_id AND fg.family_id=s.family_id AND fg.active ORDER BY fg.is_primary DESC,fg.created_at LIMIT 1) primary_responsible,
           (SELECT g.phone FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id WHERE fg.school_id=s.school_id AND fg.family_id=s.family_id AND fg.active ORDER BY fg.is_primary DESC,fg.created_at LIMIT 1) primary_responsible_phone,
           EXISTS(SELECT 1 FROM staff_student_links sl WHERE sl.school_id=s.school_id AND sl.student_id=s.id AND sl.active) staff_child,

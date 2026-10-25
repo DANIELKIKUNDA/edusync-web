@@ -25,10 +25,11 @@ def test_parser_rejects_arbitrary_excel_and_tampered_headers():
  with pytest.raises(ValueError,match='Structure'):read_official_xlsx(bio.getvalue(),'STAFF')
 
 def test_frontend_only_accepts_official_xlsx_and_explains_model_flow():
- for f in ('schooling.tsx','personnel.tsx','finance.tsx'):
+ for f in ('schooling_import.tsx','personnel.tsx','finance.tsx'):
   s=(ROOT/'frontend/src'/f).read_text(encoding='utf-8')
   assert 'accept=".xlsx"' in s
- assert 'studentImportTemplate(token,year)' in (ROOT/'frontend/src/schooling.tsx').read_text(encoding='utf-8')
+ assert 'studentImportTemplate(token, year)' in (ROOT/'frontend/src/schooling_import.tsx').read_text(encoding='utf-8')
+ assert '<StudentImportPro' in (ROOT/'frontend/src/schooling.tsx').read_text(encoding='utf-8')
 
 def test_import_api_is_fail_closed_for_non_xlsx_and_contract_parser_is_shared():
  s=(ROOT/'backend/src/edusync/modules/migration_import/api/router.py').read_text(encoding='utf-8')

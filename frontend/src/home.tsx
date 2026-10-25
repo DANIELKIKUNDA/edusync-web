@@ -4,7 +4,7 @@ import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {RecoveryChart} from './platform/recovery_chart';
 import {auditActionLabel} from './platform/labels';
 import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
-import {cashCurrent,cashJournal,checkoutProducts,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
+import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,checkoutProducts,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
   type AccessMe,type AccessWidget,type EffectifsCounts,type SettingsOverview} from './api';
 
 /* School home driven by capabilities (owner decisions 9 of 2026-10-23 and the premium pass of 2026-10-24). The server
@@ -130,6 +130,31 @@ function Stock({common,token}:{common:Common;token:string}){const s=useData(()=>
 function Counts({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipCounts(token),[token]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=>{const open=(d?.items??[]).filter((x:any)=>x.status!=='VALIDATED');return open.length?<p className="ui-card-hint"><b>{open.length} inventaire(s) en cours</b> à terminer.</p>:<p className="ui-card-hint">Aucun inventaire en cours.</p>}}</Async></Card>}
 
+// Home search (owner report 2026-10-25): a real search with live results, not a jump to the students tab. Choosing a
+// pupil opens their file in « Élèves & inscriptions » (read once there through sessionStorage).
+function StudentSpotlight({token,onClose,onPick}:{token:string;onClose:()=>void;onPick:(s:SchoolingStudent)=>void}){
+  const [q,setQ]=useState('');const [hits,setHits]=useState<SchoolingStudent[]>([]);const [busy,setBusy]=useState(false);const [cur,setCur]=useState(0);const [err,setErr]=useState('');
+  useEffect(()=>{const term=q.trim();if(term.length<2){setHits([]);setErr('');return}setBusy(true);
+    const t=setTimeout(()=>{listStudents(token,{q:term,all_years:true,limit:8,offset:0}).then(r=>{setHits(r.items);setCur(0);setErr('')}).catch(()=>setErr('Recherche indisponible pour le moment.')).finally(()=>setBusy(false))},250);
+    return()=>clearTimeout(t)},[q,token]);
+  const key=(e:React.KeyboardEvent)=>{if(e.key==='Escape'){e.preventDefault();onClose()}else if(e.key==='ArrowDown'){e.preventDefault();setCur(c=>Math.min(c+1,hits.length-1))}else if(e.key==='ArrowUp'){e.preventDefault();setCur(c=>Math.max(c-1,0))}else if(e.key==='Enter'&&hits[cur]){e.preventDefault();onPick(hits[cur])}};
+  const term=q.trim();
+  return <div className="sp-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
+    <div className="sp-box" role="dialog" aria-modal="true" aria-label="Rechercher un élève">
+      <label className="sp-input"><NavGlyph g="search" size={20}/><input autoFocus value={q} onChange={e=>setQ(e.target.value)} onKeyDown={key} placeholder="Nom, postnom, matricule ou famille…" aria-label="Rechercher un élève" role="combobox" aria-expanded={hits.length>0} aria-controls="sp-results"/><kbd>Échap</kbd></label>
+      <div id="sp-results" role="listbox" className="sp-results">
+        {term.length<2?<p className="sp-hint">Tapez au moins 2 lettres. Les élèves des années précédentes sont aussi trouvés.</p>
+        :busy&&!hits.length?<p className="sp-hint">Recherche…</p>
+        :err?<p className="sp-hint" role="alert">{err}</p>
+        :!hits.length?<p className="sp-hint">Aucun élève ne correspond à « {term} ».</p>
+        :hits.map((h,i)=><button type="button" role="option" aria-selected={i===cur} key={h.id} className={i===cur?'on':''} onMouseEnter={()=>setCur(i)} onClick={()=>onPick(h)}>
+          <i>{(h.first_name?.[0]??h.last_name?.[0]??'?').toUpperCase()}</i>
+          <span><b>{[h.last_name,h.middle_name,h.first_name].filter(Boolean).join(' ')}</b><small>{h.matricule??'sans matricule'} · {h.class_label??'classe non renseignée'}{h.academic_year_label?` · ${h.academic_year_label}`:''}{h.family_name?` · famille ${h.family_name}`:''}</small></span>
+          <em>Ouvrir ›</em></button>)}
+      </div>
+      <p className="sp-foot"><span>↑ ↓ pour choisir · Entrée pour ouvrir</span></p>
+    </div></div>}
+
 export default function HomePage({token,me,schoolName,userName,onNavigate,yearId,yearLabel}:Props){
   const needsAdmin=me.widgets.some(w=>ADMIN_WIDGETS.has(w.id));
   const desk=me.widgets.some(w=>w.id==='cash.today'||w.id==='checkout.quick');
@@ -137,6 +162,9 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const openSettings=(section:string)=>{try{sessionStorage.setItem(SETTINGS_TARGET_KEY,section)}catch{/* facultatif */}onNavigate('settings')};
   const search=me.actions.find(a=>a.id==='students.search');
   const shortcuts=me.actions.filter(a=>a.id!=='students.search');
+  const [spot,setSpot]=useState(false);
+  useEffect(()=>{if(!search)return;const k=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setSpot(true)}};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[search]);
+  const pick=(s:SchoolingStudent)=>{try{sessionStorage.setItem('edusync.students.open',s.id)}catch{/* facultatif */}setSpot(false);onNavigate('students')};
   const today=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   const first=userName.split(' ')[0];
   const readiness=me.widgets.find(w=>w.id==='settings.readiness');
@@ -151,7 +179,8 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
       subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
       actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':'chevronRight'}
         onClick={()=>a.id==='settings.open'?openSettings('overview'):onNavigate(a.module)}>{a.label}</Button>)}/>
-    {search&&<button type="button" className="sh-search" onClick={()=>onNavigate('students')}><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille</small></button>}
+    {search&&<button type="button" className="sh-search" onClick={()=>setSpot(true)} aria-haspopup="dialog"><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille · Ctrl K</small></button>}
+    {spot&&<StudentSpotlight token={token} onClose={()=>setSpot(false)} onPick={pick}/>}
     {me.widgets.length===0?<EmptyState icon="home" title="Aucun suivi pour votre rôle" text="Les modules auxquels vous avez accès sont dans le menu."/>:<>
       {readiness&&<ScreenBoundary compact label="readiness"><Readiness token={token} open={openSettings} go={()=>openSettings('overview')}/></ScreenBoundary>}
       {figures.length>0&&<Section title="À suivre" id="sh-follow"><div className="ui-grid">{figures.map(render)}</div></Section>}
