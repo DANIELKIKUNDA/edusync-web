@@ -21,6 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
+from edusync.shared.domain.fee_codes import canonical_fee_code, is_tuition_code
 from edusync.modules.finance_reports.domain.periodic import MONTH_CODE_NAMES, PERIOD_LABELS, REPORT_PROFILES
 
 CENT = Decimal("0.01")
@@ -32,7 +33,7 @@ def money(v) -> Decimal:
 
 
 def _scolarite(code: str) -> bool:
-    return code == "SCOLARITE" or code.startswith("SCOLARITE_")
+    return is_tuition_code(code)
 
 
 class PostgresPeriodicReportsRepository:
@@ -56,9 +57,10 @@ class PostgresPeriodicReportsRepository:
         out = []
         for r in rows:
             d = dict(r)
-            keys = {d["fee_code"]}
+            code = canonical_fee_code(d["fee_code"])          # Web MINERVAL reads as Desktop SCOLARITE
+            keys = {code}
             if d["period_code"] in MONTH_CODE_NAMES:
-                keys.add(f"{d['fee_code']}_{MONTH_CODE_NAMES[d['period_code']]}")
+                keys.add(f"{code}_{MONTH_CODE_NAMES[d['period_code']]}")
             d["keys"] = keys
             d["observation_label"] = (f"{d['fee_label']} — {d['period_label']}" if d["period_label"] else d["fee_label"]).strip()
             out.append(d)

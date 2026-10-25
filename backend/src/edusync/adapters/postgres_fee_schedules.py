@@ -23,6 +23,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
+from edusync.shared.domain.fee_codes import canonical_fee_code, is_tuition_code, same_fee
 
 MONTH_LABELS = {"01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril", "05": "Mai", "06": "Juin", "07": "Juillet",
                 "08": "Août", "09": "Septembre", "10": "Octobre", "11": "Novembre", "12": "Décembre"}
@@ -134,7 +135,7 @@ class PostgresFeeScheduleRepository:
         if b is None:
             return Decimal("0")
         codes = [c for c in (b._mapping["applies_to_fee_codes"] or [b._mapping["applies_to_fee_code"]]) if c]
-        if codes and not any(c == fee_code or fee_code.startswith(f"{c}_") for c in codes):
+        if codes and not any(same_fee(c, fee_code) for c in codes):
             return Decimal("0")
         return Decimal(str(b._mapping["configured_percent"] or 0))
 
@@ -157,9 +158,8 @@ class PostgresFeeScheduleRepository:
             gross, pct, discount, net = apply_discount(s["amount"], self.benefit_percent(school_id, enrollment, s["fee_code"]))
             label = f"{s['fee_label']} — {s['period_label']}" if s["period_label"] else s["fee_label"]
             periodicity = {"MONTHLY": "MONTHLY", "PERIODIC": "PERIODIC"}.get(s["periodicity"], "ONE_OFF")
-            # N3-E / G-FIN-1 — Desktop: only the monthly tuition (SCOLARITE family) and the tranches are sequential.
-            code = (s["fee_code"] or "").upper()
-            scolarite = code == "SCOLARITE" or code.startswith("SCOLARITE_")
+            # N3-E / G-FIN-1 — Desktop: only the monthly tuition (SCOLARITE family, Web code MINERVAL) and the tranches are sequential.
+            scolarite = is_tuition_code(s["fee_code"])
             group = {"MONTHLY": "MONTHLY:SCOLARITE" if scolarite else "NONE", "PERIODIC": f"TERM:{s['fee_code']}"}.get(s["periodicity"])
             existing = self.connection.execute(text("""SELECT id,paid_amount FROM finance_charges WHERE school_id=:sid AND enrollment_id=:e
                 AND schedule_id=:s FOR UPDATE"""), {"sid": school_id, "e": enrollment_id, "s": s["id"]}).first()
@@ -210,7 +210,7 @@ class PostgresFeeScheduleRepository:
                    or (scope == "CLASS" and ref == str(m["class_id"])))
             if not hit or not code:
                 continue
-            item = (code, month) if code == "SCOLARITE" and month else (code, None)
+            item = (code, month) if is_tuition_code(code) and month else (code, None)
             if item not in out:
                 out.append(item)
         if out:
@@ -231,15 +231,15 @@ class PostgresFeeScheduleRepository:
         for code, month in bundle:
             for r in rows:
                 rm = r._mapping
-                if rm["fee_code"] == code and (month is None or rm["period_code"] == month):
+                if canonical_fee_code(rm["fee_code"]) == canonical_fee_code(code) and (month is None or rm["period_code"] == month):
                     items.append({"charge_id": str(rm["id"]), "fee_code": code, "label": rm["label"], "currency": rm["currency"],
                                   "balance": str(max(Decimal("0"), _money(rm["net_amount"]) - _money(rm["paid_amount"])))})
-        present = {(i["fee_code"]) for i in items}
+        present = {canonical_fee_code(i["fee_code"]) for i in items}
         totals: dict[str, Decimal] = {}
         for i in items:
             totals[i["currency"]] = totals.get(i["currency"], Decimal("0")) + Decimal(i["balance"])
         return {"bundle": [{"fee_code": c, "month": mo} for c, mo in bundle], "items": items,
-                "totals": {k: str(v) for k, v in totals.items()}, "ready": bool(bundle) and {c for c, _ in bundle} <= present}
+                "totals": {k: str(v) for k, v in totals.items()}, "ready": bool(bundle) and {canonical_fee_code(c) for c, _ in bundle} <= present}
 
     def list_schedules(self, school_id: UUID, academic_year_id: UUID) -> list[dict[str, Any]]:
         rows = self.connection.execute(text("""SELECT s.id,s.class_id,c.label AS class_label,s.fee_type_id,f.label AS fee_label,s.period_code,

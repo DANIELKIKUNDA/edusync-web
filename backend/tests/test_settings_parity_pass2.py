@@ -42,7 +42,7 @@ def test_policy_read_model_falls_back_to_the_single_code():
 def test_charge_generator_matches_any_covered_fee():
     body = SCHEDULES.split("def benefit_percent", 1)[1].split("def generate_charges_for_enrollment", 1)[0]
     assert "applies_to_fee_codes" in body
-    assert 'any(c == fee_code or fee_code.startswith(f"{c}_") for c in codes)' in body
+    assert 'any(same_fee(c, fee_code) for c in codes)' in body  # exact or CODE_ prefix, tuition aliases (fee_codes.py)
 
 
 def test_beneficiary_freezes_the_policy_list():
