@@ -50,6 +50,7 @@ import {readinessSteps,SETTINGS_TARGET_KEY} from './home';
 import {autoCode,yearCode as yearCodeOf,ClassBatchDialog,CONTRIBUTION_PRESETS,FEE_PRESETS,OptionCatalog,OPTIONS_SECTION,PRODUCT_PRESETS,SetupAssistant} from './settings_wizards';
 import {Button as UIButton} from './platform/ui';
 import {PageTrail} from './platform/navigation';
+import {PdfPreviewHost} from './platform/pdf_viewer';
 import {installMobileBackCoordinator,installUnsavedFormGuard,pushMobileScreen,replaceMobileRoot} from './platform/mobile_back';
 import {confirmAction,promptText} from './platform/dialogs';
 import {formatDate,formatMoney,PERIODICITY_LABEL,suggestNextYear} from './platform/format';
@@ -501,8 +502,8 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   if(recovery)return <SpaceRecovery spaces={recovery} onSwitched={applySpace} onLogout={()=>{setRecovery(null);clear()}}/>;
   const switcher=switching&&<div className="es-stepup-layer es-space-layer"><SpaceSwitcher onClose={()=>setSwitching(false)} onSwitched={applySpace}/></div>;
   const openSwitcher=spaces&&spaces.contexts.length>1?()=>setSwitching(true):undefined;
-  if(schoolSession)return <><SchoolApp key={`school:${schoolSession.school.id}`} session={schoolSession} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}</>;
-  if(platformToken)return <><AtelierPro key="platform" token={platformToken} user={platformUser} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}</>;
+  if(schoolSession)return <><SchoolApp key={`school:${schoolSession.school.id}`} session={schoolSession} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}<PdfPreviewHost/></>;
+  if(platformToken)return <><AtelierPro key="platform" token={platformToken} user={platformUser} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}<PdfPreviewHost/></>;
   return <SecureLogin key='login' initialLink={pendingLink} onLinkHandled={()=>setPendingLink(null)}
     onPlatform={(token,user)=>{setPendingLink(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{setPendingLink(null);openSchool(s)}}/>;
 }
