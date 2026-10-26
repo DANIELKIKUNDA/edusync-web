@@ -55,6 +55,7 @@ WIDGETS: list[dict] = [
     {"id": "products.watch", "title": "Articles à surveiller", "module": "finance", "priority": 24, "all": ("finance.products.sale",)},
     {"id": "headcounts.summary", "title": "Effectifs", "module": "headcounts", "priority": 30, "all": ("headcounts.read",)},
     {"id": "headcounts.movements", "title": "Mouvements récents", "module": "headcounts", "priority": 31, "all": ("headcounts.movements.read",)},
+    {"id": "personnel.summary", "title": "Personnel", "module": "personnel", "priority": 32, "all": ("personnel.summary.read", "dashboard.school.read")},
     {"id": "finance.recovery", "title": "Évolution du recouvrement", "module": "finance", "priority": 40, "all": ("finance.recovery.monthly.read",)},
     {"id": "finance.by_fee", "title": "Situation par familles de frais", "module": "finance", "priority": 41, "all": ("finance.analysis.by_fee.read",)},
     {"id": "finance.decisions", "title": "Décisions financières actives", "module": "finance", "priority": 42, "all": ("finance.decisions.read",)},
