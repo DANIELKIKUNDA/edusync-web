@@ -16,6 +16,7 @@ import './reports_hub.css';
 type Key = 'daily' | 'periodic' | 'sales' | 'analyses' | 'templates' | 'history';
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const PERIOD: Record<string, string> = {JOURNALIER: 'Journalier', HEBDOMADAIRE: 'Hebdomadaire', MENSUEL: 'Mensuel', PERSONNALISE: 'Personnalisé'};
+const frDay=(v:string)=>{const [y,m,d]=v.split('-').map(Number);return y&&m&&d?new Date(y,m-1,d).toLocaleDateString('fr-FR') : v};
 
 export function ReportsHubPro({token, can, templates}: {token: string; can: (p: string) => boolean; templates: React.ReactNode}) {
   const sections = useMemo(() => ([
@@ -40,12 +41,14 @@ export function ReportsHubPro({token, can, templates}: {token: string; can: (p: 
 }
 
 function DailyReport({token}: {token: string}) {
-  const [day, setDay] = useState(iso(new Date())); const [busy, setBusy] = useState(false);
-  async function open() { try { setBusy(true); previewPdf(await cashDayPdf(token, 'report', day)); toast.success('Rapport financier journalier ouvert'); }
-    catch (e) { toast.error(friendlyError(e)); } finally { setBusy(false); } }
-  return <article className="rh-card"><div><h4>Rapport financier journalier</h4><p>Entrées, sorties et soldes de la journée de l’école, par devise (modèle du desktop).</p></div>
+  const [day, setDay] = useState(iso(new Date())); const [busy, setBusy] = useState<'preview'|'official'|''>('');
+  async function open(preview:boolean) { try { setBusy(preview?'preview':'official'); previewPdf(await cashDayPdf(token, 'report', day, preview), preview?'Aperçu du rapport financier journalier':'Rapport financier journalier officiel');
+      toast.success(preview?'Aperçu préparé':'Rapport officiel généré et archivé dans Documents'); }
+    catch (e) { toast.error(friendlyError(e)); } finally { setBusy(''); } }
+  return <article className="rh-card"><div><h4>Rapport financier journalier</h4><p>L’aperçu ne crée aucun document officiel. « Générer le rapport officiel » archive une version figée dans Documents.</p></div>
     <div className="rh-row"><label className="rh-field"><span>Journée</span><input type="date" value={day} max={iso(new Date())} onChange={e => setDay(e.target.value)}/></label>
-      <button type="button" className="rh-btn primary" disabled={busy || !day} onClick={() => void open()}><NavGlyph g="doc" size={17}/>{busy ? 'Préparation…' : 'Ouvrir le rapport PDF'}</button></div></article>;
+      <button type="button" className="rh-btn" disabled={!!busy || !day} onClick={() => void open(true)}><NavGlyph g="eye" size={17}/>{busy==='preview'?'Préparation…':'Aperçu'}</button>
+      <button type="button" className="rh-btn primary" disabled={!!busy || !day} onClick={() => void open(false)}><NavGlyph g="doc" size={17}/>{busy==='official'?'Génération…':'Générer le rapport officiel'}</button></div></article>;
 }
 
 function GeneratedList({token}: {token: string}) {
@@ -56,7 +59,7 @@ function GeneratedList({token}: {token: string}) {
     <label className="rh-search"><NavGlyph g="search" size={15}/><input value={q} onChange={e => setQ(e.target.value)} placeholder="Numéro, profil…" aria-label="Rechercher un rapport"/></label></div>
     {err && <div className="error" role="alert">{err}</div>}
     <div className="rh-table" role="table" aria-label="Rapports générés"><div className="rh-tr rh-th" role="row"><span>N°</span><span>Profil</span><span>Période</span><span>Du</span><span>Au</span><span>Généré le</span></div>
-      {rows.map(r => <div className="rh-tr" role="row" key={r.id}><span><b>{r.report_label}</b></span><span>{r.profile_code}</span><span>{PERIOD[r.period_type] ?? r.period_type}</span><span>{r.start_date}</span><span>{r.end_date}</span><span>{new Date(r.generated_at).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'})}</span></div>)}
+      {rows.map(r => <div className="rh-tr" role="row" key={r.id}><span><b>{r.report_label}</b></span><span>{r.profile_code}</span><span>{PERIOD[r.period_type] ?? r.period_type}</span><span>{frDay(r.start_date)}</span><span>{frDay(r.end_date)}</span><span>{new Date(r.generated_at).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'})}</span></div>)}
       {items && rows.length === 0 && <p className="rh-empty">Aucun rapport officiel généré pour le moment.</p>}
       {!items && !err && <p className="rh-empty">Chargement…</p>}</div></article>;
 }
