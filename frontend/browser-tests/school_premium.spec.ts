@@ -36,7 +36,7 @@ for(const vp of [{name:'bureau',width:1280,height:850},{name:'mobile',width:375,
     await expect(home.getByText('Bonjour Daniel')).toBeVisible();
     await expect(home.getByRole('button',{name:'Voir',exact:true})).toHaveCount(0);
     await expect(home.getByText('ACADEMIC_YEAR_ACTIVATED')).toHaveCount(0);
-    await expect(home.getByText('Année scolaire activée')).toBeVisible();
+    await expect(home.getByText('Année scolaire activée').first()).toBeVisible();
     await expect(home.getByText('1 sans rôle')).toBeVisible();
     if(vp.width<768){
       const small=await page.locator('.sh-home button:visible').evaluateAll(els=>els.filter(e=>e.getBoundingClientRect().height<44).map(e=>e.textContent?.trim()));
