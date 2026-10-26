@@ -13,7 +13,7 @@ function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{toke
  const [data,setData]=useState<{items:ArchivedDocument[];has_more:boolean;offset:number;limit:number;storage_available:boolean}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [q,setQ]=useState(initialQuery);
  useEffect(()=>{documentHistory(token).then(setData).catch(e=>setError(friendlyError(e)))},[token]);
  async function more(){if(!data)return;try{const n=await documentHistory(token,data.offset+data.limit);setData({...n,items:[...data.items,...n.items]})}catch(e){setError(friendlyError(e))}}
- async function open(d:ArchivedDocument){try{setBusy(d.id);const l=await documentLink(token,d.id);previewPdfUrl(l.url,d.title)}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
+ async function open(d:ArchivedDocument){try{setBusy(d.id);const l=await documentLink(token,d.id);if(d.format==='PDF')previewPdfUrl(l.url,d.title);else{const a=document.createElement('a');a.href=l.url;a.target='_blank';a.rel='noopener';a.click()}}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
  const items=(data?.items||[]).filter(d=>(!codeFilter||d.document_code===codeFilter)&&(!q||`${d.title} ${d.file_name||''}`.toLowerCase().includes(q.toLowerCase())));
  if(!data&&!error)return <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>;
  return <section className="panel docPanel">
