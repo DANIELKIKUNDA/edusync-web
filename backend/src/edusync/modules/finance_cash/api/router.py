@@ -187,6 +187,7 @@ def day_report_pdf(day:str|None=Query(None),preview:bool=Query(False),actor:Acto
  need(actor,'finance.reports.daily.generate')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   r=_report(c,actor,day);name=_school_name(c,actor.school_id)
+ r['operations']=_names(services,r['operations'])
  data=daily_report_pdf(school_name=name,report=r)
  if not preview:
   archive_generated_tx(services,actor,data=data,fmt='PDF',required_capability='finance.reports.daily.generate',document_code='finance.reports.daily',title=f"Rapport financier journalier du {r['day']}",file_name=f"rapport_journalier_{r['day']}.pdf")
