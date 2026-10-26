@@ -51,8 +51,7 @@ def test_promoteur_is_governance_reader_not_operator_or_parent_sender():
 
 def test_gestionnaire_does_not_inherit_system_configuration_or_daily_execution():
     c = caps("GESTIONNAIRE")
-    assert len(c) == 104
-    for required in (
+    # Owner-approved amendments (2026-10-15) supersede the September baseline.\n    approved = role("GESTIONNAIRE")\n    assert len(c) == approved["capability_count"] == 118\n    for amendment in approved["amendments"]:\n        assert set(amendment["added"]) <= c\n        assert not (set(amendment["removed"]) & c)\n    for required in (
         "dashboard.school.read", "audit.school.read", "personnel.summary.read",
         "finance.cash.other.read", "finance.reports.history.read", "documents.history.read",
     ):
@@ -61,7 +60,7 @@ def test_gestionnaire_does_not_inherit_system_configuration_or_daily_execution()
         "settings.tariffs.manage", "access.permissions.assign", "finance.checkout.collect",
         "personnel.create", "personnel.update", "personnel.status.change", "personnel.exit",
         "communications.sms.send", "communications.send.all_parents",
-        "finance.cash.open", "finance.cash.expense.create", "finance.decisions.create",
+        "finance.cash.open", "finance.cash.expense.create",
     ):
         assert forbidden not in c
 
