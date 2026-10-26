@@ -60,10 +60,12 @@ export function CashDeskPro({token, can, schoolName}: {token: string; can: (p: s
   useEffect(() => { const h = () => { void refresh(); }; window.addEventListener('edusync:outbox', h); return () => window.removeEventListener('edusync:outbox', h); }, [token]);
   useEffect(() => { void refresh(); }, [token]);
   const [askReversal, reversalNode] = useReversal(token, refresh);
+  const operator=can('finance.cash.open')||can('finance.cash.close')||can('finance.cash.expense.create')||can('finance.checkout.collect');
+  const supervisor=can('finance.cash.other.read')||can('finance.cash.day.close');
 
   return <section className="cd-root">
     {err && <div className="error" role="alert">{err}</div>}
-    <article className={`cd-hero ${current ? 'open' : 'closed'}`}>
+    {operator && <article className={`cd-hero ${current ? 'open' : 'closed'}`}>
       <div className="cd-state"><span className={`cd-dot ${current ? 'open' : ''}`}/><div><span className="cd-eyebrow">Ma caisse</span>
         <h3>{!loaded ? 'Chargement…' : current ? <>Ouverte <small>depuis {hm(current.opened_at)}</small></> : 'Fermée'}</h3>
         <span className={`cashState ${current ? 'open' : 'closed'}`}><i/>{current ? 'OUVERTE' : 'FERMÉE'}</span></div></div>
@@ -77,19 +79,19 @@ export function CashDeskPro({token, can, schoolName}: {token: string; can: (p: s
           <button type="button" className="cd-btn" onClick={() => void exportSession(token, current.id, 'xlsx', schoolName, current.business_date)}><NavGlyph g="sheet" size={18}/>Excel</button></>}
         {current && can('finance.cash.close') && <button type="button" className="cd-btn danger" onClick={() => setDialog('close')}><NavGlyph g="lock" size={18}/>Clôturer ma caisse</button>}
       </div>
-    </article>
+    </article>}
 
-    {current && journal && <SessionJournal items={journal.items} canReverse={can('finance.payments.reverse')} onReverse={askReversal} title="Mouvements de ma caisse"/>}
-    {!current && loaded && <p className="cd-hint">Ouvrez votre caisse pour encaisser et enregistrer des dépenses. Vos caisses précédentes restent consultables ci-dessous.</p>}
+    {operator && current && journal && <SessionJournal items={journal.items} canReverse={can('finance.payments.reverse')} onReverse={askReversal} title="Mouvements de ma caisse"/>}
+    {operator && !current && loaded && <p className="cd-hint">Ouvrez votre caisse pour encaisser et enregistrer des dépenses. Vos caisses précédentes restent consultables ci-dessous.</p>}
 
+    {supervisor && <Supervision token={token} can={can}/>}
     <PastSessions token={token} can={can} schoolName={schoolName} reloadKey={current?.status ?? 'none'}/>
-    {(can('finance.cash.day.close') || can('finance.cash.other.read')) && <Supervision token={token} can={can}/>}
 
-    {dialog === 'open' && <OpenDialog token={token} onClose={() => setDialog(null)} onDone={async () => { setDialog(null); await refresh(); }}/>}
-    {dialog === 'expense' && <Modal title="Nouvelle dépense" sub="La dépense sort de votre caisse et reste dans le journal (elle ne se supprime pas)." onClose={() => setDialog(null)} foot={<span className="cd-muted">Échap pour fermer</span>}>
+    {operator && dialog === 'open' && <OpenDialog token={token} onClose={() => setDialog(null)} onDone={async () => { setDialog(null); await refresh(); }}/>}
+    {operator && dialog === 'expense' && <Modal title="Nouvelle dépense" sub="La dépense sort de votre caisse et reste dans le journal (elle ne se supprime pas)." onClose={() => setDialog(null)} foot={<span className="cd-muted">Échap pour fermer</span>}>
       <CashExpenseForm token={token} onDone={async () => { setDialog(null); await refresh(); }}/></Modal>}
-    {dialog === 'close' && current && <CloseDialog token={token} session={current} onClose={() => setDialog(null)} onDone={async () => { setDialog(null); await refresh(); }}/>}
-    {reversalNode}
+    {operator && dialog === 'close' && current && <CloseDialog token={token} session={current} onClose={() => setDialog(null)} onDone={async () => { setDialog(null); await refresh(); }}/>}
+    {operator && reversalNode}
   </section>;
 }
 
