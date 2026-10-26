@@ -103,6 +103,11 @@ jobs:
       - name: Aucune dérive base ↔ registre canonique
         working-directory: backend
         run: python ../tools/ci/rbac_registry.py check
+      - name: Caissier — PostgreSQL réel, reçus et rapports archivés
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/cashier_postgres_integration.py
 
   frontend:
     name: Frontend — typecheck et build

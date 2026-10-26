@@ -50,7 +50,7 @@ export function AdvanceFundsPanel({token, can, enrollmentId, options, onChanged}
       {error && <div className="error" role="alert">{error}</div>}
       <div className="cashExpenseGrid">
         <label>Montant<input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}/></label>
-        <label>Devise<select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">CDF</option><option value="USD">USD</option></select></label>
+        <label>Devise<select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">FC</option><option value="USD">USD</option></select></label>
         <label>Mode<select value={mode} onChange={e => setMode(e.target.value)}>{(options?.accepted_modes ?? ['CASH']).map(m => <option key={m} value={m}>{MODE[m] ?? m}</option>)}</select></label>
         <label>Référence (facultatif)<input value={reference} maxLength={120} onChange={e => setReference(e.target.value)}/></label>
       </div>

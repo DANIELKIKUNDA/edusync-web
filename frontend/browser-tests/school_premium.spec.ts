@@ -33,7 +33,7 @@ for(const vp of [{name:'bureau',width:1280,height:850},{name:'mobile',width:375,
     await page.setViewportSize({width:vp.width,height:vp.height});
     await server(page);await page.goto('/');
     const home=page.locator('.sh-home');
-    await expect(home.getByText('Bonjour Daniel')).toBeVisible();
+    await expect(home.getByText(/^(Bonjour|Bonsoir) Daniel$/)).toBeVisible(); // L'accueil suit l'heure locale du navigateur.
     await expect(home.getByRole('button',{name:'Voir',exact:true})).toHaveCount(0);
     await expect(home.getByText('ACADEMIC_YEAR_ACTIVATED')).toHaveCount(0);
     await expect(home.getByText('Année scolaire activée')).toBeVisible();

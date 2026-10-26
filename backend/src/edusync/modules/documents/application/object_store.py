@@ -126,6 +126,55 @@ def archive_generated(conn, actor, *, data: bytes, fmt: str, document_code: str,
     return str(gen_id)
 
 
+def archive_official_pdf_strict(conn, actor, *, data: bytes, document_code: str, title: str, file_name: str,
+                                required_capability: str) -> tuple[str, str]:
+    """Store and index an official PDF or raise; callers roll back its numbered report on any failure.
+
+    The object key is returned so a failed outer DB commit can remove its orphan object.
+    """
+    if _storage is None:
+        raise ObjectStorageError("Archivage officiel indisponible")
+    gen_id = uuid4()
+    name = safe_file_name(file_name)
+    logical = f"schools/{actor.school_id}/documents/{safe_file_name(document_code)}/{name}"
+    key = f"schools/{actor.school_id}/documents/{safe_file_name(document_code)}/{gen_id}-{name}"
+    stored = _storage.put(key, data, content_type=FORMATS["PDF"],
+                          metadata={"school-id": str(actor.school_id), "generation-id": str(gen_id), "document-code": document_code})
+    params = {"id": str(gen_id), "sid": str(actor.school_id), "code": document_code,
+              "title": title[:240], "key": key, "logical": logical, "sha": stored.sha256,
+              "size": stored.byte_size, "uid": str(actor.user_id), "ct": FORMATS["PDF"],
+              "fn": name, "cap": required_capability}
+    try:
+        conn.execute(text("""INSERT INTO generated_documents(id,school_id,document_code,format,title,object_key,logical_key,sha256,byte_size,
+            filters_json,generated_by,content_type,file_name,required_capability)
+            VALUES(:id,:sid,:code,'PDF',:title,:key,:logical,:sha,:size,'{}'::jsonb,:uid,:ct,:fn,:cap)"""), params)
+        conn.execute(text("""INSERT INTO current_documents(school_id,logical_key,latest_generation_id,document_code,format,title,object_key,sha256,byte_size,updated_by,updated_at)
+            VALUES(:sid,:logical,:id,:code,'PDF',:title,:key,:sha,:size,:uid,now())
+            ON CONFLICT(school_id,logical_key) DO UPDATE SET latest_generation_id=EXCLUDED.latest_generation_id,title=EXCLUDED.title,
+              object_key=EXCLUDED.object_key,sha256=EXCLUDED.sha256,byte_size=EXCLUDED.byte_size,updated_by=EXCLUDED.updated_by,updated_at=now()"""), params)
+    except Exception:
+        try:
+            _storage.delete(key)
+        except Exception:
+            log.exception("official PDF orphan cleanup failed")
+        raise
+    return str(gen_id), key
+
+
+def read_official_pdf(key: str, school_id: UUID | str) -> bytes:
+    if _storage is None or not key.startswith(f"schools/{school_id}/documents/"):
+        raise ObjectStorageError("Rapport officiel archivé indisponible")
+    return _storage.get(key)
+
+
+def discard_official_pdf(key: str) -> None:
+    if _storage is not None:
+        try:
+            _storage.delete(key)
+        except Exception:
+            log.exception("official PDF orphan cleanup failed")
+
+
 def archive_generated_tx(services, actor, **kwargs) -> str | None:
     """Same as archive_generated, for routes that build the document after their read transaction."""
     if _storage is None:

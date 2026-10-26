@@ -8,7 +8,7 @@
 export type OutboxStatus = 'PENDING' | 'CONFLICT';
 export type OutboxRequest = {
   id: string; scope: string; method: string; path: string; body: string; idempotencyKey: string;
-  kind: string; label: string; createdAt: string; attempts: number; status: OutboxStatus; lastError?: string; syncedReceipt?: string;
+  kind: string; label: string; createdAt: string; enqueueOrder?: number; attempts: number; status: OutboxStatus; lastError?: string; syncedReceipt?: string;
 };
 export type OfflinePack = {scope: string; generatedAt: string; people: any[]; balances: Record<string, any[]>};
 
@@ -67,16 +67,36 @@ async function notify(patch: Partial<OutboxState> = {}) {
 export async function listOutbox(): Promise<OutboxRequest[]> {
   if (!scope) return [];
   const rows = await tx<OutboxRequest[]>(REQ, 'readonly', s => s.index('scope').getAll(scope));
-  return (rows ?? []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return (rows ?? []).sort((a, b) => (a.enqueueOrder ?? 0) - (b.enqueueOrder ?? 0)
+    || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 }
 /** Stores a write that could not reach the server; the caller receives a synthetic « queued » answer. */
 export async function enqueueWrite(path: string, method: string, body: string, idempotencyKey: string): Promise<OutboxRequest> {
   const k = offlineWriteKind(path); if (!k || !scope) throw new Error('Opération non disponible hors connexion');
-  const existing = (await listOutbox()).find(r => r.idempotencyKey === idempotencyKey);
-  if (existing) return existing;                                                     // same key = same operation, stored once
-  const req: OutboxRequest = {id: crypto.randomUUID(), scope, method, path, body, idempotencyKey, kind: k[0], label: describe(k[1], path, body),
+  const currentScope = scope;
+  const req: OutboxRequest = {id: crypto.randomUUID(), scope: currentScope, method, path, body, idempotencyKey, kind: k[0], label: describe(k[1], path, body),
     createdAt: new Date().toISOString(), attempts: 0, status: 'PENDING'};
-  await tx(REQ, 'readwrite', s => s.add(req)); await notify(); return req;
+  // The read and the write share one IndexedDB write transaction. Concurrent cashiers in
+  // the same PWA therefore get a stable queue order, even within the same millisecond.
+  const db = await openDb(); let saved = req;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(REQ, 'readwrite');
+      const store = transaction.objectStore(REQ);
+      const get = store.index('scope').getAll(currentScope);
+      get.onsuccess = () => {
+        const rows = get.result as OutboxRequest[];
+        const existing = rows.find(row => row.idempotencyKey === idempotencyKey);
+        if (existing) { saved = existing; return; }                       // duplicate key is one operation
+        req.enqueueOrder = Math.max(0, ...rows.map(row => row.enqueueOrder ?? 0)) + 1;
+        store.add(req);
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally { db.close(); }
+  await notify(); return saved;
 }
 export async function retryConflict(id: string) { const r = (await listOutbox()).find(x => x.id === id); if (!r) return; await tx(REQ, 'readwrite', s => s.put({...r, status: 'PENDING', lastError: undefined})); await notify(); void syncOutbox(); }
 export async function dismissConflict(id: string) { await tx(REQ, 'readwrite', s => s.delete(id)); await notify(); }

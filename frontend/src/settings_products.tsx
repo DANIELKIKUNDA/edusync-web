@@ -78,7 +78,7 @@ function ProductForm({token, items, preset, onCancel, onSaved}: {token: string; 
       <div className="benefitGrid">
         <FormField label="Article *"><input value={label} maxLength={160} autoFocus placeholder="Ex. Uniforme scolaire" onChange={e => setLabel(e.target.value)}/></FormField>
         <FormField label="Prix de vente unitaire *"><div className="moneyInput"><input inputMode="decimal" value={price} placeholder="0" onChange={e => setPrice(e.target.value)}/>
-          <select aria-label="Devise" value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option>CDF</option><option>USD</option></select></div></FormField>
+          <select aria-label="Devise" value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">FC</option><option>USD</option></select></div></FormField>
       </div>
       <label className="switchRow"><span>Suivre le stock<small>{tracking ? 'La caisse refuse une vente si le stock est épuisé' : 'Article vendu sans contrôle de quantité (service, commande)'}</small></span><input type="checkbox" role="switch" checked={tracking} onChange={e => setTracking(e.target.checked)}/></label>
       {tracking && <div className="benefitGrid">

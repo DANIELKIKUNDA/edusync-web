@@ -2,26 +2,25 @@
 
 const NBSP = ' ';
 
-/** "1250000.50" + "CDF" → "1 250 000,50 CDF". Never converts through Number, so large or precise amounts stay exact. */
+/** "1250000.50" + "CDF" → "1 250 000,50 FC". Never converts through Number, so large or precise amounts stay exact. */
 export function formatMoney(value: string | number | null | undefined, currency?: string | null): string {
   if (value === null || value === undefined || value === '') return '—';
   const raw = String(value).trim();
   const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(raw);
-  if (!m) return currency ? `${raw} ${currency}` : raw;
+  if (!m) return currency ? `${raw} ${currency === 'CDF' ? 'FC' : currency}` : raw;
   const [, sign, int, dec] = m;
   const grouped = int.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
   const cents = dec ? dec.replace(/0+$/, '') : '';
   const fraction = cents ? `,${cents.length === 1 ? `${cents}0` : cents}` : '';
-  return `${sign}${grouped}${fraction}${currency ? ` ${currency}` : ''}`;
+  return `${sign}${grouped}${fraction}${currency ? ` ${currency === 'CDF' ? 'FC' : currency}` : ''}`;
 }
 
-/** ISO date "2026-09-01" → "1 sept. 2026" (calendar date, no time-zone shift). */
+/** ISO date "2026-09-01" → "01/09/2026" (calendar date, no time-zone shift). */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   if (!m) return iso;
-  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  return new Intl.DateTimeFormat('fr-FR', {day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}).format(d);
+  return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
 export const PERIODICITY_LABEL: Record<string, string> = {
