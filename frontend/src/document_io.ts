@@ -1,7 +1,6 @@
 /* Point 5B — professional document I/O.
    PDF printing always previews first. Exports can use one school-selected folder and overwrite
    the same logical file instead of creating browser duplicates. */
-import {UserFacingError} from './platform/errors';
 export type ExportLocation={school:string;academicYear?:string;module:string;category:string;filename:string};
 type DirHandle=any;
 let rootHandle:DirHandle|null=null;
@@ -24,6 +23,13 @@ export async function exportManaged(blob:Blob,loc:ExportLocation):Promise<'manag
  // The link is attached to the page before the click: a detached link is not always honoured by the browser (2026-10-25).
  const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=clean(loc.filename);a.rel='noopener';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(u)},30_000);return 'download';
 }
-// window.open(…,'noopener') ALWAYS returns null (HTML spec), even when the tab opened: every PDF preview then reported a
-// false « blocked » error shown as the generic sentence (owner report 2026-10-25). Open normally, then cut the opener.
-export function previewPdf(blob:Blob){const u=URL.createObjectURL(blob);const w=window.open(u,'_blank');if(!w){URL.revokeObjectURL(u);throw new UserFacingError('Le navigateur a bloqué l’ouverture du PDF. Autorisez les fenêtres EduSync pour ce site, puis réessayez.','POPUP_BLOCKED')}try{w.opener=null}catch{/* other origin */}setTimeout(()=>URL.revokeObjectURL(u),120_000)}
+/** PDF stays inside EduSync by default. The viewer still offers Print, Download and « Open separately ». */
+export function previewPdf(blob:Blob,title='Document PDF'){
+  const u=URL.createObjectURL(blob);
+  const accepted=window.dispatchEvent(new CustomEvent('edusync:pdf-preview',{detail:{url:u,title,revokeOnClose:true}}));
+  // dispatchEvent returning false only means preventDefault; the host is mounted in App for every authenticated space.
+  if(!accepted)URL.revokeObjectURL(u);
+}
+export function previewPdfUrl(url:string,title='Document PDF'){
+  window.dispatchEvent(new CustomEvent('edusync:pdf-preview',{detail:{url,title,revokeOnClose:false}}));
+}
