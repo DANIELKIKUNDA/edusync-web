@@ -212,10 +212,13 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
       {readiness&&<ScreenBoundary compact label="readiness"><Readiness token={token} open={openSettings} go={()=>openSettings('overview')}/></ScreenBoundary>}
       {figures.length>0&&(()=>{
         const overview=executive?figures.filter(w=>['cash.supervision','headcounts.summary','finance.recovery'].includes(w.id)):figures;
-        const watch=executive?figures.filter(w=>!['cash.supervision','headcounts.summary','finance.recovery'].includes(w.id)):[];
-        return <>{overview.length>0&&<Section title={executive?'Vue d’ensemble':'À suivre'} subtitle={executive?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
-          {watch.length>0&&<Section title="À surveiller" subtitle="Mouvements, frais et signaux qui méritent votre attention." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}</>})()}
-      {journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
+        const activityIds=new Set(['reports.latest','documents.recent']);
+        const activity=executive?figures.filter(w=>activityIds.has(w.id)):[];
+        const watch=executive?figures.filter(w=>!['cash.supervision','headcounts.summary','finance.recovery'].includes(w.id)&&!activityIds.has(w.id)):[];
+        return <>{overview.length>0&&<Section title={executive?'Vue d’ensemble':'À suivre'} subtitle={executive?'Trois repères pour comprendre la journée avant d’ouvrir un module.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
+          {watch.length>0&&<Section title="À vérifier" subtitle="Les exceptions et écarts à traiter en priorité." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
+          {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Rapports, documents et actions récentes de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
+      {!executive&&journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
     </>}
   </div>;
 }
