@@ -47,6 +47,7 @@ WIDGETS: list[dict] = [
     {"id": "sync.devices", "title": "Appareils et synchronisation", "module": "sync", "priority": 16, "all": ("sync.device.register",)},
     # Operations
     {"id": "cash.today", "title": "Ma caisse du jour", "module": "finance", "priority": 20, "all": ("finance.cash.read", "finance.cash.open")},
+    {"id": "cash.supervision", "title": "Situation des caisses", "module": "finance", "priority": 20, "all": ("finance.cash.other.read",)},
     {"id": "checkout.quick", "title": "Encaisser rapidement", "module": "finance", "priority": 21, "all": ("finance.checkout.collect",)},
     # Desk (cashier, who is usually also the secretary in the DRC): today's receipts, enrollments, articles to watch.
     {"id": "cash.receipts", "title": "Encaissements du jour", "module": "finance", "priority": 22, "all": ("finance.cash.read", "finance.receipts.read")},
@@ -63,6 +64,8 @@ WIDGETS: list[dict] = [
 # Shortcuts offered on the home screen / header.
 ACTIONS: list[dict] = [
     {"id": "students.search", "label": "Rechercher un élève", "module": "students", "all": ("students.read",)},
+    {"id": "cash.supervise", "label": "Superviser les caisses", "module": "finance", "all": ("finance.cash.other.read",)},
+    {"id": "reports.open", "label": "Rapports financiers", "module": "finance", "all": ("finance.reports.history.read",)},
     {"id": "checkout.new", "label": "Nouvel encaissement", "module": "finance", "all": ("finance.checkout.collect",)},
     {"id": "enrollments.new", "label": "Nouvelle inscription", "module": "students", "all": ("enrollments.create",)},
     {"id": "members.create", "label": "Ajouter un utilisateur", "module": "access", "all": ("access.users.create",)},
