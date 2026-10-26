@@ -17,7 +17,7 @@ def test_actor_dashboards_are_capability_driven_not_job_title_hardcoded():
     # Owner decision 9 (2026-10-23): no profile guessed in the browser — each widget declares its capabilities server-side.
     assert "modelOf" not in HOME and "GOVERNANCE" not in HOME and "permissions:string[]" not in HOME
     assert "me:AccessMe" in HOME and "me.widgets" in HOME
-    for wid, cap in (("cash.today", "finance.cash.open"), ("cash.supervision", "finance.cash.other.read"), ("checkout.quick", "finance.checkout.collect"), ("headcounts.summary", "headcounts.read"),
+    for wid, cap in (("cash.today", "finance.cash.open"), ("cash.supervision", "finance.cash.other.read"), ("checkout.quick", "finance.checkout.collect"), ("headcounts.summary", "headcounts.read"), ("personnel.summary", "personnel.summary.read"),
                      ("finance.recovery", "finance.recovery.monthly.read"), ("inventory.stock", "inventory.stock.read"), ("access.members", "access.users.read")):
         assert f'"id": "{wid}"' in PROJ and f'"{cap}"' in PROJ
 
@@ -46,5 +46,6 @@ def test_governance_dashboard_has_supervision_not_operator_cash():
     assert '"id": "cash.supervision"' in PROJ
     assert '"all": ("finance.cash.other.read",)' in PROJ
     assert "Situation des caisses" in PROJ
+    assert "\"id\": \"personnel.summary\"" in PROJ and "\"dashboard.school.read\"" in PROJ
     assert "Vue d’ensemble" in HOME
     assert "Les indicateurs essentiels de l’établissement, sans actions opérationnelles." in HOME
