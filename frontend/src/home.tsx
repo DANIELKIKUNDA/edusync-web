@@ -191,10 +191,10 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
     ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
     :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
-  return <div className="ui-page sh-home">
+  return <div className={`ui-page sh-home${executive?' sh-home-executive':''}`}>
     <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
       subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive?'pilotage de l’établissement : caisses, effectifs, recouvrement et alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
-      actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':'chevronRight'}
+      actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':a.id==='cash.supervise'?'finance':a.id==='reports.open'?'doc':'chevronRight'}
         onClick={()=>a.id==='settings.open'?openSettings('overview'):openAction(a)}>{a.label}</Button>)}/>
     {search&&<button type="button" className="sh-search" onClick={()=>setSpot(true)} aria-haspopup="dialog"><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille · Ctrl K</small></button>}
     {spot&&<StudentSpotlight token={token} onClose={()=>setSpot(false)} onPick={pick}/>}
