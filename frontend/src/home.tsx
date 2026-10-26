@@ -98,9 +98,13 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
 }
 type Common={icon:string;title:string;onClick:()=>void;index:number;ariaLabel:string};
 function CashSupervision({common,token}:{common:Common;token:string}){const day=localIsoDay();const s=useData(()=>cashDaySummary(token,day),[token,day]);
-  return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const cdf=d?.currencies?.CDF??{};const usd=d?.currencies?.USD??{};const open=Number(d?.open_count??0),closed=Number(d?.closed_count??0);
-    return <><p className="ui-card-value">{n(open)}<small>{open>1?'caisses ouvertes':'caisse ouverte'}</small></p>
-      <p className="ui-card-hint">{n(closed)} clôturée(s) · Solde théorique global <b>{money(cdf.expected_cash)} FC</b>{Number(usd.expected_cash||0)?<> · <b>{money(usd.expected_cash)} USD</b></>:null}</p></>}}</Async></Card>;}
+  return <Async s={s}>{(d:any)=>{const cdf=d?.currencies?.CDF??{};const usd=d?.currencies?.USD??{};const open=Number(d?.open_count??0),closed=Number(d?.closed_count??0);
+    const gaps=(d?.sessions??[]).filter((x:any)=>x.status==='CLOSED'&&[x?.cdf?.variance,x?.usd?.variance].some(v=>v!=null&&Math.abs(Number(v))>0.0001)).length;
+    return <Card level={gaps?'priority':'info'} tone={gaps?'warn':undefined} {...common}
+      badge={gaps?<StatusBadge tone="warn">{gaps} écart{gaps>1?'s':''} à vérifier</StatusBadge>:<StatusBadge tone="ok">Caisses suivies</StatusBadge>}>
+      <p className="ui-card-value">{n(open)}<small>{open>1?'caisses ouvertes':'caisse ouverte'}</small></p>
+      <p className="ui-card-hint">{n(closed)} clôturée(s) · Solde théorique global <b>{money(cdf.expected_cash)} FC</b>{Number(usd.expected_cash||0)?<> · <b>{money(usd.expected_cash)} USD</b></>:null}{gaps?<> · <b>{gaps} clôture{gaps>1?'s':''} avec écart</b></>:null}</p>
+    </Card>}}</Async>;}
 
 function CashToday({common,token}:{common:Common;token:string}){const s=useData(()=>cashCurrent(token),[token]);
   return <Card level="priority" {...common}><Async s={s}>{d=>{const c:any=d.session;return c?<><p className="ui-card-value">{money(c.cdf?.expected_cash)}<small>FC en caisse</small></p>
