@@ -27,7 +27,7 @@ def test_school_direction_sees_headcounts_and_its_scoped_recovery():
 
 
 def test_cashier_keeps_cash_first():
-    assert "Ma caisse du jour" in PROJ and "Encaisser rapidement" in PROJ and "Solde théorique CDF" in HOME
+    assert "Ma caisse du jour" in PROJ and "Encaisser rapidement" in PROJ and "Solde théorique FC" in HOME
 
 
 def test_recovery_monthly_is_scope_aware_for_prefet_and_secondary_directors():
