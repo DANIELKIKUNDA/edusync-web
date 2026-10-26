@@ -5,7 +5,7 @@ import {RecoveryChart} from './platform/recovery_chart';
 import {setFinanceTarget,type FinanceTarget} from './finance_nav';
 import {auditActionLabel} from './platform/labels';
 import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
-import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,cashDaySummary,checkoutProducts,financeDecisions,generatedReports,documentHistory,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
+import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,cashDaySummary,checkoutProducts,financeDecisions,generatedReports,documentHistory,getSchoolingSummary,getPersonnelSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
   type AccessMe,type AccessWidget,type EffectifsCounts,type SettingsOverview} from './api';
 
 /* School home driven by capabilities (owner decisions 9 of 2026-10-23 and the premium pass of 2026-10-24). The server
@@ -44,7 +44,7 @@ function Async<T>({s,children,lines=2}:{s:Loaded<T>;children:(d:T)=>React.ReactN
 
 const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent','sync.devices']);
 const ICON:Record<string,string>={'access.members':'users','access.requests':'shield','settings.academic_year':'calendar','settings.structure':'layers','audit.recent':'clock',
-  'sync.devices':'sync','cash.today':'finance','cash.supervision':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','finance.recovery':'finance',
+  'sync.devices':'sync','cash.today':'finance','cash.supervision':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','personnel.summary':'users','finance.recovery':'finance',
   'finance.by_fee':'tag','finance.decisions':'shield','reports.latest':'doc','documents.recent':'folder','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart'};
 
 function AdminCard({w,d,index,go}:{w:AccessWidget;d:Loaded<Record<string,any>>;index:number;go:()=>void}){
@@ -89,6 +89,7 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
     case 'products.watch':return <ProductsWatch common={common} token={token}/>;
     case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
+    case 'personnel.summary':return <PersonnelSummary common={common} token={token}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
     case 'finance.by_fee':return <ByFee common={common} token={token} yearId={yearId}/>;
     case 'finance.decisions':return <FinancialDecisions common={common} token={token}/>;
@@ -132,6 +133,9 @@ function ProductsWatch({common,token}:{common:Common;token:string}){const s=useD
 function Headcounts({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData<EffectifsCounts>(()=>getEffectifsCounts(token,'section','ALL',yearId),[token,yearId]);
   return <Card level="info" {...common}><Async s={s}>{c=><><p className="ui-card-value">{n(c.total.active.total)}<small>élèves actifs</small></p>
     <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p></>}</Async></Card>}
+function PersonnelSummary({common,token}:{common:Common;token:string}){const s=useData(()=>getPersonnelSummary(token),[token]);
+  return <Card level="info" {...common}><Async s={s}>{d=><><p className="ui-card-value">{n(d.active)}<small>agents actifs</small></p>
+    <p className="ui-card-hint">{n(d.teachers)} enseignant(s) · {n(d.administrative)} administratif(s){d.suspended?<> · <b>{n(d.suspended)} suspendu(s)</b></>:null}</p></>}</Async></Card>}
 function Movements({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>getEffectifsMovements(token,'ALL',{yearId,limit:5}),[token,yearId]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=>(d.items??[]).length?<ul className="ui-list">{d.items.map((m:any,i:number)=><li key={i}><b>{m.student_name??m.label??m.kind}</b><small>{m.kind_label??m.kind}</small></li>)}</ul>
     :<p className="ui-card-hint">Aucun mouvement récent.</p>}</Async></Card>}
@@ -212,10 +216,10 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
     {me.widgets.length===0?<EmptyState icon="home" title="Aucun suivi pour votre rôle" text="Les modules auxquels vous avez accès sont dans le menu."/>:<>
       {readiness&&<ScreenBoundary compact label="readiness"><Readiness token={token} open={openSettings} go={()=>openSettings('overview')}/></ScreenBoundary>}
       {figures.length>0&&(()=>{
-        const overview=executive?figures.filter(w=>['cash.supervision','headcounts.summary','finance.recovery'].includes(w.id)):figures;
+        const overview=executive?figures.filter(w=>['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)):figures;
         const activityIds=new Set(['reports.latest','documents.recent']);
         const activity=executive?figures.filter(w=>activityIds.has(w.id)):[];
-        const watch=executive?figures.filter(w=>!['cash.supervision','headcounts.summary','finance.recovery'].includes(w.id)&&!activityIds.has(w.id)):[];
+        const watch=executive?figures.filter(w=>!['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)&&!activityIds.has(w.id)):[];
         return <>{overview.length>0&&<Section title={executive?'Vue d’ensemble':'À suivre'} subtitle={executive?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
           {watch.length>0&&<Section title="À vérifier" subtitle="Les exceptions et écarts à traiter en priorité." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
           {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Rapports, documents et actions récentes de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
