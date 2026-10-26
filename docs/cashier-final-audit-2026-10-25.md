@@ -21,6 +21,9 @@ Migrations : `0094_receipt_print_queue.sql`, `0095_official_report_archive_idemp
 - PostgreSQL local : migrations 0094 et 0095 exécutées sur un schéma de contrôle ; déclencheur de file, rollback, isolation RLS, droit UPDATE et unicité de clé de rapport vérifiés. La pile complète n'a pas été installée dans cette base locale.
 - PDF Web 80 mm : structure et hiérarchie comparées visuellement au modèle Desktop. Formats 58 mm et A5 et imprimantes physiques non contrôlés.
 
+## Certification PostgreSQL jetable sur Linux — 26/10/2026
+
+La CI de la PR au commit `e077d7ab6e205a99f7f78d887a86d0d0d8675f2e` est verte : [run 40293597483](https://github.com/DANIELKIKUNDA/edusync-web/actions/runs/40293597483). Le nouveau test `tools/ci/cashier_postgres_integration.py` s'exécute après toutes les migrations sur PostgreSQL 16, avec les rôles owner et tenant de la CI. Il vérifie la mise en file du reçu dans la transaction du paiement, l'annulation d'un paiement dans un savepoint, l'isolation RLS entre écoles, l'émission et la lecture exacte d'un PDF officiel archivé, et l'annulation du numéro et du rapport lorsque le stockage est indisponible. Le stockage testé est l'adaptateur local sur disque jetable ; le stockage objet du staging et l'impression physique restent à certifier. Aucun VPS n'a été modifié par cette vérification.
 ## Scénarios critiques restant à certifier
 
 1. Parcours réel sans scroll sur caisse desktop et sur Android, y compris inscription/réinscription mobile.
