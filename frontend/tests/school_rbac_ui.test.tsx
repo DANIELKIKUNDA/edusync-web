@@ -99,6 +99,28 @@ it('gestionnaire: executive dashboard shows school cash supervision, not a perso
   sessionStorage.clear();
 });
 
+it('gestionnaire: personnel oversight joins the executive cockpit without an operational shortcut', async () => {
+  answers['/api/v1/finance/cash/day-summary'] = {
+    open_count: 1, closed_count: 1,
+    currencies: {CDF: {expected_cash: '100000'}, USD: {expected_cash: '0'}},
+  };
+  answers['/api/v1/personnel/summary'] = {
+    total: 28, active: 25, suspended: 1, left: 2, teachers: 18, administrative: 5, workers: 2, other: 0,
+    active_assignments: 25, linked_accounts: 6, staff_children: 3,
+  };
+  const me: AccessMe = {...base, role_label: 'Gestionnaire',
+    widgets: [
+      {id: 'cash.supervision', title: 'Situation des caisses', module: 'finance', priority: 20},
+      {id: 'personnel.summary', title: 'Personnel', module: 'personnel', priority: 32},
+    ],
+    actions: [{id: 'cash.supervise', label: 'Superviser les caisses', module: 'finance'}]};
+  render(<HomePage token="t" me={me} schoolName="École A" userName="Gestionnaire Test" onNavigate={() => {}}/>);
+  await waitFor(() => expect(screen.getByText('25', {selector: '.ui-card-value'})).toBeTruthy());
+  expect(screen.getByText(/18 enseignant/)).toBeTruthy();
+  expect(screen.getByText(/1 suspendu/)).toBeTruthy();
+  expect(screen.queryByRole('button', {name: /Nouvel agent/i})).toBeNull();
+});
+
 it('school greeting follows the local time instead of being hard-coded to Bonjour', () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-25T22:05:00'));
