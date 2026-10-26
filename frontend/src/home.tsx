@@ -2,9 +2,10 @@ import React,{useEffect,useState} from 'react';
 import {NavGlyph} from './platform/nav_icons';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {RecoveryChart} from './platform/recovery_chart';
+import {FINANCE_TARGET_KEY} from './finance';
 import {auditActionLabel} from './platform/labels';
 import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
-import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,checkoutProducts,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
+import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,cashDaySummary,checkoutProducts,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
   type AccessMe,type AccessWidget,type EffectifsCounts,type SettingsOverview} from './api';
 
 /* School home driven by capabilities (owner decisions 9 of 2026-10-23 and the premium pass of 2026-10-24). The server
@@ -41,7 +42,7 @@ function Async<T>({s,children,lines=2}:{s:Loaded<T>;children:(d:T)=>React.ReactN
 
 const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent','sync.devices']);
 const ICON:Record<string,string>={'access.members':'users','access.requests':'shield','settings.academic_year':'calendar','settings.structure':'layers','audit.recent':'clock',
-  'sync.devices':'sync','cash.today':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','finance.recovery':'finance',
+  'sync.devices':'sync','cash.today':'finance','cash.supervision':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','finance.recovery':'finance',
   'finance.by_fee':'tag','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart'};
 
 function AdminCard({w,d,index,go}:{w:AccessWidget;d:Loaded<Record<string,any>>;index:number;go:()=>void}){
@@ -79,6 +80,7 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
   const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
   switch(w.id){
     case 'cash.today':return <CashToday common={common} token={token}/>;
+    case 'cash.supervision':return <CashSupervision common={common} token={token}/>;
     case 'checkout.quick':return <Card level="priority" {...common} hint={<><b>Nouvel encaissement</b> : retrouvez l’élève ou la famille, puis encaissez en quelques secondes.</>}/>;
     case 'cash.receipts':return <CashReceipts common={common} token={token}/>;
     case 'enrollments.today':return <Enrollments common={common} token={token}/>;
@@ -93,6 +95,11 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
   }
 }
 type Common={icon:string;title:string;onClick:()=>void;index:number;ariaLabel:string};
+function CashSupervision({common,token}:{common:Common;token:string}){const day=new Date().toISOString().slice(0,10);const s=useData(()=>cashDaySummary(token,day),[token,day]);
+  return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const cdf=d?.currencies?.CDF??{};const usd=d?.currencies?.USD??{};const open=Number(d?.open_count??0),closed=Number(d?.closed_count??0);
+    return <><p className="ui-card-value">{n(open)}<small>{open>1?'caisses ouvertes':'caisse ouverte'}</small></p>
+      <p className="ui-card-hint">{n(closed)} clôturée(s) · Solde théorique global <b>{money(cdf.expected_cash)} FC</b>{Number(usd.expected_cash||0)?<> · <b>{money(usd.expected_cash)} USD</b></>:null}</p></>}}</Async></Card>;}
+
 function CashToday({common,token}:{common:Common;token:string}){const s=useData(()=>cashCurrent(token),[token]);
   return <Card level="priority" {...common}><Async s={s}>{d=>{const c:any=d.session;return c?<><p className="ui-card-value">{money(c.cdf?.expected_cash)}<small>CDF en caisse</small></p>
     <p className="ui-card-hint"><StatusBadge tone={c.status==='OPEN'?'ok':'neutral'}>{c.status==='OPEN'?'Ouverte':'Fermée'}</StatusBadge> Entrées {money(c.cdf?.receipts)} CDF · Solde théorique CDF</p></>
@@ -165,25 +172,33 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const [spot,setSpot]=useState(false);
   useEffect(()=>{if(!search)return;const k=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setSpot(true)}};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[search]);
   const pick=(s:SchoolingStudent)=>{try{sessionStorage.setItem('edusync.students.open',s.id)}catch{/* facultatif */}setSpot(false);onNavigate('students')};
-  const today=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const now=new Date();const today=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});const greeting=now.getHours()>=18||now.getHours()<5?'Bonsoir':'Bonjour';
   const first=userName.split(' ')[0];
   const readiness=me.widgets.find(w=>w.id==='settings.readiness');
   const figures=me.widgets.filter(w=>w.id!=='settings.readiness'&&w.id!=='audit.recent');
   const journal=me.widgets.find(w=>w.id==='audit.recent');
   let index=0;
+  const financeTarget=(id:string)=>id==='cash.today'||id==='cash.supervision'?'cash':id==='checkout.quick'?'checkout':id==='finance.recovery'?'recovery':id==='finance.by_fee'?'fees':undefined;
+  const openWidget=(w:AccessWidget)=>{const target=financeTarget(w.id);if(target)try{sessionStorage.setItem(FINANCE_TARGET_KEY,target)}catch{/* facultatif */}onNavigate(w.module)};
+  const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)try{sessionStorage.setItem(FINANCE_TARGET_KEY,target)}catch{/* facultatif */}onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
-    ?<AdminCard w={w} d={admin} index={index++} go={()=>onNavigate(w.module)}/>
-    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>onNavigate(w.module)}/>}</ScreenBoundary>;
+    ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
+    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
   return <div className="ui-page sh-home">
-    <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`Bonjour ${first}`}
+    <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
       subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
       actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':'chevronRight'}
-        onClick={()=>a.id==='settings.open'?openSettings('overview'):onNavigate(a.module)}>{a.label}</Button>)}/>
+        onClick={()=>a.id==='settings.open'?openSettings('overview'):openAction(a)}>{a.label}</Button>)}/>
     {search&&<button type="button" className="sh-search" onClick={()=>setSpot(true)} aria-haspopup="dialog"><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille · Ctrl K</small></button>}
     {spot&&<StudentSpotlight token={token} onClose={()=>setSpot(false)} onPick={pick}/>}
     {me.widgets.length===0?<EmptyState icon="home" title="Aucun suivi pour votre rôle" text="Les modules auxquels vous avez accès sont dans le menu."/>:<>
       {readiness&&<ScreenBoundary compact label="readiness"><Readiness token={token} open={openSettings} go={()=>openSettings('overview')}/></ScreenBoundary>}
-      {figures.length>0&&<Section title="À suivre" id="sh-follow"><div className="ui-grid">{figures.map(render)}</div></Section>}
+      {figures.length>0&&(()=>{
+        const executive=figures.some(w=>w.id==='cash.supervision');
+        const overview=executive?figures.filter(w=>['cash.supervision','headcounts.summary','finance.recovery'].includes(w.id)):figures;
+        const watch=executive?figures.filter(w=>!['cash.supervision','headcounts.summary','finance.recovery'].includes(w.id)):[];
+        return <>{overview.length>0&&<Section title={executive?'Vue d’ensemble':'À suivre'} subtitle={executive?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
+          {watch.length>0&&<Section title="À surveiller" subtitle="Mouvements, frais et signaux qui méritent votre attention." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}</>})()}
       {journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
     </>}
   </div>;
