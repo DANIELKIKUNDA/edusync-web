@@ -4,7 +4,7 @@ Base : `f8d840a420644fcc3ae96ce9335081a17cabf8c6`. Travail dans une copie isolé
 
 ## Corrections réalisées
 
-- POS : écran à deux zones sur ordinateur, transaction et panier toujours visibles, recherche clavier, obligations futures repliées et action directe pour les priorités d'inscription. Sur mobile, barre permanente et feuille de transaction. Brouillon familial conservé localement par école et utilisateur pendant 24 h, effacé à la déconnexion ; les soldes et priorités sont revérifiés avant encaissement.
+- POS : écran à deux zones sur ordinateur, transaction et panier toujours visibles, recherche clavier, obligations futures repliées et action directe pour les priorités d'inscription. Sur mobile, barre permanente et feuille de transaction. File hors ligne ordonnée par séquence atomique IndexedDB, même si deux paiements ont le même horodatage. Brouillon familial conservé localement par école et utilisateur pendant 24 h, effacé à la déconnexion ; les soldes et priorités sont revérifiés avant encaissement.
 - Excédent : opération atomique `collect-with-fund`, fondée sur les services d'encaissement et de fonds anticipés existants, avec clés d'idempotence et deux reçus distincts.
 - Reçus : mise en file durable dans la transaction de paiement ; récupération du PDF sans faux statut « imprimé » ; statut imprimé uniquement après confirmation humaine ; répétition de la confirmation idempotente ; échec et reprise conservés. Après un paiement familial réussi, un échec du rafraîchissement du solde garde le succès visible et demande une actualisation avant une nouvelle opération. Le reçu Web 80 mm a été comparé visuellement au PDF Desktop de référence. Impression directe via le dialogue du navigateur ; la PWA ne garantit pas la sortie papier.
 - Rapports officiels : aperçu séparé de la génération ; numéro, PDF archivé et index documentaire dans la même transaction SQL ; une clé de reprise rend exactement le même PDF et le même numéro. Un échec de stockage annule l'émission du numéro. Les profils particuliers `INSCRIPTION_JUIN` et `JOURNAL_ECUSSON` sont retirés des choix universels sans supprimer les documents historiques.
@@ -15,7 +15,7 @@ Migrations : `0094_receipt_print_queue.sql`, `0095_official_report_archive_idemp
 
 ## Vérifications effectuées
 
-- Frontend : 14 fichiers de tests, 71 tests réussis ; TypeScript et build Vite réussis.
+- Frontend : 14 fichiers de tests, 72 tests réussis ; TypeScript et build Vite réussis.
 - Backend ciblé : 18 tests réussis après corrections, puis 6 tests de file/rapport réussis après la correction de confirmation répétée.
 - Suite backend élargie : 743 tests passés avant une assertion ancienne sur le libellé monétaire ; elle a été adaptée à `FC`. Une relance complète a ensuite été interrompue par un test long dépendant de l'environnement Windows. Les contrôles CI Bash/Git ne sont pas exécutables fidèlement dans cette copie sans dépôt Git et environnement Linux.
 - PostgreSQL local : migrations 0094 et 0095 exécutées sur un schéma de contrôle ; déclencheur de file, rollback, isolation RLS, droit UPDATE et unicité de clé de rapport vérifiés. La pile complète n'a pas été installée dans cette base locale.
