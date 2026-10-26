@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {NavGlyph} from './platform/nav_icons';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {RecoveryChart} from './platform/recovery_chart';
-import {FINANCE_TARGET_KEY} from './finance';
+import {setFinanceTarget} from './finance_nav';
 import {auditActionLabel} from './platform/labels';
 import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
 import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,cashDaySummary,checkoutProducts,financeDecisions,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
@@ -190,8 +190,8 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const journal=me.widgets.find(w=>w.id==='audit.recent');
   let index=0;
   const financeTarget=(id:string)=>id==='cash.today'||id==='cash.supervision'?'cash':id==='checkout.quick'?'checkout':id==='finance.recovery'?'recovery':id==='finance.by_fee'?'fees':id==='finance.decisions'?'controls':undefined;
-  const openWidget=(w:AccessWidget)=>{const target=financeTarget(w.id);if(target)try{sessionStorage.setItem(FINANCE_TARGET_KEY,target)}catch{/* facultatif */}onNavigate(w.module)};
-  const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)try{sessionStorage.setItem(FINANCE_TARGET_KEY,target)}catch{/* facultatif */}onNavigate(a.module)};
+  const openWidget=(w:AccessWidget)=>{const target=financeTarget(w.id);if(target)setFinanceTarget(target as any);onNavigate(w.module)};
+  const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)setFinanceTarget(target);onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
     ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
     :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
