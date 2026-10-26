@@ -33,7 +33,7 @@ export function CashExpenseForm({token, onDone}: {token: string; onDone: () => P
     <div className="cashExpenseGrid">
       <label>Catégorie<input value={category} maxLength={80} onChange={e => setCategory(e.target.value)} placeholder="Fournitures, transport…"/></label>
       <label>Montant<input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}/></label>
-      <label>Devise<select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">CDF</option><option value="USD">USD</option></select></label>
+      <label>Devise<select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">FC</option><option value="USD">USD</option></select></label>
       <label>Motif<input value={reason} maxLength={500} onChange={e => setReason(e.target.value)}/></label>
       <label>Référence (facultatif)<input value={reference} maxLength={80} onChange={e => setReference(e.target.value)}/></label>
     </div>

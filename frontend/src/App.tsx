@@ -1,3 +1,4 @@
+import {clearAllCashierBaskets} from './platform/cashier_basket';
 import {useSchoolOffline} from './offline/school_sync';
 import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState} from './platform/offline_session';
 import React,{lazy,Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
@@ -297,7 +298,7 @@ function Fees({token,fees,refs,can,onDone}:{token:string;fees:FeeType[];refs:Ref
     {manage&&<form className="sw-inline sw-custom-fee" onSubmit={e=>{e.preventDefault();const label=custom.label.trim();if(label.length<2){setError('Indiquez le nom du frais, par exemple Frais de laboratoire.');return}if(labels.has(label.toLowerCase())){setError('Un type de frais porte déjà ce nom.');return}void add(autoCode(label,existing),label,custom.periodicity,custom.currency).then(()=>setCustom(c=>({...c,label:''})))}}>
       <input aria-label="Nom du frais personnalisé" placeholder="Frais propre à l’école (ex. Frais de laboratoire)" value={custom.label} onChange={e=>setCustom(c=>({...c,label:e.target.value}))}/>
       <select aria-label="Périodicité" value={custom.periodicity} onChange={e=>setCustom(c=>({...c,periodicity:e.target.value as FeeType['periodicity']}))}>{(['ONE_TIME','MONTHLY','PERIODIC','OPTIONAL'] as const).map(p=><option key={p} value={p}>{PERIODICITY_LABEL[p]??p}</option>)}</select>
-      <select aria-label="Devise" value={custom.currency} onChange={e=>setCustom(c=>({...c,currency:e.target.value as 'CDF'|'USD'}))}><option value="CDF">CDF</option><option value="USD">USD</option></select>
+      <select aria-label="Devise" value={custom.currency} onChange={e=>setCustom(c=>({...c,currency:e.target.value as 'CDF'|'USD'}))}><option value="CDF">FC</option><option value="USD">USD</option></select>
       <UIButton variant="secondary" size="sm" icon="plus" type="submit">Créer</UIButton></form>}
     <div className="cardsList">{fees.map(f=><FeeRow key={f.id} token={token} fee={f} labels={labels} canEdit={manage} canToggle={f.enabled?can('settings.fee_types.activate'):manage} onDone={onDone} onError={setError}/>)}</div></Panel>}
 
@@ -316,7 +317,7 @@ function FeeRow({token,fee,labels,canEdit,canToggle,onDone,onError}:{token:strin
     {edit?<form className="feeEdit" onSubmit={e=>{e.preventDefault();void save(fee.enabled)}}>
       <input aria-label="Nom du frais" value={d.label} maxLength={140} onChange={e=>setD(x=>({...x,label:e.target.value}))}/>
       <select aria-label="Périodicité" value={d.periodicity} onChange={e=>setD(x=>({...x,periodicity:e.target.value as FeeType['periodicity']}))}>{(['ONE_TIME','MONTHLY','PERIODIC','OPTIONAL'] as const).map(p=><option key={p} value={p}>{PERIODICITY_LABEL[p]??p}</option>)}</select>
-      <select aria-label="Devise" value={d.currency} onChange={e=>setD(x=>({...x,currency:e.target.value as 'CDF'|'USD'}))}><option value="CDF">CDF</option><option value="USD">USD</option></select>
+      <select aria-label="Devise" value={d.currency} onChange={e=>setD(x=>({...x,currency:e.target.value as 'CDF'|'USD'}))}><option value="CDF">FC</option><option value="USD">USD</option></select>
       <label className="checkField"><input type="checkbox" checked={d.regulatory} onChange={e=>setD(x=>({...x,regulatory:e.target.checked}))}/> Réglementaire</label>
       <div className="formActions"><button type="button" className="ghost" disabled={busy} onClick={()=>setEdit(false)}>Annuler</button><button className="primaryBtn" disabled={busy}>{busy?'Enregistrement…':'Enregistrer'}</button></div>
       {d.periodicity!==fee.periodicity&&<small className="policyHint">Changer la périodicité ne modifie pas les échéances déjà créées : réappliquez les barèmes pour les classes concernées.</small>}
@@ -487,7 +488,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     return()=>{alive=false;window.removeEventListener('online',online);window.removeEventListener('offline',offline);window.removeEventListener('edusync:connectivity',probe)};
   },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
-  function clear(){clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
+  function clear(){clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
   // A school session validated online becomes the school's offline context BEFORE its screens mount, so their first
   // reads (/access/me, settings…) are already kept for an offline reopening.
   function openSchool(next:SavedSchoolSession){if(next.token!==OFFLINE_SCHOOL_TOKEN)rememberSchoolContext(next);setSchoolSession(next)}

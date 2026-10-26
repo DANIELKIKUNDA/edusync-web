@@ -96,3 +96,74 @@
 .recoveryChartFold{margin-top:12px;border:1px solid #e4e9f2;border-radius:16px;background:#fff;padding:10px 14px}
 .recoveryChartFold>summary{cursor:pointer;font-weight:750;color:#1557d6;padding:4px 0}
 .recoveryChartFold[open]>summary{margin-bottom:10px}
+/* Cashier POS: obligations stay in the working column; the active transaction remains within reach. */
+.posWorkspace{padding:14px}
+.posGrid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(320px,1fr);gap:16px;align-items:start}
+.posLeft{min-width:0}
+.posLeft .checkoutSearch{max-width:none;margin:0}
+.posLeft .checkoutHits{max-height:55vh;overflow:auto}
+.posLeft .checkoutHits button.active,.posLeft .checkoutHits button:focus-visible{background:#eaf2ff;outline:2px solid #0f4fbf;outline-offset:-2px}
+.posLeft .speedHint{margin-bottom:10px}
+.posLeft .chargeToolbar{flex-wrap:wrap}
+.posChargeGroup{margin:10px 0;border:1px solid #e0e6f0;border-radius:12px;overflow:hidden}
+.posChargeGroup h3,.posChargeGroup summary{display:flex;align-items:center;justify-content:space-between;margin:0;padding:10px 14px;background:#f6f8fc;font-size:14px;font-weight:800;color:#19365a}
+.posChargeGroup summary{cursor:pointer;min-height:44px;box-sizing:border-box}
+.posChargeGroup h3 small,.posChargeGroup summary small{padding:3px 8px;border-radius:99px;background:#e6edfb;color:#0b3f9c}
+.posChargeGroup p{margin:10px 14px;color:#52637a;font-size:13px}
+.posChargeGroup .chargeList{border:0;border-radius:0}
+.posChargeGroup .chargeRow{grid-template-columns:32px minmax(0,1fr) minmax(75px,auto) minmax(88px,auto);gap:8px;padding:9px 10px;cursor:pointer}
+.posChargeGroup .chargeRow.locked{opacity:1}
+.posChargeGroup .chargeRow.locked small{color:#7a4d12}
+.posRight{position:sticky;top:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100dvh - 24px);min-width:0;overflow:auto;padding:12px;border:1px solid #d8e3f1;border-radius:16px;background:#f9fbff;box-shadow:0 12px 28px rgba(17,43,79,.08)}
+.posBasketSummary{display:flex;flex-direction:column;gap:3px}
+.posBasketSummary b{font-size:15px;color:#17345b}
+.posBasketSummary small{color:#5e708a}
+.posSelection{display:grid;gap:6px;padding:9px;border:1px solid #dfe8f4;border-radius:10px;background:#fff}
+.posSelection b{font-size:13px}
+.posSelection small{font-size:12px;color:#66758a}
+.posSelection ul{list-style:none;display:grid;gap:5px;margin:0;padding:0;max-height:120px;overflow:auto}
+.posSelection li{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.posSelection li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.posSelection li strong{white-space:nowrap}
+.posRight .basketPanel{padding:10px}
+.posRight .basketPanel li{grid-template-columns:minmax(0,1fr) auto auto}
+.posRight .basketPanel li b{white-space:normal}
+.posRight .basketPanel .posEditLine{width:auto;height:auto;padding:3px 0;color:#0f4fbf;justify-self:start;font-size:12px;font-weight:700}
+.posRight .basketFoot{align-items:stretch;flex-direction:column}
+.posRight .basketFoot .collectBtn{width:100%}
+.posRight .checkoutPay{position:sticky;bottom:0;display:flex;flex-direction:column;gap:8px;margin:0;padding:10px;box-shadow:0 -4px 14px rgba(17,43,79,.12)}
+.posRight .checkoutFooter{padding:10px;flex-direction:column;align-items:stretch;gap:8px}
+.posRight .checkoutFooter>div>b{font-size:20px}
+.posRight .collectActions{width:100%;justify-content:stretch}
+.posRight .collectActions button{flex:1;min-height:46px}
+.posRight .amountEntry input{min-width:0}
+.posAdvanced{border:1px solid #dfe8f4;border-radius:10px;background:#fff}
+.posAdvanced>summary{padding:10px;cursor:pointer;font-weight:700;font-size:13px;color:#0b3f9c}
+.posAdvanced .planPanel,.posAdvanced .fundsPanel{margin:8px}
+.posMobileBar,.posMobileHead,.posSheetBackdrop{display:none}
+@media(max-width:899px){
+  .posGrid{display:block}
+  .posWorkspace{padding:10px}
+  .posLeft .chargeRow{grid-template-columns:28px minmax(0,1fr) auto}
+  .posLeft .chargeRow>span:nth-child(3){display:none}
+  .posLeft .chargeRow>span:nth-child(4){grid-column:3;text-align:right}
+  .posRight{display:none;position:fixed;inset:auto 0 0;z-index:102;max-height:min(84dvh,780px);overflow:auto;border-radius:20px 20px 0 0;padding:14px 14px calc(16px + env(safe-area-inset-bottom,0px))}
+  .posRight.open{display:flex}
+  .posSheetBackdrop{display:block;position:fixed;inset:0;z-index:101;border:0;background:rgba(9,24,47,.52)}
+  .posMobileHead{display:flex;align-items:center;justify-content:space-between}
+  .posMobileHead button{min-width:44px;min-height:44px;border:0;background:transparent;font-size:22px}
+  .posMobileBar{display:flex;position:fixed;left:8px;right:8px;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:60;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:9px 14px;border:0;border-radius:14px;background:#0f4fbf;color:#fff;box-shadow:0 8px 28px rgba(11,63,156,.3);text-align:left;font-weight:700}
+  .posMobileBar b{white-space:nowrap}
+  .posRight .checkoutPay{bottom:0}
+  .posWorkspace{padding-bottom:74px}
+}
+@media(min-width:900px){.posMobileHead{display:none}}
+.posPriorityBlock{display:grid;gap:8px;margin:10px 0;padding:12px;border:1px solid #f0ba64;border-radius:12px;background:#fff9ed;color:#633a08}
+.posPriorityBlock p{margin:0;font-size:13px}
+.posPriorityBlock ul{margin:0;padding-left:18px;font-size:12px}
+.posPriorityBlock button{justify-self:start;min-height:42px;padding:8px 12px;border:0;border-radius:9px;background:#824b0b;color:#fff;font-weight:800;cursor:pointer}
+.receiptQueueHost{margin-left:auto}.receiptQueueBadge{display:flex;align-items:center;gap:5px;min-height:40px;padding:6px 12px;border:1px solid #adc7ec;border-radius:11px;background:#f2f7ff;color:#123c77;font-weight:700;cursor:pointer}.receiptQueueBadge em{font-size:11px;color:#a43d19;font-style:normal}
+.receiptQueueBackdrop{position:fixed;inset:0;z-index:150;background:rgba(8,25,47,.48);display:flex;justify-content:flex-end}.receiptQueueDrawer{width:min(680px,100vw);height:100dvh;overflow:auto;background:#fff;box-shadow:-12px 0 32px rgba(8,25,47,.2);padding:18px;display:flex;flex-direction:column;gap:14px}.receiptQueueDrawer>header{display:flex;justify-content:space-between;align-items:start}.receiptQueueDrawer h3{margin:0}.receiptQueueDrawer header small{color:#5d6e84}.receiptQueueDrawer header button{border:0;background:transparent;min-width:44px;min-height:44px;cursor:pointer}.receiptQueueDrawer nav,.receiptQueueActions{display:flex;flex-wrap:wrap;gap:6px}.receiptQueueDrawer nav button,.receiptQueueActions button,.receiptQueueRowActions button{min-height:38px;padding:6px 10px;border:1px solid #cbd8eb;border-radius:8px;background:#fff;color:#174578;cursor:pointer}.receiptQueueDrawer nav button.active{background:#1358bf;color:#fff}.receiptQueueDrawer button:disabled{opacity:.5;cursor:not-allowed}.receiptQueueError{padding:9px;background:#fff0ed;color:#922}.receiptQueueNotice{padding:9px;background:#edf7ed;color:#245b2b}.receiptQueueList{display:grid;gap:8px}.receiptQueueList article{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;padding:11px;border:1px solid #dce6f2;border-radius:10px}.receiptQueueList article>div:nth-child(2){display:grid;gap:3px}.receiptQueueList small{color:#5e7085}.receiptQueueRowActions{grid-column:2;display:flex;flex-wrap:wrap;gap:6px}.receiptQueuePreview{position:fixed;inset:5%;z-index:151;display:flex;flex-direction:column;background:#fff;padding:12px;box-shadow:0 8px 30px #0004}.receiptQueuePreview>div{display:flex;align-items:center;gap:10px;padding-bottom:8px}.receiptQueuePreview iframe{width:100%;flex:1;border:1px solid #dce6f2}
+@media(max-width:899px){.receiptQueueHost{margin-left:0}.receiptQueueDrawer{padding:12px}.receiptQueuePreview{inset:0}.receiptQueueBadge{font-size:12px}}
+
+.posResumeDraft{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px;border:1px solid #9db9e5;border-radius:10px;background:#eef5ff}.posResumeDraft button,.posBasketSummary button{min-height:40px;padding:6px 12px;border:1px solid #0f4fbf;border-radius:8px;background:#0f4fbf;color:#fff;cursor:pointer}

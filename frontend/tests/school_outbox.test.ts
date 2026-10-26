@@ -83,3 +83,18 @@ it('the platform stays read-only offline (only the school works without network)
   const {resilientFetch} = await import('../src/platform/connectivity');
   await expect(resilientFetch('/api/v1/finance/checkout/collect', {method: 'POST', body: '{}'})).rejects.toMatchObject({code: 'OFFLINE_READ_ONLY'});
 });
+
+it('orders payments created in the same millisecond and deduplicates concurrent keys',async()=>{
+  const {outbox}=await setup();
+  const stamp=vi.spyOn(Date.prototype,'toISOString').mockReturnValue('2026-10-26T00:00:00.000Z');
+  try{
+    await Promise.all([
+      outbox.enqueueWrite('/api/v1/finance/checkout/collect','POST','{"amount":"1"}','same-key'),
+      outbox.enqueueWrite('/api/v1/finance/checkout/collect','POST','{"amount":"1"}','same-key'),
+    ]);
+    await outbox.enqueueWrite('/api/v1/finance/checkout/collect','POST','{"amount":"2"}','next-key');
+    const rows=await outbox.listOutbox();
+    expect(rows.map(r=>r.idempotencyKey)).toEqual(['same-key','next-key']);
+    expect(rows.map(r=>r.enqueueOrder)).toEqual([1,2]);
+  }finally{stamp.mockRestore()}
+});

@@ -242,7 +242,10 @@ def test_receipt_settings_copy_the_desktop():
     assert 'return f"{prefix}-{year}-{int(n):06d}"' in checkout and "INSERT INTO finance_receipt_sequences" in checkout
     assert 'receipt=f"REC-{' not in checkout and 'receipt=f"VTE-{' not in checkout  # one sequence for every cash entry
     receipts = (ROOT / "backend/src/edusync/modules/finance_checkout/application/receipts.py").read_text(encoding="utf-8")
-    assert 'roll = 80 if fmt == "80MM" else 58' in receipts and "Exemplaire" in receipts
+    from edusync.modules.finance_checkout.application.receipts import _size
+    from reportlab.lib.units import mm
+    assert abs(_size("80MM", 1)[0] - 80 * mm) < 0.01 and abs(_size("58MM", 1)[0] - 58 * mm) < 0.01
+    assert "Copie {copy_index}/{copies}" in receipts
     sql = (ROOT / "backend/migrations/0065_receipt_settings_desktop_parity.sql").read_text(encoding="utf-8")
     assert "receipt_copies BETWEEN 1 AND 5" in sql and "'58MM'" in sql
 

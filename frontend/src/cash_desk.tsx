@@ -127,7 +127,7 @@ function OpenDialog({token, onClose, onDone}: {token: string; onClose: () => voi
   return <Modal title="Ouvrir ma caisse" sub="Indiquez l’argent présent dans la caisse au départ (fond initial)." onClose={onClose}
     foot={<><button type="button" className="cd-btn" onClick={onClose}>Annuler</button><button type="button" className="cd-btn primary" disabled={busy || bad} onClick={() => void go()}>{busy ? 'Ouverture…' : 'Ouvrir ma caisse'}</button></>}>
     {err && <div className="error" role="alert">{err}</div>}
-    <div className="cd-grid2"><label className="cd-field"><span>Fond initial CDF</span><input inputMode="decimal" value={cdf} onChange={e => setCdf(e.target.value)} aria-invalid={!validAmount(cdf)} autoFocus/></label>
+    <div className="cd-grid2"><label className="cd-field"><span>Fond initial FC</span><input inputMode="decimal" value={cdf} onChange={e => setCdf(e.target.value)} aria-invalid={!validAmount(cdf)} autoFocus/></label>
       <label className="cd-field"><span>Fond initial USD</span><input inputMode="decimal" value={usd} onChange={e => setUsd(e.target.value)} aria-invalid={!validAmount(usd)}/></label></div>
   </Modal>;
 }
@@ -148,7 +148,7 @@ function CloseDialog({token, session, onClose, onDone}: {token: string; session:
     foot={<><button type="button" className="cd-btn" onClick={onClose}>Annuler</button><button type="button" className="cd-btn danger" disabled={busy} onClick={() => void go()}>{busy ? 'Clôture…' : 'Clôturer ma caisse'}</button></>}>
     {err && <div className="error" role="alert">{err}</div>}
     <div className="cd-count">{(['CDF', 'USD'] as Cur[]).map(c => <div key={c}>
-      <label className="cd-field"><span>Compté {c}</span><input inputMode="decimal" placeholder={session[c.toLowerCase() as 'cdf'].expected_cash} value={c === 'CDF' ? cdf : usd} onChange={e => (c === 'CDF' ? setCdf : setUsd)(e.target.value)} aria-invalid={!L[c].ok}/></label>
+      <label className="cd-field"><span>Compté {c==='CDF'?'FC':c}</span><input inputMode="decimal" placeholder={session[c.toLowerCase() as 'cdf'].expected_cash} value={c === 'CDF' ? cdf : usd} onChange={e => (c === 'CDF' ? setCdf : setUsd)(e.target.value)} aria-invalid={!L[c].ok}/></label>
       <p>Théorique <b>{money(fromCents(L[c].exp), c)}</b> · Écart <b className={L[c].diff === 0n ? 'cd-in' : 'cd-out'}>{L[c].diff > 0n ? '+' : ''}{money(fromCents(L[c].diff), c)}</b></p></div>)}</div>
     <label className="cd-field"><span>Note de clôture {gap ? '(obligatoire : écart constaté)' : '(facultatif)'}</span><textarea rows={2} maxLength={500} value={note} onChange={e => setNote(e.target.value)}/></label>
   </Modal>;

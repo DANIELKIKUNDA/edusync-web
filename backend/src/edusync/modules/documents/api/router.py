@@ -95,14 +95,25 @@ def school_logo(actor: ActorContext = Depends(require_school_actor), services: A
 
 
 @router.get("/history")
-def document_history(offset: int = Query(0, ge=0, le=100_000), limit: int = Query(50, ge=1, le=200), actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+def document_history(offset: int = Query(0, ge=0, le=100_000), limit: int = Query(50, ge=1, le=200),
+                     scope: str = Query("school", pattern="^(mine|school)$"),
+                     actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     _need(actor, "documents.history.read")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
-        rows = conn.execute(text("""SELECT c.latest_generation_id id,c.document_code,c.format,c.title,c.byte_size,c.updated_at,g.file_name,u.full_name generated_by,
-              (SELECT count(*) FROM generated_documents h WHERE h.school_id=c.school_id AND h.logical_key=c.logical_key) generations
-            FROM current_documents c JOIN generated_documents g ON g.id=c.latest_generation_id LEFT JOIN users u ON u.id=c.updated_by
-            WHERE c.school_id=:s AND (g.generated_by=:u OR g.required_capability=ANY(CAST(:caps AS text[])))
-            ORDER BY c.updated_at DESC,c.logical_key LIMIT :l OFFSET :o"""), {"s": str(actor.school_id), "u": str(actor.user_id), "caps": object_store.school_wide_capabilities(actor), "l": limit + 1, "o": offset}).mappings().all()
+        if scope == "mine":
+            rows = conn.execute(text("""SELECT g.id,g.document_code,g.format,g.title,g.byte_size,g.generated_at updated_at,g.file_name,u.full_name generated_by,
+                  (SELECT count(*) FROM generated_documents h WHERE h.school_id=g.school_id AND h.logical_key=g.logical_key) generations
+                FROM generated_documents g LEFT JOIN users u ON u.id=g.generated_by
+                WHERE g.school_id=:s AND g.generated_by=:u
+                ORDER BY g.generated_at DESC,g.id LIMIT :l OFFSET :o"""),
+                {"s": str(actor.school_id), "u": str(actor.user_id), "l": limit + 1, "o": offset}).mappings().all()
+        else:
+            rows = conn.execute(text("""SELECT c.latest_generation_id id,c.document_code,c.format,c.title,c.byte_size,c.updated_at,g.file_name,u.full_name generated_by,
+                  (SELECT count(*) FROM generated_documents h WHERE h.school_id=c.school_id AND h.logical_key=c.logical_key) generations
+                FROM current_documents c JOIN generated_documents g ON g.id=c.latest_generation_id LEFT JOIN users u ON u.id=c.updated_by
+                WHERE c.school_id=:s AND (g.generated_by=:u OR g.required_capability=ANY(CAST(:caps AS text[])))
+                ORDER BY c.updated_at DESC,c.logical_key LIMIT :l OFFSET :o"""),
+                {"s": str(actor.school_id), "u": str(actor.user_id), "caps": object_store.school_wide_capabilities(actor), "l": limit + 1, "o": offset}).mappings().all()
     items = [dict(r) for r in rows[:limit]]
     return {"items": items, "offset": offset, "limit": limit, "has_more": len(rows) > limit, "storage_available": services.object_storage is not None}
 

@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter,Depends,Header,HTTPException,Query
 from pydantic import BaseModel,Field
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 from edusync.bootstrap.dependencies import require_school_actor,get_services
 from edusync.bootstrap.services import AppServices
 from edusync.shared.application.context import ActorContext
@@ -132,6 +133,71 @@ def collect(body:CollectBody,idempotency_key:str|None=Header(None,alias='Idempot
  # Database invariants (e.g. received > obligation) are business conflicts, never a 500.
  except IntegrityError as e:raise HTTPException(409,'Opération refusée : elle violerait une règle financière (montant déjà réglé)') from e
 
+class TenderWithFundBody(BaseModel):
+  # The parent enters one tender. It is split into a normal payment and a separate
+  # advance fund inside ONE database transaction, never into an anticipation plan.
+  enrollment_id:UUID;charge_ids:list[UUID]=Field(min_length=1,max_length=24)
+  amount:Decimal=Field(gt=0,max_digits=18,decimal_places=2);currency:str=Field(pattern='^(CDF|USD)$')
+  mode:str='CASH';reference:str|None=Field(default=None,max_length=80)
+
+@router.post('/collect-with-fund')
+def collect_with_fund(body:TenderWithFundBody,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+  # One physical tender, two distinct ledger receipts; all-or-nothing and replay-safe.
+  need(actor,'finance.checkout.collect');need(actor,'finance.advance_funds.receive')
+  if not idempotency_key or len(idempotency_key)>160:raise HTTPException(400,'Idempotency-Key invalide')
+  from edusync.adapters.postgres_advance_funds import PostgresAdvanceFundsRepository
+  payment_key=f'{idempotency_key}:pay';fund_key=f'{idempotency_key}:fund'
+  try:
+   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+    conn.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:k,0))'),{'k':f'tender-with-fund:{actor.school_id}:{idempotency_key}'})
+    repo=PostgresFinanceCheckoutRepository(conn);funds=PostgresAdvanceFundsRepository(conn)
+    prior=conn.execute(text('''SELECT p.id payment_id,p.amount payment_amount,p.enrollment_id,p.currency,p.payment_mode,p.payment_reference,
+      f.amount fund_amount,f.id fund_id,f.currency fund_currency,f.enrollment_id fund_enrollment_id,f.mode fund_mode,f.reference fund_reference
+      FROM finance_payments p LEFT JOIN finance_advance_funds f ON f.school_id=p.school_id AND f.idempotency_key=:fk
+      WHERE p.school_id=:sid AND p.idempotency_key=:pk'''),
+      {'sid':str(actor.school_id),'pk':payment_key,'fk':fund_key}).mappings().first()
+    if prior:
+     saved_charge_ids={str(row[0]) for row in conn.execute(text('SELECT charge_id FROM finance_payment_allocations WHERE school_id=:sid AND payment_id=:pid'),{'sid':str(actor.school_id),'pid':str(prior['payment_id'])}).all()}
+     if (saved_charge_ids!={str(i) for i in body.charge_ids} or not prior['fund_id'] or str(prior['enrollment_id'])!=str(body.enrollment_id)
+        or str(prior['fund_enrollment_id'])!=str(body.enrollment_id)
+        or prior['currency']!=body.currency or prior['fund_currency']!=body.currency
+        or prior['payment_mode']!=body.mode or prior['fund_mode']!=body.mode
+        or (prior['payment_reference'] or '')!=(body.reference or '').strip()
+        or (prior['fund_reference'] or '')!=(body.reference or '').strip()
+        or Decimal(str(prior['payment_amount']))+Decimal(str(prior['fund_amount']))!=body.amount):
+      raise ValueError('Idempotency-Key déjà utilisée pour un autre montant ou contexte')
+     payment_amount=Decimal(str(prior['payment_amount']))
+     fund_amount=Decimal(str(prior['fund_amount']))
+    else:
+     # Hold the charges while reading their payable balance, then let collect()
+     # enforce every existing priority, policy, cash-session and currency rule.
+     conn.execute(text("SELECT id FROM finance_charges WHERE school_id=:sid AND enrollment_id=:eid AND status='ACTIVE' FOR UPDATE"),
+       {'sid':str(actor.school_id),'eid':str(body.enrollment_id)}).all()
+     rows=repo.charges(actor.school_id,body.enrollment_id)
+     by_id={str(row['id']):row for row in rows}
+     selected=[str(i) for i in body.charge_ids]
+     if len(set(selected))!=len(selected) or any(i not in by_id for i in selected):
+      raise ValueError('Sélection des frais invalide ou déjà soldée')
+     if any(by_id[i]['currency']!=body.currency for i in selected):
+      raise ValueError('Les frais sélectionnés doivent avoir une seule devise')
+     payment_amount=sum((Decimal(str(by_id[i]['remaining'])) for i in selected),Decimal('0'))
+     fund_amount=body.amount-payment_amount
+     if payment_amount<=0 or fund_amount<=0:
+      raise ValueError('Aucun excédent : utilisez l’encaissement normal')
+    payment=repo.collect(actor.school_id,actor.user_id,actor.membership_id,body.enrollment_id,
+      body.charge_ids,payment_amount,body.currency,payment_key,False,mode=body.mode,reference=body.reference)
+    fund=funds.receive(actor.school_id,user_id=actor.user_id,membership_id=actor.membership_id,
+      enrollment_id=body.enrollment_id,amount=fund_amount,currency=body.currency,
+      mode=body.mode,reference=body.reference,idempotency_key=fund_key)
+    if not payment.get('replayed') and not fund.get('replayed'):
+     _audit(conn,actor,'CHECKOUT_TENDER_WITH_FUND','FinancePayment',payment['id'],
+       {'payment_amount':str(payment_amount),'fund_amount':str(fund_amount),
+        'fund_id':str(fund['id']),'currency':body.currency})
+    return _jsonable_any({'payment':payment,'fund':fund,'payment_amount':payment_amount,
+      'fund_amount':fund_amount,'replayed':bool(payment.get('replayed'))})
+  except ValueError as e:raise HTTPException(409,str(e)) from e
+  except IntegrityError as e:raise HTTPException(409,'Opération refusée : état financier modifié, vérifiez la situation puis réessayez') from e
+
 class BasketLine(BaseModel):
  enrollment_id:UUID;charge_ids:list[UUID]=Field(min_length=1,max_length=24);amount:Decimal=Field(gt=0,max_digits=18,decimal_places=4);currency:str=Field(pattern='^(CDF|USD)$')
 class FamilyBasketBody(BaseModel):
@@ -200,7 +266,7 @@ def print_receipt(payment_id:UUID,format:str|None=Query(None,pattern='^(A5|80MM|
   repo=PostgresFinanceCheckoutRepository(conn);facts=repo.receipt_facts(actor.school_id,payment_id)
   if not facts:raise HTTPException(404,'Reçu introuvable')
   if repo.receipt_copies(actor.school_id,payment_id)>=1:need(actor,'finance.receipts.reprint')
-  copy=repo.record_receipt_print(actor.school_id,payment_id,actor.user_id);_audit_print(conn,actor,payment_id,copy)
+  copy=repo.receipt_copies(actor.school_id,payment_id)+1  # PDF access does not prove paper output
   data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=[{**_with_cashier(services,facts),'copy_no':copy}],fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
  return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':f'inline; filename="recu_{facts["receipt_number"]}.pdf"'})
 @router.post('/family-baskets/{basket_id}/receipts/print')
@@ -214,10 +280,70 @@ def print_basket_receipts(basket_id:UUID,format:str|None=Query(None,pattern='^(A
   for line in basket['lines']:
    pid=UUID(line['payment_id'])
    if repo.receipt_copies(actor.school_id,pid)>=1:need(actor,'finance.receipts.reprint')
-   copy=repo.record_receipt_print(actor.school_id,pid,actor.user_id);_audit_print(conn,actor,pid,copy)
+   copy=repo.receipt_copies(actor.school_id,pid)+1  # only explicit cashier confirmation records printing
    receipts.append({**_with_cashier(services,repo.receipt_facts(actor.school_id,pid)),'copy_no':copy})
   data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=receipts,fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
  return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':'inline; filename="recus_panier_familial.pdf"'})
+class ReceiptQueueStatusBody(BaseModel):
+ status:str=Field(pattern='^(PENDING|PRINTED|FAILED)$')
+ reason:str|None=Field(default=None,max_length=240)
+
+@router.get('/receipt-queue')
+def receipt_queue(status:str=Query('PENDING',pattern='^(PENDING|PRINTED|FAILED|ALL)$'),limit:int=Query(50,ge=1,le=200),
+                  actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'finance.receipts.read')
+ own='' if 'finance.cash.other.read' in actor.permissions else ' AND p.actor_user_id=:uid'
+ params={'sid':str(actor.school_id),'uid':str(actor.user_id),'status':status,'limit':limit}
+ base="FROM finance_receipt_print_jobs j JOIN finance_payments p ON p.id=j.payment_id LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students s ON s.id=e.student_id WHERE j.school_id=:sid"+own
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  counts=conn.execute(text('SELECT j.status,count(*) total '+base+' GROUP BY j.status'),params).all()
+  rows=conn.execute(text("SELECT j.payment_id,j.status,j.queued_at,j.printed_at,j.failed_at,j.failure_reason,j.attempts,p.receipt_number,p.amount,p.currency,p.actor_user_id,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student "+base+" AND (:status='ALL' OR j.status=:status) ORDER BY j.queued_at DESC,j.payment_id LIMIT :limit"),params).mappings().all()
+ return {'counts':{key:next((int(n) for state,n in counts if state==key),0) for key in ('PENDING','PRINTED','FAILED')},'items':[_jsonable_any(dict(row)) for row in rows]}
+
+@router.post('/receipt-queue/{payment_id}/status')
+def receipt_queue_status(payment_id:UUID,body:ReceiptQueueStatusBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'finance.receipts.print')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  row=conn.execute(text('SELECT j.status,p.actor_user_id FROM finance_receipt_print_jobs j JOIN finance_payments p ON p.id=j.payment_id WHERE j.school_id=:sid AND j.payment_id=:pid FOR UPDATE OF j'),{'sid':str(actor.school_id),'pid':str(payment_id)}).mappings().first()
+  if not row or (str(row['actor_user_id'])!=str(actor.user_id) and 'finance.cash.other.read' not in actor.permissions):
+   raise HTTPException(404,'Reçu introuvable dans la file')
+  if row['status']=='PRINTED':
+   if body.status=='PRINTED':
+    return {'payment_id':str(payment_id),'status':'PRINTED'}
+   raise HTTPException(409,'Reçu déjà confirmé imprimé')
+  if body.status=='PRINTED':
+   repo=PostgresFinanceCheckoutRepository(conn)
+   if repo.receipt_copies(actor.school_id,payment_id)>=1:need(actor,'finance.receipts.reprint')
+   copy=repo.record_receipt_print(actor.school_id,payment_id,actor.user_id)
+   _audit_print(conn,actor,payment_id,copy)
+   conn.execute(text("UPDATE finance_receipt_print_jobs SET status='PRINTED',printed_at=now(),printed_by=:uid,failed_at=NULL,failure_reason=NULL,attempts=attempts+1,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'uid':str(actor.user_id),'sid':str(actor.school_id),'pid':str(payment_id)})
+  elif body.status=='FAILED':
+   conn.execute(text("UPDATE finance_receipt_print_jobs SET status='FAILED',failed_at=now(),failure_reason=:reason,attempts=attempts+1,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'reason':(body.reason or 'Impression non confirmée').strip(),'sid':str(actor.school_id),'pid':str(payment_id)})
+  else:
+   conn.execute(text("UPDATE finance_receipt_print_jobs SET status='PENDING',failed_at=NULL,failure_reason=NULL,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'sid':str(actor.school_id),'pid':str(payment_id)})
+ return {'payment_id':str(payment_id),'status':body.status}
+
+class ReceiptQueueBundleBody(BaseModel):
+ payment_ids:list[UUID]=Field(min_length=1,max_length=50)
+
+@router.post('/receipt-queue/pdf')
+def receipt_queue_pdf(body:ReceiptQueueBundleBody,format:str|None=Query(None,pattern='^(A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'finance.receipts.print')
+ if len(set(body.payment_ids))!=len(body.payment_ids):raise HTTPException(422,'Sélection de reçus invalide')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  repo=PostgresFinanceCheckoutRepository(conn);receipts=[]
+  for pid in body.payment_ids:
+   owner=conn.execute(text('SELECT actor_user_id FROM finance_payments WHERE school_id=:sid AND id=:pid'),{'sid':str(actor.school_id),'pid':str(pid)}).scalar_one_or_none()
+   if owner is None or (str(owner)!=str(actor.user_id) and 'finance.cash.other.read' not in actor.permissions):
+    raise HTTPException(404,'Reçu introuvable')
+   facts=repo.receipt_facts(actor.school_id,pid)
+   if not facts:raise HTTPException(404,'Reçu introuvable')
+   count=repo.receipt_copies(actor.school_id,pid)
+   if count>=1:need(actor,'finance.receipts.reprint')
+   receipts.append({**_with_cashier(services,facts),'copy_no':count+1})
+  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=receipts,fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
+ return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':'inline; filename="recus_selection.pdf"'})
+
 @router.get('/print-settings')
 def get_print_settings(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.receipts.read')

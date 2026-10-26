@@ -85,7 +85,7 @@ function DecisionForm({token, person, charges, onDone}: {token: string; person: 
         {full ? <p className="policyHint">Exonération et gratuité : toujours 100 % (règle Desktop).</p> : <>
           <label>Valeur<select value={valueType} onChange={e => setValueType(e.target.value as 'PERCENT' | 'FIXED')}><option value="PERCENT">Pourcentage</option><option value="FIXED">Montant fixe</option></select></label>
           <label>{valueType === 'PERCENT' ? 'Pourcentage' : 'Montant'}<input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}/></label>
-          {valueType === 'FIXED' && <label>Devise<select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">CDF</option><option value="USD">USD</option></select></label>}</>}
+          {valueType === 'FIXED' && <label>Devise<select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">FC</option><option value="USD">USD</option></select></label>}</>}
         <label>Priorité (plus petit = appliqué d’abord)<input inputMode="numeric" value={priority} onChange={e => setPriority(e.target.value)}/></label>
         <label className="checkField"><input type="checkbox" checked={cumulative} onChange={e => setCumulative(e.target.checked)}/> Cumulable avec les autres décisions</label>
         <label>Période : du (facultatif)<input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)}/></label>

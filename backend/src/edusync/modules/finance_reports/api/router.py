@@ -1,6 +1,6 @@
 from decimal import Decimal
 from datetime import date
-from fastapi import APIRouter,Depends,HTTPException,Query
+from fastapi import APIRouter,Depends,Header,HTTPException,Query
 from pydantic import BaseModel,Field
 from sqlalchemy import text
 from edusync.bootstrap.dependencies import require_school_actor,get_services
@@ -53,7 +53,7 @@ from fastapi.responses import StreamingResponse as _Stream
 from edusync.adapters.postgres_periodic_reports import PostgresPeriodicReportsRepository
 from edusync.modules.finance_reports.application.documents import periodic_report_pdf, periodic_report_xlsx, student_account_pdf
 from edusync.modules.finance_reports.domain.periodic import PERIOD_LABELS, REPORT_PROFILES, periodic_title
-from edusync.modules.documents.application.object_store import archive_generated_tx
+from edusync.modules.documents.application.object_store import archive_official_pdf_strict,read_official_pdf,discard_official_pdf
 
 
 def _school(c, sid):
@@ -70,7 +70,7 @@ def _jsonable(v):
 @router.get('/profiles')
 def report_profiles(actor: ActorContext = Depends(require_school_actor)):
     need(actor, 'finance.reports.periodic.generate')
-    return {'profiles': [{'code': k, **{x: (list(y) if isinstance(y, tuple) else y) for x, y in v.items()}} for k, v in REPORT_PROFILES.items()],
+    return {'profiles': [{'code': k, **{x: (list(y) if isinstance(y, tuple) else y) for x, y in v.items()}} for k, v in REPORT_PROFILES.items() if k in {'CONSOLIDE','FRAIS_SCOLAIRES','ARTICLES_SCOLAIRES'}],
             'period_types': [{'code': k, 'label': v} for k, v in PERIOD_LABELS.items()]}
 
 
@@ -102,28 +102,72 @@ class PeriodicPdfBody(BaseModel):
 
 
 @router.post('/periodic/pdf')
-def periodic_pdf(b: PeriodicPdfBody, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    """Desktop export_periodic_financial_report_pdf: official PDF, consumes the next report number (PREFIX-NNN)."""
-    need(actor, 'finance.reports.periodic.generate'); a, z = _period(b.period_type, b.start, b.end)
+def periodic_pdf(b: PeriodicPdfBody, idempotency_key: str = Header(..., alias='Idempotency-Key'),
+                 actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Issue one numbered, archived PDF. Replays return the exact same bytes and number."""
+    import re
+    from fastapi.responses import Response as _Response
+    from edusync.shared.infrastructure.object_storage import ObjectStorageError
+    need(actor, 'finance.reports.periodic.generate')
+    a, z = _period(b.period_type, b.start, b.end)
+    if not re.fullmatch(r'[A-Za-z0-9_-]{20,160}', idempotency_key):
+        raise HTTPException(400, 'Idempotency-Key invalide')
+    object_key = None
+    replayed = False
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            repo = PostgresPeriodicReportsRepository(c)
-            report = repo.report_rows(actor.school_id, start_date=a, end_date=z, profile_code=b.profile_code)
-            issued = repo.register(actor.school_id, user_id=actor.user_id, profile_code=b.profile_code, period_type=b.period_type, start_date=a, end_date=z, report=report)
-            c.execute(text("""INSERT INTO audit_events(school_id,actor_user_id,membership_id,action,entity_type,entity_id,source,new_json)
-                VALUES(:s,:u,:m,'GENERATE_PERIODIC_REPORT','GeneratedReport',:id,'WEB',
-                jsonb_build_object('report',CAST(:l AS text),'profile',CAST(:p AS text),'period',CAST(:t AS text),'start',CAST(:a AS text),'end',CAST(:z AS text)))"""),
-                {'s': str(actor.school_id), 'u': str(actor.user_id), 'm': str(actor.membership_id), 'id': issued['id'], 'l': issued['label'], 'p': b.profile_code,
-                 't': b.period_type, 'a': str(a), 'z': str(z)})
-            school = _school(c, actor.school_id)
+            c.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:k,0))'),
+                      {'k': f'official-report:{actor.school_id}:{idempotency_key}'})
+            prior = c.execute(text("""SELECT r.report_label,r.profile_code,r.period_type,r.start_date,r.end_date,r.generated_by,
+                    r.document_generation_id,g.object_key
+                    FROM finance_generated_reports r LEFT JOIN generated_documents g ON g.id=r.document_generation_id
+                    WHERE r.school_id=:s AND r.request_key=:k"""),
+                    {'s': str(actor.school_id), 'k': idempotency_key}).mappings().first()
+            if prior:
+                if (prior['profile_code'] != b.profile_code or prior['period_type'] != b.period_type
+                    or prior['start_date'] != a or prior['end_date'] != z
+                    or str(prior['generated_by']) != str(actor.user_id)):
+                    raise HTTPException(409, 'Clé déjà utilisée pour un autre rapport')
+                if not prior['document_generation_id'] or not prior['object_key']:
+                    raise HTTPException(409, 'Rapport officiel incomplet : contactez un administrateur')
+                data = read_official_pdf(prior['object_key'], actor.school_id)
+                label = prior['report_label']; replayed = True
+            else:
+                repo = PostgresPeriodicReportsRepository(c)
+                report = repo.report_rows(actor.school_id, start_date=a, end_date=z, profile_code=b.profile_code)
+                issued = repo.register(actor.school_id, user_id=actor.user_id, profile_code=b.profile_code,
+                                       period_type=b.period_type, start_date=a, end_date=z, report=report,
+                                       request_key=idempotency_key)
+                school = _school(c, actor.school_id)
+                label = issued['label']
+                data = periodic_report_pdf(school=school, report=report, period_type=b.period_type, report_label=label)
+                name = f"rapport_{label}.pdf"
+                generation_id, object_key = archive_official_pdf_strict(c, actor, data=data,
+                    document_code=f'finance.reports.periodic.{b.profile_code}',
+                    title=f"{periodic_title(report['profile'], b.period_type)} · {label}", file_name=name,
+                    required_capability='finance.reports.periodic.generate')
+                c.execute(text('UPDATE finance_generated_reports SET document_generation_id=:g WHERE school_id=:s AND id=:id'),
+                          {'g': generation_id, 's': str(actor.school_id), 'id': issued['id']})
+                c.execute(text("""INSERT INTO audit_events(school_id,actor_user_id,membership_id,action,entity_type,entity_id,source,new_json)
+                    VALUES(:s,:u,:m,'GENERATE_PERIODIC_REPORT','GeneratedReport',:id,'WEB',
+                    jsonb_build_object('report',CAST(:l AS text),'profile',CAST(:p AS text),'period',CAST(:t AS text),
+                    'start',CAST(:a AS text),'end',CAST(:z AS text)))"""),
+                    {'s': str(actor.school_id), 'u': str(actor.user_id), 'm': str(actor.membership_id),
+                     'id': issued['id'], 'l': label, 'p': b.profile_code, 't': b.period_type, 'a': str(a), 'z': str(z)})
     except ValueError as e:
+        if object_key: discard_official_pdf(object_key)
         raise HTTPException(409, str(e)) from e
-    data = periodic_report_pdf(school=school, report=report, period_type=b.period_type, report_label=issued['label'])
-    name = f"rapport_{issued['label']}.pdf"
-    archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='finance.reports.periodic.generate', document_code=f'finance.reports.periodic.{b.profile_code}',
-                         title=f"{periodic_title(report['profile'], b.period_type)} · {issued['label']}", file_name=name)
-    from fastapi.responses import Response as _Response   # a POST answer is sent whole (no streaming through the mutation middleware)
-    return _Response(content=data, media_type='application/pdf', headers={'Content-Disposition': f'inline; filename="{name}"', 'X-Report-Number': issued['label']})
+    except ObjectStorageError as e:
+        if object_key: discard_official_pdf(object_key)
+        raise HTTPException(503, 'Archivage du rapport officiel indisponible : aucun numéro émis') from e
+    except Exception:
+        if object_key: discard_official_pdf(object_key)
+        raise
+    name = f"rapport_{label}.pdf"
+    return _Response(content=data, media_type='application/pdf',
+                     headers={'Content-Disposition': f'inline; filename="{name}"',
+                              'X-Report-Number': label, 'X-Report-Replayed': 'yes' if replayed else 'no',
+                              'Cache-Control': 'private, no-store'})
 
 
 @router.get('/periodic.xlsx')

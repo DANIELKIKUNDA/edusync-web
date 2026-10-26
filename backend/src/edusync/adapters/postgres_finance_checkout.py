@@ -225,14 +225,14 @@ class PostgresFinanceCheckoutRepository:
  def receipt_facts(self,school_id:UUID,payment_id:UUID)->dict|None:
   # users is readable by the tenant role only for the caller's own row (privacy): the cashier name is
   # resolved by the router through the platform role once access to this payment is authorised.
-  p=self.conn.execute(text('''SELECT p.id,p.receipt_number,p.amount,p.currency,p.created_at,p.actor_user_id,u.full_name cashier,
-    s.last_name,s.middle_name,s.first_name,s.matricule,c.label class_label,y.label academic_year
+  p=self.conn.execute(text('''SELECT p.id,p.receipt_number,p.amount,p.currency,p.created_at,p.actor_user_id,p.payment_mode,p.payment_reference,u.full_name cashier,
+    s.last_name,s.middle_name,s.first_name,s.matricule,s.gender,f.display_name family_name,c.label class_label,y.label academic_year
    FROM finance_payments p LEFT JOIN users u ON u.id=p.actor_user_id
-   LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students s ON s.id=e.student_id
+   LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students s ON s.id=e.student_id LEFT JOIN families f ON f.id=s.family_id
    LEFT JOIN school_classes c ON c.id=e.class_id LEFT JOIN academic_years y ON y.id=e.academic_year_id
    WHERE p.school_id=:sid AND p.id=:pid'''),{'sid':str(school_id),'pid':str(payment_id)}).mappings().first()
   if not p:return None
-  lines=[dict(r) for r in self.conn.execute(text('''SELECT coalesce(fc.period_label,fc.label) AS label,a.amount FROM finance_payment_allocations a
+  lines=[dict(r) for r in self.conn.execute(text('''SELECT coalesce(fc.period_label,fc.label) AS label,fc.label AS fee_label,fc.period_label,to_char(fc.due_date,'MM/YYYY') AS period_value,a.amount FROM finance_payment_allocations a
    JOIN finance_charges fc ON fc.id=a.charge_id WHERE a.school_id=:sid AND a.payment_id=:pid ORDER BY fc.period_order NULLS LAST,fc.label'''),{'sid':str(school_id),'pid':str(payment_id)}).mappings()]
   lines+=[dict(r) for r in self.conn.execute(text('''SELECT pr.label||' × '||trim(to_char(ps.quantity,'FM999999990.###')) AS label,ps.total AS amount FROM finance_product_sales ps
    JOIN school_products pr ON pr.id=ps.product_id WHERE ps.school_id=:sid AND ps.payment_id=:pid'''),{'sid':str(school_id),'pid':str(payment_id)}).mappings()]
@@ -250,7 +250,7 @@ class PostgresFinanceCheckoutRepository:
  def print_settings(self,school_id:UUID)->dict:
   r=self.conn.execute(text('''SELECT receipt_policy,receipt_format,receipt_prefix,receipt_copies,report_prefix,signatory_name,signatory_title,show_school_logo,version
    FROM school_print_settings WHERE school_id=:sid'''),{'sid':str(school_id)}).mappings().first()
-  return dict(r) if r else {'receipt_policy':'NONE','receipt_format':'A5','receipt_prefix':'REC','receipt_copies':1,'report_prefix':'RAP',
+  return dict(r) if r else {'receipt_policy':'NONE','receipt_format':'80MM','receipt_prefix':'REC','receipt_copies':1,'report_prefix':'RAP',
    'signatory_name':None,'signatory_title':None,'show_school_logo':True,'version':0}
  def next_receipt_number(self,school_id:UUID)->str:
   # Desktop next_receipt_no (parity lot L7): PREFIX-YEAR-000123, one atomic counter per calendar year, consumed inside the
