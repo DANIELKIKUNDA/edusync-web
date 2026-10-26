@@ -46,6 +46,6 @@ def test_governance_dashboard_has_supervision_not_operator_cash():
     assert '"id": "cash.supervision"' in PROJ
     assert '"all": ("finance.cash.other.read",)' in PROJ
     assert "Situation des caisses" in PROJ
-    assert "\"id\": \"personnel.summary\"" in PROJ and "\"dashboard.school.read\"" in PROJ
+    assert "\"id\": \"personnel.summary\"" in PROJ and "\"personnel.summary.read\"" in PROJ
     assert "Vue d’ensemble" in HOME
     assert "Les indicateurs essentiels de l’établissement, sans actions opérationnelles." in HOME
