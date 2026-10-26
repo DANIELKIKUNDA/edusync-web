@@ -68,6 +68,7 @@ def cash_journal_pdf(*, school_name: str, report: dict[str, Any], title: str | N
             c.drawString(x, y, str(val)[:max(6, int(w / mm * 1.6))])
         y -= 4.2 * mm
     c.setFont("Helvetica-Oblique", 6.5); c.drawRightString(right, 7 * mm, "EduSync · Journal de caisse")
+    c.drawString(left, 7 * mm, "Les devises ne sont jamais additionnées entre elles : FC et USD restent séparés.")
     c.showPage(); c.save()
     return buf.getvalue()
 
