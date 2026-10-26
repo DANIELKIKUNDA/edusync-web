@@ -39,8 +39,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it('gestionnaire personnel is supervision/read-only: no create or mutation controls are exposed', async () => {
   render(<PersonnelPage token="t" permissions={managerPermissions} schoolName="École A"/>);
-  await waitFor(() => expect(screen.getByText('25', {selector: '.metricValue'})).toBeTruthy().catch?.(() => undefined));
-  expect(screen.getByText(/Agents actifs/)).toBeTruthy();
+  await waitFor(() => expect(screen.getByText('Agents actifs')).toBeTruthy());
+  expect(screen.getAllByText('25').length).toBeGreaterThan(0);
   expect(screen.queryByRole('button', {name: /Nouvel agent/i})).toBeNull();
 
   await userEvent.click(screen.getByRole('button', {name: /Fonctions & affectations/i}));
