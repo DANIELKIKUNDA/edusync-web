@@ -353,3 +353,20 @@ button.softBtn{border:1px solid #d0d5dd;background:#fff;color:#344054}
 .sp-hint{margin:0;padding:18px 12px;color:var(--es-muted,#667085);font-size:14px}
 .sp-foot{margin:0;padding:8px 16px;border-top:1px solid var(--es-line,#eaecf0);font-size:12px;color:var(--es-muted,#667085)}
 @media (max-width:560px){.sp-backdrop{padding:8px}.sp-foot{display:none}}
+
+/* Integrated PDF viewer — keeps the user inside EduSync; external tab remains an explicit choice. */
+.pdfv-backdrop{position:fixed;inset:0;z-index:120;background:rgba(15,23,42,.52);display:grid;place-items:center;padding:18px;backdrop-filter:blur(2px)}
+.pdfv-shell{width:min(1180px,100%);height:min(92dvh,920px);display:grid;grid-template-rows:auto minmax(0,1fr);background:var(--es-surface,#fff);border:1px solid var(--es-line,#dfe4ec);border-radius:18px;overflow:hidden;box-shadow:0 32px 90px -28px rgba(15,23,42,.55)}
+.pdfv-head{display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--es-line,#e4e9f2);background:var(--es-surface,#fff)}
+.pdfv-head>div:nth-child(2){display:grid;min-width:0}.pdfv-head b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14.5px;color:var(--es-ink,#14213d)}.pdfv-head small{font-size:12px;color:var(--es-muted,#667085)}
+.pdfv-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.pdfv-actions button,.pdfv-actions a{min-height:38px;display:inline-flex;align-items:center;gap:7px;padding:0 11px;border:1px solid var(--es-line,#d0d5dd);border-radius:10px;background:var(--es-surface,#fff);color:var(--es-ink-2,#344054);font:inherit;font-size:13px;font-weight:700;text-decoration:none;cursor:pointer}
+.pdfv-actions button:focus-visible,.pdfv-actions a:focus-visible,.pdfv-icon:focus-visible{outline:3px solid var(--es-focus,#93b4ff);outline-offset:2px}
+.pdfv-icon{width:38px!important;padding:0!important;justify-content:center!important}
+.pdfv-frame{width:100%;height:100%;border:0;background:#eef2f7}
+@media(max-width:720px){
+ .pdfv-backdrop{padding:0}.pdfv-shell{width:100%;height:100dvh;border:0;border-radius:0}
+ .pdfv-head{align-items:flex-start;padding:9px 8px}.pdfv-head>div:nth-child(2){flex:1}
+ .pdfv-actions{gap:6px}.pdfv-actions button,.pdfv-actions a{min-height:40px;padding:0 9px;font-size:0}.pdfv-actions svg{margin:0}
+ .pdfv-actions .pdfv-icon{display:none}
+}
