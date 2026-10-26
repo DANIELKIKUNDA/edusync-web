@@ -38,10 +38,16 @@ async function prepare(page:Page){
     return route.fulfill({json:body});
   });
   await page.goto('/');
-  if(await page.getByRole('button',{name:'Ouvrir le menu',exact:true}).count()){
-    await page.getByRole('button',{name:'Ouvrir le menu',exact:true}).click();
+  if((page.viewportSize()?.width??0)<900){
+    const menu=page.getByRole('button',{name:'Ouvrir le menu',exact:true});
+    await expect(menu).toBeVisible();
+    await menu.click();
     await page.getByRole('dialog',{name:'Menu EduSync'}).getByRole('button',{name:'Centre financier'}).click();
-  }else await page.getByRole('complementary',{name:'Navigation principale'}).getByRole('button',{name:'Centre financier'}).click();
+  }else{
+    const finance=page.getByRole('complementary',{name:'Navigation principale'}).getByRole('button',{name:'Centre financier'});
+    await expect(finance).toBeVisible();
+    await finance.click();
+  }
   await page.getByRole('textbox',{name:'Rechercher un élève ou une famille'}).fill('Daniel');
   await page.getByRole('button',{name:/KIKUNDA.*Daniel/}).first().click();
   await page.getByRole('button',{name:/Ajouter un enfant/}).click();
