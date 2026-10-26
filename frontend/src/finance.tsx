@@ -19,6 +19,8 @@ import {promptText} from './platform/dialogs';
 import {friendlyError} from './platform/errors';
 const revealOnMount=(el:HTMLElement|null)=>{el?.scrollIntoView({block:'nearest',behavior:'smooth'})};
 const money=(v:string|number,c:string)=>`${Number(v).toLocaleString('fr-FR')} ${c}`;
+export const FINANCE_TARGET_KEY='edusync.finance.open';
+const takeFinanceTarget=()=>{try{const v=sessionStorage.getItem(FINANCE_TARGET_KEY)||'';sessionStorage.removeItem(FINANCE_TARGET_KEY);return v}catch{return ''}};
 export default function FinancePage({token,permissions}:{token:string;permissions:string[]}){const can=(p:string)=>permissions.includes(p);
  const canCheckout=can('finance.checkout.collect')||can('finance.checkout.family.collect')||can('finance.products.sale')||can('finance.old_debt.collect');
  const canRecovery=can('finance.recovery.monthly.read');
@@ -27,7 +29,10 @@ export default function FinancePage({token,permissions}:{token:string;permission
  const canFees=can('finance.analysis.by_fee.read');
  const canImport=can('migration.finance_history.analyze');
  const canControls=can('finance.decisions.read')||can('finance.responsibility.read')||can('finance.credits.read');
- const initialTab=canCheckout?'checkout':canRecovery?'recovery':canCash?'cash':canReports?'reports':canFees?'fees':canControls?'controls':canImport?'import':'recovery';
+ const requested=takeFinanceTarget();
+ const allowedTab=(x:string)=>x==='checkout'?canCheckout:x==='recovery'||x==='followup'?canRecovery:x==='cash'?canCash:x==='reports'?canReports:x==='fees'?canFees:x==='controls'?canControls:x==='import'?canImport:false;
+ const fallbackTab=canCheckout?'checkout':canRecovery?'recovery':canCash?'cash':canReports?'reports':canFees?'fees':canControls?'controls':canImport?'import':'recovery';
+ const initialTab=allowedTab(requested)?requested:fallbackTab;
  const [tab,setTab]=useState(initialTab);
  const operational=canCheckout;
  return <div className="financePage"><div className="financeHero"><div><span className="eyebrow">Centre financier</span><h2>Centre financier</h2><p>{operational?'Encaissement terrain rapide, sécurisé et sans mélange de devises.':'Supervision financière, rapports et contrôle — sans opérations de caisse.'}</p></div><div className="cashLive"><i/>{operational?'Caisse personnelle':'Vue de supervision'}</div></div><div className="financeTabs">{canCheckout&&<button className={tab==='checkout'?'active':''} onClick={()=>setTab('checkout')}>Encaissement</button>}{canRecovery&&<button className={tab==='recovery'?'active':''} onClick={()=>setTab('recovery')}>Recouvrement</button>}{canCash&&<button className={tab==='cash'?'active':''} onClick={()=>setTab('cash')}>Caisse</button>}{canRecovery&&<button className={tab==='followup'?'active':''} onClick={()=>setTab('followup')}>Suivi financier</button>}{canReports&&<button className={tab==='reports'?'active':''} onClick={()=>setTab('reports')}>Rapports</button>}{canFees&&<button className={tab==='fees'?'active':''} onClick={()=>setTab('fees')}>Suivi des frais</button>}{canImport&&<button className={tab==='import'?'active':''} onClick={()=>setTab('import')}>Import historique</button>}{canControls&&<button className={tab==='controls'?'active':''} onClick={()=>setTab('controls')}>Décisions financières</button>}</div>{tab==='checkout'&&canCheckout&&<Checkout token={token} can={can}/>} {tab==='recovery'&&canRecovery&&<Recovery token={token} can={can}/>} {tab==='cash'&&canCash&&<CashDesk token={token} can={can}/>} {tab==='followup'&&canRecovery&&<FinanceFollowup token={token} can={can}/>} {tab==='reports'&&canReports&&<ReportsHub token={token} can={can}/>} {tab==='fees'&&canFees&&<FeeTracking token={token}/>} {tab==='import'&&canImport&&<FinanceHistoryImport token={token} can={can}/>} {tab==='controls'&&canControls&&<FinanceControls token={token} can={can}/>}</div>}
