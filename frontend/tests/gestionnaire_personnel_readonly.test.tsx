@@ -42,6 +42,7 @@ it('gestionnaire personnel is supervision/read-only: no create or mutation contr
   await waitFor(() => expect(screen.getByText('Agents actifs')).toBeTruthy());
   expect(screen.getAllByText('25').length).toBeGreaterThan(0);
   expect(screen.queryByRole('button', {name: /Nouvel agent/i})).toBeNull();
+  expect(screen.queryByRole('button', {name: /^Historique$/i})).toBeNull();
 
   await userEvent.click(screen.getByRole('button', {name: /Fonctions & affectations/i}));
   expect(screen.queryByRole('button', {name: /Nouvelle fonction/i})).toBeNull();
