@@ -224,7 +224,7 @@ function SessionDrawer({token, can, session: row, schoolName, onClose}: {token: 
 function Supervision({token, can}: {token: string; can: (p: string) => boolean}) {
   const [day, setDay] = useState(iso(new Date())); const [global, setGlobal] = useState<any>(null); const [err, setErr] = useState('');
   useEffect(() => { if (!can('finance.cash.other.read')) return; setErr(''); cashDaySummary(token, day).then(setGlobal).catch(e => setErr(friendlyError(e))); }, [token, day]);
-  const row = (currency: Cur, x: any) => <tr key={currency}><th>{currency}</th><td>{money(x.opening, currency)}</td><td>{money(x.receipts, currency)}</td>
+  const row = (currency: Cur, x: any) => <tr key={currency}><th>{currency === 'CDF' ? 'FC' : currency}</th><td>{money(x.opening, currency)}</td><td>{money(x.receipts, currency)}</td>
     <td>{money(fromCents(cents(x.expenses) + cents(x.reversals) + cents(x.supervisor_reversals)), currency)}</td><td><b>{money(x.expected_cash, currency)}</b></td></tr>;
   return <section className="cd-card cd-superCard">
     <header className="cd-cardHead"><div><h4>Supervision des caisses</h4><small>Contrôle autorisé : toutes les caisses de l’école pour la journée choisie.</small></div>

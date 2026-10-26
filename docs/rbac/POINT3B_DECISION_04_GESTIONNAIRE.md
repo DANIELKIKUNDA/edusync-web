@@ -111,3 +111,24 @@ Promoteur à miniature en gouvernance locale: consulter et contrôler. Les déci
 - `students.account.read`
 - `students.lifecycle.history.read`
 - `students.read`
+
+## Amendement du 26/10/2026 — gestion du personnel (décision du propriétaire)
+
+Question posée lors de la certification du rôle : la décision initiale listait le Personnel en **lecture seule**, alors
+que le registre canonique (`contracts/CAPABILITY_REGISTRY.json`, source de vérité depuis le 23/10/2026, reconstitué
+depuis la base provisionnée) attribue au Gestionnaire les droits d'écriture du personnel, et que la décision du
+24/10/2026 lui confie l'import du personnel (un import crée des agents).
+
+**Décision du propriétaire (26/10/2026) : le Gestionnaire gère le personnel.** Il conserve :
+`personnel.create`, `personnel.update`, `personnel.exit`, `personnel.assignments.add`, `personnel.assignments.end`,
+`personnel.functions.manage`, `personnel.directory.export`, en plus des droits de lecture ci-dessus, et l'import
+(`migration.staff.analyze`, `migration.staff.execute`).
+
+Le Gestionnaire reste un rôle de **supervision financière sans opération de caisse** : pas d'encaissement
+(`finance.checkout.collect`), pas de caisse personnelle (`finance.cash.open` / `close`), pas d'inscription, pas de
+modification des paramètres de l'école. Ces interdictions sont vérifiées par le serveur (403) dans la recette
+`frontend/browser-tests/local_gestionnaire_certification.mjs` et par `backend/tests/test_rbac_every_active_right_is_enforced.py`.
+
+Le contrat `contracts/POINT3B_ROLE_DECISIONS_FINAL.json` (118 capacités) est **historique** ; le contrat en vigueur est
+le registre canonique (143 capacités pour le Gestionnaire, dont 25 issues des décisions du 23/10 — fusion des formats
+d'export —, du 24/10 — imports — et de cet amendement).

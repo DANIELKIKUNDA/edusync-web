@@ -1,3 +1,4 @@
+import {currencyLabel} from './platform/format';
 // N3-D — fonds anticipés copied from the Desktop golden master (app/db/operations.py: receive / allocate /
 // reverse_advance_fund, documents.py: export_advance_receipt_pdf). A fund is money received BEFORE any imputation: it is
 // kept as an available amount and imputed later. It is NOT a payment plan (Plan anticipé ≠ Fonds anticipé).
@@ -37,7 +38,7 @@ export function AdvanceFundsPanel({token, can, enrollmentId, options, onChanged}
     } catch (err) { setError(friendlyError(err)); } finally { setBusy(false); }
   }
   async function allocate(f: AdvanceFund) {
-    if (!await confirmAction({title: 'Imputer ce fonds sur les frais ?', message: `${money(f.available_amount, f.currency)} disponibles seront imputés sur les frais les plus anciens en ${f.currency}, sans dépasser ce qui reste dû.`, confirmLabel: 'Imputer'})) return;
+    if (!await confirmAction({title: 'Imputer ce fonds sur les frais ?', message: `${money(f.available_amount, f.currency)} disponibles seront imputés sur les frais les plus anciens en ${currencyLabel(f.currency)}, sans dépasser ce qui reste dû.`, confirmLabel: 'Imputer'})) return;
     try { const r = await allocateAdvanceFund(token, f.id); toast.success(`Imputé : ${money(r.applied, f.currency)} · reste disponible ${money(r.available_amount, f.currency)}`); await load(); await onChanged(); }
     catch (err) { toast.error(friendlyError(err)); }
   }

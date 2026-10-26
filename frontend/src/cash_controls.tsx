@@ -95,7 +95,7 @@ export function SchoolDayPanel({token, can, day}: {token: string; can: (p: strin
       <span className={`cashState ${d.closed ? 'closed' : 'open'}`}><i/>{d.closed ? 'CLÔTURÉE' : 'OUVERTE'}</span></div>
     {error && <div className="error" role="alert">{error}</div>}
     <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Devise</th><th>Entrées</th><th>Sorties</th><th>Net</th></tr></thead>
-      <tbody>{d.totals.map(t => <tr key={t.currency}><th>{t.currency}</th><td>{money(t.entries, t.currency)}</td><td>{money(t.outflows, t.currency)}</td><td><b>{money(t.net, t.currency)}</b></td></tr>)}
+      <tbody>{d.totals.map(t => <tr key={t.currency}><th>{t.currency === 'CDF' ? 'FC' : t.currency}</th><td>{money(t.entries, t.currency)}</td><td>{money(t.outflows, t.currency)}</td><td><b>{money(t.net, t.currency)}</b></td></tr>)}
         {d.totals.length === 0 && <tr><td colSpan={4}>Aucune opération ce jour.</td></tr>}</tbody></table></div>
     {d.details.length > 0 && <ul className="dayDetails">{d.details.map((x, i) => <li key={i}><span>{x.label} · {x.direction === 'ENTREE' ? 'entrée' : 'sortie'}</span><b>{money(x.amount, x.currency)}</b></li>)}</ul>}
     {canReverse && !!d.operations?.length && <details className="dayOps"><summary>Encaissements du jour (contre-opération supérieure)</summary>

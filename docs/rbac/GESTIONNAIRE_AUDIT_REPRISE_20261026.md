@@ -2,7 +2,7 @@
 
 ## Statut
 
-**NON CERTIFIÉ — PR #24 en brouillon.** Ce document est une matrice de traçabilité issue de l'inspection du code sur `chatgpt/gestionnaire-certification`, et non un procès-verbal de recette fonctionnelle. Aucune fusion ou mise en production n'est autorisée par ce document.
+**Remplacé par `docs/certification/GESTIONNAIRE_CERTIFICATION_FINALE.md` (26/10/2026).** Historique : Ce document est une matrice de traçabilité issue de l'inspection du code sur `chatgpt/gestionnaire-certification`, et non un procès-verbal de recette fonctionnelle. Aucune fusion ou mise en production n'est autorisée par ce document.
 
 ## Source de vérité et conflit à résoudre
 
