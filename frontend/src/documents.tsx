@@ -2,7 +2,7 @@ import { friendlyError } from './platform/errors';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {toast} from 'sonner';
 import {ArchivedDocument,DocumentCatalogItem,PrintSettings,documentHistory,documentLink,getDocumentCatalog,getPrintSettings,putPrintSettings,schoolLogoBlob,studentImportTemplate,uploadSchoolLogo} from './api';
-import {chooseManagedExportFolder,exportManaged,managedFolderReady,supportsManagedExportFolder} from './document_io';
+import {chooseManagedExportFolder,exportManaged,managedFolderReady,supportsManagedExportFolder,previewPdfUrl} from './document_io';
 import {NavGlyph} from './platform/nav_icons';
 import './documents.css';
 
@@ -13,7 +13,7 @@ function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{toke
  const [data,setData]=useState<{items:ArchivedDocument[];has_more:boolean;offset:number;limit:number;storage_available:boolean}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [q,setQ]=useState(initialQuery);
  useEffect(()=>{documentHistory(token).then(setData).catch(e=>setError(friendlyError(e)))},[token]);
  async function more(){if(!data)return;try{const n=await documentHistory(token,data.offset+data.limit);setData({...n,items:[...data.items,...n.items]})}catch(e){setError(friendlyError(e))}}
- async function open(d:ArchivedDocument){try{setBusy(d.id);const l=await documentLink(token,d.id);window.open(l.url,'_blank','noopener')}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
+ async function open(d:ArchivedDocument){try{setBusy(d.id);const l=await documentLink(token,d.id);previewPdfUrl(l.url,d.title)}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
  const items=(data?.items||[]).filter(d=>(!codeFilter||d.document_code===codeFilter)&&(!q||`${d.title} ${d.file_name||''}`.toLowerCase().includes(q.toLowerCase())));
  if(!data&&!error)return <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>;
  return <section className="panel docPanel">
