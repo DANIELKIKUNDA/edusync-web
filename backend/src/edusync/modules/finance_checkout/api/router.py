@@ -202,13 +202,14 @@ class BasketLine(BaseModel):
  enrollment_id:UUID;charge_ids:list[UUID]=Field(min_length=1,max_length=24);amount:Decimal=Field(gt=0,max_digits=18,decimal_places=4);currency:str=Field(pattern='^(CDF|USD)$')
 class FamilyBasketBody(BaseModel):
  family_id:UUID;lines:list[BasketLine]=Field(min_length=1,max_length=20)
+ mode:str='CASH';reference:str|None=Field(default=None,max_length=80)
 @router.post('/family-collect')
 def family_collect(body:FamilyBasketBody,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.checkout.family.collect');need(actor,'finance.checkout.collect')
  if not idempotency_key:raise HTTPException(400,'Idempotency-Key obligatoire')
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-   return PostgresFinanceCheckoutRepository(conn).family_collect(actor.school_id,actor.user_id,actor.membership_id,body.family_id,[l.model_dump() for l in body.lines],idempotency_key)
+   return PostgresFinanceCheckoutRepository(conn).family_collect(actor.school_id,actor.user_id,actor.membership_id,body.family_id,[l.model_dump() for l in body.lines],idempotency_key,body.mode,body.reference)
  except ValueError as e:raise HTTPException(409,str(e)) from e
  except IntegrityError as e:raise HTTPException(409,'Opération refusée : elle violerait une règle financière (montant déjà réglé)') from e
 @router.get('/family-baskets/{basket_id}')

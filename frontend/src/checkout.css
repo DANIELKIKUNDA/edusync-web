@@ -131,6 +131,9 @@
 .posRight .basketPanel .posEditLine{width:auto;height:auto;padding:3px 0;color:#0f4fbf;justify-self:start;font-size:12px;font-weight:700}
 .posRight .basketFoot{align-items:stretch;flex-direction:column}
 .posRight .basketFoot .collectBtn{width:100%}
+.posRight .basketPanel ul{max-height:min(26dvh,220px);overflow-y:auto;overscroll-behavior:contain}
+.posRight .basketFoot{position:sticky;bottom:0;z-index:3;padding:8px 0 2px;background:#f7faff}
+.basketActionError{margin:0;padding:9px 11px;border:1px solid #e8aaa1;border-radius:9px;background:#fff1ee;color:#8a241a;font-size:13px;font-weight:700}
 .posRight .checkoutPay{position:sticky;bottom:0;display:flex;flex-direction:column;gap:8px;margin:0;padding:10px;box-shadow:0 -4px 14px rgba(17,43,79,.12)}
 .posRight .checkoutFooter{padding:10px;flex-direction:column;align-items:stretch;gap:8px}
 .posRight .checkoutFooter>div>b{font-size:20px}
@@ -167,3 +170,11 @@
 @media(max-width:899px){.receiptQueueHost{margin-left:0}.receiptQueueDrawer{padding:12px}.receiptQueuePreview{inset:0}.receiptQueueBadge{font-size:12px}}
 
 .posResumeDraft{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px;border:1px solid #9db9e5;border-radius:10px;background:#eef5ff}.posResumeDraft button,.posBasketSummary button{min-height:40px;padding:6px 12px;border:1px solid #0f4fbf;border-radius:8px;background:#0f4fbf;color:#fff;cursor:pointer}
+.basketPaymentMode{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;width:100%}
+.basketPaymentMode label{display:grid;gap:4px;font-size:12px;font-weight:700;color:#304868}
+.basketPaymentMode select,.basketPaymentMode input{width:100%;min-height:42px;padding:6px 8px;border:1px solid #bfcde1;border-radius:8px;background:#fff;color:#172b4d}
+.basketActionError button{display:block;margin-top:8px;min-height:40px;padding:6px 10px;border:0;border-radius:8px;background:#8a241a;color:#fff;font-weight:800;cursor:pointer}
+@media(min-width:900px){
+ .posRight:has(.basketPanel){padding-bottom:min(34dvh,260px)}
+ .posRight .basketFoot{position:fixed;right:16px;bottom:12px;z-index:55;width:min(390px,calc(100vw - 32px));max-height:48dvh;overflow:auto;padding:12px;border:1px solid #9cb7df;border-radius:14px;background:#f7faff;box-shadow:0 8px 32px rgba(13,41,83,.22)}
+}
