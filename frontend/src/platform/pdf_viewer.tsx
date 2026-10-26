@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {NavGlyph} from './platform/nav_icons';
+import {NavGlyph} from './nav_icons';
 
 export type PdfPreviewDetail={url:string;title?:string;revokeOnClose?:boolean};
 
