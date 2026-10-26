@@ -94,8 +94,8 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
 }
 type Common={icon:string;title:string;onClick:()=>void;index:number;ariaLabel:string};
 function CashToday({common,token}:{common:Common;token:string}){const s=useData(()=>cashCurrent(token),[token]);
-  return <Card level="priority" {...common}><Async s={s}>{d=>{const c:any=d.session;return c?<><p className="ui-card-value">{money(c.cdf?.expected_cash)}<small>CDF en caisse</small></p>
-    <p className="ui-card-hint"><StatusBadge tone={c.status==='OPEN'?'ok':'neutral'}>{c.status==='OPEN'?'Ouverte':'Fermée'}</StatusBadge> Entrées {money(c.cdf?.receipts)} CDF · Solde théorique CDF</p></>
+  return <Card level="priority" {...common}><Async s={s}>{d=>{const c:any=d.session;return c?<><p className="ui-card-value">{money(c.cdf?.expected_cash)}<small>FC en caisse</small></p>
+    <p className="ui-card-hint"><StatusBadge tone={c.status==='OPEN'?'ok':'neutral'}>{c.status==='OPEN'?'Ouverte':'Fermée'}</StatusBadge> Entrées {money(c.cdf?.receipts)} FC · Solde théorique FC</p></>
     :<p className="ui-card-hint"><b>Ouvrez votre caisse</b> pour commencer à encaisser.</p>}}</Async></Card>}
 // Desk cards (each role its own home, owner 2026-10-24): what the cashier-secretary needs at the counter.
 function CashReceipts({common,token}:{common:Common;token:string}){
@@ -103,8 +103,8 @@ function CashReceipts({common,token}:{common:Common;token:string}){
   return <Card level="info" wide {...common}><Async s={s} lines={3}>{d=>{if(!d.session)return <p className="ui-card-hint"><b>Ouvrez votre caisse</b> : les encaissements du jour s’afficheront ici.</p>;
     const receipts=d.items.filter((i:any)=>i.kind==='RECEIPT');const sum=(cur:string)=>receipts.filter((i:any)=>i.currency===cur).reduce((a:number,i:any)=>a+Number(i.amount||0),0);
     return <><p className="ui-card-value">{n(receipts.length)}<small>{receipts.length>1?'reçus aujourd’hui':'reçu aujourd’hui'}</small></p>
-      <p className="ui-card-hint">{money(sum('CDF'))} CDF{sum('USD')?` · ${money(sum('USD'))} USD`:''} encaissés{d.items.length>receipts.length?` · ${d.items.length-receipts.length} dépense(s)`:''}</p>
-      {receipts.length>0&&<ul className="ui-list">{[...receipts].reverse().slice(0,4).map((i:any,k:number)=><li key={k}><b>{i.reference}</b><small>{money(i.amount)} {i.currency} · {new Date(i.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</small></li>)}</ul>}</>}}</Async></Card>}
+      <p className="ui-card-hint">{money(sum('CDF'))} FC{sum('USD')?` · ${money(sum('USD'))} USD`:''} encaissés{d.items.length>receipts.length?` · ${d.items.length-receipts.length} dépense(s)`:''}</p>
+      {receipts.length>0&&<ul className="ui-list">{[...receipts].reverse().slice(0,4).map((i:any,k:number)=><li key={k}><b>{i.reference}</b><small>{money(i.amount)} {i.currency==='CDF'?'FC':i.currency} · {new Date(i.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</small></li>)}</ul>}</>}}</Async></Card>}
 function Enrollments({common,token}:{common:Common;token:string}){const s=useData(()=>getSchoolingSummary(token),[token]);
   return <Card level="info" {...common}><Async s={s}>{(d:any)=><><p className="ui-card-value">{n(d.new_enrollments??0)}<small>{(d.new_enrollments??0)>1?'nouvelles inscriptions':'nouvelle inscription'}</small></p>
     <p className="ui-card-hint">{n(d.active_students??0)} élèves actifs{d.families_to_complete?<> · <b>{plural(d.families_to_complete,'contact à compléter','contacts à compléter')}</b></>:''}</p></>}</Async></Card>}
@@ -123,7 +123,7 @@ function Movements({common,token,yearId}:{common:Common;token:string;yearId?:str
 function Recovery({common,token,yearId}:{common:Common;token:string;yearId?:string}){
   return <Card level="info" wide icon={common.icon} title={common.title} index={common.index}><RecoveryChart token={token} yearId={yearId} onOpen={common.onClick}/></Card>}
 function ByFee({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>feeTrackingOverview(token,yearId,'CDF'),[token,yearId]);
-  return <Card level="secondary" {...common}><Async s={s}>{(d:any)=><ul className="ui-list">{(d?.items??[]).slice(0,5).map((x:any,i:number)=><li key={x.category_id??i}><b>{x.category_label??x.label}</b><small>reste {money(x.remaining)} CDF</small></li>)}</ul>}</Async></Card>}
+  return <Card level="secondary" {...common}><Async s={s}>{(d:any)=><ul className="ui-list">{(d?.items??[]).slice(0,5).map((x:any,i:number)=><li key={x.category_id??i}><b>{x.category_label??x.label}</b><small>reste {money(x.remaining)} FC</small></li>)}</ul>}</Async></Card>}
 function Stock({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipDashboard(token),[token]);
   return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const low=d?.low_stock??[];return low.length?<><p className="ui-card-value">{n(low.length)}<small>article(s) sous le seuil</small></p><ul className="ui-list">{low.slice(0,3).map((x:any)=><li key={x.id}><b>{x.label}</b><small>{x.quantity} {x.unit}</small></li>)}</ul></>
     :<p className="ui-card-hint">Aucun stock sous son seuil d’alerte.</p>}}</Async></Card>}
@@ -167,15 +167,17 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const pick=(s:SchoolingStudent)=>{try{sessionStorage.setItem('edusync.students.open',s.id)}catch{/* facultatif */}setSpot(false);onNavigate('students')};
   const today=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   const first=userName.split(' ')[0];
+  const hour=new Date().getHours();
+  const greeting=hour>=18||hour<5?'Bonsoir':'Bonjour';
   const readiness=me.widgets.find(w=>w.id==='settings.readiness');
   const figures=me.widgets.filter(w=>w.id!=='settings.readiness'&&w.id!=='audit.recent');
   const journal=me.widgets.find(w=>w.id==='audit.recent');
   let index=0;
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
     ?<AdminCard w={w} d={admin} index={index++} go={()=>onNavigate(w.module)}/>
-    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>onNavigate(w.module)}/>}</ScreenBoundary>;
+    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>{if(w.id==='cash.today')sessionStorage.setItem('edusync.finance.tab','cash');onNavigate(w.module)}}/>}</ScreenBoundary>;
   return <div className="ui-page sh-home">
-    <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`Bonjour ${first}`}
+    <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
       subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
       actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':'chevronRight'}
         onClick={()=>a.id==='settings.open'?openSettings('overview'):onNavigate(a.module)}>{a.label}</Button>)}/>

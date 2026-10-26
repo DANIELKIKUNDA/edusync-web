@@ -40,7 +40,7 @@ export default function FinanceFollowup({token, can, yearId, schoolName}: {token
     <div className="ff-filters">
       <label className="ff-field"><span>Section</span><select value={section} onChange={e => { setSection(e.target.value); setClassId(''); setColumn(''); }}><option value="">Toutes</option>{sections.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></label>
       <label className="ff-field grow"><span>Classe</span><select value={classId} onChange={e => { setClassId(e.target.value); setColumn(''); }} aria-invalid={!classId}><option value="">Choisir une classe…</option>{classChoices.map(c => <option key={c.id} value={c.id}>{section ? '' : `${c.section_label ?? ''} · `}{c.label}</option>)}</select></label>
-      <label className="ff-field"><span>Devise</span><select value={currency} onChange={e => { setCurrency(e.target.value as 'CDF' | 'USD'); setColumn(''); }}><option value="CDF">CDF</option><option value="USD">USD</option></select></label>
+      <label className="ff-field"><span>Devise</span><select value={currency} onChange={e => { setCurrency(e.target.value as 'CDF' | 'USD'); setColumn(''); }}><option value="CDF">FC</option><option value="USD">USD</option></select></label>
       {res && res.fees.length > 0 && <label className="ff-field"><span>Frais</span><select value={fee} onChange={e => { const g = res.fees.find(x => x.key === e.target.value); setFee(e.target.value); if (g) setColumn(g.periods[g.periods.length - 1].key); }}>{res.fees.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}</select></label>}
     </div>
     {group && group.periods.length > 1 && <div className="ff-periods">

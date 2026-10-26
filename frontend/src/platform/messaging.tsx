@@ -442,7 +442,7 @@ function WalletForm({token, id, mode, onDone, onCancel}: {token: string; id: str
       {mode === 'credit' && <>
         <F id="w-date" label="Date du paiement *" error={errors.paidOn}><input id="w-date" type="date" max={today} value={paidOn} onChange={e => setPaidOn(e.target.value)}/></F>
         <F id="w-amt" label="Montant payé *" error={errors.amount}><input id="w-amt" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}/></F>
-        <F id="w-cur" label="Devise *"><select id="w-cur" value={cur} onChange={e => setCur(e.target.value)}><option>USD</option><option>CDF</option></select></F></>}
+        <F id="w-cur" label="Devise *"><select id="w-cur" value={cur} onChange={e => setCur(e.target.value)}><option>USD</option><option value="CDF">FC</option></select></F></>}
       <F id="w-reason" label={mode === 'credit' ? 'Motif (journalisé) *' : 'Justification (journalisée) *'} error={errors.reason}><input id="w-reason" value={reason} onChange={e => setReason(e.target.value)} maxLength={500}/></F>
     </div>
     <p className="sc-hint">Opération auditée ; un code de vérification récent peut vous être demandé. Le solde ne peut jamais devenir négatif.</p>

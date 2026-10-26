@@ -215,7 +215,7 @@ def test_receipt_pdf_is_generated_outside_the_payment_and_marks_duplicates():
          "lines": [{"label": "Minerval · SEPTEMBRE", "amount": "50000"}], "copy_no": 2}
     for fmt in ("A5", "80MM"):
         assert receipt_pdf(school={"name": "École"}, receipts=[r], fmt=fmt).startswith(b"%PDF")
-    assert money("50000", "CDF") == "50 000 CDF" and money("12.5", "USD") == "12,50 USD"
+    assert money("50000", "CDF") == "50 000 FC" and money("12.5", "USD") == "12,50 USD"
     router = (SRC / "modules/finance_checkout/api/router.py").read_text(encoding="utf-8")
     assert "if repo.receipt_copies(actor.school_id,payment_id)>=1:need(actor,'finance.receipts.reprint')" in router
 

@@ -10,16 +10,19 @@ type Tab='history'|'catalog'|'identity';
 const SIZE=(n:number)=>n<1024?`${n} o`:n<1048576?`${(n/1024).toFixed(0)} Ko`:`${(n/1048576).toFixed(1)} Mo`;
 
 function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{token:string;canOpen:boolean;initialQuery?:string;codeFilter?:string;onClearCode?:()=>void}){
- const [data,setData]=useState<{items:ArchivedDocument[];has_more:boolean;offset:number;limit:number;storage_available:boolean}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [q,setQ]=useState(initialQuery);
- useEffect(()=>{documentHistory(token).then(setData).catch(e=>setError(friendlyError(e)))},[token]);
- async function more(){if(!data)return;try{const n=await documentHistory(token,data.offset+data.limit);setData({...n,items:[...data.items,...n.items]})}catch(e){setError(friendlyError(e))}}
- async function open(d:ArchivedDocument){try{setBusy(d.id);const l=await documentLink(token,d.id);window.open(l.url,'_blank','noopener')}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
+ const [data,setData]=useState<{items:ArchivedDocument[];has_more:boolean;offset:number;limit:number;storage_available:boolean}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [q,setQ]=useState(initialQuery);const [scope,setScope]=useState<'mine'|'school'>('school');const [viewer,setViewer]=useState<{url:string;title:string;fileName:string}|null>(null);const pdfFrame=useRef<HTMLIFrameElement>(null);
+ useEffect(()=>{setData(null);documentHistory(token,0,scope).then(setData).catch(e=>setError(friendlyError(e)))},[token,scope]);
+ async function more(){if(!data)return;try{const n=await documentHistory(token,data.offset+data.limit,scope);setData({...n,items:[...data.items,...n.items]})}catch(e){setError(friendlyError(e))}}
+ async function open(d:ArchivedDocument){try{setBusy(d.id);const l=await documentLink(token,d.id);if(d.format==='PDF'){const response=await fetch(l.url,{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Document indisponible');setViewer({url:URL.createObjectURL(await response.blob()),title:d.title,fileName:d.file_name||'document.pdf'})}else window.open(l.url,'_blank','noopener')}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
+ useEffect(()=>{if(!viewer)return;const close=(e:KeyboardEvent)=>{if(e.key==='Escape')setViewer(null)};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close)},[viewer]);
+ useEffect(()=>()=>{if(viewer?.url)URL.revokeObjectURL(viewer.url)},[viewer?.url]);
  const items=(data?.items||[]).filter(d=>(!codeFilter||d.document_code===codeFilter)&&(!q||`${d.title} ${d.file_name||''}`.toLowerCase().includes(q.toLowerCase())));
  if(!data&&!error)return <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>;
  return <section className="panel docPanel">
   {data&&!data.storage_available&&<div className="es-alert es-alert-bad" role="status">Le stockage des documents n’est pas disponible : les nouveaux exports restent téléchargeables mais ne sont pas archivés.</div>}
   {error&&<div className="error">{error}</div>}
-  <div className="docToolbar"><div className="docSearch"><NavGlyph g="search" size={16}/><input aria-label="Rechercher dans les documents générés" placeholder="Rechercher un document…" value={q} onChange={e=>setQ(e.target.value)}/></div><small>{codeFilter?<>{items.length} document(s) de ce type · <button type="button" className="linkBtn" onClick={onClearCode}>tout afficher</button></>:`${data?.items.length||0} document(s) · la version la plus récente de chaque document`}</small></div>
+  <div className="docScopeTabs" role="tablist" aria-label="Portée des documents"><button type="button" role="tab" aria-selected={scope==='mine'} className={scope==='mine'?'active':''} onClick={()=>setScope('mine')}>Mes documents</button><button type="button" role="tab" aria-selected={scope==='school'} className={scope==='school'?'active':''} onClick={()=>setScope('school')}>Documents de l’école</button></div>
+  <div className="docToolbar"><div className="docSearch"><NavGlyph g="search" size={16}/><input aria-label="Rechercher dans les documents générés" placeholder="Rechercher un document…" value={q} onChange={e=>setQ(e.target.value)}/></div><small>{codeFilter?<>{items.length} document(s) de ce type · <button type="button" className="linkBtn" onClick={onClearCode}>tout afficher</button></>:`${data?.items.length||0} document(s) · documents accessibles selon vos droits`}</small></div>
   {items.length===0?<div className="docEmpty"><NavGlyph g="doc" size={28}/><b>{codeFilter?'Aucun document de ce type pour l’instant':'Aucun document généré pour l’instant'}</b><p>Chaque export PDF ou Excel réalisé dans EduSync apparaît ici automatiquement, avec son historique.</p></div>:
   <div className="docList" role="list">{items.map(d=><article key={d.id} className="docRow" role="listitem">
    <span className={`docFmt ${d.format.toLowerCase()}`} aria-hidden="true"><NavGlyph g={d.format==='PDF'?'doc':'sheet'} size={18}/></span>
@@ -28,6 +31,13 @@ function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{toke
    {canOpen&&<button className="es-btn" disabled={busy===d.id} onClick={()=>void open(d)}><NavGlyph g="external" size={15}/>{busy===d.id?'Ouverture…':'Ouvrir'}</button>}
   </article>)}</div>}
   {data?.has_more&&<button className="es-btn es-btn-ghost" onClick={()=>void more()}>Afficher plus</button>}
+  {viewer&&<div className="docViewerBackdrop" role="presentation"><div className="docViewer" role="dialog" aria-modal="true" aria-label={viewer.title}>
+   <div className="docViewerToolbar"><button type="button" onClick={()=>setViewer(null)}>← Retour</button><b>{viewer.title}</b><span/>
+    <button type="button" onClick={()=>pdfFrame.current?.contentWindow?.print()}>Imprimer</button>
+    <a href={viewer.url} download={viewer.fileName}>Télécharger</a>
+    <a href={viewer.url} target="_blank" rel="noopener">Nouvel onglet</a></div>
+   <iframe ref={pdfFrame} src={viewer.url} title={viewer.title}/></div></div>}
+
  </section>
 }
 

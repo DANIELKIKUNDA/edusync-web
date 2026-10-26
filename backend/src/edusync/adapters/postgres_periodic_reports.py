@@ -187,7 +187,7 @@ class PostgresPeriodicReportsRepository:
                 "partial_reporting_mode": mode}
 
     # ---------- Desktop register_generated_report ----------
-    def register(self, school_id: UUID, *, user_id: UUID, profile_code: str, period_type: str, start_date: date, end_date: date, report: dict) -> dict[str, Any]:
+    def register(self, school_id: UUID, *, user_id: UUID, profile_code: str, period_type: str, start_date: date, end_date: date, report: dict, request_key: str | None = None) -> dict[str, Any]:
         if profile_code not in REPORT_PROFILES:
             raise ValueError("Profil de rapport inconnu")
         if period_type not in PERIOD_LABELS:
@@ -202,9 +202,9 @@ class PostgresPeriodicReportsRepository:
         label = f"{prefix}-{int(n):03d}"
         import json
         rid = self.c.execute(text("""INSERT INTO finance_generated_reports(school_id,academic_year_id,report_no,report_label,profile_code,period_type,start_date,end_date,
-                partial_reporting_mode,totals,generated_by) VALUES(:s,:y,:n,:l,:p,:t,:a,:b,:m,CAST(:tot AS jsonb),:u) RETURNING id"""),
+                partial_reporting_mode,totals,generated_by,request_key) VALUES(:s,:y,:n,:l,:p,:t,:a,:b,:m,CAST(:tot AS jsonb),:u,:rk) RETURNING id"""),
             {"s": school_id, "y": year, "n": n, "l": label, "p": profile_code, "t": period_type, "a": start_date, "b": end_date,
-             "m": report["partial_reporting_mode"], "tot": json.dumps(report["totals"]), "u": user_id}).scalar_one()
+             "m": report["partial_reporting_mode"], "tot": json.dumps(report["totals"]), "u": user_id, "rk": request_key}).scalar_one()
         return {"id": str(rid), "number": int(n), "label": label}
 
     def generated(self, school_id: UUID, limit: int = 200) -> list[dict[str, Any]]:
