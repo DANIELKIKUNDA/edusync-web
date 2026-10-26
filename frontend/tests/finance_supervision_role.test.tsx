@@ -40,3 +40,22 @@ it('cashier/operator keeps the operational checkout as the first finance screen'
   expect(screen.getByText('Caisse personnelle')).toBeTruthy();
   expect(screen.getByText(/Encaissement terrain rapide/)).toBeTruthy();
 });
+
+it('gestionnaire contract is supervision-only even when all of its finance read permissions are present', () => {
+  render(<FinancePage token="t" permissions={[
+    'finance.cash.read',
+    'finance.cash.other.read',
+    'finance.recovery.monthly.read',
+    'finance.reports.history.read',
+    'finance.analysis.by_fee.read',
+    'finance.decisions.read',
+    'finance.responsibility.read',
+    'finance.credits.read',
+  ]}/>);
+  expect(screen.getByText('Vue de supervision')).toBeTruthy();
+  expect(screen.queryByRole('button', {name: 'Encaissement'})).toBeNull();
+  expect(screen.queryByText('Encaissement terrain rapide, sécurisé et sans mélange de devises.')).toBeNull();
+  expect(screen.getByRole('button', {name: 'Caisse'})).toBeTruthy();
+  expect(screen.getByRole('button', {name: 'Rapports'})).toBeTruthy();
+  expect(screen.getByRole('button', {name: 'Décisions financières'})).toBeTruthy();
+});
