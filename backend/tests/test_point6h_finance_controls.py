@@ -12,7 +12,7 @@ def test_credit_is_not_a_manual_cashier_mutation():
 def test_ui_removes_operator_bucket_and_keeps_dense_tables():
  src=(ROOT/'frontend'/'src'/'finance.tsx').read_text()
  assert 'Suivi opérateur' not in src
- for x in ('Décisions & exonérations','Responsabilités prévues','Crédits & trop-perçus'): assert x in src
+ for x in ('Décisions & exonérations','Prises en charge prévues','Crédits & trop-perçus'): assert x in src
  assert 'cashSummaryTable' in src
 def test_migration_is_tenant_isolated_and_append_or_cancel():
  sql=(ROOT/'backend'/'migrations'/'0022_finance_controls.sql').read_text()
