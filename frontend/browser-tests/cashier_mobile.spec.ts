@@ -36,7 +36,7 @@ test('caissier mobile : recherche, montant unique, paiement et confirmation sans
   await expect(mobile).toBeVisible();await mobile.click();
   const transaction=page.getByRole('complementary',{name:'Transaction active'});
   await expect(transaction).toBeVisible();
-  await expect(transaction.getByText('50 000 FC')).toBeVisible();
+  await expect(transaction.getByText('50 000 FC').first()).toBeVisible();
   await transaction.getByRole('textbox',{name:'Montant remis par le parent'}).fill('50000');
   await transaction.getByRole('button',{name:'Encaisser maintenant'}).click();
   await expect(transaction.getByText(/Paiement enregistré · reçu REC-001/)).toBeVisible();
