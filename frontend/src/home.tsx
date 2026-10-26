@@ -5,7 +5,7 @@ import {RecoveryChart} from './platform/recovery_chart';
 import {FINANCE_TARGET_KEY} from './finance';
 import {auditActionLabel} from './platform/labels';
 import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
-import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,cashDaySummary,checkoutProducts,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
+import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,cashDaySummary,checkoutProducts,financeDecisions,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
   type AccessMe,type AccessWidget,type EffectifsCounts,type SettingsOverview} from './api';
 
 /* School home driven by capabilities (owner decisions 9 of 2026-10-23 and the premium pass of 2026-10-24). The server
@@ -44,7 +44,7 @@ function Async<T>({s,children,lines=2}:{s:Loaded<T>;children:(d:T)=>React.ReactN
 const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent','sync.devices']);
 const ICON:Record<string,string>={'access.members':'users','access.requests':'shield','settings.academic_year':'calendar','settings.structure':'layers','audit.recent':'clock',
   'sync.devices':'sync','cash.today':'finance','cash.supervision':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','finance.recovery':'finance',
-  'finance.by_fee':'tag','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart'};
+  'finance.by_fee':'tag','finance.decisions':'shield','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart'};
 
 function AdminCard({w,d,index,go}:{w:AccessWidget;d:Loaded<Record<string,any>>;index:number;go:()=>void}){
   const x=d.data?.[w.id];const loading=d.loading&&!d.data;
@@ -90,6 +90,7 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
     case 'finance.by_fee':return <ByFee common={common} token={token} yearId={yearId}/>;
+    case 'finance.decisions':return <FinancialDecisions common={common} token={token}/>;
     case 'inventory.stock':return <Stock common={common} token={token}/>;
     case 'inventory.counts':return <Counts common={common} token={token}/>;
     default:return null;
@@ -132,6 +133,10 @@ function Recovery({common,token,yearId}:{common:Common;token:string;yearId?:stri
   return <Card level="info" wide icon={common.icon} title={common.title} index={common.index}><RecoveryChart token={token} yearId={yearId} onOpen={common.onClick}/></Card>}
 function ByFee({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>feeTrackingOverview(token,yearId,'CDF'),[token,yearId]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=><ul className="ui-list">{(d?.items??[]).slice(0,5).map((x:any,i:number)=><li key={x.category_id??i}><b>{x.category_label??x.label}</b><small>reste {money(x.remaining)} FC</small></li>)}</ul>}</Async></Card>}
+function FinancialDecisions({common,token}:{common:Common;token:string}){const s=useData(()=>financeDecisions(token,'ACTIVE'),[token]);
+  return <Card level="secondary" {...common}><Async s={s}>{d=>{const items=d.items??[];return <><p className="ui-card-value">{n(items.length)}<small>{items.length>1?'décisions actives':'décision active'}</small></p>
+    {items.length?<ul className="ui-list">{items.slice(0,4).map(x=><li key={x.id}><b>{x.student}</b><small>{x.fee_label??'Tous frais'} · {x.decision_type}</small></li>)}</ul>
+      :<p className="ui-card-hint">Aucune exonération ou réduction active à surveiller.</p>}</>}}</Async></Card>;}
 function Stock({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipDashboard(token),[token]);
   return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const low=d?.low_stock??[];return low.length?<><p className="ui-card-value">{n(low.length)}<small>article(s) sous le seuil</small></p><ul className="ui-list">{low.slice(0,3).map((x:any)=><li key={x.id}><b>{x.label}</b><small>{x.quantity} {x.unit}</small></li>)}</ul></>
     :<p className="ui-card-hint">Aucun stock sous son seuil d’alerte.</p>}}</Async></Card>}
@@ -180,7 +185,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const executive=figures.some(w=>w.id==='cash.supervision');
   const journal=me.widgets.find(w=>w.id==='audit.recent');
   let index=0;
-  const financeTarget=(id:string)=>id==='cash.today'||id==='cash.supervision'?'cash':id==='checkout.quick'?'checkout':id==='finance.recovery'?'recovery':id==='finance.by_fee'?'fees':undefined;
+  const financeTarget=(id:string)=>id==='cash.today'||id==='cash.supervision'?'cash':id==='checkout.quick'?'checkout':id==='finance.recovery'?'recovery':id==='finance.by_fee'?'fees':id==='finance.decisions'?'controls':undefined;
   const openWidget=(w:AccessWidget)=>{const target=financeTarget(w.id);if(target)try{sessionStorage.setItem(FINANCE_TARGET_KEY,target)}catch{/* facultatif */}onNavigate(w.module)};
   const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)try{sessionStorage.setItem(FINANCE_TARGET_KEY,target)}catch{/* facultatif */}onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
