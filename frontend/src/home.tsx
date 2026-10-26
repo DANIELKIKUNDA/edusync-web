@@ -19,6 +19,7 @@ const money=(v:any)=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).fo
 const ago=(v?:string|null)=>{if(!v)return '';const m=Math.round((Date.now()-new Date(v).getTime())/60000);if(m<1)return 'à l’instant';if(m<60)return `il y a ${m} min`;const h=Math.round(m/60);if(h<24)return `il y a ${h} h`;const d=Math.round(h/24);return d===1?'hier':`il y a ${d} jours`};
 const plural=(k:number,one:string,many:string)=>`${n(k)} ${k>1?many:one}`;
 const localIsoDay=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const frDate=(v?:string|null)=>{if(!v)return '—';const [y,m,d]=String(v).slice(0,10).split('-').map(Number);return y&&m&&d?new Date(y,m-1,d).toLocaleDateString('fr-FR'):String(v)};
 
 /** Settings section opened by a readiness step (read once by the settings page). */
 export const SETTINGS_TARGET_KEY='edusync.settings.open';
@@ -215,7 +216,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
         const activityIds=new Set(['reports.latest','documents.recent']);
         const activity=executive?figures.filter(w=>activityIds.has(w.id)):[];
         const watch=executive?figures.filter(w=>!['cash.supervision','headcounts.summary','finance.recovery'].includes(w.id)&&!activityIds.has(w.id)):[];
-        return <>{overview.length>0&&<Section title={executive?'Vue d’ensemble':'À suivre'} subtitle={executive?'Trois repères pour comprendre la journée avant d’ouvrir un module.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
+        return <>{overview.length>0&&<Section title={executive?'Vue d’ensemble':'À suivre'} subtitle={executive?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
           {watch.length>0&&<Section title="À vérifier" subtitle="Les exceptions et écarts à traiter en priorité." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
           {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Rapports, documents et actions récentes de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
       {!executive&&journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
