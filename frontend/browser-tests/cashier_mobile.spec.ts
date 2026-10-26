@@ -26,7 +26,8 @@ test('caissier mobile : recherche, montant unique, paiement et confirmation sans
     return route.fulfill({json:body});
   });
   await page.goto('/');
-  await page.getByRole('complementary',{name:'Navigation principale'}).getByRole('button',{name:'Centre financier'}).click();
+  await page.getByRole('button',{name:'Ouvrir le menu',exact:true}).click();
+  await page.getByRole('dialog',{name:'Menu EduSync'}).getByRole('button',{name:'Centre financier'}).click();
   const search=page.getByRole('textbox',{name:'Rechercher un élève ou une famille'});
   await expect(search).toBeVisible();await search.fill('Daniel');
   await page.getByRole('button',{name:/KIKUNDA.*Daniel/}).click();

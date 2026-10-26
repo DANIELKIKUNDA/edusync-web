@@ -25,7 +25,7 @@ def test_pack_reuses_the_cash_desk_eligibility():
 
 def test_outbox_replays_with_the_same_idempotency_key_and_keeps_refusals():
     assert "'Idempotency-Key': r.idempotencyKey" in OUTBOX and "status: 'CONFLICT'" in OUTBOX
-    assert "s.add(req)" in OUTBOX                                     # never overwrite an operation
+    assert "store.add(req)" in OUTBOX and "db.transaction(REQ, 'readwrite')" in OUTBOX                                     # never overwrite an operation
     assert "Authorization" not in OUTBOX.split("const req: OutboxRequest", 1)[1].split(";", 1)[0]
     for path in ("enrollments\\/family", "checkout\\/collect$", "checkout\\/family-collect", "cash\\/expenses"):
         assert path in OUTBOX
