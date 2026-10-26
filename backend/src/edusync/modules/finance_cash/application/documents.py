@@ -105,7 +105,7 @@ def daily_report_pdf(*, school_name: str, report: dict[str, Any]) -> bytes:
         c.drawString(left, y, school_name or "École")
         y -= 6 * mm
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(left, y, "RAPPORT FINANCIER JOURNALIER" + (" — SUITE" if cont else ""))
+        c.drawString(left, y, f"RAPPORT FINANCIER JOURNALIER — {fr_day(report['day'])}" + (" — SUITE" if cont else ""))
         c.setFont("Helvetica", 8)
         c.drawRightString(right, y, fr_day(report["day"]))
         y -= 6 * mm
