@@ -48,7 +48,7 @@ Le test de la branche Préfet/Direction porte sur la version exacte du travail e
 
 Pour obtenir une véritable vérification automatique **indépendante des minutes GitHub Actions**, le dépôt fournit maintenant `tools/ci/fallback_poll.sh` et des modèles systemd dans `tools/ci/systemd/`.
 
-Le poller lit toutes les 10 minutes les changements approuvés sur `origin/main`, prend un verrou `flock`, puis lance `fallback_local.sh` **une fois par SHA**. Il conserve `~/edusync-ci-control/last_sha`, `last_result`, ainsi que les rapports `~/edusync-ci-reports/`. Les exécutions qui échouent ne deviennent jamais PASS. Une interruption reste `IN_PROGRESS` jusqu'à un examen manuel ; il n'y a pas de redémarrage incontrôlé sur le même SHA.
+Le timer contrôle toutes les 10 minutes les changements approuvés sur `origin/main`, prend un verrou `flock`, puis lance `fallback_local.sh` **une fois par SHA**. Il conserve `~/edusync-ci-control/main.last_sha`, `main.last_result`, ainsi que les rapports `~/edusync-ci-reports/`. Les vérifications manuelles de la branche Préfet/Direction utilisent `chatgpt_prefet-directeur-certification.last_sha` et son propre `last_result` ; elles n'écrasent jamais l'état de `main`. Le même verrou empêche les deux contrôles de monopoliser simultanément la machine. Les exécutions qui échouent ne deviennent jamais PASS. Une interruption reste `IN_PROGRESS` jusqu'à un examen manuel ; il n'y a pas de redémarrage incontrôlé sur le même SHA.
 
 **Prérequis et avertissements :**
 
@@ -96,7 +96,16 @@ Le rapport contient les identifiants immuables locaux (`docker image inspect .Id
 - Contexte explicite : `external/edusync-ci` (distinct de la CI GitHub Actions officielle).
 - Statuts : `pending` au début, puis `success` ou `failure` uniquement sur la base de l'exécution réelle de `fallback_local.sh` pour le SHA testé. En cas d'échec de publication, le poller enregistre `PASS_LOCAL_STATUS_UNPUBLISHED` ou `FAIL` ; jamais de faux succès distant.
 - Les assistants Claude/Codex disposant d'accès GitHub au dépôt privé peuvent consulter ces statuts sur le commit SHA, dans la PR associée si GitHub les affiche, ou avec la ressource `GET /repos/DANIELKIKUNDA/edusync-web/commits/{sha}/status`. Les **journaux détaillés restent sur l'hôte CI** ; ne pas prétendre qu'ils sont accessibles dans GitHub. Un accès SSH autorisé ou une solution d'archivage de preuves privée est nécessaire pour lire les logs, captures et traces complets.
-- Le compteur GitHub Actions reste bloqué : ceci n'exécute pas les jobs `ci.yml`, ne produit pas les preuves de staging, n'édite pas les règles de protection de branche et **ne déverrouille pas le contrôleur de déploiement actuel**.
+- **Pour Préfet et Direction en cours de développement :** ne pas activer de timer supplémentaire qui s'exécuterait à chaque petit commit. Lorsque la branche est prête à être prévalidée, exécuter manuellement sur l'hôte CI isolé (après configuration du jeton et récupération du code de PR #30) :
+
+```bash
+cd /srv/edusync-ci/edusync-web
+bash tools/ci/fallback_poll.sh "$PWD" chatgpt/prefet-directeur-certification
+```
+
+Ce déclenchement prend le SHA de la branche à cet instant, exécute la suite de secours, publie `external/edusync-ci` pour **ce SHA** et conserve les rapports. Il ne fusionne pas la PR #27. Sans jeton, l'exécution reste **locale uniquement**, aucun résultat distant n'est annoncé. Une nouvelle exécution au même SHA nécessite une intervention supervisée et l'examen du résultat précédent.
+
+Le compteur GitHub Actions reste bloqué : ceci n'exécute pas les jobs `ci.yml`, ne produit pas les preuves de staging, n'édite pas les règles de protection de branche et **ne déverrouille pas le contrôleur de déploiement actuel**.
 
 **Activation sur le serveur CI dédié UNIQUEMENT après revue du code :**
 
