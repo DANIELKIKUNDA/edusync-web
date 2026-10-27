@@ -209,6 +209,12 @@ class PostgresPersonnelRepository:
         """), {"sid": assignment.school_id, "staff": assignment.staff_id}).first()
         if owner is None:
             raise LookupError("Agent introuvable dans cet établissement")
+        function = self.connection.execute(text("""
+            SELECT id FROM staff_functions
+            WHERE school_id=:sid AND id=:function AND enabled=true
+        """), {"sid": assignment.school_id, "function": assignment.function_id}).first()
+        if function is None:
+            raise ValueError("Fonction du personnel introuvable ou inactive dans cet établissement")
         if assignment.is_primary:
             self.connection.execute(text("UPDATE staff_assignments SET is_primary=false WHERE school_id=:sid AND staff_id=:staff AND end_date IS NULL AND is_primary"),{"sid":assignment.school_id,"staff":assignment.staff_id})
         row=self.connection.execute(text("""
