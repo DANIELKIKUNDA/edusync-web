@@ -152,8 +152,16 @@ class PostgresSchoolingParityRepository:
         """Counts only enrolled pupils and families inside the authorized sections."""
         year = self._year(school_id, year_id)
         minimum = self._large_min(school_id, year)
-        where, scope_params = _student_scope_where(scopes, alias="s")
-        base = f"""FROM enrollments e JOIN students s ON s.id=e.student_id
+        sections = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
+        classes = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
+        schoolwide = any(t=="SCHOOL" for t,_ in scopes)
+        where = ("TRUE" if schoolwide else
+                 "(upper(ss.code) IN :scope_sections OR upper(sc.code) IN :scope_classes)"
+                 if sections or classes else "FALSE")
+        scope_params = {} if schoolwide or not (sections or classes) else {
+            "scope_sections": sections, "scope_classes": classes}
+        join_section = " JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id"
+        base = f"""FROM enrollments e JOIN students s ON s.id=e.student_id {join_section}
                     WHERE e.school_id=:sid AND e.academic_year_id=:year
                     AND e.status='VALIDATED' AND s.status='ACTIVE' AND {where}"""
         args = {"sid": school_id, "year": year, **scope_params}
@@ -167,11 +175,12 @@ class PostgresSchoolingParityRepository:
                  HAVING count(DISTINCT s.id)>=:minimum) eligible""", minimum=minimum),
             "beneficiaries": count(f"""SELECT count(DISTINCT sb.student_id)
                 FROM student_benefits sb JOIN students s ON s.id=sb.student_id
+                JOIN enrollments e ON e.student_id=s.id AND e.academic_year_id=sb.academic_year_id {join_section}
                 WHERE sb.school_id=:sid AND sb.academic_year_id=:year
                 AND sb.active AND {where}"""),
             "staff_children": count(f"""SELECT count(DISTINCT l.student_id)
                 FROM staff_student_links l JOIN students s ON s.id=l.student_id
-                JOIN enrollments e ON e.student_id=s.id
+                JOIN enrollments e ON e.student_id=s.id {join_section}
                 WHERE l.school_id=:sid AND l.active AND e.academic_year_id=:year
                 AND e.status='VALIDATED' AND {where}"""),
             "large_family_min_children": minimum,
