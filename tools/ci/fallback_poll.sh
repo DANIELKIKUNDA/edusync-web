@@ -3,7 +3,13 @@
 # IMPORTANT : n'executer que sur un hote CI dedie / approuve, jamais en production.
 set -Eeuo pipefail
 umask 077
-[[ $# -eq 1 ]] || { echo "Usage: bash tools/ci/fallback_poll.sh <checkout-edusync-web-ci>" >&2; exit 64; }
+[[ $# -ge 1 && $# -le 2 ]] || { echo "Usage: bash tools/ci/fallback_poll.sh <checkout-edusync-web-ci> [main|chatgpt/prefet-directeur-certification]" >&2; exit 64; }
+BRANCH="${2:-main}"
+case "$BRANCH" in
+  main | chatgpt/prefet-directeur-certification) ;;
+  *) echo "REFUS : branche non autorisee pour ce runner" >&2; exit 65 ;;
+esac
+BRANCH_KEY="${BRANCH//\//_}"
 ROOT="$(realpath "$1")"
 [[ -d "$ROOT/.git" && -f "$ROOT/tools/ci/fallback_local.sh" ]] || {
   echo "REFUS : checkout Git officiel avec outils de CI de secours requis." >&2; exit 65;
@@ -23,18 +29,22 @@ esac
 STATE="$HOME/edusync-ci-control"
 mkdir -p "$STATE"
 chmod 700 "$STATE"
+# Un verrou global serialize les jobs manuels Prefet et le timer main.
 exec 9>"$STATE/lock"
 if ! flock -n 9; then
   echo "Autre CI deja en cours : sans nouvelle execution."
   exit 0
 fi
 
-# Le poller ne teste que origin/main, jamais les PR issues d'une contribution externe.
-git -C "$ROOT" fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
-SHA="$(git -C "$ROOT" rev-parse refs/remotes/origin/main)"
+# Une branche maintenue dans le depot du proprietaire, pas une PR de fork.
+# Chaque branche conserve son propre etat pour ne pas masquer la CI de main.
+git -C "$ROOT" fetch --no-tags origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+SHA="$(git -C "$ROOT" rev-parse "refs/remotes/origin/$BRANCH")"
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || exit 65
-if [[ -s "$STATE/last_sha" ]] && [[ "$(cat "$STATE/last_sha")" == "$SHA" ]]; then
-  echo "SHA deja traite : $SHA ; etat : $(cat "$STATE/last_result" 2>/dev/null || echo INDETERMINE)"
+LAST_SHA="$STATE/${BRANCH_KEY}.last_sha"
+LAST_RESULT="$STATE/${BRANCH_KEY}.last_result"
+if [[ -s "$LAST_SHA" ]] && [[ "$(cat "$LAST_SHA")" == "$SHA" ]]; then
+  echo "SHA deja traite pour $BRANCH : $SHA ; etat : $(cat "$LAST_RESULT" 2>/dev/null || echo INDETERMINE)"
   exit 0
 fi
 # Publication OPTIONNELLE d'un statut EXTERNE au SHA GitHub.
@@ -49,20 +59,20 @@ publish_status() {
 
 # Trace l'intention avant de lancer. Une interruption = absence de PASS et pas
 # de relance infinie tant qu'un humain n'a pas revise les journaux.
-printf '%s\n' "$SHA" > "$STATE/last_sha"
-printf 'IN_PROGRESS %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
-echo "CI independante pour SHA=$SHA"
+printf '%s\n' "$SHA" > "$LAST_SHA"
+printf 'IN_PROGRESS %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
+echo "CI independante branche=$BRANCH SHA=$SHA"
 if ! publish_status pending "CI de secours en cours; resultat partiel, hors deployment"; then
   echo "WARN : statut pending non publie ; test local toujours execute." >&2
 fi
 if bash "$ROOT/tools/ci/fallback_local.sh" "$SHA"; then
-  printf 'PASS_LOCAL %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
+  printf 'PASS_LOCAL %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
   if ! publish_status success "Tests CI locaux PASS; CD/staging non certifies"; then
     printf 'PASS_LOCAL_STATUS_UNPUBLISHED %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
     echo "Les tests locaux passent, mais GitHub n'a pas recu leur statut." >&2
     exit 74
   fi
-  echo "PASS local du SHA $SHA. Aucune preuve de workflow CI Actions, aucun deploiement."
+  echo "PASS local pour $BRANCH au SHA $SHA. Aucune preuve de workflow CI Actions, aucun deploiement."
 else
   code=$?
   printf 'FAIL rc=%d %s\n' "$code" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
