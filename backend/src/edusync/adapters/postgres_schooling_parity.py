@@ -19,7 +19,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
-from edusync.adapters.postgres_schooling import _student_scope_where, _bind_scope
+from edusync.adapters.postgres_schooling import _student_scope_where, _family_scope_where, _bind_scope
 from sqlalchemy.engine import Connection
 
 CENT = Decimal("0.01")
@@ -83,6 +83,36 @@ class PostgresSchoolingParityRepository:
                 WHERE fg.school_id=:s AND fg.active AND coalesce(btrim(g.phone),'')=''"""),
             "shared_phones": one("""SELECT count(*) FROM (SELECT coalesce(g.normalized_phone, g.phone) AS ph FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id
                 WHERE fg.school_id=:s AND fg.active AND coalesce(btrim(g.phone),'')<>'' GROUP BY 1 HAVING count(DISTINCT fg.family_id)>1) x"""),
+        }
+
+    def family_contact_diagnostics_scoped(self, school_id: UUID, *, scopes: tuple[tuple[str, str | None], ...]) -> dict[str, int]:
+        """Compute diagnostics only over families visible to the actor.
+
+        A family spanning several sections is counted once. No individual
+        pupil or guardian data is returned by this aggregate endpoint.
+        """
+        family_where, scope_params = _family_scope_where(scopes, alias="f")
+        base = f"f.school_id=:sid AND {family_where}"
+        def count(sql: str) -> int:
+            return int(self.c.execute(_bind_scope(text(sql), scope_params),
+                                      {"sid": school_id, **scope_params}).scalar_one() or 0)
+        return {
+            "without_responsible": count(f"""SELECT count(*) FROM families f WHERE {base}
+                AND NOT EXISTS (SELECT 1 FROM family_guardians fg
+                                WHERE fg.family_id=f.id AND fg.active)"""),
+            "multiple_primary": count(f"""SELECT count(*) FROM families f WHERE {base}
+                AND (SELECT count(*) FROM family_guardians fg
+                     WHERE fg.family_id=f.id AND fg.active AND fg.is_primary)>1"""),
+            "responsible_without_phone": count(f"""SELECT count(*) FROM family_guardians fg
+                JOIN families f ON f.id=fg.family_id JOIN guardians g ON g.id=fg.guardian_id
+                WHERE {base} AND fg.active AND coalesce(btrim(g.phone),'')=''"""),
+            "shared_phones": count(f"""SELECT count(*) FROM (
+                SELECT coalesce(g.normalized_phone, g.phone) AS ph
+                FROM family_guardians fg JOIN families f ON f.id=fg.family_id
+                JOIN guardians g ON g.id=fg.guardian_id
+                WHERE {base} AND fg.active AND coalesce(btrim(g.phone),'')<>''
+                GROUP BY 1 HAVING count(DISTINCT fg.family_id)>1
+                ) shared"""),
         }
 
     def _year(self, school_id: UUID, year_id: UUID | None):
