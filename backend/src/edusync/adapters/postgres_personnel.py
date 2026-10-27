@@ -202,6 +202,13 @@ class PostgresPersonnelRepository:
         return _row(row)
 
     def add_assignment(self, assignment: StaffAssignment) -> dict[str, Any]:
+        # Serialize with scoped identity updates. The staff row is the lock
+        # shared by every assignment insertion and identity mutation.
+        owner = self.connection.execute(text("""
+            SELECT id FROM staff_members WHERE school_id=:sid AND id=:staff FOR UPDATE
+        """), {"sid": assignment.school_id, "staff": assignment.staff_id}).first()
+        if owner is None:
+            raise LookupError("Agent introuvable dans cet établissement")
         if assignment.is_primary:
             self.connection.execute(text("UPDATE staff_assignments SET is_primary=false WHERE school_id=:sid AND staff_id=:staff AND end_date IS NULL AND is_primary"),{"sid":assignment.school_id,"staff":assignment.staff_id})
         row=self.connection.execute(text("""
