@@ -138,6 +138,36 @@ class PostgresSchoolingParityRepository:
             "large_family_min_children": minimum,
         }
 
+    def family_overview_scoped(self, school_id: UUID, year_id: UUID | None = None,
+                               *, scopes: tuple[tuple[str, str | None], ...]) -> dict[str, int]:
+        """Counts only enrolled pupils and families inside the authorized sections."""
+        year = self._year(school_id, year_id)
+        minimum = self._large_min(school_id, year)
+        where, scope_params = _student_scope_where(scopes, alias="s")
+        base = f"""FROM enrollments e JOIN students s ON s.id=e.student_id
+                    WHERE e.school_id=:sid AND e.academic_year_id=:year
+                    AND e.status='VALIDATED' AND s.status='ACTIVE' AND {where}"""
+        args = {"sid": school_id, "year": year, **scope_params}
+        def count(sql: str, **extra) -> int:
+            return int(self.c.execute(_bind_scope(text(sql), scope_params),
+                                      {**args, **extra}).scalar_one() or 0)
+        return {
+            "families": count(f"SELECT count(DISTINCT s.family_id) {base}"),
+            "large_eligible": count(f"""SELECT count(*) FROM
+                (SELECT s.family_id {base} GROUP BY s.family_id
+                 HAVING count(DISTINCT s.id)>=:minimum) eligible""", minimum=minimum),
+            "beneficiaries": count(f"""SELECT count(DISTINCT sb.student_id)
+                FROM student_benefits sb JOIN students s ON s.id=sb.student_id
+                WHERE sb.school_id=:sid AND sb.academic_year_id=:year
+                AND sb.active AND {where}"""),
+            "staff_children": count(f"""SELECT count(DISTINCT l.student_id)
+                FROM staff_student_links l JOIN students s ON s.id=l.student_id
+                JOIN enrollments e ON e.student_id=s.id
+                WHERE l.school_id=:sid AND l.active AND e.academic_year_id=:year
+                AND e.status='VALIDATED' AND {where}"""),
+            "large_family_min_children": minimum,
+        }
+
     def family_kpi_details(self, school_id: UUID, *, metric: str, year_id: UUID | None = None) -> list[dict]:
         y = self._year(school_id, year_id)
         if metric == "LARGE_ELIGIBLE":
