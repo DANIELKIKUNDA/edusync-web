@@ -91,3 +91,42 @@ def test_missing_staff_is_rejected_before_visibility_query():
                 conn,actor((("SECTION","PRIMAIRE"),)),body(staff))
     assert exc.value.status_code==403
     factory.return_value._visible_staff_ids.assert_not_called()
+
+
+def test_schoolwide_grant_cannot_reference_foreign_section():
+    conn=Mock()
+    conn.execute.return_value.first.return_value=None
+    with pytest.raises(HTTPException) as exc:
+        _authorize_assignment_add(conn,actor((("SCHOOL",None),)),
+                                  body(uuid4()),check_existing_staff=False)
+    assert exc.value.status_code==422
+
+
+def test_schoolwide_grant_cannot_reference_foreign_class():
+    conn=Mock()
+    conn.execute.return_value.first.return_value=None
+    with pytest.raises(HTTPException) as exc:
+        _authorize_assignment_add(
+            conn,actor((("SCHOOL",None),)),
+            body(uuid4(),scope_type=AssignmentScope.CLASS,scope_value="1A",
+                 class_id=uuid4(),section_id=None),check_existing_staff=False)
+    assert exc.value.status_code==422
+
+
+def test_schoolwide_grant_rejects_foreign_titular_class():
+    conn=Mock()
+    conn.execute.return_value.first.side_effect=[("PRIMAIRE",),None]
+    with pytest.raises(HTTPException) as exc:
+        _authorize_assignment_add(
+            conn,actor((("SCHOOL",None),)),
+            body(uuid4(),is_titular=True,titular_class_id=uuid4()),
+            check_existing_staff=False)
+    assert exc.value.status_code==422
+
+
+def test_schoolwide_grant_accepts_consistent_section():
+    conn=Mock()
+    conn.execute.return_value.first.return_value=("PRIMAIRE",)
+    _authorize_assignment_add(
+        conn,actor((("SCHOOL",None),)),body(uuid4()),
+        check_existing_staff=False)
