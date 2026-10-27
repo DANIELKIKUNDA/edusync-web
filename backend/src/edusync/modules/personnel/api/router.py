@@ -358,7 +358,7 @@ def scope_options(actor:ActorContext=Depends(require_school_actor),services:AppS
             classes=[cl for cl in classes if (
                 str(cl['code']).upper() in allowed_classes
                 or str(cl['section_code']).upper() in allowed_sections)]
-        return {'sections':sections,'classes':classes}
+        return {'sections':sections,'classes':classes,'schoolwide':schoolwide}
 
 @router.get('/history/events')
 def global_history(limit:int=Query(default=100,ge=1,le=500),offset:int=Query(default=0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
