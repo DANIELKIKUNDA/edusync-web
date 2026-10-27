@@ -48,3 +48,28 @@ def test_missing_grant_denied_even_if_permission_present():
     with pytest.raises(HTTPException) as exc:
         _need(actor_for("personnel.create", []), "personnel.create")
     assert exc.value.status_code == 403
+
+
+def test_section_staff_detail_excludes_global_access_and_family_data():
+    from unittest.mock import Mock
+    from edusync.adapters.postgres_personnel import PostgresPersonnelRepository
+    conn = Mock()
+    repo = PostgresPersonnelRepository(conn)
+    repo._visible_staff_ids = lambda school_id, scopes: {staff_id}
+    staff_id = uuid4()
+    school_id = uuid4()
+    row = Mock()
+    row._mapping = {"id": staff_id, "school_id": school_id, "last_name": "TEST"}
+    conn.execute.return_value.first.return_value = row
+    repo.list_assignments = Mock(return_value=[{"scope_type": "SECTION", "scope_value": "PRIMAIRE"}])
+    repo.status_history = Mock()
+    repo.access_links = Mock()
+    repo.staff_children = Mock()
+    result = repo.get_staff(school_id, staff_id, scopes=(("SECTION", "PRIMAIRE"),))
+    assert result["assignments"][0]["scope_value"] == "PRIMAIRE"
+    assert result["history"] == []
+    assert result["access_links"] == []
+    assert result["staff_children"] == []
+    repo.status_history.assert_not_called()
+    repo.access_links.assert_not_called()
+    repo.staff_children.assert_not_called()
