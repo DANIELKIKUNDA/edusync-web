@@ -19,6 +19,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
+from edusync.adapters.postgres_schooling import _student_scope_where, _bind_scope
 from sqlalchemy.engine import Connection
 
 CENT = Decimal("0.01")
@@ -42,18 +43,19 @@ class PostgresSchoolingParityRepository:
     def __init__(self, connection: Connection):
         self.c = connection
 
-    def probable_students(self, school_id: UUID, *, last_name: str, middle_name: str = "", first_name: str = "", birth_date: date | None = None) -> list[dict]:
+    def probable_students(self, school_id: UUID, *, last_name: str, middle_name: str = "", first_name: str = "", birth_date: date | None = None, scopes: tuple[tuple[str, str | None], ...] = ()) -> list[dict]:
         last_name = (last_name or "").strip()
         if not last_name:
             return []
-        rows = self.c.execute(text("""SELECT s.id, s.matricule, s.last_name, s.middle_name, s.first_name, s.birth_date, s.status, f.display_name AS family_name
+        scope_where, scope_params = _student_scope_where(scopes)
+        rows = self.c.execute(_bind_scope(text(f"""SELECT s.id, s.matricule, s.last_name, s.middle_name, s.first_name, s.birth_date, s.status, f.display_name AS family_name
               FROM students s LEFT JOIN families f ON f.id=s.family_id
-             WHERE s.school_id=:sid AND upper(s.last_name) LIKE upper(:ln)
+             WHERE s.school_id=:sid AND {scope_where} AND upper(s.last_name) LIKE upper(:ln)
                AND (:mn = '' OR upper(coalesce(s.middle_name,'')) LIKE upper(:mnl)) AND (:fn = '' OR upper(coalesce(s.first_name,'')) LIKE upper(:fnl))
                AND (CAST(:bd AS date) IS NULL OR s.birth_date = CAST(:bd AS date))
-             ORDER BY s.last_name, s.middle_name, s.first_name LIMIT 8"""),
+             ORDER BY s.last_name, s.middle_name, s.first_name LIMIT 8"""), scope_params),
             {"sid": school_id, "ln": f"%{last_name}%", "mn": (middle_name or "").strip(), "mnl": f"%{(middle_name or '').strip()}%",
-             "fn": (first_name or "").strip(), "fnl": f"%{(first_name or '').strip()}%", "bd": birth_date}).mappings().all()
+             "fn": (first_name or "").strip(), "fnl": f"%{(first_name or '').strip()}%", "bd": birth_date, **scope_params}).mappings().all()
         return [_plain(r) for r in rows]
 
     def historical_arrears(self, school_id: UUID, student_id: UUID, *, excluding_year_id: UUID | None = None) -> list[dict]:
