@@ -73,6 +73,21 @@ La commande systemd ci-dessus ne doit être utilisée qu'une fois le compte de s
 **Limite architecturale critique :** le poller est un **contrôle CI**. Il ne construit pas d'images multiarch, ne publie pas de statuts de réussite GitHub Actions et ne déclenche **aucun déploiement**. Le contrôleur staging officiel exige une CI GitHub réussie ; l'automate indépendant ne doit pas fabriquer ou contourner cette preuve. Pour une CD indépendante il faut spécifier une nouvelle chaîne de confiance auditable et tester un contrôleur compatible sur un hôte jetable, avant toute adoption.
 
 
+## 1 ter. Préparation locale des images ARM64/AMD64 (facultative, après CI PASS)
+
+`tools/ci/fallback_build_images.sh` peut construire les trois images backend/frontend/sauvegarde depuis le SHA exact après un **rapport de tests PASS**. Il n'accepte que `main` ou la branche officielle Préfet/Direction, n'utilise jamais de jeton de registre et n'effectue ni `docker push` ni déploiement. Il ne construit que pour **l'architecture native du démon Docker** ; ce n'est donc pas la sortie multi-architecture exigée par la CD officielle.
+
+À exécuter **sur le même hôte CI dédié**, uniquement si le rapport du SHA est authentique, après audit de capacité disque (≥ 16 Gio libres) :
+
+```bash
+SHA="$(git rev-parse origin/main)"
+# Prendre le chemin du dernier rapport PASS de ce SHA, sans fabriquer de résultat :
+# Exemple de chemin réel : ~/edusync-ci-reports/0123456789ab-20261027T150000Z/summary.txt
+bash tools/ci/fallback_build_images.sh "$SHA" "/chemin/reel/vers/summary.txt"
+```
+
+Le rapport contient les identifiants immuables locaux (`docker image inspect .Id`) et le SHA source. Aucune image issue de ce script ne doit être substituée manuellement aux images certifiées GHCR du contrôleur staging.
+
 ## 2. Ce qui n'est pas résolu par le secours local
 
 Le verdict du script ne vaut **pas** une certification de sortie en production. Restent impérativement :
