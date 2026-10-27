@@ -466,3 +466,15 @@ button.softBtn{border:1px solid #d0d5dd;background:#fff;color:#344054}
  .personnelPage .assignmentList article{grid-template-columns:34px minmax(0,1fr);gap:8px}
  .personnelPage .assignmentList article>button,.personnelPage .assignmentList article>em{grid-column:2;justify-self:start}
 }
+
+/* Short labels preserve context when the desktop table header is hidden. */
+@media(max-width:760px){
+ .personnelPage .personRow:not(.head)>span:nth-child(2):before,
+ .personnelPage .personRow:not(.head)>span:nth-child(3):before,
+ .personnelPage .personRow:not(.head)>span:nth-child(4):before,
+ .personnelPage .personRow:not(.head)>span:nth-child(6):before{display:block;font-size:9px;line-height:1.4;font-weight:800;letter-spacing:.45px;text-transform:uppercase;color:#7d8ba0;margin-bottom:3px}
+ .personnelPage .personRow:not(.head)>span:nth-child(2):before{content:"Fonction"}
+ .personnelPage .personRow:not(.head)>span:nth-child(3):before{content:"Périmètre";text-align:right}
+ .personnelPage .personRow:not(.head)>span:nth-child(4):before{content:"Catégorie"}
+ .personnelPage .personRow:not(.head)>span:nth-child(6):before{content:"Contact"}
+}
