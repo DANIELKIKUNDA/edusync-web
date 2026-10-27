@@ -66,11 +66,18 @@ class PostgresSchoolingParityRepository:
         sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
         classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
         schoolwide = any(t == "SCHOOL" for t, _ in scopes)
-        scope_where = ("TRUE" if schoolwide else
-                       "(upper(ss.code) IN :scope_sections OR upper(sc.code) IN :scope_classes)"
-                       if sections or classes else "FALSE")
-        scope_params = {} if schoolwide or not (sections or classes) else {
-            "scope_sections": sections, "scope_classes": classes}
+        # Bind only populated arrays: an empty expanding list can be inferred
+        # as integer[] by PostgreSQL and fail against the text class codes.
+        clauses = []
+        scope_params = {}
+        if sections and not schoolwide:
+            clauses.append("upper(ss.code) IN :scope_sections")
+            scope_params["scope_sections"] = sections
+        if classes and not schoolwide:
+            clauses.append("upper(sc.code) IN :scope_classes")
+            scope_params["scope_classes"] = classes
+        scope_where = "TRUE" if schoolwide else (
+            "(" + " OR ".join(clauses) + ")" if clauses else "FALSE")
         rows = self.c.execute(_bind_scope(text(f"""SELECT ay.id AS year_id, ay.label AS year_label, fc.currency,
                 sum(GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount
                     - COALESCE((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.charge_id=fc.id),0), 0)) AS balance
