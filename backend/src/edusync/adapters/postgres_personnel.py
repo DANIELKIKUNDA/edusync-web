@@ -183,6 +183,9 @@ class PostgresPersonnelRepository:
     def summary(self, school_id: UUID, *, scopes: tuple[tuple[str, str | None], ...] = ()) -> StaffSummary:
         where_scope, params = _scope_where(scopes)
         full = any(t == 'SCHOOL' for t, _ in scopes)
+        assignment_expr = "(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id WHERE a.school_id=:sid AND a.end_date IS NULL)" if full else "0"
+        access_expr = "(SELECT count(*) FROM staff_access_links l JOIN visible v ON v.id=l.staff_id WHERE l.school_id=:sid AND l.active)" if full else "0"
+        children_expr = "(SELECT count(*) FROM staff_student_links sl JOIN visible v ON v.id=sl.staff_id WHERE sl.school_id=:sid AND sl.active)" if full else "0"
         stmt = _bind_scope(text(f"""
           WITH visible AS (SELECT sm.* FROM staff_members sm WHERE sm.school_id=:sid AND {where_scope})
           SELECT count(*) total,
@@ -193,9 +196,9 @@ class PostgresPersonnelRepository:
                  count(*) FILTER (WHERE category='ADMINISTRATIF') administrative,
                  count(*) FILTER (WHERE category='OUVRIER') workers,
                  count(*) FILTER (WHERE category='AUTRE') other,
-                 (SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id WHERE a.end_date IS NULL) active_assignments,
-                 (SELECT count(*) FROM staff_access_links l JOIN visible v ON v.id=l.staff_id WHERE l.active) linked_accounts,
-                 (SELECT count(*) FROM staff_student_links sl JOIN visible v ON v.id=sl.staff_id WHERE sl.active) staff_children
+                 {assignment_expr} active_assignments,
+                 {access_expr} linked_accounts,
+                 {children_expr} staff_children
             FROM visible
         """), params)
         r=self.connection.execute(stmt,{"sid":school_id,**params}).first()._mapping
