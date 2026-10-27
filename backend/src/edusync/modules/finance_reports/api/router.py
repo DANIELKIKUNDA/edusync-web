@@ -77,7 +77,7 @@ def _jsonable(v):
 
 @router.get('/profiles')
 def report_profiles(actor: ActorContext = Depends(require_school_actor)):
-    need(actor, 'finance.reports.periodic.generate')
+    _need_periodic_scope(actor)
     return {'profiles': [{'code': k, **{x: (list(y) if isinstance(y, tuple) else y) for x, y in v.items()}} for k, v in REPORT_PROFILES.items() if k in {'CONSOLIDE','FRAIS_SCOLAIRES','ARTICLES_SCOLAIRES'}],
             'period_types': [{'code': k, 'label': v} for k, v in PERIOD_LABELS.items()]}
 
@@ -90,13 +90,13 @@ def _period(period_type, start, end):
     return start, end
 
 
-def _need_periodic_scope(actor):
+def _need_periodic_scope(actor, capability='finance.reports.periodic.generate'):
     """Periodic preview is section-aware; official issued reports remain school-wide."""
     try:
-        actor.require('finance.reports.periodic.generate')
+        actor.require(capability)
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
-    if not actor.scopes_for('finance.reports.periodic.generate'):
+    if not actor.scopes_for(capability):
         raise HTTPException(403, 'Aucun périmètre financier autorisé')
 
 
@@ -193,10 +193,10 @@ def periodic_pdf(b: PeriodicPdfBody, idempotency_key: str = Header(..., alias='I
 def periodic_xlsx(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIER', start: date | None = None, end: date | None = None,
                   actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """Desktop export_periodic_financial_report_xlsx: Excel companion, never consumes an official number."""
-    need(actor, 'finance.reports.periodic.export'); a, z = _period(period_type, start, end)
+    _need_periodic_scope(actor, 'finance.reports.periodic.export'); a, z = _period(period_type, start, end)
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            report = PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=z, profile_code=profile_code)
+            report = PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=z, profile_code=profile_code, scopes=actor.scopes_for('finance.reports.periodic.export'))
             school = _school(c, actor.school_id)
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
