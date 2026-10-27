@@ -11,6 +11,14 @@ router=APIRouter(tags=['Centre financier · Rapports'])
 def need(a,c):
  try:a.require(c)
  except PermissionError as e:raise HTTPException(403,str(e))
+ # This router's periodic/analysis/account repositories currently accept school_id,
+ # not the actor's section scopes. A section-bound grant must NEVER silently
+ # become school-wide access. Fail closed until each query supports section filters.
+ if c.startswith('finance.') or c.startswith('students.account.'):
+  scopes=a.scopes_for(c)
+  if scopes and not any(scope_type=='SCHOOL' for scope_type,_ in scopes):
+   raise HTTPException(403,'Rapport financier indisponible pour ce périmètre de section')
+
 
 def system_templates():return [dict(x,system_template=True,enabled=True) for x in SYSTEM_TEMPLATES]
 @router.get('/templates')
