@@ -35,7 +35,7 @@ router=APIRouter(tags=["Personnel"])
 _SCHOOLWIDE_PERSONNEL_MUTATIONS = frozenset({
     'personnel.create', 'personnel.update', 'personnel.activate',
     'personnel.exit', 'personnel.reactivate', 'personnel.functions.manage',
-    'personnel.assignments.add', 'personnel.assignments.end',
+    'personnel.assignments.end',
     'personnel.staff_children.link', 'personnel.staff_children.finance_mode',
     'personnel.access_link.manage', 'personnel.payroll_deduction.confirm',
     'personnel.payroll_deduction.cancel',
@@ -94,6 +94,54 @@ def _scopes(actor:ActorContext,capability:str)->tuple[tuple[str,str|None],...]:
         # Fail closed on resource lists if a capability somehow exists without an assignment scope.
         return ()
     return scopes
+
+
+def _authorize_assignment_add(conn, actor:ActorContext, body:"AssignmentCreate")->None:
+    """Authorize the exact destination within the same write transaction.
+
+    A section grant can assign an already-visible agent only inside its
+    section. A CLASS grant can assign only that class. SCHOOL assignments
+    and primary changes remain schoolwide operations.
+    """
+    scopes=_scopes(actor,'personnel.assignments.add')
+    if any(kind=='SCHOOL' for kind,_ in scopes):
+        return
+    if body.scope_type==AssignmentScope.SCHOOL or body.is_primary:
+        raise HTTPException(status_code=403,detail='Affectation globale ou principale réservée au périmètre école')
+    repo=PostgresPersonnelRepository(conn)
+    visible=repo._visible_staff_ids(actor.school_id,scopes)
+    if visible is None or body.staff_id not in visible:
+        raise HTTPException(status_code=403,detail='Agent hors du périmètre autorisé')
+    sections={str(v).upper() for kind,v in scopes if kind=='SECTION' and v}
+    classes={str(v).upper() for kind,v in scopes if kind=='CLASS' and v}
+    if body.scope_type==AssignmentScope.SECTION:
+        row=conn.execute(text("""
+            SELECT upper(code) AS code FROM school_sections
+            WHERE school_id=:sid AND id=:section_id
+        """),{'sid':actor.school_id,'section_id':body.section_id}).first()
+        if not row or row[0] not in sections or str(body.scope_value).upper()!=row[0]:
+            raise HTTPException(status_code=403,detail='Section d’affectation non autorisée')
+    elif body.scope_type==AssignmentScope.CLASS:
+        row=conn.execute(text("""
+            SELECT upper(sc.code) AS class_code,upper(ss.code) AS section_code,
+                   ss.id AS section_id
+            FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id
+            WHERE sc.school_id=:sid AND sc.id=:class_id AND ss.school_id=:sid
+        """),{'sid':actor.school_id,'class_id':body.class_id}).first()
+        if not row or not (row[0] in classes or row[1] in sections):
+            raise HTTPException(status_code=403,detail='Classe d’affectation non autorisée')
+        if str(body.scope_value).upper()!=row[0] or (body.section_id and body.section_id!=row[2]):
+            raise HTTPException(status_code=403,detail='Référence de classe incohérente')
+    else:
+        raise HTTPException(status_code=403,detail='Périmètre d’affectation interdit')
+    if body.titular_class_id:
+        titular=conn.execute(text("""
+            SELECT upper(sc.code),upper(ss.code) FROM school_classes sc
+            JOIN school_sections ss ON ss.id=sc.section_id
+            WHERE sc.school_id=:sid AND sc.id=:id AND ss.school_id=:sid
+        """),{'sid':actor.school_id,'id':body.titular_class_id}).first()
+        if not titular or not (titular[0] in classes or titular[1] in sections):
+            raise HTTPException(status_code=403,detail='Classe de titulariat non autorisée')
 
 
 class StaffCreate(BaseModel):
@@ -284,6 +332,7 @@ def add_assignment(body:AssignmentCreate,response:Response,idempotency_key:str|N
     _need(actor,'personnel.assignments.add');key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
+            _authorize_assignment_add(conn,request_actor,body)
             assignment=StaffAssignment(school_id=actor.school_id,**body.model_dump());out=PostgresPersonnelRepository(conn).add_assignment(assignment);payload=_jsonable(out);_audit_outbox(conn,request_actor,action='STAFF_ASSIGNMENT_ADDED',entity_type='StaffAssignment',entity_id=assignment.id,old=None,new=payload);return 201,payload
         result=_mutate(services=services,actor=actor,key=key,operation='PERSONNEL_ADD_ASSIGNMENT',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
     except Exception as exc:_error(exc)
