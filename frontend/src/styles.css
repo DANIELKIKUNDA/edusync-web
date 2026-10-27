@@ -478,3 +478,41 @@ button.softBtn{border:1px solid #d0d5dd;background:#fff;color:#344054}
  .personnelPage .personRow:not(.head)>span:nth-child(4):before{content:"Catégorie"}
  .personnelPage .personRow:not(.head)>span:nth-child(6):before{content:"Contact"}
 }
+
+/* Personnel visual refinement: deliberate hierarchy, calmer surfaces and
+   mobile ergonomics inspired by premium native productivity applications. */
+.personnelPage{--person-surface:#fff;--person-muted:#65758d;--person-border:#e5ebf3}
+.personnelPage .personnelHero{background:linear-gradient(120deg,#f9fbff 0%,#eff5ff 58%,#e7f0ff 100%)}
+.personnelPage .personMetric{align-items:flex-start;text-align:left;padding:17px 16px;justify-content:space-between}
+.personnelPage .personMetric .metricIcon{width:42px;height:42px;border-radius:13px;margin-bottom:13px}
+.personnelPage .personMetric .metricNumber{font-size:clamp(23px,2.1vw,30px);letter-spacing:-1px}
+.personnelPage .personMetric .metricLabel{font-size:11px;line-height:1.4;margin-top:7px}
+.personnelPage .personRow:not(.head) .agentCell .avatar{box-shadow:inset 0 0 0 1px rgba(35,99,198,.1)}
+.personnelPage .personRow:not(.head) .functionName{color:#1d3c68}
+.personnelPage .personRow:not(.head) .scopePill{border-radius:999px}
+.personnelPage .staffModal .modalHead h3{font-size:clamp(20px,2vw,26px);letter-spacing:-.6px;color:#172a45}
+.personnelPage .staffModal .modalHead p{font-size:12px;line-height:1.6;margin-top:5px}
+.personnelPage .staffModal .staffFormGrid label{font-size:11px;line-height:1.4}
+.personnelPage .staffModal .staffFormGrid input,.personnelPage .staffModal .staffFormGrid select{font-size:13px}
+@media(max-width:760px){
+ .personnelPage .personnelHero{box-shadow:0 8px 25px rgba(29,72,131,.06)}
+ .personnelPage .personMetric{min-height:124px;align-items:flex-start;text-align:left;padding:14px}
+ .personnelPage .personMetric .metricIcon{width:38px;height:38px;margin-bottom:9px}
+ .personnelPage .personMetric .metricNumber{font-size:25px}
+ .personnelPage .personMetric .metricLabel{font-size:11px}
+ .personnelPage .personRow:not(.head){border-radius:18px;padding:15px;box-shadow:0 7px 24px rgba(22,48,86,.055)}
+ .personnelPage .personRow:not(.head) .agentCell b{font-size:14px;letter-spacing:-.2px;color:#182c49}
+ .personnelPage .personRow:not(.head) .functionName{font-size:12px}
+ .personnelPage .personRow:not(.head)>span:nth-child(7) button{border-radius:12px;background:#edf4ff;color:#1959b2}
+ .personnelPage .personRow:not(.head)>span:nth-child(7) button:active{transform:scale(.97)}
+ .personnelPage .personTabs{background:rgba(255,255,255,.96);border-color:#e5ebf4}
+ .personnelPage .personTabs button.active{background:#e8f1ff;color:#164f9d}
+ .personnelPage .staffModal{box-shadow:0 -16px 48px rgba(9,29,61,.17)}
+ .personnelPage .modalFooter{border-top:1px solid #e9eef6}
+}
+@media(max-width:420px){
+ .personnelPage .personMetric{min-height:112px;padding:12px}
+ .personnelPage .personMetric .metricNumber{font-size:23px}
+ .personnelPage .personMetric .metricLabel{font-size:10.5px}
+ .personnelPage .personnelHero h2{line-height:1.15}
+}
