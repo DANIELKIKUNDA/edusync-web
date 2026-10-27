@@ -73,3 +73,18 @@ def test_section_staff_detail_excludes_global_access_and_family_data():
     repo.status_history.assert_not_called()
     repo.access_links.assert_not_called()
     repo.staff_children.assert_not_called()
+
+
+def test_section_creator_requires_initial_assignment():
+    from types import SimpleNamespace
+    from fastapi import Response
+    from edusync.modules.personnel.api.router import ScopedStaffCreate, create_staff
+    user=SimpleNamespace(
+        permissions=frozenset({"personnel.create"}),
+        require=lambda capability: None,
+        scopes_for=lambda capability: (("SECTION", "PRIMAIRE"),),
+    )
+    body=ScopedStaffCreate(employee_no="EMP-1",last_name="TEST")
+    with pytest.raises(HTTPException) as exc:
+        create_staff(body,Response(),idempotency_key="unique",actor=user,services=None)
+    assert exc.value.status_code==403
