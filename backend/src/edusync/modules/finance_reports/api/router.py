@@ -90,14 +90,25 @@ def _period(period_type, start, end):
     return start, end
 
 
+def _need_periodic_scope(actor):
+    """Periodic preview is section-aware; official issued reports remain school-wide."""
+    try:
+        actor.require('finance.reports.periodic.generate')
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    if not actor.scopes_for('finance.reports.periodic.generate'):
+        raise HTTPException(403, 'Aucun périmètre financier autorisé')
+
+
 @router.get('/periodic')
 def periodic(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIER', start: date | None = None, end: date | None = None,
              actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """Desktop financial_report_rows: rows per payment, deposits presented per the payment policy, FC / USD apart."""
-    need(actor, 'finance.reports.periodic.generate'); a, b = _period(period_type, start, end)
+    _need_periodic_scope(actor)
+    a, b = _period(period_type, start, end)
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            return _jsonable(PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=b, profile_code=profile_code))
+            return _jsonable(PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=b, profile_code=profile_code, scopes=actor.scopes_for('finance.reports.periodic.generate')))
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
 
