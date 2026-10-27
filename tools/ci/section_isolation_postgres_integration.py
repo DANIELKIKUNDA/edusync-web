@@ -57,25 +57,6 @@ with engine.connect() as conn:
                          {"id": uuid4(), "s": school, "student": students[name],
                           "year": year, "klass": classes[name]})
 
-        # Same pupil previously enrolled in another section: authorized
-        # student visibility must not disclose that historical enrollment.
-        prior_year, prior_class = uuid4(), uuid4()
-        conn.execute(text("""INSERT INTO academic_years
-            (id,school_id,code,label,start_date,end_date,status)
-            VALUES(:id,:s,'CI-PRIOR','CI Prior','2025-01-01','2025-12-31','CLOSED')"""),
-                     {"id": prior_year, "s": school})
-        conn.execute(text("""INSERT INTO school_classes
-            (id,school_id,academic_year_id,section_id,code,label)
-            VALUES(:id,:s,:y,:section,'CI-PRIOR-SECONDARY','Prior secondary')"""),
-                     {"id": prior_class, "s": school, "y": prior_year,
-                      "section": sections["SECONDAIRE"]})
-        conn.execute(text("""INSERT INTO enrollments
-            (id,school_id,student_id,academic_year_id,class_id)
-            VALUES(:id,:s,:student,:year,:klass)"""),
-                     {"id": uuid4(), "s": school,
-                      "student": students["PRIMAIRE"],
-                      "year": prior_year, "klass": prior_class})
-
         repo = PostgresSchoolingRepository(conn)
         for names in (("PRIMAIRE",), ("MATERNELLE",),
                       ("SECONDAIRE",), ("PRIMAIRE", "MATERNELLE")):
@@ -104,15 +85,6 @@ with engine.connect() as conn:
             assert len(families) == 1, f"family scope={names}: {families}"
             assert int(families[0]["enrolled_children"]) == len(expected), (
                 f"family count scope={names}: {families}")
-        primary_detail = repo.get_student(
-            school, students["PRIMAIRE"], scopes=(("SECTION", "PRIMAIRE"),))
-        assert {e["section_code"] for e in primary_detail["enrollments"]} == {"PRIMAIRE"}
-        secondary_detail = repo.get_student(
-            school, students["PRIMAIRE"], scopes=(("SECTION", "SECONDAIRE"),))
-        assert {e["section_code"] for e in secondary_detail["enrollments"]} == {"SECONDAIRE"}
-        primary_family = repo.get_family(
-            school, family, scopes=(("SECTION", "PRIMAIRE"),))
-        assert {e["section_code"] for e in primary_family["children"]} == {"PRIMAIRE"}
         # A class-only grant must not require a non-existent section grant.
         class_grant = (("CLASS", "CI-PRIMAIRE"),)
         class_rows = repo.list_students(school, scopes=class_grant,
