@@ -26,10 +26,37 @@ def catalog(actor:ActorContext=Depends(require_school_actor)):
 @router.get("/student-import-template.xlsx")
 def student_import_template(academic_year_id:UUID|None=Query(None),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,"documents.student_import_template.export")
+    # Exporting a class template is a data read: never enumerate classes
+    # outside the export capability's explicit SECTION/CLASS grants.
+    scopes = actor.scopes_for("documents.student_import_template.export")
+    schoolwide = any(t == "SCHOOL" for t, _ in scopes)
+    sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+    class_codes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
+    if not schoolwide and not sections and not class_codes:
+        raise HTTPException(403, "Aucune classe autorisée pour cet export")
     classes=[]
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         if academic_year_id:
-            classes=[r[0] for r in conn.execute(text("SELECT code FROM school_classes WHERE school_id=:sid AND academic_year_id=:y AND enabled ORDER BY code"),{"sid":actor.school_id,"y":academic_year_id}).all()]
+            predicates = ["sc.school_id=:sid", "sc.academic_year_id=:y", "sc.enabled"]
+            params = {"sid": actor.school_id, "y": academic_year_id}
+            if not schoolwide:
+                allowed = []
+                if sections:
+                    allowed.append("upper(ss.code) IN :sections")
+                    params["sections"] = sections
+                if class_codes:
+                    allowed.append("upper(sc.code) IN :class_codes")
+                    params["class_codes"] = class_codes
+                predicates.append("(" + " OR ".join(allowed) + ")")
+            from sqlalchemy import bindparam
+            stmt = text(f"""SELECT sc.code FROM school_classes sc
+                JOIN school_sections ss ON ss.id=sc.section_id
+                WHERE {' AND '.join(predicates)} ORDER BY sc.code""")
+            if sections and not schoolwide:
+                stmt = stmt.bindparams(bindparam("sections", expanding=True))
+            if class_codes and not schoolwide:
+                stmt = stmt.bindparams(bindparam("class_codes", expanding=True))
+            classes=[row[0] for row in conn.execute(stmt, params).all()]
     data=student_import_template_xlsx(school_name="EduSync École",classes=classes)
     return StreamingResponse(BytesIO(data),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":'attachment; filename="modele_import_eleves_edusync.xlsx"'})
 
