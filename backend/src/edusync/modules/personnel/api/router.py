@@ -33,7 +33,7 @@ router=APIRouter(tags=["Personnel"])
 # payroll and/or school-wide function catalogs. A section grant alone must not
 # authorize these operations until the target assignment is checked atomically.
 _SCHOOLWIDE_PERSONNEL_MUTATIONS = frozenset({
-    'personnel.create', 'personnel.update', 'personnel.activate',
+    'personnel.update', 'personnel.activate',
     'personnel.exit', 'personnel.reactivate', 'personnel.functions.manage',
     'personnel.assignments.end',
     'personnel.staff_children.link', 'personnel.staff_children.finance_mode',
@@ -96,22 +96,24 @@ def _scopes(actor:ActorContext,capability:str)->tuple[tuple[str,str|None],...]:
     return scopes
 
 
-def _authorize_assignment_add(conn, actor:ActorContext, body:"AssignmentCreate")->None:
+def _authorize_assignment_add(conn, actor:ActorContext, body:"AssignmentCreate", *,
+                              capability:str='personnel.assignments.add',\n                              check_existing_staff:bool=True)->None:
     """Authorize the exact destination within the same write transaction.
 
     A section grant can assign an already-visible agent only inside its
     section. A CLASS grant can assign only that class. SCHOOL assignments
     and primary changes remain schoolwide operations.
     """
-    scopes=_scopes(actor,'personnel.assignments.add')
+    scopes=_scopes(actor,capability)
     if any(kind=='SCHOOL' for kind,_ in scopes):
         return
     if body.scope_type==AssignmentScope.SCHOOL or body.is_primary:
         raise HTTPException(status_code=403,detail='Affectation globale ou principale réservée au périmètre école')
     repo=PostgresPersonnelRepository(conn)
-    visible=repo._visible_staff_ids(actor.school_id,scopes)
-    if visible is None or body.staff_id not in visible:
-        raise HTTPException(status_code=403,detail='Agent hors du périmètre autorisé')
+    if check_existing_staff:
+        visible=repo._visible_staff_ids(actor.school_id,scopes)
+        if visible is None or body.staff_id not in visible:
+            raise HTTPException(status_code=403,detail='Agent hors du périmètre autorisé')
     sections={str(v).upper() for kind,v in scopes if kind=='SECTION' and v}
     classes={str(v).upper() for kind,v in scopes if kind=='CLASS' and v}
     if body.scope_type==AssignmentScope.SECTION:
@@ -160,6 +162,12 @@ class StaffCreate(BaseModel):
     hire_date:date|None=None
     photo_url:str|None=None
     notes:str|None=None
+
+class ScopedStaffCreate(StaffCreate):
+    # Required for a section/class-only creator: the new identity must be
+    # assigned to an authorized destination in the same database transaction.
+    initial_assignment:AssignmentCreate|None=None
+
 
 class StaffUpdate(StaffCreate): pass
 
@@ -249,11 +257,34 @@ def profile(staff_id:UUID,actor:ActorContext=Depends(require_school_actor),servi
         return _jsonable(item)
 
 @router.post('',status_code=201)
-def create_staff(body:StaffCreate,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def create_staff(body:ScopedStaffCreate,response:Response,idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'personnel.create');key=_key(idempotency_key)
+    scopes=_scopes(actor,'personnel.create')
+    schoolwide=any(kind=='SCHOOL' for kind,_ in scopes)
+    if not schoolwide and body.initial_assignment is None:
+        raise HTTPException(status_code=403,detail='Une affectation initiale dans votre section est obligatoire')
     try:
         def action(conn,request_actor):
-            member=StaffMember(school_id=actor.school_id,**body.model_dump());out=PostgresPersonnelRepository(conn).create_staff(member);payload=_jsonable(out);_audit_outbox(conn,request_actor,action='STAFF_CREATED',entity_type='StaffMember',entity_id=member.id,old=None,new=payload);return 201,payload
+            member=StaffMember(school_id=actor.school_id,**body.model_dump(exclude={'initial_assignment'}))
+            repo=PostgresPersonnelRepository(conn)
+            assignment_body=body.initial_assignment
+            if assignment_body is not None:
+                if assignment_body.staff_id!=member.id:
+                    # The client cannot choose the newly generated identity;
+                    # the server binds the assignment to the new staff record.
+                    assignment_body=assignment_body.model_copy(update={'staff_id':member.id})
+                _authorize_assignment_add(conn,request_actor,assignment_body,
+                    capability='personnel.create',check_existing_staff=False)
+            out=repo.create_staff(member)
+            payload=_jsonable(out)
+            _audit_outbox(conn,request_actor,action='STAFF_CREATED',entity_type='StaffMember',entity_id=member.id,old=None,new=payload)
+            if assignment_body is not None:
+                assignment=StaffAssignment(school_id=actor.school_id,**assignment_body.model_dump())
+                assigned=repo.add_assignment(assignment)
+                _audit_outbox(conn,request_actor,action='STAFF_ASSIGNMENT_ADDED',
+                    entity_type='StaffAssignment',entity_id=assignment.id,old=None,new=_jsonable(assigned))
+                payload['initial_assignment']=_jsonable(assigned)
+            return 201,payload
         result=_mutate(services=services,actor=actor,key=key,operation='PERSONNEL_CREATE_STAFF',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
     except Exception as exc:_error(exc)
 
