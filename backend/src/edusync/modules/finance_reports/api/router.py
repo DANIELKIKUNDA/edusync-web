@@ -16,7 +16,7 @@ def need(a,c):
  # become school-wide access. Fail closed until each query supports section filters.
  if c.startswith('finance.') or c.startswith('students.account.'):
   scopes=a.scopes_for(c)
-  if scopes and not any(scope_type=='SCHOOL' for scope_type,_ in scopes):
+  if not any(scope_type=='SCHOOL' for scope_type,_ in scopes):
    raise HTTPException(403,'Rapport financier indisponible pour ce périmètre de section')
 
 
