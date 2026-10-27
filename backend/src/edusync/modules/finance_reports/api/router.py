@@ -95,7 +95,7 @@ def _jsonable(v):
 def report_profiles(actor: ActorContext = Depends(require_school_actor)):
     _need_periodic_scope(actor)
     return {'official_pdf_available': any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.periodic.generate')),
-            'generated_history_available': any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.history.read')),
+            'generated_history_available': ('finance.reports.history.read' in actor.permissions and any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.history.read'))),
             'profiles': [{'code': k, **{x: (list(y) if isinstance(y, tuple) else y) for x, y in v.items()}} for k, v in REPORT_PROFILES.items() if k in {'CONSOLIDE','FRAIS_SCOLAIRES','ARTICLES_SCOLAIRES'}],
             'period_types': [{'code': k, 'label': v} for k, v in PERIOD_LABELS.items()]}
 
