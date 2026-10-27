@@ -254,13 +254,19 @@ class PostgresSchoolingRepository:
         enrollment_scopes = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
         class_scopes = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
         schoolwide = any(t=="SCHOOL" for t,_ in scopes)
-        history_where = "TRUE" if schoolwide else (
-            "(upper(ss.code) IN :history_sections OR upper(sc.code) IN :history_classes)"
-            if enrollment_scopes or class_scopes else "FALSE"
-        )
+        history_clauses = []
+        if enrollment_scopes:
+            history_clauses.append("upper(ss.code) IN :history_sections")
+        if class_scopes:
+            history_clauses.append("upper(sc.code) IN :history_classes")
+        history_where = ("TRUE" if schoolwide else
+                         "(" + " OR ".join(history_clauses) + ")"
+                         if history_clauses else "FALSE")
         history_params = {"sid":school_id,"id":student_id}
-        if not schoolwide and (enrollment_scopes or class_scopes):
-            history_params.update(history_sections=enrollment_scopes,history_classes=class_scopes)
+        if not schoolwide and enrollment_scopes:
+            history_params["history_sections"] = enrollment_scopes
+        if not schoolwide and class_scopes:
+            history_params["history_classes"] = class_scopes
         history_stmt = text(f"""SELECT e.*,ay.code academic_year_code,ay.label academic_year_label,
               sc.code class_code,sc.label class_label,ss.code section_code,ss.label section_label
               FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id
@@ -268,10 +274,10 @@ class PostgresSchoolingRepository:
               JOIN school_sections ss ON ss.id=sc.section_id
               WHERE e.school_id=:sid AND e.student_id=:id AND {history_where}
               ORDER BY ay.start_date DESC""")
-        if not schoolwide and (enrollment_scopes or class_scopes):
-            history_stmt = history_stmt.bindparams(
-                bindparam("history_sections", expanding=True),
-                bindparam("history_classes", expanding=True))
+        if not schoolwide and enrollment_scopes:
+            history_stmt = history_stmt.bindparams(bindparam("history_sections", expanding=True))
+        if not schoolwide and class_scopes:
+            history_stmt = history_stmt.bindparams(bindparam("history_classes", expanding=True))
         out['enrollments']=[_row(x) for x in self.connection.execute(history_stmt,history_params).all()]
         out['guardians']=[_row(x) for x in self.connection.execute(text("""SELECT g.*,fg.role,fg.is_primary FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id WHERE fg.school_id=:sid AND fg.family_id=:fid AND fg.active ORDER BY fg.is_primary DESC"""),{"sid":school_id,"fid":out['family_id']}).all()]
         out['benefits']=[_row(x) for x in self.connection.execute(text("SELECT * FROM student_benefits WHERE school_id=:sid AND student_id=:id ORDER BY created_at DESC"),{"sid":school_id,"id":student_id}).all()]
