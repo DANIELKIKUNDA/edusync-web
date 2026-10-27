@@ -10,6 +10,22 @@
 - Le pipeline existant requiert des runs CI `success` sur le SHA **exact**, des images GHCR `amd64+arm64`, une validation staging et un E2E staging vert avant production.
 - Le contrôleur de déploiement installé sur le VPS **vérifie lui-même ces preuves**. Une simple commande SSH ou un exécuteur local ne les remplace pas. **Ne pas supprimer ces vérifications.**
 
+## Nouveau constat d'infrastructure (diagnostic utilisateur du 27/10)
+
+Observations sur le VPS `ubuntu-8gb-nbg1-2` :
+
+- ARM64, 4 CPU, **7,5 Gio de RAM totale, 5,8 Gio disponibles**, **0 swap**.
+- Disque : **53 Go libres** sur le volume racine.
+- Docker accessible en lecture avec `sudo`, mais pas directement sous `edusyncadmin`.
+- **13 conteneurs actifs** comprenant `edusync-staging-*`, PostgreSQL/Redis, Coolify et ses dépendances.
+- Le backend staging a été observé `healthy` ; cela ne certifie pas les flux métier complets.
+
+**Décision de sécurité : serveur partagé = PAS de CI lourde ici.** La RAM disponible à un instant donné n'est pas une réservation. Avec 0 swap, Chromium et les migrations pourraient affecter staging/Coolify. Ne pas ajouter `edusyncadmin` au groupe `docker` du VPS : cet accès est pratiquement équivalent à root.
+
+Le nouveau `tools/ci/fallback_assert_ci_host.sh` est appelé par `fallback_local.sh`, `fallback_poll.sh` et `fallback_build_images.sh`. Il **refuse** les opérations lourdes si Docker n'est pas accessible au compte CI non-root ou si au moins un conteneur fonctionne déjà sur cet hôte. En particulier, les 13 conteneurs staging/Coolify provoqueront un refus sûr, **sans tentative de les arrêter**.
+
+Ce garde-fou protège le serveur contre une erreur d'installation. Utiliser un hôte CI exclusif pour exécuter les suites, et le VPS actuel uniquement comme destination staging du mécanisme CD déjà certifié.
+
 ## 1. Premier secours : tests locaux isolés, sans GitHub Actions
 
 `tools/ci/fallback_local.sh` reproduit sur une machine Linux de test autorisée :
