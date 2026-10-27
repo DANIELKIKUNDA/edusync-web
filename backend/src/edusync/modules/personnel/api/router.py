@@ -105,7 +105,8 @@ def _scopes(actor:ActorContext,capability:str)->tuple[tuple[str,str|None],...]:
 
 
 def _authorize_assignment_add(conn, actor:ActorContext, body:"AssignmentCreate", *,
-                              capability:str='personnel.assignments.add',\n                              check_existing_staff:bool=True)->None:
+                              capability:str='personnel.assignments.add',
+                              check_existing_staff:bool=True)->None:
     """Authorize the exact destination within the same write transaction.
 
     A section grant can assign an already-visible agent only inside its
@@ -163,9 +164,11 @@ def _authorize_staff_update(conn, actor:ActorContext, staff_id:UUID)->None:
     scopes=_scopes(actor,'personnel.update')
     if any(kind=='SCHOOL' for kind,_ in scopes):
         return
-    conn.execute(text("""
+    owner=conn.execute(text("""
         SELECT id FROM staff_members WHERE school_id=:sid AND id=:staff FOR UPDATE
     """),{'sid':actor.school_id,'staff':staff_id}).first()
+    if owner is None:
+        raise HTTPException(status_code=404,detail='Agent introuvable dans cet établissement')
     sections=sorted({str(value).upper() for kind,value in scopes if kind=='SECTION' and value})
     classes=sorted({str(value).upper() for kind,value in scopes if kind=='CLASS' and value})
     if not sections and not classes:
