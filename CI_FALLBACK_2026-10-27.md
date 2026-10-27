@@ -41,8 +41,12 @@ PREFET_SHA="$(git rev-parse origin/chatgpt/prefet-directeur-certification)"
 bash tools/ci/fallback_local.sh "$PREFET_SHA"
 ```
 
-Le test de la branche Préfet/Direction porte sur la version exacte du travail en cours et ne doit pas être confondu avec la certification de `main`. Le script marque explicitement `NOT_APPLICABLE` l'intégration d'isolation de sections lorsqu'un ancien SHA ne la contient pas ; il ne s'agit pas d'une preuve de réussite de cette intégration. Les rapports sont sous `~/edusync-ci-reports/<sha>-<date UTC>/` (fichiers en accès privé, à vérifier avant tout partage).
+Le test de la branche Préfet/Direction porte sur la version exacte du travail en cours et ne doit pas être confondu avec la certification de `main`. Le script marque explicitement `NOT_APPLICABLE` l'intégration d'isolation de sections lorsqu'un ancien SHA ne la contient pas ; il ne s'agit pas d'une preuve de réussite de cette intégration. Les rapports sont sous `~/edusync-ci-reports/<sha>-<date UTC>/` (fichiers en accès privé, à vérifier avant tout partage). Le répertoire contient `summary.txt`, `resultats.txt`, les journaux de chaque étape et les **résultats JSON/captures Playwright** conservés sous `ci-evidence/browser-dev` et `ci-evidence/browser-compiled` (ou `playwright-last-results` lorsque le test échoue avant la copie). Ces preuves sont privées sur la machine CI ; le seul statut GitHub n'en contient pas les fichiers.
 
+
+### Autotests du publisher
+
+Avant de lancer Docker, `fallback_local.sh` exécute le module `tools/ci/tests/test_fallback_github_status.py` en mode **hors réseau**. Ces tests vérifient notamment l'identifiant du commit, le contexte `external/edusync-ci`, le refus des jetons lisibles par d'autres utilisateurs et le comportement en cas de coupure réseau. Ils ne constituent **pas** des tests réels de l'API GitHub.
 
 ## 1 bis. Exécution périodique sans GitHub Actions (uniquement machine CI dédiée)
 
@@ -96,7 +100,9 @@ Le rapport contient les identifiants immuables locaux (`docker image inspect .Id
 - Contexte explicite : `external/edusync-ci` (distinct de la CI GitHub Actions officielle).
 - Statuts : `pending` au début, puis `success` ou `failure` uniquement sur la base de l'exécution réelle de `fallback_local.sh` pour le SHA testé. En cas d'échec de publication, le poller enregistre `PASS_LOCAL_STATUS_UNPUBLISHED` ou `FAIL` ; jamais de faux succès distant.
 - Les assistants Claude/Codex disposant d'accès GitHub au dépôt privé peuvent consulter ces statuts sur le commit SHA, dans la PR associée si GitHub les affiche, ou avec la ressource `GET /repos/DANIELKIKUNDA/edusync-web/commits/{sha}/status`. Les **journaux détaillés restent sur l'hôte CI** ; ne pas prétendre qu'ils sont accessibles dans GitHub. Un accès SSH autorisé ou une solution d'archivage de preuves privée est nécessaire pour lire les logs, captures et traces complets.
-- **Pour Préfet et Direction en cours de développement :** ne pas activer de timer supplémentaire qui s'exécuterait à chaque petit commit. Lorsque la branche est prête à être prévalidée, exécuter manuellement sur l'hôte CI isolé (après configuration du jeton et récupération du code de PR #30) :
+- **États reportés localement :** `PASS_LOCAL_UNPUBLISHED` (jeton absent), `PASS_LOCAL_REPORTED` (statut externe accepté par GitHub), `PASS_LOCAL_STATUS_UNPUBLISHED` (tests passés mais publication échouée), `FAIL` (tests échoués), `IN_PROGRESS` (tests commencés ou interrompus). Ces états ne représentent jamais la réussite du déploiement staging.
+
+**Pour Préfet et Direction en cours de développement :** ne pas activer de timer supplémentaire qui s'exécuterait à chaque petit commit. Lorsque la branche est prête à être prévalidée, exécuter manuellement sur l'hôte CI isolé (après configuration du jeton et récupération du code de PR #30) :
 
 ```bash
 cd /srv/edusync-ci/edusync-web
