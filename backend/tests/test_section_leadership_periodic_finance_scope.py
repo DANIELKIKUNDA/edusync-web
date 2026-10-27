@@ -265,3 +265,20 @@ def test_profiles_advertise_only_authorized_official_actions():
     with pytest.raises(HTTPException) as error:
         report_profiles(actor=actor(set(), ()))
     assert error.value.status_code == 403
+
+
+def test_finance_adapter_compiles_and_student_account_query_is_callable():
+    """Catch syntax regressions that prevent importing the entire finance router."""
+    import ast
+    from pathlib import Path
+    path = (Path(__file__).resolve().parents[1] /
+            "src/edusync/adapters/postgres_periodic_reports.py")
+    ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    from unittest.mock import Mock
+    conn = Mock()
+    conn.execute.return_value.mappings.return_value.first.return_value = None
+    import pytest
+    with pytest.raises(LookupError, match="Élève introuvable"):
+        PostgresPeriodicReportsRepository(conn).student_account(
+            uuid4(), uuid4(), scopes=(("SECTION", "SECONDAIRE"),))
+    assert conn.execute.call_count == 1
