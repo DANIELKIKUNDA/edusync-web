@@ -40,12 +40,12 @@ def grant(capability,scope="SECTION",value="PRIMAIRE"):
 
 
 @pytest.mark.parametrize("endpoint", [
-    "/personnel/history",
+    "/personnel/history/events",
     "/personnel/12345678-1234-1234-1234-123456789012/children",
 ])
 def test_section_cannot_read_unfiltered_global_personnel_data(harness,endpoint):
     client,state=harness
-    capability="personnel.history.read" if endpoint.endswith("history") else "personnel.staff_children.read"
+    capability="personnel.history.read" if endpoint.endswith("events") else "personnel.staff_children.read"
     state["actor"]=grant(capability)
     response=client.get(endpoint)
     assert response.status_code==403
