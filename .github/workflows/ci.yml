@@ -108,6 +108,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/cashier_postgres_integration.py
+      - name: Isolation des sections — PostgreSQL réel (maternelle, primaire, secondaire, double affectation)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/section_isolation_postgres_integration.py
 
   frontend:
     name: Frontend — typecheck et build
