@@ -163,10 +163,22 @@ class StaffCreate(BaseModel):
     photo_url:str|None=None
     notes:str|None=None
 
+class InitialStaffAssignment(BaseModel):
+    """Destination supplied at staff creation; the server owns staff_id."""
+    function_id:UUID
+    scope_type:AssignmentScope=AssignmentScope.SCHOOL
+    scope_value:str|None=Field(default=None,max_length=96)
+    section_id:UUID|None=None
+    class_id:UUID|None=None
+    is_primary:bool=False
+    is_titular:bool=False
+    titular_class_id:UUID|None=None
+    start_date:date=Field(default_factory=date.today)
+
+
 class ScopedStaffCreate(StaffCreate):
-    # Required for a section/class-only creator: the new identity must be
-    # assigned to an authorized destination in the same database transaction.
-    initial_assignment:AssignmentCreate|None=None
+    # Section/class creators must provide a destination in the same transaction.
+    initial_assignment:InitialStaffAssignment|None=None
 
 
 class StaffUpdate(StaffCreate): pass
@@ -267,12 +279,10 @@ def create_staff(body:ScopedStaffCreate,response:Response,idempotency_key:str|No
         def action(conn,request_actor):
             member=StaffMember(school_id=actor.school_id,**body.model_dump(exclude={'initial_assignment'}))
             repo=PostgresPersonnelRepository(conn)
-            assignment_body=body.initial_assignment
-            if assignment_body is not None:
-                if assignment_body.staff_id!=member.id:
-                    # The client cannot choose the newly generated identity;
-                    # the server binds the assignment to the new staff record.
-                    assignment_body=assignment_body.model_copy(update={'staff_id':member.id})
+            assignment_body=None
+            if body.initial_assignment is not None:
+                assignment_body=AssignmentCreate(
+                    staff_id=member.id,**body.initial_assignment.model_dump())
                 _authorize_assignment_add(conn,request_actor,assignment_body,
                     capability='personnel.create',check_existing_staff=False)
             out=repo.create_staff(member)
