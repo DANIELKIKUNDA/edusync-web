@@ -286,16 +286,34 @@ class PostgresSchoolingParityRepository:
         rows = self.c.execute(_bind_scope(text(query), scope_params), args).mappings().all()
         return [_plain(r) for r in rows]
 
-    def product_sales_report(self, school_id: UUID, *, start_date: date, end_date: date) -> dict[str, Any]:
+    def product_sales_report(self, school_id: UUID, *, start_date: date, end_date: date, scopes=None) -> dict[str, Any]:
         if start_date > end_date:
             raise ValueError("La date de début doit précéder la date de fin")
-        rows = self.c.execute(text("""SELECT ps.id, (p.created_at AT TIME ZONE 'Africa/Lubumbashi') AS sold_at, ps.quantity, ps.unit_price, p.amount AS total_amount, p.currency,
+        from sqlalchemy import bindparam
+        schoolwide = scopes is None or any(t == "SCHOOL" for t, _ in scopes)
+        sections = sorted({str(v).upper() for t, v in (scopes or ()) if t == "SECTION" and v})
+        classes = sorted({str(v).upper() for t, v in (scopes or ()) if t == "CLASS" and v})
+        predicates, scope_params = [], {}
+        if not schoolwide:
+            if sections:
+                predicates.append("upper(ss_scope.code) IN :scope_sections")
+                scope_params["scope_sections"] = sections
+            if classes:
+                predicates.append("upper(sc_scope.code) IN :scope_classes")
+                scope_params["scope_classes"] = classes
+        scope_where = "TRUE" if schoolwide else ("(" + " OR ".join(predicates) + ")" if predicates else "FALSE")
+        stmt = text(f"""SELECT ps.id, (p.created_at AT TIME ZONE 'Africa/Lubumbashi') AS sold_at, ps.quantity, ps.unit_price, p.amount AS total_amount, p.currency,
                 pr.code AS product_code, pr.label AS product_label, s.matricule, s.last_name, s.middle_name, s.first_name, p.actor_user_id AS cashier_id, p.receipt_number,
                 EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id) AS reversed
               FROM finance_product_sales ps JOIN finance_payments p ON p.id=ps.payment_id JOIN school_products pr ON pr.id=ps.product_id
               LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students s ON s.id=e.student_id
-             WHERE ps.school_id=:s AND (p.created_at AT TIME ZONE 'Africa/Lubumbashi')::date BETWEEN :a AND :b ORDER BY p.created_at, s.last_name"""),
-            {"s": school_id, "a": start_date, "b": end_date}).mappings().all()
+              LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+             WHERE ps.school_id=:s AND (p.created_at AT TIME ZONE 'Africa/Lubumbashi')::date BETWEEN :a AND :b
+               AND {scope_where} ORDER BY p.created_at, s.last_name""")
+        for key in ("scope_sections", "scope_classes"):
+            if key in scope_params:
+                stmt = stmt.bindparams(bindparam(key, expanding=True))
+        rows = self.c.execute(stmt, {"s": school_id, "a": start_date, "b": end_date, **scope_params}).mappings().all()
         totals: dict[str, Decimal] = {}
         for r in rows:
             if not r["reversed"]:
