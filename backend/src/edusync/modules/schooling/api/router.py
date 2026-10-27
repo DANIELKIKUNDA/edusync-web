@@ -162,11 +162,15 @@ from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRe
 @router.get('/students/probable')
 def probable_students(last_name:str=Query(...,min_length=1,max_length=120),middle_name:str='',first_name:str='',birth_date:date|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-1 — Desktop find_probable_students: likely existing pupils before a new permanent record."""
-    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_require_schoolwide_parity(actor,'students.read')
-    elif not any('SCHOOL'==kind for cap in ('enrollments.create','enrollments.reenroll') if cap in actor.permissions for kind,_ in actor.scopes_for(cap)):
-        raise HTTPException(status_code=403,detail='Consultation non disponible pour ce périmètre de section')
+    # Search only students visible under the capability used for enrollment
+    # or student consultation; a section grant never becomes a school grant.
+    capability = next((cap for cap in ('students.read', 'enrollments.create', 'enrollments.reenroll')
+                       if cap in actor.permissions and actor.scopes_for(cap)), None)
+    if capability is None:
+        raise HTTPException(status_code=403, detail='Périmètre de consultation des élèves absent')
+    scopes = actor.scopes_for(capability)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return {'items':_jsonable(PostgresSchoolingParityRepository(conn).probable_students(actor.school_id,last_name=last_name,middle_name=middle_name,first_name=first_name,birth_date=birth_date))}
+        return {'items':_jsonable(PostgresSchoolingParityRepository(conn).probable_students(actor.school_id,last_name=last_name,middle_name=middle_name,first_name=first_name,birth_date=birth_date,scopes=scopes))}
 
 @router.get('/students/{student_id}/historical-arrears')
 def historical_arrears(student_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
