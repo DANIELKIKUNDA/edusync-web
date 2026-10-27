@@ -146,6 +146,36 @@ with engine.connect() as conn:
         schoolwide = repo.list_students(school, scopes=(("SCHOOL", None),),
                                         all_years=True)
         assert {row["id"] for row in schoolwide} == set(students.values())
+        # Separate regression: a pupil with a past enrollment in another
+        # section must reveal only the enrollments in the caller's scope.
+        prior_year, prior_class = uuid4(), uuid4()
+        conn.execute(text("""INSERT INTO academic_years
+            (id,school_id,code,label,start_date,end_date,status)
+            VALUES(:id,:s,'CI-PRIOR','CI Prior','2025-01-01','2025-12-31','CLOSED')"""),
+                     {"id": prior_year, "s": school})
+        conn.execute(text("""INSERT INTO school_classes
+            (id,school_id,academic_year_id,section_id,code,label)
+            VALUES(:id,:s,:y,:section,'CI-PRIOR-SECONDARY','Prior secondary')"""),
+                     {"id": prior_class, "s": school, "y": prior_year,
+                      "section": sections["SECONDAIRE"]})
+        conn.execute(text("""INSERT INTO enrollments
+            (id,school_id,student_id,academic_year_id,class_id)
+            VALUES(:id,:s,:student,:year,:klass)"""),
+                     {"id": uuid4(), "s": school,
+                      "student": students["PRIMAIRE"],
+                      "year": prior_year, "klass": prior_class})
+        for section, expected_section in (("PRIMAIRE", "PRIMAIRE"),
+                                           ("SECONDAIRE", "SECONDAIRE")):
+            grant = (("SECTION", section),)
+            detail = repo.get_student(school, students["PRIMAIRE"], scopes=grant)
+            assert detail is not None
+            assert {row["section_code"] for row in detail["enrollments"]} == {
+                expected_section}
+            family_detail = repo.get_family(school, family, scopes=grant)
+            primary_rows = [row for row in family_detail["children"]
+                            if row["id"] == students["PRIMAIRE"]]
+            assert len(primary_rows) == 1
+            assert primary_rows[0]["section_code"] == expected_section
         print("PASS: real PostgreSQL section directory, shared family, dual grants")
     finally:
         tx.rollback()
