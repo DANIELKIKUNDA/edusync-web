@@ -16,6 +16,8 @@ ROOT="$(realpath "$1")"
 }
 [[ "$EUID" -ne 0 ]] || { echo "REFUS : root non autorise" >&2; exit 77; }
 command -v flock >/dev/null || { echo "flock indisponible" >&2; exit 69; }
+# Fail-closed AVANT fetch et tout declenchement CI.
+bash "$ROOT/tools/ci/fallback_assert_ci_host.sh"
 
 origin="$(git -C "$ROOT" remote get-url origin)"
 case "$origin" in
