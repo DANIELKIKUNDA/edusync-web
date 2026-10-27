@@ -116,9 +116,17 @@ class PostgresPersonnelRepository:
             return None
         out=_row(row)
         out["assignments"] = self.list_assignments(school_id,staff_id,scopes=scopes,include_history=True)
-        out["history"] = self.status_history(school_id,staff_id)
-        out["access_links"] = self.access_links(school_id,staff_id)
-        out["staff_children"] = self.staff_children(school_id,staff_id)
+        # These collections are linked to the staff identity, not to a
+        # section assignment. A scoped reader must not learn school-wide
+        # access memberships, family relationships or global status events.
+        if any(kind == "SCHOOL" for kind, _ in scopes):
+            out["history"] = self.status_history(school_id,staff_id)
+            out["access_links"] = self.access_links(school_id,staff_id)
+            out["staff_children"] = self.staff_children(school_id,staff_id)
+        else:
+            out["history"] = []
+            out["access_links"] = []
+            out["staff_children"] = []
         return out
 
     def summary(self, school_id: UUID, *, scopes: tuple[tuple[str, str | None], ...] = ()) -> StaffSummary:
