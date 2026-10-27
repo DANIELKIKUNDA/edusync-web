@@ -217,3 +217,17 @@ def test_analytics_scope_queries_are_executable_and_bound():
         assert stmt._bindparams["scope_classes"].expanding
         assert params["scope_sections"] == ["MATERNELLE"]
         assert params["scope_classes"] == ["M1A"]
+
+
+def test_schoolwide_finance_joins_remain_optional_but_section_grants_fail_closed():
+    """Unassigned section rows remain visible schoolwide, never to section users."""
+    from pathlib import Path
+    adapter = (Path(__file__).resolve().parents[1] /
+               "src/edusync/adapters/postgres_periodic_reports.py").read_text()
+    for method in ("_allocations", "_sales", "analysis_by_fee_type",
+                   "analysis_by_cashier", "analysis_advance_funds"):
+        body = adapter.split("def " + method + "(", 1)[1].split("\n    def ", 1)[0]
+        assert "LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id" in body
+        assert "AND {scope_where}" in body
+    assert PostgresPeriodicReportsRepository._scope_clause(()) == ("FALSE", {})
+    assert PostgresPeriodicReportsRepository._scope_clause((("SCHOOL", None),)) == ("TRUE", {})
