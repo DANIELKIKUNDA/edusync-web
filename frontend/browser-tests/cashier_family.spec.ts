@@ -113,3 +113,27 @@ test('panier partiellement payé : reprise après réponse perdue réutilise la 
   expect(result.keys).toHaveLength(2);
   expect(result.keys[1]).toBe(result.keys[0]);
 });
+
+test('panier restauré avec période antérieure impayée : refus visible avant tout encaissement',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  const result=await prepare(page);
+  const earlier='77777777-7777-4777-8777-777777777777';
+  await page.route('**/api/v1/finance/checkout/balance/**',async route=>{
+    const enrollment=new URL(route.request().url()).pathname.split('/').pop();
+    if(enrollment!==children[0].enrollment_id)return route.fallback();
+    return route.fulfill({json:{items:[
+      {id:earlier,label:'Frais scolaires mensuels — Septembre',period_label:'Septembre',currency:'CDF',net_amount:'55000',paid_amount:'0',remaining:'55000',periodicity:'MONTHLY',eligible:true,requires:[]},
+      {id:fees[enrollment],label:'Frais scolaires mensuels — Octobre',period_label:'Octobre',currency:'CDF',net_amount:'50000',paid_amount:'0',remaining:'50000',periodicity:'MONTHLY',eligible:false,lock_reason:'Septembre doit être soldé d’abord',requires:[earlier]}
+    ]}});
+  });
+  await page.reload();
+  const finance=page.getByRole('complementary',{name:'Navigation principale'}).getByRole('button',{name:'Centre financier'});
+  await finance.click();
+  await page.getByRole('button',{name:'Reprendre et vérifier'}).click();
+  const aside=page.getByRole('complementary',{name:'Transaction active'});
+  await expect(aside.locator('.basketActionError')).toContainText('Octobre exige d’abord Septembre');
+  await expect(aside.getByRole('button',{name:'Modifier'}).first()).toBeVisible();
+  await aside.getByRole('button',{name:'Encaisser le panier'}).click();
+  await expect(aside.locator('.basketActionError')).toContainText('Octobre exige d’abord Septembre');
+  expect(result.attempts()).toBe(0);
+});
