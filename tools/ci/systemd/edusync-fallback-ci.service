@@ -13,6 +13,8 @@ User=edusync-ci
 Group=edusync-ci
 SupplementaryGroups=docker
 WorkingDirectory=/srv/edusync-ci/edusync-web
+# Chemin du jeton finement restreint, jamais sa valeur dans systemd ou Git.
+Environment=EDUSYNC_GITHUB_STATUS_TOKEN_FILE=/srv/edusync-ci/.secrets/github-status-token
 ExecStart=/usr/bin/bash /srv/edusync-ci/edusync-web/tools/ci/fallback_poll.sh /srv/edusync-ci/edusync-web
 UMask=0077
 Nice=10
