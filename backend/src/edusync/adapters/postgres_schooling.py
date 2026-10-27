@@ -189,14 +189,22 @@ class PostgresSchoolingRepository:
 
     def list_students(self, school_id:UUID, *, scopes:tuple[tuple[str,str|None],...], q:str|None=None, class_id:UUID|None=None, status:str|None=None, academic_year_id:UUID|None=None, section_id:UUID|None=None, gender:str|None=None, all_years:bool=False, limit:int=200, offset:int=0, option_id:UUID|None=None)->list[dict[str,Any]]:
         where,params=_student_scope_where(scopes);conditions=["s.school_id=:sid",where];args={"sid":school_id,**params}
+        # The selected enrollment itself must be authorized. Otherwise a
+        # pupil visible through one section can reveal a newer enrollment
+        # in a different section via the lateral join and exports.
+        lateral_scope = "TRUE" if any(t=="SCHOOL" for t,_ in scopes) else (
+            "(upper(ss1.code) IN :lateral_sections OR upper(sc1.code) IN :lateral_classes)"
+            if any(t in ("SECTION","CLASS") and v for t,v in scopes) else "FALSE")
+        args["lateral_sections"] = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
+        args["lateral_classes"] = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
         if all_years:
-            enrollment_join="""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' ORDER BY ay1.start_date DESC,e1.enrolled_on DESC LIMIT 1) e ON true"""
+            enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} ORDER BY ay1.start_date DESC,e1.enrolled_on DESC LIMIT 1) e ON true"""
         else:
             if academic_year_id:
                 args['year_id']=academic_year_id
-                enrollment_join="""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND e1.academic_year_id=:year_id ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
+                enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} AND e1.academic_year_id=:year_id ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
             else:
-                enrollment_join="""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND ay1.status='ACTIVE' ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
+                enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} AND ay1.status='ACTIVE' ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
             conditions.append("e.id IS NOT NULL")
         if q and q.strip():conditions.append("(s.matricule ILIKE :q OR concat_ws(' ',s.last_name,s.middle_name,s.first_name) ILIKE :q OR f.display_name ILIKE :q OR coalesce(f.phone,'') ILIKE :q OR EXISTS(SELECT 1 FROM family_guardians fgq JOIN guardians gq ON gq.id=fgq.guardian_id WHERE fgq.family_id=s.family_id AND fgq.active AND (gq.full_name ILIKE :q OR coalesce(gq.phone,'') ILIKE :q)))");args['q']=f"%{q.strip()}%"
         if class_id:conditions.append("e.class_id=:class_id");args['class_id']=class_id
@@ -218,6 +226,9 @@ class PostgresSchoolingRepository:
           LEFT JOIN academic_years ay ON ay.id=e.academic_year_id
           LEFT JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_sections ss ON ss.id=sc.section_id
           WHERE {' AND '.join(conditions)} ORDER BY s.last_name,s.middle_name,s.first_name LIMIT :limit OFFSET :offset""")
+        if lateral_scope not in ("TRUE","FALSE"):
+            stmt=stmt.bindparams(bindparam("lateral_sections",expanding=True),
+                                 bindparam("lateral_classes",expanding=True))
         stmt=_bind_scope(stmt,params);args['limit']=max(1,min(limit,1000));args['offset']=max(0,offset)
         return [_row(r) for r in self.connection.execute(stmt,args).all()]
 
