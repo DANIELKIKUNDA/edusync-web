@@ -19,8 +19,9 @@ def _row(row) -> dict[str, Any]:
 def _scope_where(scopes: tuple[tuple[str, str | None], ...], *, alias: str = "sm") -> tuple[str, dict[str, Any]]:
     """SQL visibility rule for personnel identities.
 
-    SCHOOL means full school. SECTION sees personnel with a SCHOOL assignment or
-    an assignment in that section. CLASS sees school-wide personnel or that class.
+    SCHOOL means full school. SECTION sees personnel assigned to that section
+    (including its classes). CLASS sees personnel assigned to that class.
+    A school-wide staff assignment must not implicitly widen section access.
     No effective scope fails closed.
     """
     if any(t == "SCHOOL" for t, _ in scopes):
@@ -29,7 +30,7 @@ def _scope_where(scopes: tuple[tuple[str, str | None], ...], *, alias: str = "sm
     classes = sorted({v for t, v in scopes if t == "CLASS" and v})
     if not sections and not classes:
         return "FALSE", {}
-    clauses = ["sa.scope_type='SCHOOL'"]
+    clauses: list[str] = []
     params: dict[str, Any] = {}
     if sections:
         clauses.append("(sa.scope_type='SECTION' AND upper(sa.scope_value) IN :scope_sections)")
@@ -209,7 +210,7 @@ class PostgresPersonnelRepository:
         if not include_history: clauses.append("a.end_date IS NULL")
         if not full:
             sections=sorted({v for t,v in scopes if t=='SECTION' and v});classes=sorted({v for t,v in scopes if t=='CLASS' and v})
-            bits=["a.scope_type='SCHOOL'"]
+            bits=[]
             if sections:
                 bits += ["(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)","(a.scope_type='CLASS' AND EXISTS(SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id WHERE sc.id=a.class_id AND upper(ss.code) IN :sections))"]
                 params['sections']=sections
