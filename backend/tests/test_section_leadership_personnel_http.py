@@ -6,6 +6,7 @@ A separate PostgreSQL E2E suite is still required for database/RLS gates.
 from contextlib import contextmanager
 from types import SimpleNamespace
 from uuid import uuid4
+from unittest.mock import Mock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -74,8 +75,13 @@ def test_section_cannot_change_staff_without_scoped_assignment(harness):
 def test_section_cannot_add_global_assignment(harness):
     client,state=harness
     state["actor"]=grant("personnel.assignments.add")
-    response=client.post("/personnel/assignments",
-        headers={"Idempotency-Key":"no-global"},
-        json={"staff_id":str(uuid4()),"function_id":str(uuid4()),
-              "scope_type":"SCHOOL"})
+    # Execute the real endpoint action with a fake transaction executor.
+    # The guard must reject before touching the repository.
+    def run_action(**kwargs):
+        return kwargs["action"](Mock(),kwargs["actor"])
+    with patch("edusync.modules.personnel.api.router._mutate",side_effect=run_action):
+        response=client.post("/personnel/assignments",
+            headers={"Idempotency-Key":"no-global"},
+            json={"staff_id":str(uuid4()),"function_id":str(uuid4()),
+                  "scope_type":"SCHOOL"})
     assert response.status_code==403
