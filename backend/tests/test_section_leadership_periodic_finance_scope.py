@@ -101,3 +101,18 @@ def test_official_periodic_pdf_denies_section_only_before_report_replay():
     body = router.split("def periodic_pdf(", 1)[1].split("@router.get('/periodic.xlsx')", 1)[0]
     assert "t == 'SCHOOL'" in body
     assert body.index("Rapport officiel réservé au périmètre école") < body.index("prior = c.execute")
+
+
+def test_product_sales_filter_and_history_fail_closed():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    adapter = (root / "src/edusync/adapters/postgres_schooling_parity.py").read_text()
+    router = (root / "src/edusync/modules/finance_reports/api/router.py").read_text()
+    sales = adapter.split("def product_sales_report(", 1)[1].split("def contribution_register(", 1)[0]
+    assert "upper(ss_scope.code) IN :scope_sections" in sales
+    assert "upper(sc_scope.code) IN :scope_classes" in sales
+    assert "AND {scope_where}" in sales
+    assert "scopes=actor.scopes_for('finance.products.sales_report.read')" in router
+    history = router.split("def generated_reports(", 1)[1].split("@router.get('/analysis/fees')", 1)[0]
+    assert "Historique des rapports sans provenance de section vérifiable" in history
+    assert history.index("t == 'SCHOOL'") < history.index("tenant_transaction")
