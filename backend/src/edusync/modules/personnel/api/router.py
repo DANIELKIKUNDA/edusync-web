@@ -32,6 +32,14 @@ router=APIRouter(tags=["Personnel"])
 # Mutations below currently target school-wide staff records, shared access links,
 # payroll and/or school-wide function catalogs. A section grant alone must not
 # authorize these operations until the target assignment is checked atomically.
+# These reads return global identity, family, account or status information
+# without a resource-level section filter. Keep them SCHOOL-only.
+_SCHOOLWIDE_PERSONNEL_READS = frozenset({
+    'personnel.history.read',
+    'personnel.staff_children.read',
+    'personnel.access_link.read',
+})
+
 _SCHOOLWIDE_PERSONNEL_MUTATIONS = frozenset({
     'personnel.activate',
     'personnel.exit', 'personnel.reactivate', 'personnel.functions.manage',
@@ -45,7 +53,7 @@ _SCHOOLWIDE_PERSONNEL_MUTATIONS = frozenset({
 def _need(actor:ActorContext, capability:str)->None:
     try: actor.require(capability)
     except PermissionError as exc: raise HTTPException(status_code=403,detail=str(exc)) from exc
-    if capability in _SCHOOLWIDE_PERSONNEL_MUTATIONS:
+    if capability in _SCHOOLWIDE_PERSONNEL_MUTATIONS or capability in _SCHOOLWIDE_PERSONNEL_READS:
         if not any(kind == 'SCHOOL' for kind, _ in actor.scopes_for(capability)):
             raise HTTPException(status_code=403, detail='Modification du personnel sans périmètre école : contrôle de section non disponible')
 
