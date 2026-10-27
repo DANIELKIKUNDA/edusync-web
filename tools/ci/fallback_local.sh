@@ -48,9 +48,16 @@ CURRENT="preflight"
 RESULT="FAIL"
 cleanup() {
   rc=$?
-  docker rm -f "$PG" >/dev/null 2>&1 || true
-  docker network rm "$NET" >/dev/null 2>&1 || true
-  rm -rf -- "$WORK"
+  set +e
+  docker rm -f "$PG" >/dev/null 2>&1
+  docker network rm "$NET" >/dev/null 2>&1
+  # Les tests s'executent en root DANS les conteneurs : restaurer la possession
+  # uniquement dans le dossier temporaire avant de l'effacer (jamais sur le projet).
+  if [[ -d "$WORK" ]]; then
+    docker run --rm --network none -v "$WORK:/code" python:3.13-bookworm \
+      chown -R "$(id -u):$(id -g)" /code >/dev/null 2>&1
+    rm -rf -- "$WORK"
+  fi
   {
     printf 'sha=%s\nstarted_utc=%s\nfinished_utc=%s\nresult=%s\nlast_stage=%s\n' \
       "$SHA" "$STAMP" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RESULT" "$CURRENT"
