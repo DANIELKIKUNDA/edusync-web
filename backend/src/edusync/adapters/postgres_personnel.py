@@ -77,19 +77,24 @@ class PostgresPersonnelRepository:
         if category:
             conditions.append("sm.category=:category")
             args["category"] = category
-        stmt = text(f"""
-            SELECT sm.*,
-              (SELECT count(*) FROM staff_assignments a WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL) AS active_assignment_count,
-              EXISTS(SELECT 1 FROM staff_access_links l WHERE l.school_id=sm.school_id AND l.staff_id=sm.id AND l.active) AS has_linked_access,
-              (SELECT count(*) FROM staff_student_links sl WHERE sl.school_id=sm.school_id AND sl.staff_id=sm.id AND sl.active) AS staff_children_count,
-              coalesce((SELECT jsonb_agg(jsonb_build_object(
+        full = any(kind == "SCHOOL" for kind, _ in scopes)
+        assignment_count_sql = "(SELECT count(*) FROM staff_assignments a WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL)" if full else "0"
+        linked_access_sql = "EXISTS(SELECT 1 FROM staff_access_links l WHERE l.school_id=sm.school_id AND l.staff_id=sm.id AND l.active)" if full else "false"
+        children_count_sql = "(SELECT count(*) FROM staff_student_links sl WHERE sl.school_id=sm.school_id AND sl.staff_id=sm.id AND sl.active)" if full else "0"
+        assignment_json_sql = """coalesce((SELECT jsonb_agg(jsonb_build_object(
                  'id',a.id,'function_id',a.function_id,'function_code',f.code,'function_label',f.label,
                  'scope_type',a.scope_type,'scope_value',a.scope_value,'is_primary',a.is_primary,
                  'is_titular',a.is_titular,'titular_class_id',a.titular_class_id,'start_date',a.start_date,
                  'end_date',a.end_date,'version',a.version
                ) ORDER BY a.is_primary DESC,f.sort_order,f.label)
                FROM staff_assignments a JOIN staff_functions f ON f.id=a.function_id
-              WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL), '[]'::jsonb) AS assignments
+              WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL), '[]'::jsonb)""" if full else "'[]'::jsonb"
+        stmt = text(f"""
+            SELECT sm.*,
+              {assignment_count_sql} AS active_assignment_count,
+              {linked_access_sql} AS has_linked_access,
+              {children_count_sql} AS staff_children_count,
+              {assignment_json_sql} AS assignments
             FROM staff_members sm
             WHERE {' AND '.join(conditions)}
             ORDER BY CASE sm.status WHEN 'ACTIVE' THEN 0 WHEN 'SUSPENDED' THEN 1 WHEN 'INACTIVE' THEN 2 ELSE 3 END,
