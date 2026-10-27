@@ -120,6 +120,14 @@ def _authorize_assignment_add(conn, actor:ActorContext, body:"AssignmentCreate",
         raise HTTPException(status_code=403,detail='Affectation globale ou principale réservée au périmètre école')
     repo=PostgresPersonnelRepository(conn)
     if check_existing_staff:
+        # Acquire the same staff-row lock used by assignment insertion and
+        # identity updates before evaluating scoped visibility.
+        owner=conn.execute(text("""
+            SELECT id FROM staff_members
+            WHERE school_id=:sid AND id=:staff FOR UPDATE
+        """),{'sid':actor.school_id,'staff':body.staff_id}).first()
+        if owner is None:
+            raise HTTPException(status_code=403,detail='Agent hors du périmètre autorisé')
         visible=repo._visible_staff_ids(actor.school_id,scopes)
         if visible is None or body.staff_id not in visible:
             raise HTTPException(status_code=403,detail='Agent hors du périmètre autorisé')
