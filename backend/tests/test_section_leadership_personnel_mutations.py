@@ -46,7 +46,7 @@ def test_unrelated_schoolwide_permission_does_not_widen_personnel():
 
 def test_missing_grant_denied_even_if_permission_present():
     with pytest.raises(HTTPException) as exc:
-        _need(actor_for("personnel.create", []), "personnel.create")
+        _need(actor_for("personnel.update", []), "personnel.update")
     assert exc.value.status_code == 403
 
 
@@ -88,3 +88,21 @@ def test_section_creator_requires_initial_assignment():
     with pytest.raises(HTTPException) as exc:
         create_staff(body,Response(),idempotency_key="unique",actor=user,services=None)
     assert exc.value.status_code==403
+
+
+def test_creation_initial_assignment_does_not_require_client_staff_id():
+    from edusync.modules.personnel.api.router import ScopedStaffCreate
+    section_id=uuid4()
+    function_id=uuid4()
+    request=ScopedStaffCreate.model_validate({
+        "employee_no":"EMP-2","last_name":"TEST",
+        "initial_assignment":{
+            "function_id":str(function_id),
+            "scope_type":"SECTION",
+            "scope_value":"PRIMAIRE",
+            "section_id":str(section_id),
+        }
+    })
+    assert request.initial_assignment.function_id==function_id
+    assert not hasattr(request.initial_assignment,"staff_id")
+    assert request.initial_assignment.section_id==section_id
