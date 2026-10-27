@@ -58,17 +58,18 @@ class PostgresSchoolingParityRepository:
              "fn": (first_name or "").strip(), "fnl": f"%{(first_name or '').strip()}%", "bd": birth_date, **scope_params}).mappings().all()
         return [_plain(r) for r in rows]
 
-    def historical_arrears(self, school_id: UUID, student_id: UUID, *, excluding_year_id: UUID | None = None) -> list[dict]:
+    def historical_arrears(self, school_id: UUID, student_id: UUID, *, excluding_year_id: UUID | None = None, scopes: tuple[tuple[str, str | None], ...] = ()) -> list[dict]:
         if excluding_year_id is None:
             excluding_year_id = self.c.execute(text("SELECT id FROM academic_years WHERE school_id=:s AND status='ACTIVE' LIMIT 1"), {"s": school_id}).scalar_one_or_none()
-        rows = self.c.execute(text("""SELECT ay.id AS year_id, ay.label AS year_label, fc.currency,
+        scope_where, scope_params = _student_scope_where(scopes, alias="s")
+        rows = self.c.execute(_bind_scope(text(f"""SELECT ay.id AS year_id, ay.label AS year_label, fc.currency,
                 sum(GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount
                     - COALESCE((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.charge_id=fc.id),0), 0)) AS balance
-              FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id JOIN finance_charges fc ON fc.enrollment_id=e.id AND fc.status='ACTIVE'
-             WHERE e.school_id=:s AND e.student_id=:st AND e.status='VALIDATED' AND (CAST(:x AS uuid) IS NULL OR ay.id<>CAST(:x AS uuid))
+              FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id JOIN finance_charges fc ON fc.enrollment_id=e.id AND fc.status='ACTIVE' JOIN students s ON s.id=e.student_id
+             WHERE e.school_id=:s AND e.student_id=:st AND {scope_where} AND e.status='VALIDATED' AND (CAST(:x AS uuid) IS NULL OR ay.id<>CAST(:x AS uuid))
              GROUP BY ay.id, ay.label, ay.start_date, fc.currency HAVING sum(GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount
                     - COALESCE((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.charge_id=fc.id),0), 0)) > 0
-             ORDER BY ay.start_date DESC, fc.currency"""), {"s": school_id, "st": student_id, "x": str(excluding_year_id) if excluding_year_id else None}).mappings().all()
+             ORDER BY ay.start_date DESC, fc.currency"""), scope_params), {"s": school_id, "st": student_id, "x": str(excluding_year_id) if excluding_year_id else None, **scope_params}).mappings().all()
         return [{**_plain(r), "balance": str(money(r["balance"]))} for r in rows]
 
     def family_contact_diagnostics(self, school_id: UUID) -> dict[str, int]:
