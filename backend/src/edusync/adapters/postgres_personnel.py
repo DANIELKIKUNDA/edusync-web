@@ -102,8 +102,48 @@ class PostgresPersonnelRepository:
         if not any(kind == "SCHOOL" for kind, _ in scopes):
             # Do not expose assignments or global linked-account/child counts
             # outside the reader's section. Reuse the scoped assignment query.
+            # One batched query for the page avoids an N+1 database round-trip.
+            # The SQL applies scope filtering before rows enter Python.
+            grouped: dict[UUID, list[dict[str, Any]]] = {item["id"]: [] for item in rows}
+            if grouped:
+                sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+                classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
+                permitted = []
+                params_assign: dict[str, Any] = {"sid": school_id, "staff_ids": list(grouped)}
+                if sections:
+                    permitted.append("(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)")
+                    permitted.append("""(a.scope_type='CLASS' AND EXISTS (
+                        SELECT 1 FROM school_classes sc JOIN school_sections ss
+                        ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                        WHERE sc.id=a.class_id AND sc.school_id=a.school_id
+                        AND upper(ss.code) IN :sections))""")
+                    params_assign["sections"] = sections
+                if classes:
+                    permitted.append("(a.scope_type='CLASS' AND upper(a.scope_value) IN :classes)")
+                    params_assign["classes"] = classes
+                if permitted:
+                    stmt_assign = text(f"""
+                        SELECT a.*,f.code function_code,f.label function_label,
+                               f.category function_category,ss.label section_label,
+                               sc.label class_label,tc.label titular_class_label
+                        FROM staff_assignments a
+                        JOIN staff_functions f ON f.id=a.function_id
+                        LEFT JOIN school_sections ss ON ss.id=a.section_id
+                        LEFT JOIN school_classes sc ON sc.id=a.class_id
+                        LEFT JOIN school_classes tc ON tc.id=a.titular_class_id
+                        WHERE a.school_id=:sid AND a.staff_id IN :staff_ids
+                          AND a.end_date IS NULL AND ({' OR '.join(permitted)})
+                        ORDER BY a.is_primary DESC,a.start_date DESC
+                    """).bindparams(bindparam("staff_ids", expanding=True))
+                    if sections:
+                        stmt_assign = stmt_assign.bindparams(bindparam("sections", expanding=True))
+                    if classes:
+                        stmt_assign = stmt_assign.bindparams(bindparam("classes", expanding=True))
+                    for assignment_row in self.connection.execute(stmt_assign, params_assign).all():
+                        assignment = _row(assignment_row)
+                        grouped[assignment["staff_id"]].append(assignment)
             for item in rows:
-                assignments = self.list_assignments(school_id, item["id"], scopes=scopes)
+                assignments = grouped[item["id"]]
                 item["assignments"] = assignments
                 item["active_assignment_count"] = len(assignments)
                 item["has_linked_access"] = False
