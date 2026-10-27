@@ -61,3 +61,23 @@ def test_missing_capability_remains_forbidden():
     with pytest.raises(HTTPException) as exc:
         need(actor, "finance.reports.periodic.generate")
     assert exc.value.status_code == 403
+
+
+def test_template_configuration_remains_schoolwide_only():
+    """Editing school-level financial templates cannot be authorized by section grants."""
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] /
+              "src/edusync/modules/finance_reports/api/router.py").read_text()
+    templates = source.split("def templates(", 1)[1].split("class TemplateBody", 1)[0]
+    create = source.split("def create_template(", 1)[1].split("@router.get('/preview')", 1)[0]
+    assert "need(actor,'finance.reports.history.read')" in templates
+    assert "need(actor,'finance.reports.periodic.generate')" in create
+    for capability in ("finance.reports.history.read", "finance.reports.periodic.generate"):
+        actor = ActorContext(
+            user_id=uuid4(), school_id=uuid4(), membership_id=uuid4(),
+            permissions=frozenset({capability}),
+            capability_scopes=((capability, "SECTION", "PRIMAIRE"),),
+        )
+        with pytest.raises(HTTPException) as exc:
+            need(actor, capability)
+        assert exc.value.status_code == 403
