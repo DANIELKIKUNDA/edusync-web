@@ -61,11 +61,20 @@ class PostgresSchoolingParityRepository:
     def historical_arrears(self, school_id: UUID, student_id: UUID, *, excluding_year_id: UUID | None = None, scopes: tuple[tuple[str, str | None], ...] = ()) -> list[dict]:
         if excluding_year_id is None:
             excluding_year_id = self.c.execute(text("SELECT id FROM academic_years WHERE school_id=:s AND status='ACTIVE' LIMIT 1"), {"s": school_id}).scalar_one_or_none()
-        scope_where, scope_params = _student_scope_where(scopes, alias="s")
+        # Authorize the debt's own enrollment, not any other enrollment
+        # belonging to the same pupil (cross-section transfers).
+        sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+        classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
+        schoolwide = any(t == "SCHOOL" for t, _ in scopes)
+        scope_where = ("TRUE" if schoolwide else
+                       "(upper(ss.code) IN :scope_sections OR upper(sc.code) IN :scope_classes)"
+                       if sections or classes else "FALSE")
+        scope_params = {} if schoolwide or not (sections or classes) else {
+            "scope_sections": sections, "scope_classes": classes}
         rows = self.c.execute(_bind_scope(text(f"""SELECT ay.id AS year_id, ay.label AS year_label, fc.currency,
                 sum(GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount
                     - COALESCE((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.charge_id=fc.id),0), 0)) AS balance
-              FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id JOIN finance_charges fc ON fc.enrollment_id=e.id AND fc.status='ACTIVE' JOIN students s ON s.id=e.student_id
+              FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id JOIN finance_charges fc ON fc.enrollment_id=e.id AND fc.status='ACTIVE' JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id
              WHERE e.school_id=:s AND e.student_id=:st AND {scope_where} AND e.status='VALIDATED' AND (CAST(:x AS uuid) IS NULL OR ay.id<>CAST(:x AS uuid))
              GROUP BY ay.id, ay.label, ay.start_date, fc.currency HAVING sum(GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount
                     - COALESCE((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.charge_id=fc.id),0), 0)) > 0
