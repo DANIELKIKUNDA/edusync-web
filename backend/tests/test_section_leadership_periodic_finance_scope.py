@@ -116,3 +116,57 @@ def test_product_sales_filter_and_history_fail_closed():
     history = router.split("def generated_reports(", 1)[1].split("@router.get('/analysis/fees')", 1)[0]
     assert "Historique des rapports sans provenance de section vérifiable" in history
     assert history.index("t == 'SCHOOL'") < history.index("tenant_transaction")
+
+
+class _EmptyMappings:
+    def mappings(self):
+        return self
+
+    def all(self):
+        return []
+
+
+class _RecordingConnection:
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, statement, params):
+        self.calls.append((statement, params))
+        return _EmptyMappings()
+
+
+def test_real_sql_statement_uses_expanding_section_parameters():
+    """Exercise query construction, not only static source-code assertions."""
+    conn = _RecordingConnection()
+    repo = PostgresPeriodicReportsRepository(conn)
+    repo._allocations(uuid4(), start_date=None, end_date=date(2026, 10, 27),
+                      year_id=None, scopes=(("SECTION", "PRIMAIRE"), ("SECTION", "MATERNELLE")))
+    stmt, params = conn.calls[0]
+    assert "AND (upper(ss_scope.code) IN" in str(stmt)
+    assert params["scope_sections"] == ["MATERNELLE", "PRIMAIRE"]
+    assert stmt._bindparams["scope_sections"].expanding
+    assert "scope_classes" not in params
+
+
+def test_real_sales_query_class_only_excludes_unassigned_sales():
+    conn = _RecordingConnection()
+    repo = PostgresPeriodicReportsRepository(conn)
+    assert repo._sales(uuid4(), start_date=date(2026, 10, 1),
+                       end_date=date(2026, 10, 27), year_id=None,
+                       scopes=(("CLASS", "P1A"),)) == []
+    stmt, params = conn.calls[0]
+    assert "upper(sc_scope.code) IN" in str(stmt)
+    assert params["scope_classes"] == ["P1A"]
+    assert stmt._bindparams["scope_classes"].expanding
+    assert "scope_sections" not in params
+
+
+def test_no_grant_uses_false_sql_predicate():
+    conn = _RecordingConnection()
+    repo = PostgresPeriodicReportsRepository(conn)
+    repo._allocations(uuid4(), start_date=None, end_date=date(2026, 10, 27),
+                      year_id=None, scopes=())
+    stmt, params = conn.calls[0]
+    assert "AND FALSE" in str(stmt)
+    assert "scope_sections" not in params
+    assert "scope_classes" not in params
