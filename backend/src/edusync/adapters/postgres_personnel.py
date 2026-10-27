@@ -98,7 +98,17 @@ class PostgresPersonnelRepository:
         """)
         stmt = _bind_scope(stmt, params)
         args["limit"]=max(1,min(int(limit),1000));args["offset"]=max(0,int(offset))
-        return [_row(r) for r in self.connection.execute(stmt, args).all()]
+        rows = [_row(r) for r in self.connection.execute(stmt, args).all()]
+        if not any(kind == "SCHOOL" for kind, _ in scopes):
+            # Do not expose assignments or global linked-account/child counts
+            # outside the reader's section. Reuse the scoped assignment query.
+            for item in rows:
+                assignments = self.list_assignments(school_id, item["id"], scopes=scopes)
+                item["assignments"] = assignments
+                item["active_assignment_count"] = len(assignments)
+                item["has_linked_access"] = False
+                item["staff_children_count"] = 0
+        return rows
 
     def count_staff(self, school_id: UUID, *, query: str | None = None, status: str | None = None, category: str | None = None, scopes: tuple[tuple[str,str|None], ...] = ()) -> int:
         where_scope,params=_scope_where(scopes);conditions=["sm.school_id=:sid",where_scope];args:dict[str,Any]={"sid":school_id,**params}
