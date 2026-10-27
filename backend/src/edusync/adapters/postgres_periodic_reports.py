@@ -298,7 +298,7 @@ class PostgresPeriodicReportsRepository:
               FROM students s JOIN enrollments e ON e.student_id=s.id JOIN academic_years y ON y.id=e.academic_year_id
               JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_sections sec ON sec.id=sc.section_id
               LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
-             WHERE s.school_id=:sch AND s.id=:st AND {scope_where} ORDER BY (y.status='ACTIVE') DESC, y.start_date DESC LIMIT 1""", scope_params), {"sch": school_id, "st": student_id, **scope_params}.mappings().first()
+             WHERE s.school_id=:sch AND s.id=:st AND {scope_where} ORDER BY (y.status='ACTIVE') DESC, y.start_date DESC LIMIT 1""", scope_params), {"sch": school_id, "st": student_id, **scope_params}).mappings().first()
         if not st:
             raise LookupError("Élève introuvable")
         charges = [dict(r) for r in self.c.execute(text("""SELECT fc.id, coalesce(fc.period_label, fc.label) AS fee_name, fc.label, fc.currency,
