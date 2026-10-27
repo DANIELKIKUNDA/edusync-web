@@ -119,6 +119,22 @@ with engine.connect() as conn:
         class_family = repo.get_family(school, family, scopes=class_grant)
         assert class_family is not None
         assert {child["id"] for child in class_family["children"]} == {students["PRIMAIRE"]}
+        # Household search is another entry point to the shared family.
+        # Its child count must reflect the explicit section/class union.
+        for grants, expected_count in (
+            ((("SECTION", "PRIMAIRE"),), 1),
+            ((("SECTION", "MATERNELLE"),), 1),
+            ((("SECTION", "PRIMAIRE"), ("SECTION", "MATERNELLE")), 2),
+            (class_grant, 1),
+            (mixed_grant, 2),
+        ):
+            matches = repo.resolve_households(school, "CI-SHARED-FAMILY",
+                                              scopes=grants)
+            assert len(matches) == 1, (grants, matches)
+            assert int(matches[0]["child_count"]) == expected_count, (
+                grants, matches)
+        assert repo.resolve_households(school, "CI-SHARED-FAMILY",
+                                       scopes=()) == []
         # No-grant detail lookup must not expose an otherwise valid student.
         assert repo.get_student(school, students["PRIMAIRE"], scopes=()) is None
         # School-wide detail lookup is intentionally allowed.
