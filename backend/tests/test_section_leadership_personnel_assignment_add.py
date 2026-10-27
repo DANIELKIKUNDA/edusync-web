@@ -27,7 +27,7 @@ def body(staff_id, **changes):
 
 def verify(scopes, assignment, visible, rows=()):
     conn=Mock()
-    conn.execute.return_value.first.side_effect=list(rows)
+    conn.execute.return_value.first.side_effect=[(assignment.staff_id,),*list(rows)]
     with patch("edusync.modules.personnel.api.router.PostgresPersonnelRepository") as factory:
         factory.return_value._visible_staff_ids.return_value=visible
         _authorize_assignment_add(conn,actor(scopes),assignment)
@@ -37,7 +37,7 @@ def verify(scopes, assignment, visible, rows=()):
 def test_section_can_assign_existing_visible_staff():
     staff=uuid4()
     conn=verify((("SECTION","PRIMAIRE"),),body(staff),{staff},[("PRIMAIRE",)])
-    assert conn.execute.call_count==1
+    assert conn.execute.call_count==2
 
 
 @pytest.mark.parametrize("scope", [("SECTION","SECONDAIRE"),("CLASS","7A")])
