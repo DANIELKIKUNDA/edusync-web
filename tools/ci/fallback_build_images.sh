@@ -25,6 +25,8 @@ done
 [[ "$approved" == 1 ]] || { echo "REFUS : SHA hors branches approuvees (git fetch origin)" >&2; exit 65; }
 command -v docker >/dev/null || exit 69
 docker info >/dev/null || exit 69
+# Aucun build lourd sur un hote deja occupe par des applications.
+bash "$ROOT/tools/ci/fallback_assert_ci_host.sh"
 arch="$(docker info --format '{{.Architecture}}')"
 case "$arch" in
   x86_64 | amd64) platform=linux/amd64 ;;
