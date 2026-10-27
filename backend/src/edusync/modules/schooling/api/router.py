@@ -186,9 +186,10 @@ def historical_arrears(student_id:UUID,actor:ActorContext=Depends(require_school
 @router.get('/families/diagnostics')
 def family_diagnostics(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-4 — Desktop family_contact_diagnostics (read only)."""
-    _require_schoolwide_parity(actor,'families.read')
+    _need(actor,'families.read')
+    scopes=_scopes(actor,'families.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return PostgresSchoolingParityRepository(conn).family_contact_diagnostics(actor.school_id)
+        return PostgresSchoolingParityRepository(conn).family_contact_diagnostics_scoped(actor.school_id,scopes=scopes)
 
 @router.get('/families/overview')
 def family_overview(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
