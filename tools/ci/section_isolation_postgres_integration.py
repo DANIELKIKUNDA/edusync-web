@@ -67,6 +67,14 @@ with engine.connect() as conn:
                                           all_years=all_years, limit=100)
                 assert {row["id"] for row in rows} == expected, (
                     f"students scope={names} all_years={all_years}: {rows}")
+            # Details must be denied outside the explicit section union.
+            for section_name, student_id in students.items():
+                detail = repo.get_student(school, student_id, scopes=grants)
+                if section_name in names:
+                    assert detail is not None, (names, section_name)
+                    assert {e["section_code"] for e in detail["enrollments"]} == {section_name}
+                else:
+                    assert detail is None, (names, section_name)
             families = repo.list_families(school, scopes=grants,
                                          academic_year_id=year,
                                          enrolled_only=True)
@@ -78,6 +86,10 @@ with engine.connect() as conn:
         class_rows = repo.list_students(school, scopes=class_grant,
                                         all_years=True)
         assert {row["id"] for row in class_rows} == {students["PRIMAIRE"]}
+        assert repo.get_student(school, students["PRIMAIRE"],
+                                scopes=class_grant) is not None
+        assert repo.get_student(school, students["MATERNELLE"],
+                                scopes=class_grant) is None
         class_families = repo.list_families(school, scopes=class_grant,
                                            academic_year_id=year,
                                            enrolled_only=True)
