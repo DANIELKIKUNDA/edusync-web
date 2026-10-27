@@ -429,9 +429,15 @@ class PostgresSchoolingRepository:
             year_filter=" AND e.academic_year_id=:year_id"
         elif enrolled_only:
             year_filter=" AND EXISTS(SELECT 1 FROM academic_years ayx WHERE ayx.id=e.academic_year_id AND ayx.status='ACTIVE')"
+        # The enrollment being counted must belong to the caller's scope,
+        # not merely some other enrollment of the same pupil.
+        enrollment_scope = ("TRUE" if any(t=="SCHOOL" for t,_ in scopes) else
+                            "(upper(ss.code) IN :scope_sections OR upper(sc.code) IN :scope_classes)"
+                            if child_params else "FALSE")
+        enrollment_joins = " JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id"
         if enrolled_only:
-            conditions.append(f"EXISTS(SELECT 1 FROM students se JOIN enrollments e ON e.student_id=se.id AND e.school_id=se.school_id WHERE se.school_id=f.school_id AND se.family_id=f.id AND e.status<>'CANCELLED' AND {child_scope.replace('s.', 'se.')}{year_filter})")
-        enrolled_count_sql=f"""(SELECT count(DISTINCT s.id) FROM students s JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope} AND e.status<>'CANCELLED'{year_filter})""" if (academic_year_id or enrolled_only) else f"(SELECT count(*) FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope})"
+            conditions.append(f"EXISTS(SELECT 1 FROM students se JOIN enrollments e ON e.student_id=se.id AND e.school_id=se.school_id{enrollment_joins} WHERE se.school_id=f.school_id AND se.family_id=f.id AND e.status<>'CANCELLED' AND {enrollment_scope}{year_filter})")
+        enrolled_count_sql=f"""(SELECT count(DISTINCT s.id) FROM students s JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id{enrollment_joins} WHERE s.school_id=f.school_id AND s.family_id=f.id AND {enrollment_scope} AND e.status<>'CANCELLED'{year_filter})""" if (academic_year_id or enrolled_only) else f"(SELECT count(*) FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope})"
         stmt=text(f"""SELECT f.*,
           (SELECT count(*) FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope}) child_count,
           {enrolled_count_sql} enrolled_children,
