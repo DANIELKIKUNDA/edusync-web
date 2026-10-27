@@ -327,13 +327,15 @@ def directory(q:str|None=None,status:str|None=None,category:str|None=None,limit:
 
 @router.get('/scope-options')
 def scope_options(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    capabilities=('personnel.assignments.add','personnel.assignments.read')
-    granted=[cap for cap in capabilities if cap in actor.permissions]
-    if not granted:
+    # The selector is used to create assignments. Never merge a broad read
+    # grant with a narrower write grant: that would advertise destinations
+    # which the write endpoint must reject.
+    capability = ('personnel.assignments.add'
+                  if 'personnel.assignments.add' in actor.permissions
+                  else 'personnel.assignments.read')
+    if capability not in actor.permissions:
         raise HTTPException(status_code=403,detail='Permission affectations requise')
-    # Options must reflect the scope of the *assignment* capability, not
-    # unrelated schoolwide permissions held by the same user.
-    grants=[scope for cap in granted for scope in _scopes(actor,cap)]
+    grants = list(_scopes(actor, capability))
     if not grants:
         raise HTTPException(status_code=403,detail='Périmètre affectations absent')
     schoolwide=any(kind=='SCHOOL' for kind,_ in grants)
