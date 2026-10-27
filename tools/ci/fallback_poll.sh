@@ -66,13 +66,18 @@ if ! publish_status pending "CI de secours en cours; resultat partiel, hors depl
   echo "WARN : statut pending non publie ; test local toujours execute." >&2
 fi
 if bash "$ROOT/tools/ci/fallback_local.sh" "$SHA"; then
-  printf 'PASS_LOCAL %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
-  if ! publish_status success "Tests CI locaux PASS; CD/staging non certifies"; then
+  if [[ -z "${EDUSYNC_GITHUB_STATUS_TOKEN_FILE:-}" ]]; then
+    printf 'PASS_LOCAL_UNPUBLISHED %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
+    echo "PASS local uniquement pour $BRANCH/$SHA. Aucun statut distant : jeton non configure."
+  elif publish_status success "Tests CI locaux PASS; CD/staging non certifies"; then
+    printf 'PASS_LOCAL_REPORTED %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
+    echo "PASS local publie sous external/edusync-ci pour $BRANCH/$SHA."
+  else
     printf 'PASS_LOCAL_STATUS_UNPUBLISHED %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
     echo "Les tests locaux passent, mais GitHub n'a pas recu leur statut." >&2
     exit 74
   fi
-  echo "PASS local pour $BRANCH au SHA $SHA. Aucune preuve de workflow CI Actions, aucun deploiement."
+  echo "Aucune preuve de workflow GitHub Actions, aucune image GHCR publiee, aucun deploiement."
 else
   code=$?
   printf 'FAIL rc=%d %s\n' "$code" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
