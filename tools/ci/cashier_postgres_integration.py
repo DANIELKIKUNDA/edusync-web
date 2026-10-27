@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -14,6 +15,7 @@ from uuid import uuid4
 from sqlalchemy import create_engine, text
 
 from edusync.adapters.postgres_periodic_reports import PostgresPeriodicReportsRepository
+from edusync.adapters.postgres_finance_checkout import PostgresFinanceCheckoutRepository
 from edusync.modules.documents.application.object_store import (
     archive_official_pdf_strict,
     configure_storage,
@@ -31,6 +33,7 @@ tenant = create_engine(tenant_url, future=True)
 school, other, user, membership = (uuid4() for _ in range(4))
 year, section, klass, family, student, enrollment, cash = (uuid4() for _ in range(7))
 payment, rolled_back_payment = uuid4(), uuid4()
+second_student, second_enrollment, first_charge, second_charge = (uuid4() for _ in range(4))
 report_key, failed_key = f"cashier-ci-{uuid4().hex}", f"cashier-ci-fail-{uuid4().hex}"
 actor = SimpleNamespace(school_id=school, user_id=user)
 
@@ -63,6 +66,13 @@ try:
                   {"id": enrollment, "s": school, "st": student, "y": year, "class": klass})
         c.execute(text("INSERT INTO finance_cash_sessions(id,school_id,membership_id) VALUES(:id,:s,:m)"),
                   {"id": cash, "s": school, "m": membership})
+        c.execute(text("INSERT INTO students(id,school_id,family_id,matricule,last_name,middle_name,first_name) VALUES(:id,:s,:f,'CI-002','TEST','CAISSIER','SECOND')"),
+                  {"id": second_student, "s": school, "f": family})
+        c.execute(text("INSERT INTO enrollments(id,school_id,student_id,academic_year_id,class_id) VALUES(:id,:s,:st,:y,:class)"),
+                  {"id": second_enrollment, "s": school, "st": second_student, "y": year, "class": klass})
+        for charge_id, enrollment_id in ((first_charge, enrollment), (second_charge, second_enrollment)):
+            c.execute(text("INSERT INTO finance_charges(id,school_id,enrollment_id,label,currency,net_amount) VALUES(:id,:s,:e,'Frais CI','CDF',50000)"),
+                      {"id": charge_id, "s": school, "e": enrollment_id})
         payment_sql = text("""INSERT INTO finance_payments(id,school_id,enrollment_id,cash_session_id,actor_user_id,amount,currency,receipt_number,idempotency_key)
                     VALUES(:id,:s,:e,:cash,:u,50000,'CDF',:receipt,:key)""")
         c.execute(payment_sql, {"id": payment, "s": school, "e": enrollment, "cash": cash,
@@ -77,6 +87,34 @@ try:
         nested.rollback()
         assert c.execute(text("SELECT count(*) FROM finance_receipt_print_jobs WHERE payment_id=:p"),
                          {"p": rolled_back_payment}).scalar_one() == 0
+
+    basket_key = f"ci-family-{uuid4().hex}"
+    basket_lines = [
+        {"enrollment_id": enrollment, "charge_ids": [first_charge], "amount": Decimal("50000"), "currency": "CDF"},
+        {"enrollment_id": second_enrollment, "charge_ids": [second_charge], "amount": Decimal("50000"), "currency": "CDF"},
+    ]
+    with tenant.begin() as c:
+        scope(c, school)
+        result = PostgresFinanceCheckoutRepository(c).family_collect(
+            school, user, membership, family, basket_lines, basket_key, "MOBILE_MONEY", "MM-CI-1234")
+        assert len(result["lines"]) == 2 and not result["replayed"]
+        payments = c.execute(text("""
+            SELECT p.payment_mode,p.payment_reference,p.amount,p.receipt_number
+            FROM finance_family_basket_payments bp
+            JOIN finance_payments p ON p.id=bp.payment_id
+            WHERE bp.basket_id=:id ORDER BY bp.line_no
+        """), {"id": result["basket_id"]}).mappings().all()
+        assert len(payments) == 2
+        assert all(p["payment_mode"] == "MOBILE_MONEY" and p["payment_reference"] == "MM-CI-1234"
+                   and p["amount"] == Decimal("50000") for p in payments)
+        assert len({p["receipt_number"] for p in payments}) == 2
+    with tenant.begin() as c:
+        scope(c, school)
+        replay = PostgresFinanceCheckoutRepository(c).family_collect(
+            school, user, membership, family, basket_lines, basket_key, "MOBILE_MONEY", "MM-CI-1234")
+        assert replay["replayed"] and replay["basket_id"] == result["basket_id"]
+        assert c.execute(text("SELECT count(*) FROM finance_family_basket_payments WHERE basket_id=:id"),
+                         {"id": result["basket_id"]}).scalar_one() == 2
 
     with tenant.begin() as c:
         scope(c, school)

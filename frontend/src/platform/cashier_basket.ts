@@ -24,6 +24,30 @@ export function saveCashierBasket(token:string,lines:CashierBasketLine[]):void{
  const k=key(token);if(!k)return;
  try{if(lines.length)localStorage.setItem(k,JSON.stringify({saved_at:Date.now(),lines}));else localStorage.removeItem(k)}catch{/* Storage blocked: basket stays in memory. */}
 }
+export type CashierBasketRequest={signature:string;key:string};
+function requestStorageKey(token:string):string|null{
+ const basketKey=key(token);
+ return basketKey?basketKey+'.request':null;
+}
+export function loadCashierBasketRequest(token:string):CashierBasketRequest|null{
+ const storageKey=requestStorageKey(token);if(!storageKey)return null;
+ try{
+  // A completed payment clears the draft. A remaining key without a draft must never be reused.
+  if(!loadCashierBasket(token).length){localStorage.removeItem(storageKey);return null}
+  const raw=localStorage.getItem(storageKey);if(!raw)return null;
+  const record=JSON.parse(raw);
+  if(!Number.isFinite(record.saved_at)||Date.now()-record.saved_at>MAX_AGE_MS||record.saved_at>Date.now()+60000
+   ||typeof record.signature!=='string'||record.signature.length>100000||!UUID.test(record.key)){
+   localStorage.removeItem(storageKey);return null;
+  }
+  return {signature:record.signature,key:record.key};
+ }catch{return null}
+}
+export function saveCashierBasketRequest(token:string,request:CashierBasketRequest|null):void{
+ const storageKey=requestStorageKey(token);if(!storageKey)return;
+ try{if(request)localStorage.setItem(storageKey,JSON.stringify({...request,saved_at:Date.now()}));
+  else localStorage.removeItem(storageKey)}catch{/* Storage blocked: the current session still keeps the key. */}
+}
 export function clearAllCashierBaskets():void{
  try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k?.startsWith(PREFIX))localStorage.removeItem(k)}}catch{/* Storage blocked. */}
 }

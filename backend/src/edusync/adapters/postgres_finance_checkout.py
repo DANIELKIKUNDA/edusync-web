@@ -171,13 +171,16 @@ class PostgresFinanceCheckoutRepository:
    advance_detail={'amount':str(advance),'target':target,'plan_label':plan['label'],'targets':target_lines}
   return {'id':str(pid),'receipt_number':receipt,'amount':str(amount),'currency':currency,'replayed':False,'allocations':details,'advance':advance_detail}
 
- def family_collect(self,school_id:UUID,user_id:UUID,membership_id:UUID,family_id:UUID,lines:list[dict],idempotency_key:str):
+ def family_collect(self,school_id:UUID,user_id:UUID,membership_id:UUID,family_id:UUID,lines:list[dict],idempotency_key:str,mode:str='CASH',reference:str|None=None):
   """Family basket: several explicit lines committed atomically (all or none) under one Idempotency-Key.
   Each line is an ordinary payment (own receipt) allocated by the unchanged collect() rule. The cashier
   chooses child, charges and amount per line; EduSync never spreads one family amount across children."""
   import hashlib,json
   self._lock_idempotency_key(school_id,'family-basket:'+idempotency_key)
-  canon=json.dumps({'family_id':str(family_id),'lines':[{'enrollment_id':str(l['enrollment_id']),'charge_ids':sorted(str(c) for c in l['charge_ids']),'amount':str(Decimal(str(l['amount'])).normalize()),'currency':l['currency']} for l in lines]},sort_keys=True)
+  request={'family_id':str(family_id),'lines':[{'enrollment_id':str(l['enrollment_id']),'charge_ids':sorted(str(c) for c in l['charge_ids']),'amount':str(Decimal(str(l['amount'])).normalize()),'currency':l['currency']} for l in lines]}
+  # Keep the digest of prior CASH baskets; bind other payment choices to the idempotency key.
+  if mode!='CASH' or reference:request.update(mode=mode,reference=reference)
+  canon=json.dumps(request,sort_keys=True)
   digest=hashlib.sha256(canon.encode()).hexdigest()
   prev=self.conn.execute(text('SELECT id,request_sha256 FROM finance_family_baskets WHERE school_id=:sid AND idempotency_key=:k'),{'sid':str(school_id),'k':idempotency_key}).mappings().first()
   if prev:
@@ -198,7 +201,7 @@ class PostgresFinanceCheckoutRepository:
   self._require_day_open(school_id,session)
   paid=[]
   for n,l in enumerate(lines,start=1):
-   r=self.collect(school_id,user_id,membership_id,UUID(str(l['enrollment_id'])),[UUID(str(c)) for c in l['charge_ids']],Decimal(str(l['amount'])),l['currency'],f'{idempotency_key}#L{n}',False)
+   r=self.collect(school_id,user_id,membership_id,UUID(str(l['enrollment_id'])),[UUID(str(c)) for c in l['charge_ids']],Decimal(str(l['amount'])),l['currency'],f'{idempotency_key}#L{n}',False,mode,reference)
    if r.get('replayed'):raise ValueError('Ligne de panier déjà encaissée séparément : actualisez le panier')
    paid.append((n,r))
   totals:dict[str,Decimal]={}
