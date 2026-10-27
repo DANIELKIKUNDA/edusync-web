@@ -516,3 +516,12 @@ button.softBtn{border:1px solid #d0d5dd;background:#fff;color:#344054}
  .personnelPage .personMetric .metricLabel{font-size:10.5px}
  .personnelPage .personnelHero h2{line-height:1.15}
 }
+
+/* School dashboard: accessible active pupil totals and scoped secondary options. */
+.sh-fgt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0 14px}
+.sh-fgt>div{display:flex;flex-direction:column;gap:7px;min-width:0;padding:13px 12px;border:1px solid #e5ebf5;border-radius:15px;background:linear-gradient(155deg,#f8fbff,#f0f5ff)}
+.sh-fgt>div:first-child{background:linear-gradient(135deg,#e9f2ff,#dceaff);border-color:#d6e5fa}
+.sh-fgt small{color:#667992;font-size:11px;font-weight:700;line-height:1.35}
+.sh-fgt strong{color:#15345f;font-size:clamp(20px,2.4vw,29px);letter-spacing:-.6px;font-variant-numeric:tabular-nums}
+.sh-option-title{margin:18px 0 9px;font-size:13px;letter-spacing:-.1px;color:#243d60}
+@media(max-width:480px){.sh-fgt{gap:7px}.sh-fgt>div{padding:11px 9px;border-radius:13px}.sh-fgt small{font-size:10px}.sh-fgt strong{font-size:21px}.sh-option-title{margin-top:15px}}
