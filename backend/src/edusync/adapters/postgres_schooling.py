@@ -117,10 +117,27 @@ class PostgresSchoolingRepository:
         out["guardians"]=[_row(x) for x in self.connection.execute(text("""SELECT fg.*,g.full_name,g.phone,g.email,g.address,g.occupation
           FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id WHERE fg.school_id=:sid AND fg.family_id=:fid AND fg.active ORDER BY fg.is_primary DESC,fg.created_at"""),{"sid":school_id,"fid":family_id}).all()]
         student_where,student_params=_student_scope_where(scopes,alias="s")
+        # A visible child can have enrollments in other sections. Restrict
+        # each joined enrollment, not only the child's overall visibility.
+        enrollment_clauses=[]
+        if "scope_sections" in student_params:
+            enrollment_clauses.append("upper(ss_child.code) IN :scope_sections")
+        if "scope_classes" in student_params:
+            enrollment_clauses.append("upper(sc_child.code) IN :scope_classes")
+        enrollment_where=("TRUE" if any(t=="SCHOOL" for t,_ in scopes) else
+                          "("+" OR ".join(enrollment_clauses)+")"
+                          if enrollment_clauses else "FALSE")
         child_stmt=_bind_scope(text(f"""SELECT s.*,e.id enrollment_id,e.academic_year_id,e.class_id,e.status enrollment_status,sc.label class_label,ss.code section_code
-          FROM students s LEFT JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id AND e.status<>'CANCELLED'
+          FROM students s LEFT JOIN LATERAL (
+            SELECT e1.* FROM enrollments e1
+            JOIN school_classes sc_child ON sc_child.id=e1.class_id
+            JOIN school_sections ss_child ON ss_child.id=sc_child.section_id
+            WHERE e1.school_id=s.school_id AND e1.student_id=s.id
+              AND e1.status<>'CANCELLED' AND {enrollment_where}
+          ) e ON true
           LEFT JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_sections ss ON ss.id=sc.section_id
-          WHERE s.school_id=:sid AND s.family_id=:fid AND {student_where} ORDER BY s.last_name,s.middle_name,s.first_name,e.enrolled_on DESC"""),student_params)
+          WHERE s.school_id=:sid AND s.family_id=:fid AND {student_where}
+          ORDER BY s.last_name,s.middle_name,s.first_name,e.enrolled_on DESC"""),student_params)
         out["children"]=[_row(x) for x in self.connection.execute(child_stmt,{"sid":school_id,"fid":family_id,**student_params}).all()]
         return out
 
