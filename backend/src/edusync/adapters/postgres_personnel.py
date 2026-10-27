@@ -183,7 +183,27 @@ class PostgresPersonnelRepository:
     def summary(self, school_id: UUID, *, scopes: tuple[tuple[str, str | None], ...] = ()) -> StaffSummary:
         where_scope, params = _scope_where(scopes)
         full = any(t == 'SCHOOL' for t, _ in scopes)
-        assignment_expr = "(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id WHERE a.school_id=:sid AND a.end_date IS NULL)" if full else "0"
+        assignment_expr = "(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id WHERE a.school_id=:sid AND a.end_date IS NULL)"
+        if not full:
+            # Count only assignments belonging to the exact section/class grant,
+            # not all assignments attached to otherwise visible employees.
+            sections = sorted({str(v).upper() for t,v in scopes if t == "SECTION" and v})
+            classes = sorted({str(v).upper() for t,v in scopes if t == "CLASS" and v})
+            allowed = []
+            if sections:
+                allowed.append("(a.scope_type='SECTION' AND upper(a.scope_value) IN :summary_sections)")
+                allowed.append("""(a.scope_type='CLASS' AND EXISTS (
+                    SELECT 1 FROM school_classes sc JOIN school_sections ss
+                    ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                    WHERE sc.id=a.class_id AND sc.school_id=a.school_id
+                    AND upper(ss.code) IN :summary_sections))""")
+                params["summary_sections"] = sections
+            if classes:
+                allowed.append("(a.scope_type='CLASS' AND upper(a.scope_value) IN :summary_classes)")
+                params["summary_classes"] = classes
+            assignment_expr = ("(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id "
+                               "WHERE a.school_id=:sid AND a.end_date IS NULL AND ("
+                               + " OR ".join(allowed) + "))") if allowed else "0"
         access_expr = "(SELECT count(*) FROM staff_access_links l JOIN visible v ON v.id=l.staff_id WHERE l.school_id=:sid AND l.active)" if full else "0"
         children_expr = "(SELECT count(*) FROM staff_student_links sl JOIN visible v ON v.id=sl.staff_id WHERE sl.school_id=:sid AND sl.active)" if full else "0"
         stmt = _bind_scope(text(f"""
@@ -201,10 +221,13 @@ class PostgresPersonnelRepository:
                  {children_expr} staff_children
             FROM visible
         """), params)
+        for name in ("summary_sections", "summary_classes"):
+            if name in params:
+                stmt = stmt.bindparams(bindparam(name, expanding=True))
         r=self.connection.execute(stmt,{"sid":school_id,**params}).first()._mapping
         return StaffSummary(total=int(r['total']),active=int(r['active']),suspended=int(r['suspended']),left=int(r['left_count']),
                             teachers=int(r['teachers']),administrative=int(r['administrative']),workers=int(r['workers']),other=int(r['other']),
-                            active_assignments=int(r['active_assignments']) if full else 0,linked_accounts=int(r['linked_accounts']) if full else 0,staff_children=int(r['staff_children']) if full else 0)
+                            active_assignments=int(r['active_assignments']),linked_accounts=int(r['linked_accounts']) if full else 0,staff_children=int(r['staff_children']) if full else 0)
 
     def create_staff(self, member: StaffMember) -> dict[str, Any]:
         row=self.connection.execute(text("""
