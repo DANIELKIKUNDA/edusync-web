@@ -37,17 +37,36 @@ if [[ -s "$STATE/last_sha" ]] && [[ "$(cat "$STATE/last_sha")" == "$SHA" ]]; the
   echo "SHA deja traite : $SHA ; etat : $(cat "$STATE/last_result" 2>/dev/null || echo INDETERMINE)"
   exit 0
 fi
+# Publication OPTIONNELLE d'un statut EXTERNE au SHA GitHub.
+# Ne pas confondre ce statut avec le workflow officiel CI et ses gates CD.
+publish_status() {
+  if [[ -z "${EDUSYNC_GITHUB_STATUS_TOKEN_FILE:-}" ]]; then
+    echo "NOTE : statut GitHub externe non configure ; rapports uniquement sur l'hote CI." >&2
+    return 0
+  fi
+  python3 "$ROOT/tools/ci/fallback_github_status.py" "$SHA" "$1" "$2"
+}
+
 # Trace l'intention avant de lancer. Une interruption = absence de PASS et pas
 # de relance infinie tant qu'un humain n'a pas revise les journaux.
 printf '%s\n' "$SHA" > "$STATE/last_sha"
 printf 'IN_PROGRESS %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
 echo "CI independante pour SHA=$SHA"
+if ! publish_status pending "CI de secours en cours; resultat partiel, hors deployment"; then
+  echo "WARN : statut pending non publie ; test local toujours execute." >&2
+fi
 if bash "$ROOT/tools/ci/fallback_local.sh" "$SHA"; then
-  printf 'PASS %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
-  echo "PASS du SHA exact $SHA. Pas de deploiement et pas de statut GitHub CI synthetique."
+  printf 'PASS_LOCAL %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
+  if ! publish_status success "Tests CI locaux PASS; CD/staging non certifies"; then
+    printf 'PASS_LOCAL_STATUS_UNPUBLISHED %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
+    echo "Les tests locaux passent, mais GitHub n'a pas recu leur statut." >&2
+    exit 74
+  fi
+  echo "PASS local du SHA $SHA. Aucune preuve de workflow CI Actions, aucun deploiement."
 else
   code=$?
   printf 'FAIL rc=%d %s\n' "$code" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
+  publish_status failure "Tests CI locaux FAIL; consulter les journaux du runner" || true
   echo "FAIL rc=$code pour $SHA : consulter ~/edusync-ci-reports." >&2
   exit "$code"
 fi
