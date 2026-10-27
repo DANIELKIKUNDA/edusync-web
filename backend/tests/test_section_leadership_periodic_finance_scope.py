@@ -61,3 +61,21 @@ def test_frontend_hides_official_pdf_for_section_only_grants():
     assert "generated_history_available" in api
     assert "officialAllowed && can('finance.reports.periodic.generate')" in ui
     assert "historyAllowed && can('finance.reports.history.read')" in ui
+
+
+def test_all_three_analytics_have_sql_scope_and_route_forwarding():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    adapter = (root / "src/edusync/adapters/postgres_periodic_reports.py").read_text()
+    router = (root / "src/edusync/modules/finance_reports/api/router.py").read_text()
+    cases = (
+        ("analysis_by_fee_type", "finance.analysis.by_fee.read"),
+        ("analysis_by_cashier", "finance.analysis.by_cashier.read"),
+        ("analysis_advance_funds", "finance.analysis.advance.read"),
+    )
+    for method, capability in cases:
+        body = adapter.split("def " + method + "(", 1)[1].split("\n    def ", 1)[0]
+        assert "scope_where, scope_params = self._scope_clause(scopes)" in body
+        assert "JOIN school_sections ss_scope" in body
+        assert "AND {scope_where}" in body
+        assert method + "(actor.school_id, year_id, scopes=actor.scopes_for('" + capability + "'))" in router
