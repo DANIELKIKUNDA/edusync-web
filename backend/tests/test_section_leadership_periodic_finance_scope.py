@@ -39,3 +39,14 @@ def test_section_only_and_class_only_do_not_bind_empty_arrays():
         stmt = PostgresPeriodicReportsRepository._scoped_sql(
             "SELECT 1 WHERE " + clause, params)
         assert set(stmt._bindparams) == {expected}
+
+
+def test_periodic_routes_forward_exact_capability_scopes():
+    from pathlib import Path
+    router = (Path(__file__).resolve().parents[1] /
+              "src/edusync/modules/finance_reports/api/router.py").read_text()
+    preview = router.split("def periodic(", 1)[1].split("class PeriodicPdfBody", 1)[0]
+    excel = router.split("def periodic_xlsx(", 1)[1].split("@router.get('/generated')", 1)[0]
+    assert "scopes=actor.scopes_for('finance.reports.periodic.generate')" in preview
+    assert "scopes=actor.scopes_for('finance.reports.periodic.export')" in excel
+    assert "_need_periodic_scope(actor, 'finance.reports.periodic.export')" in excel
