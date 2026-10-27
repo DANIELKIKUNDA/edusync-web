@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from edusync.modules.finance_checkout.api import router as checkout
 from edusync.modules.finance_reports.api import router as reports
 from edusync.shared.infrastructure.object_storage import ObjectStorageError
+from edusync.shared.application.context import ActorContext
 SID=UUID('00000000-0000-0000-0000-000000000001'); UID=UUID('00000000-0000-0000-0000-000000000002'); MID=UUID('00000000-0000-0000-0000-000000000003'); PID=UUID('00000000-0000-0000-0000-000000000004')
 class Result:
  def __init__(self,row=None):self.row=row
@@ -18,7 +19,7 @@ class DB:
  def tenant_transaction(self,**_):
   try:yield self.conn;self.committed=True
   except Exception:self.rolled_back=True;raise
-def actor():return SimpleNamespace(school_id=SID,user_id=UID,membership_id=MID,permissions=['finance.receipts.read','finance.receipts.print','finance.reports.periodic.generate'],require=lambda _:None)
+def actor():return ActorContext(school_id=SID,user_id=UID,membership_id=MID,permissions=frozenset(['finance.receipts.read','finance.receipts.print','finance.reports.periodic.generate']),capability_scopes=(('finance.reports.periodic.generate','SCHOOL',None),))
 
 def test_pdf_request_does_not_claim_paper_was_printed(monkeypatch):
  class Repo:
