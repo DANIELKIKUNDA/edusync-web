@@ -163,9 +163,8 @@ from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRe
 def probable_students(last_name:str=Query(...,min_length=1,max_length=120),middle_name:str='',first_name:str='',birth_date:date|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-1 — Desktop find_probable_students: likely existing pupils before a new permanent record."""
     if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_require_schoolwide_parity(actor,'students.read')
-    else:
-        for cap in ('enrollments.create','enrollments.reenroll'):
-            if cap in actor.permissions:_require_schoolwide_parity(actor,cap)
+    elif not any('SCHOOL'==kind for cap in ('enrollments.create','enrollments.reenroll') if cap in actor.permissions for kind,_ in actor.scopes_for(cap)):
+        raise HTTPException(status_code=403,detail='Consultation non disponible pour ce périmètre de section')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return {'items':_jsonable(PostgresSchoolingParityRepository(conn).probable_students(actor.school_id,last_name=last_name,middle_name=middle_name,first_name=first_name,birth_date=birth_date))}
 
@@ -173,9 +172,8 @@ def probable_students(last_name:str=Query(...,min_length=1,max_length=120),middl
 def historical_arrears(student_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-2 — Desktop student_historical_arrears: earlier years only, never mixed with the new enrollment."""
     if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_require_schoolwide_parity(actor,'students.account.read')
-    else:
-        for cap in ('enrollments.create','enrollments.reenroll'):
-            if cap in actor.permissions:_require_schoolwide_parity(actor,cap)
+    elif not any('SCHOOL'==kind for cap in ('enrollments.create','enrollments.reenroll') if cap in actor.permissions for kind,_ in actor.scopes_for(cap)):
+        raise HTTPException(status_code=403,detail='Consultation non disponible pour ce périmètre de section')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return {'items':_jsonable(PostgresSchoolingParityRepository(conn).historical_arrears(actor.school_id,student_id))}
 
