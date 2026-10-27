@@ -49,7 +49,7 @@ export function PeriodicReports({token, can}: {token: string; can: (p: string) =
           getJson<{items: any[]}>(token, '/finance/reports/generated', '')
             .then(y => setGenerated(y.items)).catch(() => undefined);
       }).catch(e => setError(friendlyError(e)));
-  }, [token, can]);
+  }, [token]);
   async function run() { try { setError(''); setReport(await getJson<Report>(token, `/finance/reports/periodic${qs({profile_code: profile, period_type: type, start: a, end: b})}`, 'Rapport indisponible')); } catch (e) { setError(friendlyError(e)); } }
   async function officialPdf() {
     try { setBusy(true); const payload = JSON.stringify({profile_code: profile, period_type: type, start: a, end: b});
