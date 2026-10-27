@@ -431,9 +431,14 @@ class PostgresSchoolingRepository:
             year_filter=" AND EXISTS(SELECT 1 FROM academic_years ayx WHERE ayx.id=e.academic_year_id AND ayx.status='ACTIVE')"
         # The enrollment being counted must belong to the caller's scope,
         # not merely some other enrollment of the same pupil.
+        enrollment_clauses = []
+        if "scope_sections" in child_params:
+            enrollment_clauses.append("upper(ss.code) IN :scope_sections")
+        if "scope_classes" in child_params:
+            enrollment_clauses.append("upper(sc.code) IN :scope_classes")
         enrollment_scope = ("TRUE" if any(t=="SCHOOL" for t,_ in scopes) else
-                            "(upper(ss.code) IN :scope_sections OR upper(sc.code) IN :scope_classes)"
-                            if child_params else "FALSE")
+                            "(" + " OR ".join(enrollment_clauses) + ")"
+                            if enrollment_clauses else "FALSE")
         enrollment_joins = " JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id"
         if enrolled_only:
             conditions.append(f"EXISTS(SELECT 1 FROM students se JOIN enrollments e ON e.student_id=se.id AND e.school_id=se.school_id{enrollment_joins} WHERE se.school_id=f.school_id AND se.family_id=f.id AND e.status<>'CANCELLED' AND {enrollment_scope}{year_filter})")
