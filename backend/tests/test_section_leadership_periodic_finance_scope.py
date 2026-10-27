@@ -79,3 +79,25 @@ def test_all_three_analytics_have_sql_scope_and_route_forwarding():
         assert "JOIN school_sections ss_scope" in body
         assert "AND {scope_where}" in body
         assert method + "(actor.school_id, year_id, scopes=actor.scopes_for('" + capability + "'))" in router
+
+
+def test_student_account_uses_enrollment_scope_for_read_and_pdf():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    adapter = (root / "src/edusync/adapters/postgres_periodic_reports.py").read_text()
+    router = (root / "src/edusync/modules/finance_reports/api/router.py").read_text()
+    body = adapter.split("def student_account(", 1)[1]
+    assert "AND {scope_where} ORDER BY" in body
+    assert "JOIN school_sections ss_scope" in body
+    assert "scope_params" in body
+    assert "student_account(actor.school_id, student_id, scopes=actor.scopes_for('students.account.read'))" in router
+    assert "student_account(actor.school_id, student_id, scopes=actor.scopes_for('students.account.export'))" in router
+
+
+def test_official_periodic_pdf_denies_section_only_before_report_replay():
+    from pathlib import Path
+    router = (Path(__file__).resolve().parents[1] /
+              "src/edusync/modules/finance_reports/api/router.py").read_text()
+    body = router.split("def periodic_pdf(", 1)[1].split("@router.get('/periodic.xlsx')", 1)[0]
+    assert "t == 'SCHOOL'" in body
+    assert body.index("Rapport officiel réservé au périmètre école") < body.index("prior = c.execute")
