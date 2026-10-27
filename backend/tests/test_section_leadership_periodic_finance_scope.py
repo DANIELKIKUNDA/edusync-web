@@ -180,5 +180,5 @@ def test_template_preview_applies_cashier_and_section_filters():
     assert "_need_periodic_scope(actor, 'finance.reports.periodic.generate')" in preview
     assert "_scope_clause(scopes)" in preview
     assert "JOIN school_sections ss_scope" in preview
-    assert "AND \"\"\"+scope_where+where+" GROUP BY" in preview
+    assert 'scope_where+where+" GROUP BY' in preview
     assert "p.update(scope_params)" in preview
