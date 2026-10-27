@@ -205,6 +205,10 @@ class PostgresSchoolingRepository:
                 enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} AND e1.academic_year_id=:year_id ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
             else:
                 enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} AND ay1.status='ACTIVE' ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
+        # A scoped directory must never return a pupil without an enrollment
+        # in the requested year (or any authorized year for all_years).
+        # A school-wide reader retains the legacy all_years behavior.
+        if not all_years or not any(t=="SCHOOL" for t,_ in scopes):
             conditions.append("e.id IS NOT NULL")
         if q and q.strip():conditions.append("(s.matricule ILIKE :q OR concat_ws(' ',s.last_name,s.middle_name,s.first_name) ILIKE :q OR f.display_name ILIKE :q OR coalesce(f.phone,'') ILIKE :q OR EXISTS(SELECT 1 FROM family_guardians fgq JOIN guardians gq ON gq.id=fgq.guardian_id WHERE fgq.family_id=s.family_id AND fgq.active AND (gq.full_name ILIKE :q OR coalesce(gq.phone,'') ILIKE :q)))");args['q']=f"%{q.strip()}%"
         if class_id:conditions.append("e.class_id=:class_id");args['class_id']=class_id
