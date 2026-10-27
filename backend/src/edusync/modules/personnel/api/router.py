@@ -114,7 +114,34 @@ def _authorize_assignment_add(conn, actor:ActorContext, body:"AssignmentCreate",
     and primary changes remain schoolwide operations.
     """
     scopes=_scopes(actor,capability)
-    if any(kind=='SCHOOL' for kind,_ in scopes):
+    schoolwide=any(kind=='SCHOOL' for kind,_ in scopes)
+    if not schoolwide and (body.scope_type==AssignmentScope.SCHOOL or body.is_primary):
+        raise HTTPException(status_code=403,detail='Affectation globale ou principale réservée au périmètre école')
+    if schoolwide:
+        # A SCHOOL grant authorizes the scope, not foreign-school references.
+        if body.scope_type==AssignmentScope.SECTION:
+            section=conn.execute(text("""
+                SELECT upper(code) FROM school_sections
+                WHERE school_id=:sid AND id=:id
+            """),{'sid':actor.school_id,'id':body.section_id}).first()
+            if not section or str(body.scope_value).upper()!=section[0] or body.class_id:
+                raise HTTPException(status_code=422,detail='Section d’affectation incohérente')
+        elif body.scope_type==AssignmentScope.CLASS:
+            klass=conn.execute(text("""
+                SELECT upper(sc.code),ss.id FROM school_classes sc
+                JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                WHERE sc.school_id=:sid AND sc.id=:id
+            """),{'sid':actor.school_id,'id':body.class_id}).first()
+            if not klass or str(body.scope_value).upper()!=klass[0] or (body.section_id and body.section_id!=klass[1]):
+                raise HTTPException(status_code=422,detail='Classe d’affectation incohérente')
+        elif body.scope_type!=AssignmentScope.SCHOOL or body.section_id or body.class_id or body.scope_value:
+            raise HTTPException(status_code=422,detail='Périmètre école incohérent')
+        if body.titular_class_id:
+            titular=conn.execute(text("""
+                SELECT id FROM school_classes WHERE school_id=:sid AND id=:id
+            """),{'sid':actor.school_id,'id':body.titular_class_id}).first()
+            if not titular:
+                raise HTTPException(status_code=422,detail='Classe de titulariat hors établissement')
         return
     if body.scope_type==AssignmentScope.SCHOOL or body.is_primary:
         raise HTTPException(status_code=403,detail='Affectation globale ou principale réservée au périmètre école')
