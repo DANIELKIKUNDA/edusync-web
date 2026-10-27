@@ -47,6 +47,7 @@ WIDGETS: list[dict] = [
     {"id": "sync.devices", "title": "Appareils et synchronisation", "module": "sync", "priority": 16, "all": ("sync.device.register",)},
     # Operations
     {"id": "cash.today", "title": "Ma caisse du jour", "module": "finance", "priority": 20, "all": ("finance.cash.read", "finance.cash.open")},
+    {"id": "cash.supervision", "title": "Situation des caisses", "module": "finance", "priority": 20, "all": ("finance.cash.other.read",)},
     {"id": "checkout.quick", "title": "Encaisser rapidement", "module": "finance", "priority": 21, "all": ("finance.checkout.collect",)},
     # Desk (cashier, who is usually also the secretary in the DRC): today's receipts, enrollments, articles to watch.
     {"id": "cash.receipts", "title": "Encaissements du jour", "module": "finance", "priority": 22, "all": ("finance.cash.read", "finance.receipts.read")},
@@ -54,8 +55,12 @@ WIDGETS: list[dict] = [
     {"id": "products.watch", "title": "Articles à surveiller", "module": "finance", "priority": 24, "all": ("finance.products.sale",)},
     {"id": "headcounts.summary", "title": "Effectifs", "module": "headcounts", "priority": 30, "all": ("headcounts.read",)},
     {"id": "headcounts.movements", "title": "Mouvements récents", "module": "headcounts", "priority": 31, "all": ("headcounts.movements.read",)},
+    {"id": "personnel.summary", "title": "Personnel", "module": "personnel", "priority": 32, "all": ("personnel.summary.read",)},
     {"id": "finance.recovery", "title": "Évolution du recouvrement", "module": "finance", "priority": 40, "all": ("finance.recovery.monthly.read",)},
     {"id": "finance.by_fee", "title": "Situation par familles de frais", "module": "finance", "priority": 41, "all": ("finance.analysis.by_fee.read",)},
+    {"id": "finance.decisions", "title": "Décisions financières actives", "module": "finance", "priority": 42, "all": ("finance.decisions.read",)},
+    {"id": "reports.latest", "title": "Rapports officiels récents", "module": "finance", "priority": 43, "all": ("finance.reports.history.read",)},
+    {"id": "documents.recent", "title": "Documents récents", "module": "documents", "priority": 44, "all": ("documents.history.read",)},
     {"id": "inventory.stock", "title": "Stocks", "module": "stewardship", "priority": 50, "all": ("inventory.stock.read",)},
     {"id": "inventory.counts", "title": "Inventaires", "module": "stewardship", "priority": 51, "all": ("inventory.counts.read",)},
 ]
@@ -63,6 +68,8 @@ WIDGETS: list[dict] = [
 # Shortcuts offered on the home screen / header.
 ACTIONS: list[dict] = [
     {"id": "students.search", "label": "Rechercher un élève", "module": "students", "all": ("students.read",)},
+    {"id": "cash.supervise", "label": "Superviser les caisses", "module": "finance", "all": ("finance.cash.other.read",)},
+    {"id": "reports.open", "label": "Rapports financiers", "module": "finance", "all": ("finance.reports.history.read",)},
     {"id": "checkout.new", "label": "Nouvel encaissement", "module": "finance", "all": ("finance.checkout.collect",)},
     {"id": "enrollments.new", "label": "Nouvelle inscription", "module": "students", "all": ("enrollments.create",)},
     {"id": "members.create", "label": "Ajouter un utilisateur", "module": "access", "all": ("access.users.create",)},

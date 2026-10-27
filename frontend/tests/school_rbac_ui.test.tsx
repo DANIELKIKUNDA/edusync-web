@@ -76,3 +76,56 @@ it('classifies network, session, permission, not found, server and offline error
   expect(classifyScreenError(Object.assign(new Error('x'), {code: 'OFFLINE_NOT_CACHED'})).kind).toBe('offline');
   expect(classifyScreenError(new TypeError('Failed to fetch')).kind).toBe('network');
 });
+
+
+it('gestionnaire: executive dashboard shows school cash supervision, not a personal cash desk', async () => {
+  answers['/api/v1/finance/cash/day-summary'] = {
+    open_count: 2, closed_count: 3,
+    currencies: {CDF: {expected_cash: '245000'}, USD: {expected_cash: '20'}},
+  };
+  const nav = vi.fn();
+  const me: AccessMe = {...base, role_label: 'Gestionnaire',
+    widgets: [{id: 'cash.supervision', title: 'Situation des caisses', module: 'finance', priority: 20}],
+    actions: [{id: 'cash.supervise', label: 'Superviser les caisses', module: 'finance'}]};
+  render(<HomePage token="t" me={me} schoolName="École A" userName="Gestionnaire Test" onNavigate={nav}/>);
+  await waitFor(() => expect(screen.getByText('2', {selector: '.ui-card-value'})).toBeTruthy());
+  expect(screen.getByText(/245.?000 FC/)).toBeTruthy();
+  expect(screen.getByText(/20 USD/)).toBeTruthy();
+  expect(screen.getByText('Vue d’ensemble')).toBeTruthy();
+  expect(screen.queryByText('Ma caisse du jour')).toBeNull();
+  await userEvent.click(screen.getByRole('button', {name: 'Situation des caisses — ouvrir'}));
+  expect(nav).toHaveBeenCalledWith('finance');
+  expect(sessionStorage.getItem('edusync.finance.open')).toBe('cash');
+  sessionStorage.clear();
+});
+
+it('gestionnaire: personnel oversight joins the executive cockpit without an operational shortcut', async () => {
+  answers['/api/v1/finance/cash/day-summary'] = {
+    open_count: 1, closed_count: 1,
+    currencies: {CDF: {expected_cash: '100000'}, USD: {expected_cash: '0'}},
+  };
+  answers['/api/v1/personnel/summary'] = {
+    total: 28, active: 25, suspended: 1, left: 2, teachers: 18, administrative: 5, workers: 2, other: 0,
+    active_assignments: 25, linked_accounts: 6, staff_children: 3,
+  };
+  const me: AccessMe = {...base, role_label: 'Gestionnaire',
+    widgets: [
+      {id: 'cash.supervision', title: 'Situation des caisses', module: 'finance', priority: 20},
+      {id: 'personnel.summary', title: 'Personnel', module: 'personnel', priority: 32},
+    ],
+    actions: [{id: 'cash.supervise', label: 'Superviser les caisses', module: 'finance'}]};
+  render(<HomePage token="t" me={me} schoolName="École A" userName="Gestionnaire Test" onNavigate={() => {}}/>);
+  await waitFor(() => expect(screen.getByText('25', {selector: '.ui-card-value'})).toBeTruthy());
+  expect(screen.getByText(/18 enseignant/)).toBeTruthy();
+  expect(screen.getByText(/1 suspendu/)).toBeTruthy();
+  expect(screen.queryByRole('button', {name: /Nouvel agent/i})).toBeNull();
+});
+
+it('school greeting follows the local time instead of being hard-coded to Bonjour', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-10-25T22:05:00'));
+  const me: AccessMe = {...base, widgets: [], actions: []};
+  render(<HomePage token="t" me={me} schoolName="École A" userName="Daniel Kikunda" onNavigate={() => {}}/>);
+  expect(screen.getByRole('heading', {name: 'Bonsoir Daniel'})).toBeTruthy();
+  vi.useRealTimers();
+});

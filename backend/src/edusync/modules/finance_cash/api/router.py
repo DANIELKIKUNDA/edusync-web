@@ -182,14 +182,16 @@ def day_journal_pdf(day:str|None=Query(None),actor:ActorContext=Depends(require_
  archive_generated_tx(services,actor,data=data,fmt='PDF',required_capability='finance.cash.journal.export',document_code='finance.cash.journal',title=f"Journal de caisse du {r['day']}",file_name=f"journal_caisse_{r['day']}.pdf")
  return _Stream(_BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="journal_caisse_{r["day"]}.pdf"'})
 @router.get('/day/report.pdf')
-def day_report_pdf(day:str|None=Query(None),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- """G-DOC-3 — Desktop export_daily_financial_report_pdf."""
+def day_report_pdf(day:str|None=Query(None),preview:bool=Query(False),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """G-DOC-3 — Daily financial report. Preview is transient; an official generation is archived."""
  need(actor,'finance.reports.daily.generate')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   r=_report(c,actor,day);name=_school_name(c,actor.school_id)
+ r['operations']=_names(services,r['operations'])
  data=daily_report_pdf(school_name=name,report=r)
- archive_generated_tx(services,actor,data=data,fmt='PDF',required_capability='finance.reports.daily.generate',document_code='finance.reports.daily',title=f"Rapport financier journalier du {r['day']}",file_name=f"rapport_journalier_{r['day']}.pdf")
- return _Stream(_BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="rapport_journalier_{r["day"]}.pdf"'})
+ if not preview:
+  archive_generated_tx(services,actor,data=data,fmt='PDF',required_capability='finance.reports.daily.generate',document_code='finance.reports.daily',title=f"Rapport financier journalier du {r['day']}",file_name=f"rapport_journalier_{r['day']}.pdf")
+ return _Stream(_BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="rapport_journalier_{r["day"]}.pdf"','X-EduSync-Preview':'1' if preview else '0'})
 
 
 # ---------------------------------------------------------------- 2026-10-25 — owner: « voir les caisses passées et exporter la caisse »

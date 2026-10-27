@@ -291,7 +291,8 @@ def test_n3a_role_governance_follows_owner_decision():
     import json
     fin = json.loads((ROOT / "contracts/POINT3B_ROLE_DECISIONS_FINAL.json").read_text(encoding="utf-8"))
     caps = {r["code"]: set(r["final_capabilities"]) for r in fin["roles"]}
-    for cap in ("finance.payments.reverse.supervisor", "finance.advance_funds.refund", "finance.cash.reopen", "finance.cash.day.close",
+    # Amendment 2026-10-27: closing / reopening the school cash day is no longer a Gestionnaire right (registry, migration 0096).
+    for cap in ("finance.payments.reverse.supervisor", "finance.advance_funds.refund",
                 "finance.decisions.create", "finance.decisions.cancel", "finance.responsibility.set", "personnel.staff_children.finance_mode",
                 "personnel.payroll_deduction.confirm", "personnel.payroll_deduction.cancel"):
         assert cap in caps["GESTIONNAIRE"], cap

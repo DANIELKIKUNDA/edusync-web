@@ -2,9 +2,10 @@ import React,{useEffect,useState} from 'react';
 import {NavGlyph} from './platform/nav_icons';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {RecoveryChart} from './platform/recovery_chart';
+import {setFinanceTarget,type FinanceTarget} from './finance_nav';
 import {auditActionLabel} from './platform/labels';
 import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
-import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,checkoutProducts,getSchoolingSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
+import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,cashDaySummary,checkoutProducts,financeDecisions,generatedReports,documentHistory,getSchoolingSummary,getPersonnelSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
   type AccessMe,type AccessWidget,type EffectifsCounts,type SettingsOverview} from './api';
 
 /* School home driven by capabilities (owner decisions 9 of 2026-10-23 and the premium pass of 2026-10-24). The server
@@ -17,6 +18,8 @@ const n=(v:number)=>new Intl.NumberFormat('fr-FR').format(v);
 const money=(v:any)=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Number(v||0));
 const ago=(v?:string|null)=>{if(!v)return '';const m=Math.round((Date.now()-new Date(v).getTime())/60000);if(m<1)return 'à l’instant';if(m<60)return `il y a ${m} min`;const h=Math.round(m/60);if(h<24)return `il y a ${h} h`;const d=Math.round(h/24);return d===1?'hier':`il y a ${d} jours`};
 const plural=(k:number,one:string,many:string)=>`${n(k)} ${k>1?many:one}`;
+const localIsoDay=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const frDate=(v?:string|null)=>{if(!v)return '—';const [y,m,d]=String(v).slice(0,10).split('-').map(Number);return y&&m&&d?new Date(y,m-1,d).toLocaleDateString('fr-FR'):String(v)};
 
 /** Settings section opened by a readiness step (read once by the settings page). */
 export const SETTINGS_TARGET_KEY='edusync.settings.open';
@@ -41,8 +44,8 @@ function Async<T>({s,children,lines=2}:{s:Loaded<T>;children:(d:T)=>React.ReactN
 
 const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent','sync.devices']);
 const ICON:Record<string,string>={'access.members':'users','access.requests':'shield','settings.academic_year':'calendar','settings.structure':'layers','audit.recent':'clock',
-  'sync.devices':'sync','cash.today':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','finance.recovery':'finance',
-  'finance.by_fee':'tag','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart'};
+  'sync.devices':'sync','cash.today':'finance','cash.supervision':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','personnel.summary':'users','finance.recovery':'finance',
+  'finance.by_fee':'tag','finance.decisions':'shield','reports.latest':'doc','documents.recent':'folder','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart'};
 
 function AdminCard({w,d,index,go}:{w:AccessWidget;d:Loaded<Record<string,any>>;index:number;go:()=>void}){
   const x=d.data?.[w.id];const loading=d.loading&&!d.data;
@@ -79,20 +82,34 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
   const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
   switch(w.id){
     case 'cash.today':return <CashToday common={common} token={token}/>;
+    case 'cash.supervision':return <CashSupervision common={common} token={token}/>;
     case 'checkout.quick':return <Card level="priority" {...common} hint={<><b>Nouvel encaissement</b> : retrouvez l’élève ou la famille, puis encaissez en quelques secondes.</>}/>;
     case 'cash.receipts':return <CashReceipts common={common} token={token}/>;
     case 'enrollments.today':return <Enrollments common={common} token={token}/>;
     case 'products.watch':return <ProductsWatch common={common} token={token}/>;
     case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
+    case 'personnel.summary':return <PersonnelSummary common={common} token={token}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
     case 'finance.by_fee':return <ByFee common={common} token={token} yearId={yearId}/>;
+    case 'finance.decisions':return <FinancialDecisions common={common} token={token}/>;
+    case 'reports.latest':return <LatestReports common={common} token={token}/>;
+    case 'documents.recent':return <RecentDocuments common={common} token={token}/>;
     case 'inventory.stock':return <Stock common={common} token={token}/>;
     case 'inventory.counts':return <Counts common={common} token={token}/>;
     default:return null;
   }
 }
 type Common={icon:string;title:string;onClick:()=>void;index:number;ariaLabel:string};
+function CashSupervision({common,token}:{common:Common;token:string}){const day=localIsoDay();const s=useData(()=>cashDaySummary(token,day),[token,day]);
+  return <Async s={s}>{(d:any)=>{const cdf=d?.currencies?.CDF??{};const usd=d?.currencies?.USD??{};const open=Number(d?.open_count??0),closed=Number(d?.closed_count??0);
+    const gaps=(d?.sessions??[]).filter((x:any)=>x.status==='CLOSED'&&[x?.cdf?.variance,x?.usd?.variance].some(v=>v!=null&&Math.abs(Number(v))>0.0001)).length;
+    return <Card level={gaps?'priority':'info'} tone={gaps?'warn':undefined} {...common}
+      badge={gaps?<StatusBadge tone="warn">{gaps} écart{gaps>1?'s':''} à vérifier</StatusBadge>:<StatusBadge tone="ok">Caisses suivies</StatusBadge>}>
+      <p className="ui-card-value">{n(open)}<small>{open>1?'caisses ouvertes':'caisse ouverte'}</small></p>
+      <p className="ui-card-hint">{n(closed)} clôturée(s) · Solde théorique global <b>{money(cdf.expected_cash)} FC</b>{Number(usd.expected_cash||0)?<> · <b>{money(usd.expected_cash)} USD</b></>:null}{gaps?<> · <b>{gaps} clôture{gaps>1?'s':''} avec écart</b></>:null}</p>
+    </Card>}}</Async>;}
+
 function CashToday({common,token}:{common:Common;token:string}){const s=useData(()=>cashCurrent(token),[token]);
   return <Card level="priority" {...common}><Async s={s}>{d=>{const c:any=d.session;return c?<><p className="ui-card-value">{money(c.cdf?.expected_cash)}<small>FC en caisse</small></p>
     <p className="ui-card-hint"><StatusBadge tone={c.status==='OPEN'?'ok':'neutral'}>{c.status==='OPEN'?'Ouverte':'Fermée'}</StatusBadge> Entrées {money(c.cdf?.receipts)} FC · Solde théorique FC</p></>
@@ -115,7 +132,13 @@ function ProductsWatch({common,token}:{common:Common;token:string}){const s=useD
       :<p className="ui-card-hint">Tous les articles en vente sont disponibles.</p>}}</Async></Card>}
 function Headcounts({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData<EffectifsCounts>(()=>getEffectifsCounts(token,'section','ALL',yearId),[token,yearId]);
   return <Card level="info" {...common}><Async s={s}>{c=><><p className="ui-card-value">{n(c.total.active.total)}<small>élèves actifs</small></p>
-    <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p></>}</Async></Card>}
+    <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p>
+    {/* Par section (owner 2026-10-27): active pupils, girls / boys, share of the school — one hue, value printed. */}
+    {c.items.length>0&&<ul className="sh-sections" aria-label="Effectifs par section">{c.items.map(r=>{const share=c.total.active.total?Math.round(r.active.total*100/c.total.active.total):0;
+      return <li key={r.code||r.label}><span><b>{r.label}</b><small>{n(r.active.female)} F · {n(r.active.male)} G</small></span><i aria-hidden="true"><em style={{width:`${share}%`}}/></i><strong>{n(r.active.total)}</strong></li>})}</ul>}</>}</Async></Card>}
+function PersonnelSummary({common,token}:{common:Common;token:string}){const s=useData(()=>getPersonnelSummary(token),[token]);
+  return <Card level="info" {...common}><Async s={s}>{d=><><p className="ui-card-value">{n(d.active)}<small>agents actifs</small></p>
+    <p className="ui-card-hint">{n(d.teachers)} enseignant(s) · {n(d.administrative)} administratif(s){d.suspended?<> · <b>{n(d.suspended)} suspendu(s)</b></>:null}</p></>}</Async></Card>}
 function Movements({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>getEffectifsMovements(token,'ALL',{yearId,limit:5}),[token,yearId]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=>(d.items??[]).length?<ul className="ui-list">{d.items.map((m:any,i:number)=><li key={i}><b>{m.student_name??m.label??m.kind}</b><small>{m.kind_label??m.kind}</small></li>)}</ul>
     :<p className="ui-card-hint">Aucun mouvement récent.</p>}</Async></Card>}
@@ -124,6 +147,14 @@ function Recovery({common,token,yearId}:{common:Common;token:string;yearId?:stri
   return <Card level="info" wide icon={common.icon} title={common.title} index={common.index}><RecoveryChart token={token} yearId={yearId} onOpen={common.onClick}/></Card>}
 function ByFee({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>feeTrackingOverview(token,yearId,'CDF'),[token,yearId]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=><ul className="ui-list">{(d?.items??[]).slice(0,5).map((x:any,i:number)=><li key={x.category_id??i}><b>{x.category_label??x.label}</b><small>reste {money(x.remaining)} FC</small></li>)}</ul>}</Async></Card>}
+function FinancialDecisions({common,token}:{common:Common;token:string}){const s=useData(()=>financeDecisions(token,'ACTIVE'),[token]);
+  return <Card level="secondary" {...common}><Async s={s}>{d=>{const items=d.items??[];return <><p className="ui-card-value">{n(items.length)}<small>{items.length>1?'décisions actives':'décision active'}</small></p>
+    {items.length?<ul className="ui-list">{items.slice(0,4).map(x=><li key={x.id}><b>{x.student}</b><small>{x.fee_label??'Tous frais'} · {x.decision_type}</small></li>)}</ul>
+      :<p className="ui-card-hint">Aucune exonération ou réduction active à surveiller.</p>}</>}}</Async></Card>;}
+function LatestReports({common,token}:{common:Common;token:string}){const s=useData(()=>generatedReports(token),[token]);
+  return <Card level="secondary" {...common}><Async s={s}>{items=>{const rows=(items??[]).slice(0,4);return rows.length?<><p className="ui-card-value">{n(items.length)}<small>{items.length>1?'rapports officiels':'rapport officiel'}</small></p><ul className="ui-list">{rows.map(r=><li key={r.id}><b>{r.report_label}</b><small>{frDate(r.start_date)} · {ago(r.generated_at)}</small></li>)}</ul></>:<p className="ui-card-hint">Aucun rapport officiel généré pour le moment.</p>}}</Async></Card>;}
+function RecentDocuments({common,token}:{common:Common;token:string}){const s=useData(()=>documentHistory(token,0),[token]);
+  return <Card level="secondary" {...common}><Async s={s}>{d=>{const rows=(d.items??[]).slice(0,4);return rows.length?<><p className="ui-card-value">{n(d.items.length)}<small>{d.items.length>1?'documents récents':'document récent'}</small></p><ul className="ui-list">{rows.map(x=><li key={x.id}><b>{x.title}</b><small>{x.format} · {ago(x.updated_at)}</small></li>)}</ul></>:<p className="ui-card-hint">Aucun document généré pour le moment.</p>}}</Async></Card>;}
 function Stock({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipDashboard(token),[token]);
   return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const low=d?.low_stock??[];return low.length?<><p className="ui-card-value">{n(low.length)}<small>article(s) sous le seuil</small></p><ul className="ui-list">{low.slice(0,3).map((x:any)=><li key={x.id}><b>{x.label}</b><small>{x.quantity} {x.unit}</small></li>)}</ul></>
     :<p className="ui-card-hint">Aucun stock sous son seuil d’alerte.</p>}}</Async></Card>}
@@ -165,28 +196,37 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const [spot,setSpot]=useState(false);
   useEffect(()=>{if(!search)return;const k=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setSpot(true)}};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[search]);
   const pick=(s:SchoolingStudent)=>{try{sessionStorage.setItem('edusync.students.open',s.id)}catch{/* facultatif */}setSpot(false);onNavigate('students')};
-  const today=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const now=new Date();const today=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});const greeting=now.getHours()>=18||now.getHours()<5?'Bonsoir':'Bonjour';
   const first=userName.split(' ')[0];
-  const hour=new Date().getHours();
-  const greeting=hour>=18||hour<5?'Bonsoir':'Bonjour';
   const readiness=me.widgets.find(w=>w.id==='settings.readiness');
   const figures=me.widgets.filter(w=>w.id!=='settings.readiness'&&w.id!=='audit.recent');
+  const executive=figures.some(w=>w.id==='cash.supervision');
   const journal=me.widgets.find(w=>w.id==='audit.recent');
   let index=0;
+  const financeTarget=(id:string):FinanceTarget|undefined=>id==='cash.today'||id==='cash.supervision'?'cash':id==='checkout.quick'?'checkout':id==='finance.recovery'?'recovery':id==='finance.by_fee'?'fees':id==='finance.decisions'?'controls':id==='reports.latest'?'reports':undefined;
+  const openWidget=(w:AccessWidget)=>{const target=financeTarget(w.id);if(target)setFinanceTarget(target);onNavigate(w.module)};
+  const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)setFinanceTarget(target);onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
-    ?<AdminCard w={w} d={admin} index={index++} go={()=>onNavigate(w.module)}/>
-    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>{if(w.id==='cash.today')sessionStorage.setItem('edusync.finance.tab','cash');onNavigate(w.module)}}/>}</ScreenBoundary>;
-  return <div className="ui-page sh-home">
+    ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
+    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
+  return <div className={`ui-page sh-home${executive?' sh-home-executive':''}`}>
     <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
-      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
-      actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':'chevronRight'}
-        onClick={()=>a.id==='settings.open'?openSettings('overview'):onNavigate(a.module)}>{a.label}</Button>)}/>
+      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive?'pilotage de l’établissement : caisses, effectifs, recouvrement et alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
+      actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':a.id==='cash.supervise'?'finance':a.id==='reports.open'?'doc':'chevronRight'}
+        onClick={()=>a.id==='settings.open'?openSettings('overview'):openAction(a)}>{a.label}</Button>)}/>
     {search&&<button type="button" className="sh-search" onClick={()=>setSpot(true)} aria-haspopup="dialog"><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille · Ctrl K</small></button>}
     {spot&&<StudentSpotlight token={token} onClose={()=>setSpot(false)} onPick={pick}/>}
     {me.widgets.length===0?<EmptyState icon="home" title="Aucun suivi pour votre rôle" text="Les modules auxquels vous avez accès sont dans le menu."/>:<>
       {readiness&&<ScreenBoundary compact label="readiness"><Readiness token={token} open={openSettings} go={()=>openSettings('overview')}/></ScreenBoundary>}
-      {figures.length>0&&<Section title="À suivre" id="sh-follow"><div className="ui-grid">{figures.map(render)}</div></Section>}
-      {journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
+      {figures.length>0&&(()=>{
+        const overview=executive?figures.filter(w=>['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)):figures;
+        const activityIds=new Set(['reports.latest','documents.recent']);
+        const activity=executive?figures.filter(w=>activityIds.has(w.id)):[];
+        const watch=executive?figures.filter(w=>!['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)&&!activityIds.has(w.id)):[];
+        return <>{overview.length>0&&<Section title={executive?'Vue d’ensemble':'À suivre'} subtitle={executive?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
+          {watch.length>0&&<Section title="À vérifier" subtitle="Les exceptions et écarts à traiter en priorité." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
+          {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Rapports, documents et actions récentes de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
+      {!executive&&journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
     </>}
   </div>;
 }

@@ -111,3 +111,29 @@ Promoteur à miniature en gouvernance locale: consulter et contrôler. Les déci
 - `students.account.read`
 - `students.lifecycle.history.read`
 - `students.read`
+
+## Amendement du 26/10/2026 — gestion du personnel (décision du propriétaire)
+
+Question posée lors de la certification du rôle : la décision initiale listait le Personnel en **lecture seule**, alors
+que le registre canonique (`contracts/CAPABILITY_REGISTRY.json`, source de vérité depuis le 23/10/2026, reconstitué
+depuis la base provisionnée) attribue au Gestionnaire les droits d'écriture du personnel, et que la décision du
+24/10/2026 lui confie l'import du personnel (un import crée des agents).
+
+**Décision du propriétaire (26/10/2026) : le Gestionnaire gère le personnel.** Il conserve :
+`personnel.create`, `personnel.update`, `personnel.exit`, `personnel.assignments.add`, `personnel.assignments.end`,
+`personnel.functions.manage`, `personnel.directory.export`, en plus des droits de lecture ci-dessus, et l'import
+(`migration.staff.analyze`, `migration.staff.execute`).
+
+Le Gestionnaire reste un rôle de **supervision financière sans opération de caisse** : pas d'encaissement
+(`finance.checkout.collect`), pas de caisse personnelle (`finance.cash.open` / `close`), pas d'inscription, pas de
+modification des paramètres de l'école. Ces interdictions sont vérifiées par le serveur (403) dans la recette
+`frontend/browser-tests/local_gestionnaire_certification.mjs` et par `backend/tests/test_rbac_every_active_right_is_enforced.py`.
+
+Le contrat `contracts/POINT3B_ROLE_DECISIONS_FINAL.json` (118 capacités) est **historique** ; le contrat en vigueur est
+le registre canonique (141 capacités pour le Gestionnaire depuis l'amendement du 27/10 ; 143 auparavant, dont 25 issues des décisions du 23/10 — fusion des formats
+d'export —, du 24/10 — imports — et de cet amendement).
+
+**Amendement du propriétaire (27/10/2026) : pas de clôture de la journée.** « Le Gestionnaire n'est pas un opérateur
+permanent, c'est un chef. » Lui imposer la clôture bloquerait la journée des caissiers. `finance.cash.day.close` et
+`finance.cash.reopen` sont retirés du rôle standard (migration `0096_gestionnaire_no_cash_day_close.sql`) ; aucun rôle
+standard ne les détient ; une école peut les attribuer au rôle de son choix. Chaque caissier clôture sa propre caisse.

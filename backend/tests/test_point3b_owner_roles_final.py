@@ -51,11 +51,24 @@ def test_promoteur_is_governance_reader_not_operator_or_parent_sender():
 
 def test_gestionnaire_does_not_inherit_system_configuration_or_daily_execution():
     c = caps("GESTIONNAIRE")
-    assert "dashboard.school.read" in c
-    assert "audit.school.read" in c
-    assert "settings.tariffs.manage" not in c
-    assert "access.permissions.assign" not in c
-    assert "finance.checkout.collect" not in c
+    # The approved October amendments extend the September baseline.
+    approved = role("GESTIONNAIRE")
+    assert len(c) == approved["capability_count"] == 118
+    for amendment in approved["amendments"]:
+        assert set(amendment["added"]) <= c
+        assert not (set(amendment["removed"]) & c)
+    for required in (
+        "dashboard.school.read", "audit.school.read", "personnel.summary.read",
+        "finance.cash.other.read", "finance.reports.history.read", "documents.history.read",
+    ):
+        assert required in c
+    for forbidden in (
+        "settings.tariffs.manage", "access.permissions.assign", "finance.checkout.collect",
+        "personnel.create", "personnel.update", "personnel.status.change", "personnel.exit",
+        "communications.sms.send", "communications.send.all_parents",
+        "finance.cash.open", "finance.cash.expense.create",
+    ):
+        assert forbidden not in c
 
 
 def test_chief_section_roles_are_identical_and_include_parent_communications_and_transfer():

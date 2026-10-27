@@ -68,36 +68,123 @@ def cash_journal_pdf(*, school_name: str, report: dict[str, Any], title: str | N
             c.drawString(x, y, str(val)[:max(6, int(w / mm * 1.6))])
         y -= 4.2 * mm
     c.setFont("Helvetica-Oblique", 6.5); c.drawRightString(right, 7 * mm, "EduSync · Journal de caisse")
+    c.drawString(left, 7 * mm, "Les devises ne sont jamais additionnées entre elles : FC et USD restent séparés.")
     c.showPage(); c.save()
     return buf.getvalue()
 
 
 def daily_report_pdf(*, school_name: str, report: dict[str, Any]) -> bytes:
+    """Management-grade daily report: summary, sources and operation ledger, with FC/USD kept separate."""
+    from datetime import datetime
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
-    y = height - 18 * mm
-    c.setFont("Helvetica-Bold", 15); c.drawString(16 * mm, y, school_name or "École"); y -= 8 * mm
-    c.setFont("Helvetica-Bold", 13); c.drawString(16 * mm, y, f"RAPPORT FINANCIER JOURNALIER — {report['day']}"); y -= 8 * mm
-    c.setFont("Helvetica", 9); c.drawString(16 * mm, y, f"Caisse : {'clôturée' if report.get('closed') else 'ouverte'}"); y -= 9 * mm
-    c.setFont("Helvetica-Bold", 10); c.drawString(16 * mm, y, "Synthèse par devise"); y -= 6 * mm
-    c.setFont("Helvetica", 9)
-    for row in report.get("totals", []):
-        c.drawString(20 * mm, y, f"{CURRENCY.get(row['currency'], row['currency'])} — Entrées: {_money(row['entries'])} · Sorties: {_money(row['outflows'])} · Net: {_money(row['net'])}")
-        y -= 5 * mm
-    y -= 6 * mm; c.setFont("Helvetica-Bold", 10); c.drawString(16 * mm, y, "Détail par source"); y -= 6 * mm
+    left, right = 14 * mm, width - 14 * mm
+    page = 0
+
+    def fr_day(v: str) -> str:
+        try:
+            y, m, d = str(v).split("-")
+            return f"{d}/{m}/{y}"
+        except Exception:
+            return str(v)
+
+    def footer():
+        c.setFont("Helvetica", 6.5)
+        c.setFillColorRGB(.38, .42, .50)
+        c.drawString(left, 8 * mm, f"Généré par EduSync · {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        c.drawRightString(right, 8 * mm, f"Page {page}")
+        c.setFillColorRGB(0, 0, 0)
+
+    def header(cont=False):
+        nonlocal page
+        page += 1
+        y = height - 15 * mm
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(left, y, school_name or "École")
+        y -= 6 * mm
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(left, y, f"RAPPORT FINANCIER JOURNALIER — {fr_day(report['day'])}" + (" — SUITE" if cont else ""))
+        c.setFont("Helvetica", 8)
+        c.drawRightString(right, y, fr_day(report["day"]))
+        y -= 6 * mm
+        c.setStrokeColorRGB(.82, .85, .90); c.line(left, y, right, y); c.setStrokeColorRGB(0,0,0)
+        footer()
+        return y - 7 * mm
+
+    y = header()
+    status = "Clôturée" if report.get("closed") else "Ouverte"
     c.setFont("Helvetica", 8.5)
-    for row in report.get("details", []):
-        if y < 20 * mm:
-            c.showPage(); y = height - 18 * mm; c.setFont("Helvetica", 8.5)
-        c.drawString(20 * mm, y, f"{SOURCES.get(row['source'], row['source'])} · {'Entrée' if row['direction'] == 'ENTREE' else 'Sortie'} · "
-                                 f"{CURRENCY.get(row['currency'], row['currency'])} : {_money(row['amount'])}")
+    meta = f"Journée : {fr_day(report['day'])}   ·   Statut : {status}   ·   Caisses : {report.get('sessions', 0)}   ·   Encore ouvertes : {report.get('open_sessions', 0)}"
+    c.drawString(left, y, meta); y -= 8 * mm
+
+    # Executive summary by currency.
+    c.setFont("Helvetica-Bold", 10); c.drawString(left, y, "Synthèse par devise"); y -= 5 * mm
+    xcols = [left, left + 30*mm, left + 72*mm, left + 114*mm, left + 154*mm]
+    for label, x in zip(("Devise","Entrées","Sorties","Net","État"), xcols):
+        c.setFont("Helvetica-Bold", 7.5); c.drawString(x, y, label)
+    y -= 4 * mm; c.setStrokeColorRGB(.82,.85,.90); c.line(left,y+2*mm,right,y+2*mm); c.setStrokeColorRGB(0,0,0)
+    totals = report.get("totals", [])
+    for row in totals or [{"currency":"CDF","entries":"0","outflows":"0","net":"0"},{"currency":"USD","entries":"0","outflows":"0","net":"0"}]:
+        vals = [CURRENCY.get(row["currency"], row["currency"]), _money(row["entries"]), _money(row["outflows"]), _money(row["net"]), status]
+        c.setFont("Helvetica", 8)
+        for v, x in zip(vals, xcols): c.drawString(x, y, str(v))
         y -= 5 * mm
-    y -= 8 * mm; c.setFont("Helvetica-Oblique", 7)
-    c.drawString(16 * mm, y, "Rapport généré par EduSync. Les devises ne sont jamais additionnées entre elles.")
+    y -= 4 * mm
+
+    # Breakdown by source.
+    c.setFont("Helvetica-Bold", 10); c.drawString(left, y, "Ventilation par origine"); y -= 5 * mm
+    cols = [left, left+82*mm, left+112*mm, left+137*mm]
+    for label, x in zip(("Origine","Sens","Devise","Montant"), cols):
+        c.setFont("Helvetica-Bold", 7.5); c.drawString(x,y,label)
+    y -= 4 * mm
+    details = report.get("details", [])
+    if not details:
+        c.setFont("Helvetica-Oblique", 8); c.drawString(left,y,"Aucun mouvement financier pour cette journée."); y -= 5*mm
+    else:
+        for row in details:
+            if y < 35 * mm:
+                c.showPage(); y = header(True)
+                c.setFont("Helvetica-Bold",10); c.drawString(left,y,"Ventilation par origine — suite"); y -= 5*mm
+            vals=[SOURCES.get(row["source"],row["source"]), "Entrée" if row["direction"]=="ENTREE" else "Sortie",
+                  CURRENCY.get(row["currency"],row["currency"]), _money(row["amount"])]
+            c.setFont("Helvetica",7.5)
+            for v,x in zip(vals,cols): c.drawString(x,y,str(v)[:52])
+            y -= 4.5*mm
+    y -= 5 * mm
+
+    # Full operation ledger: useful for a manager without forcing a separate journal document.
+    c.setFont("Helvetica-Bold", 10); c.drawString(left, y, "Opérations de la journée"); y -= 5 * mm
+    opcols=[left,left+20*mm,left+64*mm,left+96*mm,left+121*mm,left+146*mm]
+    def op_head():
+        nonlocal y
+        for label,x in zip(("Heure","Opération","Référence","Montant","Devise","Utilisateur"),opcols):
+            c.setFont("Helvetica-Bold",7); c.drawString(x,y,label)
+        y -= 4*mm
+    op_head()
+    ops=report.get("operations",[])
+    if not ops:
+        c.setFont("Helvetica-Oblique",8); c.drawString(left,y,"Aucune opération enregistrée."); y -= 5*mm
+    else:
+        for op in ops:
+            if y < 22*mm:
+                c.showPage(); y=header(True); c.setFont("Helvetica-Bold",10); c.drawString(left,y,"Opérations de la journée — suite"); y-=5*mm; op_head()
+            at=op.get("created_at")
+            vals=[at.strftime("%H:%M") if hasattr(at,"strftime") else str(at or "")[11:16],
+                  SOURCES.get(op.get("source"),str(op.get("source") or "").replace("_"," ").title()),
+                  op.get("reference") or "—", _money(op.get("amount")), CURRENCY.get(op.get("currency"),op.get("currency")),
+                  op.get("user_name") or "—"]
+            c.setFont("Helvetica",6.8)
+            for v,x in zip(vals,opcols): c.drawString(x,y,str(v)[:28])
+            y -= 4.2*mm
+
+    if report.get("closed_at"):
+        if y < 28*mm: c.showPage(); y=header(True)
+        y -= 3*mm; c.setFont("Helvetica-Bold",8); c.drawString(left,y,"Clôture de journée enregistrée."); y -= 4*mm
     c.showPage(); c.save()
     return buf.getvalue()
-
 
 def advance_receipt_pdf(*, school: dict[str, Any], fund: dict[str, Any]) -> bytes:
     """N3-D — Desktop export_advance_receipt_pdf (A5): amount received, already imputed, available."""

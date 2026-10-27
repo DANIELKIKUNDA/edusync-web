@@ -50,7 +50,7 @@ export function RecoveryChart({token, yearId, compact, onOpen}: {token: string; 
         <div className="rc-remaining"><b>{t ? formatMoney(String(t.remaining), currency) : '—'}</b><small>reste à recouvrer</small></div>
       </div>
       <div className="rc-controls">
-        <div className="rc-seg" role="group" aria-label="Devise">{(['CDF', 'USD'] as const).map(c => <button key={c} type="button" aria-pressed={currency === c} className={currency === c ? 'on' : ''} onClick={e => { e.stopPropagation(); setCurrency(c); }}>{c}</button>)}</div>
+        <div className="rc-seg" role="group" aria-label="Devise">{(['CDF', 'USD'] as const).map(c => <button key={c} type="button" aria-pressed={currency === c} className={currency === c ? 'on' : ''} onClick={e => { e.stopPropagation(); setCurrency(c); }}>{c === 'CDF' ? 'FC' : c}</button>)}</div>
         <div className="rc-seg" role="group" aria-label="Affichage">{([['chart', 'Graphique'], ['table', 'Tableau']] as const).map(([k, l]) => <button key={k} type="button" aria-pressed={view === k} className={view === k ? 'on' : ''} onClick={e => { e.stopPropagation(); setView(k); }}>{l}</button>)}</div>
       </div>
     </div>
@@ -67,7 +67,7 @@ export function RecoveryChart({token, yearId, compact, onOpen}: {token: string; 
             {items.map((r, i) => <circle key={i} className={`rc-dot ${hover === i ? 'on' : ''}`} cx={x(i)} cy={yRate(num(r.recovery_rate))} r={hover === i ? 5.5 : 4}/>)}
             {items.length > 0 && <text className="rc-direct" x={x(items.length - 1)} y={yRate(num(items[items.length - 1].recovery_rate)) - 9} textAnchor="end">{num(items[items.length - 1].recovery_rate).toLocaleString('fr-FR')} %</text>}
           </svg></figure>
-        <figure className="rc-figure"><figcaption>Montants par échéance ({currency})
+        <figure className="rc-figure"><figcaption>Montants par échéance ({currency === 'CDF' ? 'FC' : currency})
           <span className="rc-legend"><i className="rc-key track"/>Attendu<i className="rc-key fill"/>Régularisé</span></figcaption>
           <svg width={width} height={amtH + 22} role="img" aria-label={`Montants attendus et régularisés par échéance, en ${currency}.`}>
             {[0, 0.5, 1].map(f => <g key={f}><line className="rc-grid" x1={pad.l} x2={width - pad.r} y1={yAmt(maxAmount * f)} y2={yAmt(maxAmount * f)}/><text className="rc-tick" x={pad.l - 8} y={yAmt(maxAmount * f) + 4} textAnchor="end">{tick(maxAmount * f)}</text></g>)}
