@@ -140,7 +140,22 @@ def open_signed_document(token: str = Query(..., min_length=20, max_length=600),
     with services.tenant_db.tenant_transaction(school_id=UUID(claim["school_id"]), user_id=UUID(claim["user_id"])) as conn:
         member = conn.execute(text("""SELECT 1 FROM school_memberships m JOIN schools s ON s.id=m.school_id
             WHERE m.user_id=:u AND m.school_id=:s AND m.active AND s.status='ACTIVE'"""), {"u": claim["user_id"], "s": claim["school_id"]}).first()
-        doc = conn.execute(text("SELECT object_key,content_type,file_name,format FROM generated_documents WHERE school_id=:s AND id=:id"), {"s": claim["school_id"], "id": claim["document_id"]}).mappings().first()
+        doc = conn.execute(text("SELECT object_key,content_type,file_name,format,generated_by,required_capability FROM generated_documents WHERE school_id=:s AND id=:id"), {"s": claim["school_id"], "id": claim["document_id"]}).mappings().first()
+    # The signed URL is not an authorization grant: a revoked role must take
+    # effect even when the URL has not yet expired.
+    if member and doc and str(doc["generated_by"]) != claim["user_id"]:
+        from edusync.adapters.postgres_repositories import PostgresMembershipRepository
+        from edusync.adapters.postgres_authorization import PostgresAuthorizationRepository
+        membership = conn.execute(text("SELECT id FROM school_memberships WHERE school_id=:s AND user_id=:u AND active LIMIT 1"),
+                                  {"s": claim["school_id"], "u": claim["user_id"]}).first()
+        if not membership:
+            raise HTTPException(403, "Lien invalide")
+        permissions = PostgresMembershipRepository(conn).permissions(membership[0])
+        grants = PostgresAuthorizationRepository(conn).effective_capability_grants(UUID(claim["user_id"]), UUID(claim["school_id"]))
+        current_actor = ActorContext(user_id=UUID(claim["user_id"]), school_id=UUID(claim["school_id"]),
+                                     membership_id=membership[0], permissions=permissions, capability_scopes=grants)
+        if doc["required_capability"] not in object_store.school_wide_capabilities(current_actor):
+            raise HTTPException(403, "Droit de consultation révoqué")
     if not member or not doc or not str(doc["object_key"]).startswith(f"schools/{claim['school_id']}/"):
         raise HTTPException(403, "Lien invalide")
     try:
