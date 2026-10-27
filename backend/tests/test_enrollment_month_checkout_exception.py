@@ -54,3 +54,27 @@ def test_future_payment_policy_exempts_only_required_enrollment_month(monkeypatc
     with pytest.raises(ValueError, match="mois futur"):
         repo._apply_payment_policy(uuid4(), rows, [june, october], [october.id],
                                    october.remaining, "CASH", False, {june.id})
+
+
+def test_balance_unlocks_only_the_enrollment_month(monkeypatch):
+    september, october, june = _month("Septembre", 1), _month("Octobre", 2), _month("Juin", 10)
+
+    class Result:
+        def mappings(self):
+            return self
+        def all(self):
+            return [{"id": c.id, "label": c.label} for c in (september, october, june)]
+
+    class Connection:
+        def execute(self, *_args, **_kwargs):
+            return Result()
+
+    repo = PostgresFinanceCheckoutRepository(Connection())
+    monkeypatch.setattr(repo, "_cash_payable", lambda *_: [september, october, june])
+    monkeypatch.setattr(repo, "_enrollment_month_exceptions", lambda *_: {june.id})
+    balance = {row["id"]: row for row in repo.charges(uuid4(), uuid4())}
+    assert balance[june.id]["eligible"] is True
+    assert balance[june.id]["requires"] == []
+    assert balance[june.id]["lock_reason"] is None
+    assert balance[october.id]["eligible"] is False
+    assert balance[october.id]["requires"] == [str(september.id)]
