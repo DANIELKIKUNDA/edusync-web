@@ -175,11 +175,13 @@ def probable_students(last_name:str=Query(...,min_length=1,max_length=120),middl
 @router.get('/students/{student_id}/historical-arrears')
 def historical_arrears(student_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-2 — Desktop student_historical_arrears: earlier years only, never mixed with the new enrollment."""
-    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_require_schoolwide_parity(actor,'students.account.read')
-    elif not any('SCHOOL'==kind for cap in ('enrollments.create','enrollments.reenroll') if cap in actor.permissions for kind,_ in actor.scopes_for(cap)):
-        raise HTTPException(status_code=403,detail='Consultation non disponible pour ce périmètre de section')
+    capability = next((cap for cap in ('students.account.read', 'enrollments.create', 'enrollments.reenroll')
+                       if cap in actor.permissions and actor.scopes_for(cap)), None)
+    if capability is None:
+        raise HTTPException(status_code=403, detail='Périmètre de consultation des arriérés absent')
+    scopes = actor.scopes_for(capability)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return {'items':_jsonable(PostgresSchoolingParityRepository(conn).historical_arrears(actor.school_id,student_id))}
+        return {'items':_jsonable(PostgresSchoolingParityRepository(conn).historical_arrears(actor.school_id,student_id,scopes=scopes))}
 
 @router.get('/families/diagnostics')
 def family_diagnostics(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
