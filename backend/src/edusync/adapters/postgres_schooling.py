@@ -426,7 +426,7 @@ class PostgresSchoolingRepository:
         elif enrolled_only:
             year_filter=" AND EXISTS(SELECT 1 FROM academic_years ayx WHERE ayx.id=e.academic_year_id AND ayx.status='ACTIVE')"
         if enrolled_only:
-            conditions.append(f"EXISTS(SELECT 1 FROM students se JOIN enrollments e ON e.student_id=se.id AND e.school_id=se.school_id WHERE se.school_id=f.school_id AND se.family_id=f.id AND e.status<>'CANCELLED'{year_filter})")
+            conditions.append(f"EXISTS(SELECT 1 FROM students se JOIN enrollments e ON e.student_id=se.id AND e.school_id=se.school_id WHERE se.school_id=f.school_id AND se.family_id=f.id AND e.status<>'CANCELLED' AND {child_scope.replace('s.', 'se.')}{year_filter})")
         enrolled_count_sql=f"""(SELECT count(DISTINCT s.id) FROM students s JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope} AND e.status<>'CANCELLED'{year_filter})""" if (academic_year_id or enrolled_only) else f"(SELECT count(*) FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope})"
         stmt=text(f"""SELECT f.*,
           (SELECT count(*) FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope}) child_count,
