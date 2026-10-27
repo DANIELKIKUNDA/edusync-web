@@ -73,7 +73,7 @@ class PostgresPeriodicReportsRepository:
                    sc.label AS class_label
               FROM finance_payments p JOIN finance_payment_allocations a ON a.payment_id=p.id JOIN finance_charges fc ON fc.id=a.charge_id
               LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id LEFT JOIN fee_schedules fsch ON fsch.id=fc.schedule_id
-              JOIN enrollments e ON e.id=p.enrollment_id JOIN students st ON st.id=e.student_id LEFT JOIN school_classes sc ON sc.id=e.class_id JOIN school_classes sc_scope ON sc_scope.id=e.class_id JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+              JOIN enrollments e ON e.id=p.enrollment_id JOIN students st ON st.id=e.student_id LEFT JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
              WHERE p.school_id=:s AND NOT EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id)
                AND {LOCAL_DAY} <= :end AND (CAST(:start AS date) IS NULL OR {LOCAL_DAY} >= CAST(:start AS date))
                AND (CAST(:y AS uuid) IS NULL OR e.academic_year_id=CAST(:y AS uuid))
@@ -248,7 +248,7 @@ class PostgresPeriodicReportsRepository:
                 count(DISTINCT fc.enrollment_id) AS students, sum(coalesce(fc.gross_amount, fc.net_amount)) AS gross_expected,
                 sum(coalesce(fc.discount_amount,0)) + sum(finance_charge_decision_amount(fc.id)) AS discounts,
                 sum(fc.net_amount - finance_charge_decision_amount(fc.id)) AS net_expected, sum(fc.paid_amount) AS paid
-              FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id JOIN school_classes sc_scope ON sc_scope.id=e.class_id JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
+              FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
              WHERE fc.school_id=:s AND e.academic_year_id=:y AND e.status='VALIDATED' AND fc.status='ACTIVE'
              AND {scope_where} GROUP BY 1,2,3 ORDER BY 2,3""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{**{k: (str(money(v)) if isinstance(v, Decimal) else v) for k, v in dict(r).items()}, "balance": str(money(r["net_expected"]) - money(r["paid"]))} for r in rows]
@@ -257,7 +257,7 @@ class PostgresPeriodicReportsRepository:
         y = self._year(school_id, year_id)
         scope_where, scope_params = self._scope_clause(scopes)
         rows = self.c.execute(self._scoped_sql(f"""SELECT p.actor_user_id AS cashier_id, p.currency, count(*) AS payment_count, sum(p.amount) AS amount
-              FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN school_classes sc_scope ON sc_scope.id=e.class_id JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+              FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
              WHERE p.school_id=:s AND e.academic_year_id=:y AND NOT EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id)
              AND {scope_where} GROUP BY 1,2 ORDER BY 1,2""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{**dict(r), "cashier_id": str(r["cashier_id"]), "amount": str(money(r["amount"]))} for r in rows]
@@ -270,7 +270,7 @@ class PostgresPeriodicReportsRepository:
                 sum(CASE WHEN f.status IN ('ACTIF','EPUISE') THEN f.allocated_amount ELSE 0 END) AS allocated_total,
                 sum(CASE WHEN f.status='ACTIF' THEN f.available_amount ELSE 0 END) AS available_total,
                 sum(CASE WHEN f.status IN ('ANNULE','REMBOURSE') THEN f.amount ELSE 0 END) AS reversed_total
-              FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id JOIN school_classes sc_scope ON sc_scope.id=e.class_id JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+              FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
              WHERE f.school_id=:s AND e.academic_year_id=:y AND {scope_where} GROUP BY f.currency ORDER BY f.currency""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{k: (str(money(v)) if isinstance(v, Decimal) else v) for k, v in dict(r).items()} for r in rows]
 
@@ -297,7 +297,7 @@ class PostgresPeriodicReportsRepository:
                 sec.label AS section_label, y.label AS year_label
               FROM students s JOIN enrollments e ON e.student_id=s.id JOIN academic_years y ON y.id=e.academic_year_id
               JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_sections sec ON sec.id=sc.section_id
-              JOIN school_classes sc_scope ON sc_scope.id=e.class_id JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+              LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
              WHERE s.school_id=:sch AND s.id=:st AND {scope_where} ORDER BY (y.status='ACTIVE') DESC, y.start_date DESC LIMIT 1""", scope_params), {"sch": school_id, "st": student_id, **scope_params}.mappings().first()
         if not st:
             raise LookupError("Élève introuvable")
