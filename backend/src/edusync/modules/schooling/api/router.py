@@ -193,9 +193,10 @@ def family_diagnostics(actor:ActorContext=Depends(require_school_actor),services
 
 @router.get('/families/overview')
 def family_overview(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    _require_schoolwide_parity(actor,'families.read')
+    _need(actor,'families.read')
+    scopes=_scopes(actor,'families.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return PostgresSchoolingParityRepository(conn).family_overview(actor.school_id,year_id)
+        return PostgresSchoolingParityRepository(conn).family_overview_scoped(actor.school_id,year_id,scopes=scopes)
 
 @router.get('/families/kpi/{metric}')
 def family_kpi(metric:str,year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
