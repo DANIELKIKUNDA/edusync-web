@@ -135,5 +135,9 @@ test('panier restauré avec période antérieure impayée : refus visible avant 
   await expect(aside.getByRole('button',{name:'Modifier'}).first()).toBeVisible();
   await aside.getByRole('button',{name:'Encaisser le panier'}).click();
   await expect(aside.locator('.basketActionError')).toContainText('Octobre exige d’abord Septembre');
+  await aside.getByRole('button',{name:'Modifier'}).first().click();
+  await page.getByText('À venir · obligations sous conditions').click();
+  await page.getByRole('button',{name:/Octobre.*Septembre doit être soldé d’abord/}).click();
+  await expect(page.getByRole('region',{name:'Paiement'})).toHaveCount(0);
   expect(result.attempts()).toBe(0);
 });
