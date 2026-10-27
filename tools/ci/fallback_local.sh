@@ -12,10 +12,15 @@ usage() {
 [[ $# -eq 1 && "$1" =~ ^[0-9a-f]{40}$ ]] || usage
 SHA="$1"
 ROOT="$(git rev-parse --show-toplevel)"
-[[ "$(git -C "$ROOT" rev-parse HEAD)" == "$SHA" ]] || {
-  echo "REFUS : checkout HEAD different du SHA fourni." >&2
-  exit 65
-}
+# Autoriser HEAD (commit de branche) ou un commit contenu dans origin/main.
+# La copie testée provient TOUJOURS du SHA fourni, pas du checkout de l'outillage.
+if [[ "$(git -C "$ROOT" rev-parse HEAD)" != "$SHA" ]]; then
+  MAIN_REF="$(git -C "$ROOT" rev-parse -q --verify refs/remotes/origin/main || true)"
+  if [[ -z "$MAIN_REF" ]] || ! git -C "$ROOT" merge-base --is-ancestor "$SHA" "$MAIN_REF"; then
+    echo "REFUS : le SHA doit etre HEAD ou un ancetre de origin/main (faire git fetch origin)." >&2
+    exit 65
+  fi
+fi
 git -C "$ROOT" cat-file -e "$SHA^{commit}"
 for cmd in docker tar git awk df tee; do
   command -v "$cmd" >/dev/null || { echo "Commande manquante : $cmd" >&2; exit 69; }
@@ -37,7 +42,7 @@ OUT="$HOME/edusync-ci-reports/${SHA:0:12}-$STAMP"
 mkdir -p "$OUT"
 chmod 700 "$OUT"
 WORK="$(mktemp -d /tmp/edusync-ci.XXXXXXXX)"
-NET="edusync-fallback-$$"
+NET="edusync-fallback-$(basename "$WORK" | cut -d. -f2)"
 PG="${NET}-postgres"
 CURRENT="preflight"
 RESULT="FAIL"
