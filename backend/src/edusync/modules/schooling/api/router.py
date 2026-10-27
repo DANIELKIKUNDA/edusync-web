@@ -201,10 +201,11 @@ def family_overview(year_id:UUID|None=None,actor:ActorContext=Depends(require_sc
 @router.get('/families/kpi/{metric}')
 def family_kpi(metric:str,year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-3 — Desktop family_kpi_details (LARGE_ELIGIBLE, BENEFICIARIES, STAFF_CHILDREN)."""
-    _require_schoolwide_parity(actor,'families.read')
+    _need(actor,'families.read')
+    scopes=_scopes(actor,'families.read')
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-            return {'items':_jsonable(PostgresSchoolingParityRepository(conn).family_kpi_details(actor.school_id,metric=metric.upper(),year_id=year_id))}
+            return {'items':_jsonable(PostgresSchoolingParityRepository(conn).family_kpi_details_scoped(actor.school_id,metric=metric.upper(),year_id=year_id,scopes=scopes))}
     except ValueError as e:raise HTTPException(status_code=409,detail=str(e)) from e
 
 @router.get('/summary')
