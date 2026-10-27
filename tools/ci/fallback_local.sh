@@ -94,6 +94,11 @@ log_step() {
 # Ne jamais tester un arbre de travail non suivi. Extraction depuis le SHA exact.
 # En cas d'echec git archive, pipefail empeche tout faux succes.
 git -C "$ROOT" archive "$SHA" | tar -x -C "$WORK"
+# La verification tools/ci/secret_patterns.py interroge "git ls-files".
+# git archive ne contient pas .git : creer un index TEMPORAIRE des fichiers
+# extraits sans remettre de remote, token ou acces au checkout utilisateur.
+git -C "$WORK" -c core.hooksPath=/dev/null init -q
+git -C "$WORK" -c core.hooksPath=/dev/null add -f -A
 # Reseau ephemere prive au moteur Docker (aucun port hote publie).
 # La sortie Internet reste necessaire aux dependances pip/npm.
 docker network create --driver bridge "$NET" >/dev/null
@@ -122,6 +127,7 @@ log_step backend_rbac_security docker run --rm --init \
   --security-opt no-new-privileges \
   -v "$WORK:/code" -w /code/backend \
   -e PYTHONPATH=src -e PYTHONUTF8=1 -e CI=true \
+  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/code \
   -e "EDUSYNC_OWNER_DATABASE_URL=postgresql+psycopg://edusync_owner:ci-owner-only@127.0.0.1:5432/edusync" \
   -e "EDUSYNC_TENANT_DATABASE_URL=postgresql+psycopg://edusync_tenant:ci-tenant-only@127.0.0.1:5432/edusync" \
   -e "EDUSYNC_PLATFORM_DATABASE_URL=postgresql+psycopg://edusync_platform:ci-platform-only@127.0.0.1:5432/edusync" \
