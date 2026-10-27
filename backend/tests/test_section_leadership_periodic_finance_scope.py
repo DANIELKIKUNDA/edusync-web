@@ -50,3 +50,14 @@ def test_periodic_routes_forward_exact_capability_scopes():
     assert "scopes=actor.scopes_for('finance.reports.periodic.generate')" in preview
     assert "scopes=actor.scopes_for('finance.reports.periodic.export')" in excel
     assert "_need_periodic_scope(actor, 'finance.reports.periodic.export')" in excel
+
+
+def test_frontend_hides_official_pdf_for_section_only_grants():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    ui = (root / "frontend/src/reports_ui.tsx").read_text()
+    api = (root / "backend/src/edusync/modules/finance_reports/api/router.py").read_text()
+    assert "official_pdf_available" in api
+    assert "generated_history_available" in api
+    assert "officialAllowed && can('finance.reports.periodic.generate')" in ui
+    assert "historyAllowed && can('finance.reports.history.read')" in ui
