@@ -99,6 +99,11 @@ def document_history(offset: int = Query(0, ge=0, le=100_000), limit: int = Quer
                      scope: str = Query("school", pattern="^(mine|school)$"),
                      actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     _need(actor, "documents.history.read")
+    # Archived generations have no persisted section provenance. Do not
+    # expose even the creator's archive to a section-only actor: ownership
+    # does not prove that its contents belong to the currently granted scope.
+    if not any(t == "SCHOOL" for t, _ in actor.scopes_for("documents.history.read")):
+        raise HTTPException(403, "Historique documentaire sans provenance de section vérifiable")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
         if scope == "mine":
             rows = conn.execute(text("""SELECT g.id,g.document_code,g.format,g.title,g.byte_size,g.generated_at updated_at,g.file_name,u.full_name generated_by,
@@ -121,6 +126,8 @@ def document_history(offset: int = Query(0, ge=0, le=100_000), limit: int = Quer
 @router.post("/history/{generation_id}/link")
 def document_link(generation_id: UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     _need(actor, "documents.open")
+    if not any(t == "SCHOOL" for t, _ in actor.scopes_for("documents.open")):
+        raise HTTPException(403, "Document sans provenance de section vérifiable")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
         found = conn.execute(text("SELECT 1 FROM generated_documents WHERE school_id=:s AND id=:id AND (generated_by=:u OR required_capability=ANY(CAST(:caps AS text[])))"),
                              {"s": str(actor.school_id), "id": str(generation_id), "u": str(actor.user_id), "caps": object_store.school_wide_capabilities(actor)}).first()
@@ -157,6 +164,8 @@ def open_signed_document(token: str = Query(..., min_length=20, max_length=600),
                                      membership_id=membership[0], permissions=permissions, capability_scopes=grants)
         if "documents.open" not in permissions:
             raise HTTPException(403, "Droit de consultation révoqué")
+        if not any(t == "SCHOOL" for t, _ in current_actor.scopes_for("documents.open")):
+            raise HTTPException(403, "Document sans provenance de section vérifiable")
         if str(doc["generated_by"]) != claim["user_id"] and doc["required_capability"] not in object_store.school_wide_capabilities(current_actor):
             raise HTTPException(403, "Droit de consultation révoqué")
     if not str(doc["object_key"]).startswith(f"schools/{claim['school_id']}/"):
