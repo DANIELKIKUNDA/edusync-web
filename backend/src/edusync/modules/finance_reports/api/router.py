@@ -215,16 +215,16 @@ def generated_reports(actor: ActorContext = Depends(require_school_actor), servi
 
 @router.get('/analysis/fees')
 def analysis_fees(year_id: _UUID | None = None, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'finance.analysis.by_fee.read')
+    _need_periodic_scope(actor, 'finance.analysis.by_fee.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-        return {'items': _jsonable(PostgresPeriodicReportsRepository(c).analysis_by_fee_type(actor.school_id, year_id))}
+        return {'items': _jsonable(PostgresPeriodicReportsRepository(c).analysis_by_fee_type(actor.school_id, year_id, scopes=actor.scopes_for('finance.analysis.by_fee.read')))}
 
 
 @router.get('/analysis/cashiers')
 def analysis_cashiers(year_id: _UUID | None = None, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'finance.analysis.by_cashier.read')
+    _need_periodic_scope(actor, 'finance.analysis.by_cashier.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-        items = PostgresPeriodicReportsRepository(c).analysis_by_cashier(actor.school_id, year_id)
+        items = PostgresPeriodicReportsRepository(c).analysis_by_cashier(actor.school_id, year_id, scopes=actor.scopes_for('finance.analysis.by_cashier.read'))
     ids = list({i['cashier_id'] for i in items})
     if ids:
         with services.platform_db.platform_transaction() as pc:
@@ -236,9 +236,9 @@ def analysis_cashiers(year_id: _UUID | None = None, actor: ActorContext = Depend
 
 @router.get('/analysis/advance-funds')
 def analysis_advance_funds(year_id: _UUID | None = None, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'finance.analysis.advance.read')
+    _need_periodic_scope(actor, 'finance.analysis.advance.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-        return {'items': _jsonable(PostgresPeriodicReportsRepository(c).analysis_advance_funds(actor.school_id, year_id))}
+        return {'items': _jsonable(PostgresPeriodicReportsRepository(c).analysis_advance_funds(actor.school_id, year_id, scopes=actor.scopes_for('finance.analysis.advance.read')))}
 
 
 @router.get('/historical-status')
