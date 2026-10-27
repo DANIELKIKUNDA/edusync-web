@@ -73,6 +73,32 @@ with engine.connect() as conn:
             assert len(families) == 1, f"family scope={names}: {families}"
             assert int(families[0]["enrolled_children"]) == len(expected), (
                 f"family count scope={names}: {families}")
+        # A class-only grant must not require a non-existent section grant.
+        class_grant = (("CLASS", "CI-PRIMAIRE"),)
+        class_rows = repo.list_students(school, scopes=class_grant,
+                                        all_years=True)
+        assert {row["id"] for row in class_rows} == {students["PRIMAIRE"]}
+        class_families = repo.list_families(school, scopes=class_grant,
+                                           academic_year_id=year,
+                                           enrolled_only=True)
+        assert len(class_families) == 1
+        assert int(class_families[0]["enrolled_children"]) == 1
+        # A mixed class + section grant is an explicit union, not SCHOOL.
+        mixed_grant = (("CLASS", "CI-PRIMAIRE"), ("SECTION", "MATERNELLE"))
+        mixed_rows = repo.list_students(school, scopes=mixed_grant,
+                                        all_years=True)
+        assert {row["id"] for row in mixed_rows} == {
+            students["PRIMAIRE"], students["MATERNELLE"]}
+        mixed_families = repo.list_families(school, scopes=mixed_grant,
+                                           academic_year_id=year,
+                                           enrolled_only=True)
+        assert len(mixed_families) == 1
+        assert int(mixed_families[0]["enrolled_children"]) == 2
+        # No grants must fail closed, including the shared-family directory.
+        assert repo.list_students(school, scopes=(), all_years=True) == []
+        assert repo.list_families(school, scopes=(),
+                                  academic_year_id=year,
+                                  enrolled_only=True) == []
         schoolwide = repo.list_students(school, scopes=(("SCHOOL", None),),
                                         all_years=True)
         assert {row["id"] for row in schoolwide} == set(students.values())
