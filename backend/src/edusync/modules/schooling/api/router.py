@@ -48,6 +48,24 @@ def _require_schoolwide_parity(actor:ActorContext, capability:str)->None:
     if not any(kind=='SCHOOL' for kind,_ in scopes):
         raise HTTPException(status_code=403,detail='Consultation non disponible pour ce périmètre de section')
 
+def _require_whole_family_scope(repo:PostgresSchoolingRepository,school_id:UUID,
+                                family_id:UUID,scopes:tuple[tuple[str,str|None],...])->None:
+    """Shared-family mutations must not affect children in another section.
+
+    A section director may read the scoped children of a shared household,
+    but changing its common identity or guardians requires SCHOOL scope.
+    """
+    if any(kind=='SCHOOL' for kind,_ in scopes):
+        return
+    visible=repo._visible_ids(school_id,scopes)
+    if visible is None:
+        return
+    all_children={row[0] for row in repo.connection.execute(
+        text("SELECT id FROM students WHERE school_id=:sid AND family_id=:fid"),
+        {"sid":school_id,"fid":family_id}).all()}
+    if not all_children.issubset(visible):
+        raise PermissionError('Foyer partagé avec une autre section : modification réservée au périmètre école')
+
 def _key(value:str|None)->str:
     key=(value or '').strip()
     if not key: raise HTTPException(status_code=400,detail='Idempotency-Key obligatoire')
@@ -328,6 +346,7 @@ def patch_family(family_id:UUID,body:FamilyPatch,if_match:str|None=Header(None,a
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn);old=repo.get_family(actor.school_id,family_id,scopes=scopes);patch=body.model_dump(exclude_none=True)
             if not old: raise LookupError('Foyer introuvable dans votre périmètre')
+            _require_whole_family_scope(repo,actor.school_id,family_id,scopes)
             if 'display_name' in patch:patch['display_name_origin']='MANUAL_OVERRIDE'
             out=repo.update_family(actor.school_id,family_id,expected_version=expected,patch=patch);payload=_jsonable(out);_audit_outbox(conn,request_actor,action='FAMILY_UPDATED',entity_type='Family',entity_id=family_id,old=_jsonable(old),new=payload);return 200,payload
         return _mutate(services=services,actor=actor,key=key,operation='SCHOOLING_UPDATE_FAMILY',payload={**body.model_dump(mode='json'),'id':str(family_id),'expected':expected},action=action).body
@@ -340,6 +359,7 @@ def add_guardian(family_id:UUID,body:GuardianInput,response:Response,idempotency
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn)
             if not repo.get_family(actor.school_id,family_id,scopes=scopes):raise LookupError('Foyer introuvable dans votre périmètre')
+            _require_whole_family_scope(repo,actor.school_id,family_id,scopes)
             g=Guardian(school_id=actor.school_id,full_name=body.full_name,phone=body.phone,email=body.email,address=body.address,occupation=body.occupation,notes=body.notes);repo.create_guardian(g);link=repo.link_guardian(actor.school_id,family_id=family_id,guardian_id=g.id,role=body.role.value,is_primary=body.is_primary);payload=_jsonable(link);_audit_outbox(conn,request_actor,action='FAMILY_GUARDIAN_ADDED',entity_type='Family',entity_id=family_id,new={'guardian_id':str(g.id),**payload});return 201,{'guardian_id':str(g.id),**payload}
         result=_mutate(services=services,actor=actor,key=key,operation='SCHOOLING_ADD_GUARDIAN',payload={**body.model_dump(mode='json'),'family_id':str(family_id)},action=action);response.status_code=result.status_code;return result.body
     except Exception as exc:_error(exc)
@@ -367,6 +387,7 @@ def remove_guardian(family_id:UUID,guardian_id:UUID,idempotency_key:str|None=Hea
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn)
             if not repo.get_family(actor.school_id,family_id,scopes=scopes): raise LookupError('Foyer introuvable dans votre périmètre')
+            _require_whole_family_scope(repo,actor.school_id,family_id,scopes)
             out=repo.end_guardian_link(actor.school_id,family_id=family_id,guardian_id=guardian_id);payload=_jsonable(out);_audit_outbox(conn,request_actor,action='FAMILY_GUARDIAN_ENDED',entity_type='Family',entity_id=family_id,new=payload);return 200,payload
         return _mutate(services=services,actor=actor,key=key,operation='SCHOOLING_END_GUARDIAN',payload={'family_id':str(family_id),'guardian_id':str(guardian_id)},action=action).body
     except Exception as exc:_error(exc)
