@@ -64,3 +64,20 @@ def test_explicit_schoolwide_scope_needs_no_assignment_check():
     conn=conn_for()
     _authorize_staff_update(conn,actor(("SCHOOL",None)),uuid4())
     conn.execute.assert_not_called()
+
+
+def test_missing_staff_returns_404_before_assignment_inspection():
+    conn=Mock()
+    conn.execute.return_value.first.return_value=None
+    with pytest.raises(HTTPException) as exc:
+        _authorize_staff_update(conn,actor(("SECTION","PRIMAIRE")),uuid4())
+    assert exc.value.status_code==404
+    assert conn.execute.call_count==1
+
+
+def test_missing_scope_rejected_without_any_assignment_read():
+    conn=conn_for(("SECTION","PRIMAIRE","PRIMAIRE",None))
+    with pytest.raises(HTTPException) as exc:
+        _authorize_staff_update(conn,actor(),uuid4())
+    assert exc.value.status_code==403
+    assert conn.execute.call_count==1
