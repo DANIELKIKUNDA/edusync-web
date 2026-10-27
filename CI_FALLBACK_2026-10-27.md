@@ -1,0 +1,72 @@
+# EduSync Web — CI/CD de secours avant le 01/11/2026
+
+**Date : 27/10/2026.** Objectif : préserver les contrôles techniques en cas de blocage de facturation de GitHub Actions. **Aucun contournement des règles de sécurité, aucun déploiement automatique, aucune mise en production sans décision du propriétaire.**
+
+## Diagnostic constaté sur GitHub
+
+- Dépôt : `DANIELKIKUNDA/edusync-web` (privé), branche principale `main`.
+- Au 27/10 à 13:11 UTC : la CI des PR remonte `failure` pour les jobs backend, frontend, RBAC et sécurité. Les workflows `Deploy staging`, `E2E staging` et `CD certification` sont majoritairement `skipped`.
+- La facturation GitHub Actions bloquée est **signalée par le propriétaire**. L'origine précise de chaque run défaillant n'a pas encore été certifiée par les journaux.
+- Le pipeline existant requiert des runs CI `success` sur le SHA **exact**, des images GHCR `amd64+arm64`, une validation staging et un E2E staging vert avant production.
+- Le contrôleur de déploiement installé sur le VPS **vérifie lui-même ces preuves**. Une simple commande SSH ou un exécuteur local ne les remplace pas. **Ne pas supprimer ces vérifications.**
+
+## 1. Premier secours : tests locaux isolés, sans GitHub Actions
+
+`tools/ci/fallback_local.sh` reproduit sur une machine Linux de test autorisée :
+
+- Python 3.13 : dépendances verrouillées, compilation et tests backend ;
+- PostgreSQL 16 éphémère : migrations 0084/0085, snapshots RBAC, registre et intégration caisse ;
+- contrôles de sécurité : empreintes, licences/SBOM, `pip-audit` ;
+- Node.js 24 : installation `npm ci`, TypeScript, Vitest, navigateur Chromium et build, `npm audit`.
+
+Il utilise des **conteneurs Docker temporaires** limités en CPU/RAM, un réseau Docker propre, **aucun port publié**, **aucune base ni volume de production** et n'effectue jamais `docker prune`. Il refuse de commencer si moins de 4 Gio RAM disponibles ou 12 Gio libres dans `/tmp`. L'architecture ARM64 du VPS peut empêcher les tests Chromium : ce cas doit apparaître **FAIL/BLOCKED**, jamais PASS. Les images, dépendances et navigateurs téléchargés consomment de l'espace disque et de la bande passante.
+
+**Privilégier un hôte de CI dédié.** Sur le VPS de staging 8 Gio partagé avec Coolify et d'autres services, auditer d'abord la charge réelle : le script ne garantit pas l'absence de perturbation. Docker donne des privilèges élevés aux membres du groupe Docker ; seul du code relu provenant du dépôt officiel doit être exécuté.
+
+Préparation par l'exploitant, **sans sudo** (SSH et accès privé GitHub déjà configurés) :
+
+```bash
+git clone git@github.com:DANIELKIKUNDA/edusync-web.git edusync-web-ci
+cd edusync-web-ci
+git fetch origin
+git checkout infra/fallback-ci-20261027
+# Certifier le SHA exact présent sur main, pas le nom de la branche :
+TARGET_SHA="$(git rev-parse origin/main)"
+bash tools/ci/fallback_local.sh "$TARGET_SHA"
+```
+
+Une fois le correctif de ce runner relu et fusionné sur `main`, il pourra être appelé depuis cette branche. Les rapports sont sous `~/edusync-ci-reports/<sha>-<date UTC>/` (fichiers en accès privé, à vérifier avant tout partage).
+
+## 2. Ce qui n'est pas résolu par le secours local
+
+Le verdict du script ne vaut **pas** une certification de sortie en production. Restent impérativement :
+
+1. Tester les scénarios CD privilégiés (sshd/sudo/contrôleur) **sur hôte Linux jetable** ; ne jamais lancer le harnais `tools/ci/cd_linux/privileged_checks.sh` sur le VPS réel.
+2. Construire et publier les images Docker multi-architecture, avec SHA exact et digests GHCR.
+3. Reprendre le **chemin de déploiement officiel** ou faire auditer une *voie alternative* apportant les mêmes garanties : origine/version immuable, preuves d'intégrité, contrôles de migrations, sauvegarde vérifiée, rollback, secrets à moindre privilège, staging puis E2E.
+4. Configurer **un environnement de production distinct** et les approbations du propriétaire (`PRODUCTION.md`).
+5. Tester HTTPS, DNS, sauvegarde/restauration hors-site, monitoring et parcours métier critiques, notamment isolation multi-écoles et caisse.
+
+**Interdit :** transformer un échec de CI en succès artificiel, accepter un `latest`, désactiver la vérification de l'origine des images, pousser des secrets dans Git, lancer les tests privilégiés sur Coolify ou utiliser la base de production pour les migrations de CI.
+
+## 3. Plan d'exécution / décision
+
+| Date | Porte de sortie |
+|---|---|
+| 27/10 | Identifier la cause de la suspension GitHub, auditer la capacité du runner, exécuter le secours |
+| 28/10 | Corriger les vrais tests échoués, certifier RBAC et finance PostgreSQL |
+| 29/10 | Finaliser chaîne d'images et preuve de provenance, restaurations et isolation |
+| 30/10 | Déployer en staging contrôlé, parcourir E2E et sécurité |
+| 31/10 | Revue des preuves et décision **GO / NO-GO** de mise en production |
+| 01/11 | Production **uniquement en cas de GO** ; sinon report ciblé |
+
+Si GitHub Actions reste désactivé, établir séparément et **faire auditer** une CI/CD réellement indépendante, au lieu de supprimer les garde-fous du contrôleur existant. Cette PR prépare seulement les tests locaux : elle n'autorise pas le déploiement.
+
+## Références dans le dépôt
+
+- `CICD.md` : modèle de menace et contrôleur de déploiement ;
+- `PRODUCTION.md` : gates de mise en production, validation du propriétaire ;
+- `.github/workflows/ci.yml`, `deploy-staging.yml`, `e2e-staging.yml`, `deploy-production.yml` ;
+- `CODEX_STAGING_HANDOFF.md` : contraintes d'infrastructure et configuration staging.
+
+**État : non exécuté sur Hetzner par l'auteur du correctif.** Exiger les journaux réels avant de déclarer la CI validée.
