@@ -231,3 +231,37 @@ def test_schoolwide_finance_joins_remain_optional_but_section_grants_fail_closed
         assert "AND {scope_where}" in body
     assert PostgresPeriodicReportsRepository._scope_clause(()) == ("FALSE", {})
     assert PostgresPeriodicReportsRepository._scope_clause((("SCHOOL", None),)) == ("TRUE", {})
+
+
+def test_profiles_advertise_only_authorized_official_actions():
+    from edusync.modules.finance_reports.api.router import report_profiles
+    from edusync.shared.application.context import ActorContext
+    import pytest
+    from fastapi import HTTPException
+
+    def actor(perms, grants):
+        return ActorContext(
+            user_id=uuid4(), school_id=uuid4(), membership_id=uuid4(),
+            permissions=frozenset(perms), capability_scopes=tuple(grants))
+
+    generate = "finance.reports.periodic.generate"
+    history = "finance.reports.history.read"
+    section_actor = actor({generate, history},
+                          ((generate, "SECTION", "PRIMAIRE"), (history, "SECTION", "PRIMAIRE")))
+    limited = report_profiles(actor=section_actor)
+    assert limited["official_pdf_available"] is False
+    assert limited["generated_history_available"] is False
+
+    school_actor = actor({generate, history},
+                         ((generate, "SCHOOL", None), (history, "SCHOOL", None)))
+    full = report_profiles(actor=school_actor)
+    assert full["official_pdf_available"] is True
+    assert full["generated_history_available"] is True
+
+    no_history_permission = actor({generate},
+                                  ((generate, "SCHOOL", None), (history, "SCHOOL", None)))
+    assert report_profiles(actor=no_history_permission)["generated_history_available"] is False
+
+    with pytest.raises(HTTPException) as error:
+        report_profiles(actor=actor(set(), ()))
+    assert error.value.status_code == 403
