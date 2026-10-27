@@ -327,11 +327,35 @@ def directory(q:str|None=None,status:str|None=None,category:str|None=None,limit:
 
 @router.get('/scope-options')
 def scope_options(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    if not ({'personnel.assignments.add','personnel.assignments.read'} & set(actor.permissions)):
+    capabilities=('personnel.assignments.add','personnel.assignments.read')
+    granted=[cap for cap in capabilities if cap in actor.permissions]
+    if not granted:
         raise HTTPException(status_code=403,detail='Permission affectations requise')
+    # Options must reflect the scope of the *assignment* capability, not
+    # unrelated schoolwide permissions held by the same user.
+    grants=[scope for cap in granted for scope in _scopes(actor,cap)]
+    if not grants:
+        raise HTTPException(status_code=403,detail='Périmètre affectations absent')
+    schoolwide=any(kind=='SCHOOL' for kind,_ in grants)
+    allowed_sections={str(value).upper() for kind,value in grants if kind=='SECTION' and value}
+    allowed_classes={str(value).upper() for kind,value in grants if kind=='CLASS' and value}
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        sections=[_jsonable(dict(r._mapping)) for r in conn.execute(text("SELECT id,code,label FROM school_sections WHERE school_id=:sid AND enabled=true ORDER BY label"),{'sid':actor.school_id}).all()]
-        classes=[_jsonable(dict(r._mapping)) for r in conn.execute(text("SELECT c.id,c.code,c.label,c.section_id,s.code section_code,s.label section_label FROM school_classes c JOIN school_sections s ON s.id=c.section_id JOIN academic_years y ON y.id=c.academic_year_id WHERE c.school_id=:sid AND c.enabled=true AND y.status='ACTIVE' ORDER BY s.label,c.label"),{'sid':actor.school_id}).all()]
+        sections=[_jsonable(dict(r._mapping)) for r in conn.execute(text(
+            "SELECT id,code,label FROM school_sections WHERE school_id=:sid AND enabled=true ORDER BY label"
+        ),{'sid':actor.school_id}).all()]
+        classes=[_jsonable(dict(r._mapping)) for r in conn.execute(text("""
+            SELECT c.id,c.code,c.label,c.section_id,s.code section_code,s.label section_label
+            FROM school_classes c JOIN school_sections s
+              ON s.id=c.section_id AND s.school_id=c.school_id
+            JOIN academic_years y ON y.id=c.academic_year_id AND y.school_id=c.school_id
+            WHERE c.school_id=:sid AND c.enabled=true AND y.status='ACTIVE'
+            ORDER BY s.label,c.label
+        """),{'sid':actor.school_id}).all()]
+        if not schoolwide:
+            sections=[s for s in sections if str(s['code']).upper() in allowed_sections]
+            classes=[cl for cl in classes if (
+                str(cl['code']).upper() in allowed_classes
+                or str(cl['section_code']).upper() in allowed_sections)]
         return {'sections':sections,'classes':classes}
 
 @router.get('/history/events')
