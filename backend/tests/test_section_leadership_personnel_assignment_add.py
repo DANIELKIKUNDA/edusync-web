@@ -79,3 +79,15 @@ def test_class_grant_can_assign_exact_class():
            scope_value="7A",class_id=uuid4(),section_id=None),{staff},
            [("7A","SECONDAIRE",uuid4())])
 
+
+
+def test_missing_staff_is_rejected_before_visibility_query():
+    staff=uuid4()
+    conn=Mock()
+    conn.execute.return_value.first.return_value=None
+    with patch("edusync.modules.personnel.api.router.PostgresPersonnelRepository") as factory:
+        with pytest.raises(HTTPException) as exc:
+            _authorize_assignment_add(
+                conn,actor((("SECTION","PRIMAIRE"),)),body(staff))
+    assert exc.value.status_code==403
+    factory.return_value._visible_staff_ids.assert_not_called()
