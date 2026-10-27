@@ -33,7 +33,7 @@ router=APIRouter(tags=["Personnel"])
 # payroll and/or school-wide function catalogs. A section grant alone must not
 # authorize these operations until the target assignment is checked atomically.
 _SCHOOLWIDE_PERSONNEL_MUTATIONS = frozenset({
-    'personnel.update', 'personnel.activate',
+    'personnel.activate',
     'personnel.exit', 'personnel.reactivate', 'personnel.functions.manage',
     'personnel.assignments.end',
     'personnel.staff_children.link', 'personnel.staff_children.finance_mode',
@@ -144,6 +144,42 @@ def _authorize_assignment_add(conn, actor:ActorContext, body:"AssignmentCreate",
         """),{'sid':actor.school_id,'id':body.titular_class_id}).first()
         if not titular or not (titular[0] in classes or titular[1] in sections):
             raise HTTPException(status_code=403,detail='Classe de titulariat non autorisée')
+
+
+def _authorize_staff_update(conn, actor:ActorContext, staff_id:UUID)->None:
+    """Allow a scoped edit only if EVERY active assignment is in scope.
+
+    Lock the staff identity to serialize concurrent assignment writes and
+    prevent a shared employee's global identity being edited by one section.
+    """
+    scopes=_scopes(actor,'personnel.update')
+    if any(kind=='SCHOOL' for kind,_ in scopes):
+        return
+    conn.execute(text("""
+        SELECT id FROM staff_members WHERE school_id=:sid AND id=:staff FOR UPDATE
+    """),{'sid':actor.school_id,'staff':staff_id}).first()
+    sections=sorted({str(value).upper() for kind,value in scopes if kind=='SECTION' and value})
+    classes=sorted({str(value).upper() for kind,value in scopes if kind=='CLASS' and value})
+    if not sections and not classes:
+        raise HTTPException(status_code=403,detail='Périmètre de modification absent')
+    # Fetch every active assignment, not just the subset visible to the actor.
+    # This is an authorization check only; do not return these rows to callers.
+    assignments=conn.execute(text("""
+        SELECT a.scope_type,upper(a.scope_value),upper(ss.code),upper(sc.code)
+        FROM staff_assignments a
+        LEFT JOIN school_sections ss ON ss.id=a.section_id AND ss.school_id=a.school_id
+        LEFT JOIN school_classes sc ON sc.id=a.class_id AND sc.school_id=a.school_id
+        WHERE a.school_id=:sid AND a.staff_id=:staff AND a.end_date IS NULL
+        FOR SHARE OF a
+    """),{'sid':actor.school_id,'staff':staff_id}).all()
+    if not assignments:
+        raise HTTPException(status_code=403,detail='Agent sans affectation dans le périmètre')
+    for kind,value,section_code,class_code in assignments:
+        allowed=(kind=='SECTION' and value in sections) or (
+            kind=='CLASS' and (class_code in classes or section_code in sections)
+        )
+        if not allowed:
+            raise HTTPException(status_code=403,detail='Agent partagé ou affecté hors du périmètre autorisé')
 
 
 class StaffCreate(BaseModel):
@@ -303,7 +339,8 @@ def update_staff(staff_id:UUID,body:StaffUpdate,if_match:str|None=Header(default
     _need(actor,'personnel.update');expected=_expected(if_match);key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
-            repo=PostgresPersonnelRepository(conn);old=repo.get_staff(actor.school_id,staff_id);out=repo.update_staff(actor.school_id,staff_id,expected_version=expected,fields=body.model_dump());payload=_jsonable(out);_audit_outbox(conn,request_actor,action='STAFF_UPDATED',entity_type='StaffMember',entity_id=staff_id,old=_jsonable(old),new=payload);return 200,payload
+            _authorize_staff_update(conn,request_actor,staff_id)
+            repo=PostgresPersonnelRepository(conn);old=repo.get_staff(actor.school_id,staff_id,scopes=_scopes(request_actor,'personnel.update'));out=repo.update_staff(actor.school_id,staff_id,expected_version=expected,fields=body.model_dump());payload=_jsonable(out);_audit_outbox(conn,request_actor,action='STAFF_UPDATED',entity_type='StaffMember',entity_id=staff_id,old=_jsonable(old),new=payload);return 200,payload
         return _mutate(services=services,actor=actor,key=key,operation='PERSONNEL_UPDATE_STAFF',payload={**body.model_dump(mode='json'),'id':str(staff_id),'expected':expected},action=action).body
     except Exception as exc:_error(exc)
 
