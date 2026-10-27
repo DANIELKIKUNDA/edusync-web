@@ -78,7 +78,7 @@ function Readiness({token,open,go}:{token:string;open:(section:string)=>void;go:
   </Card>;
 }
 
-function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void}){
+function BusinessCard({w,token,yearId,index,go,permissions}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void;permissions:string[]}){
   const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
   switch(w.id){
     case 'cash.today':return <CashToday common={common} token={token}/>;
@@ -87,7 +87,7 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
     case 'cash.receipts':return <CashReceipts common={common} token={token}/>;
     case 'enrollments.today':return <Enrollments common={common} token={token}/>;
     case 'products.watch':return <ProductsWatch common={common} token={token}/>;
-    case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId}/>;
+    case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId} permissions={permissions}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
     case 'personnel.summary':return <PersonnelSummary common={common} token={token}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
@@ -130,7 +130,7 @@ function ProductsWatch({common,token}:{common:Common;token:string}){const s=useD
     const out=items.filter(p=>Number(p.stock_quantity||0)<=0);const low=items.filter(p=>Number(p.stock_quantity||0)>0&&Number(p.low_threshold||0)>0&&Number(p.stock_quantity)<=Number(p.low_threshold));
     return out.length||low.length?<><p className="ui-card-value">{n(out.length+low.length)}<small>article(s) à signaler</small></p><ul className="ui-list">{[...low,...out].slice(0,3).map(p=><li key={p.id}><b>{p.label}</b><small>{Number(p.stock_quantity||0)<=0?'Rupture':`Stock bas : ${Number(p.stock_quantity).toLocaleString('fr-FR')}`}</small></li>)}</ul></>
       :<p className="ui-card-hint">Tous les articles en vente sont disponibles.</p>}}</Async></Card>}
-function Headcounts({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData<EffectifsCounts>(()=>getEffectifsCounts(token,'section','ALL',yearId),[token,yearId]);
+function Headcounts({common,token,yearId,permissions}:{common:Common;token:string;yearId?:string;permissions:string[]}){const group=permissions.includes('headcounts.by_section.read')?'section':permissions.includes('headcounts.by_class.read')?'class':permissions.includes('headcounts.by_option.read')?'option':null;const s=useData<EffectifsCounts|null>(()=>group?getEffectifsCounts(token,group,'ALL',yearId):Promise.resolve(null),[token,yearId,group]);
   return <Card level="info" {...common}><Async s={s}>{c=><><p className="ui-card-value">{n(c.total.active.total)}<small>élèves actifs</small></p>
     <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p>
     {/* Par section (owner 2026-10-27): active pupils, girls / boys, share of the school — one hue, value printed. */}
@@ -208,7 +208,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)setFinanceTarget(target);onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
     ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
-    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
+    :<BusinessCard w={w} token={token} yearId={yearId} permissions={me.permissions} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
   return <div className={`ui-page sh-home${executive?' sh-home-executive':''}`}>
     <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
       subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive?'pilotage de l’établissement : caisses, effectifs, recouvrement et alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
