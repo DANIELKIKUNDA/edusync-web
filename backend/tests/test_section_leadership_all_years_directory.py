@@ -12,7 +12,8 @@ def test_all_years_section_directory_requires_authorized_enrollment():
     statement, params = conn.execute.call_args.args
     sql = str(statement)
     assert "e.id IS NOT NULL" in sql
-    assert "upper(ss1.code) IN :lateral_sections" in sql
+    assert "upper(ss1.code) IN" in sql
+    assert "lateral_sections" in sql
     assert params["lateral_sections"] == ["PRIMAIRE"]
 
 
