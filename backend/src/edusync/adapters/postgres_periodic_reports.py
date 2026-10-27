@@ -93,7 +93,7 @@ class PostgresPeriodicReportsRepository:
             d["has_inscription"] = d["payment_id"] in has_inscription
         return out
 
-    def _sales(self, school_id: UUID, *, start_date: date, end_date: date, year_id: UUID | None) -> list[dict[str, Any]]:
+    def _sales(self, school_id: UUID, *, start_date: date, end_date: date, year_id: UUID | None, scopes=None) -> list[dict[str, Any]]:
         scope_where, scope_params = self._scope_clause(scopes)
         rows = self.c.execute(self._scoped_sql(f"""
             SELECT p.id AS payment_id, {LOCAL_DAY} AS paid_day, p.currency, p.amount, pr.label AS product_label, ps.quantity,
