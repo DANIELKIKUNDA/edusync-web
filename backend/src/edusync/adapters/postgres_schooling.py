@@ -418,7 +418,7 @@ class PostgresSchoolingRepository:
             conditions.append("(f.code ILIKE :q OR f.display_name ILIKE :q OR coalesce(f.phone,'') ILIKE :q OR EXISTS(SELECT 1 FROM family_guardians fgq JOIN guardians gq ON gq.id=fgq.guardian_id WHERE fgq.family_id=f.id AND fgq.active AND (gq.full_name ILIKE :q OR coalesce(gq.phone,'') ILIKE :q)))")
             args['q']=f"%{q.strip()}%"
         if contact_status:conditions.append("f.contact_status=:contact_status");args['contact_status']=contact_status
-        if large_family_only:conditions.append("(SELECT count(*) FROM students sx WHERE sx.family_id=f.id AND sx.school_id=f.school_id)>=5")
+        if large_family_only:conditions.append(f"(SELECT count(*) FROM students s WHERE s.family_id=f.id AND s.school_id=f.school_id AND {child_scope})>=5")
         year_filter=""
         if academic_year_id:
             args['year_id']=academic_year_id
