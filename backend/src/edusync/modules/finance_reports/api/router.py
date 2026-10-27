@@ -210,7 +210,9 @@ def periodic_xlsx(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIE
 
 @router.get('/generated')
 def generated_reports(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'finance.reports.history.read')
+    _need_periodic_scope(actor, 'finance.reports.history.read')
+    if not any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.history.read')):
+        raise HTTPException(403, 'Historique des rapports sans provenance de section vérifiable')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
         return {'items': _jsonable(PostgresPeriodicReportsRepository(c).generated(actor.school_id))}
 
@@ -282,11 +284,11 @@ def student_account_pdf_route(student_id: _UUID, actor: ActorContext = Depends(r
 @router.get('/product-sales')
 def product_sales(start: date, end: date, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """N3-H / G-ART-1 — Desktop product_sales_report: sales of the period, cashier, totals per currency (reversed sales flagged)."""
-    need(actor, 'finance.products.sales_report.read')
+    _need_periodic_scope(actor, 'finance.products.sales_report.read')
     from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRepository
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            out = PostgresSchoolingParityRepository(c).product_sales_report(actor.school_id, start_date=start, end_date=end)
+            out = PostgresSchoolingParityRepository(c).product_sales_report(actor.school_id, start_date=start, end_date=end, scopes=actor.scopes_for('finance.products.sales_report.read'))
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
     ids = list({r['cashier_id'] for r in out['rows'] if r.get('cashier_id')})
