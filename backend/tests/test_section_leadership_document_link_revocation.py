@@ -40,3 +40,11 @@ def test_signed_link_requires_current_schoolwide_open_grant():
     method = ROUTER.split("def open_signed_document(", 1)[1]
     assert 'current_actor.scopes_for("documents.open")' in method
     assert method.index('current_actor.scopes_for("documents.open")') < method.index('if str(doc["generated_by"])')
+
+
+def test_template_export_uses_explicit_class_and_section_scopes():
+    code = ROUTER.split('def student_import_template(', 1)[1].split('# --- Object storage', 1)[0]
+    assert 'documents.student_import_template.export' in code
+    assert 'upper(ss.code) IN :sections' in code
+    assert 'upper(sc.code) IN :class_codes' in code
+    assert 'Aucune classe autorisée' in code
