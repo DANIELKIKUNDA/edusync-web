@@ -16,5 +16,7 @@ def test_student_directory_lateral_enrollment_is_section_scoped():
 
 def test_enrolled_family_filter_uses_visible_children():
     method = SOURCE.split("    def list_families(", 1)[1].split("    def get_family(", 1)[0]
-    assert "child_scope.replace('s.', 'se.')" in method
-    assert "AND {child_scope.replace('s.', 'se.')}" in method
+    assert "enrollment_joins" in method
+    assert "AND {enrollment_scope}{year_filter}" in method
+    assert "AND {enrollment_scope} AND e.status" in method
+    assert "child_scope.replace('s.', 'se.')" not in method
