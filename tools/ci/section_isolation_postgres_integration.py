@@ -128,12 +128,12 @@ with engine.connect() as conn:
             (class_grant, 1),
             (mixed_grant, 2),
         ):
-            matches = repo.resolve_households(school, "CI-SHARED-FAMILY",
+            matches = repo.resolve_households(school, "SEC-F",
                                               scopes=grants)
             assert len(matches) == 1, (grants, matches)
             assert int(matches[0]["child_count"]) == expected_count, (
                 grants, matches)
-        assert repo.resolve_households(school, "CI-SHARED-FAMILY",
+        assert repo.resolve_households(school, "SEC-F",
                                        scopes=()) == []
         # No-grant detail lookup must not expose an otherwise valid student.
         assert repo.get_student(school, students["PRIMAIRE"], scopes=()) is None
