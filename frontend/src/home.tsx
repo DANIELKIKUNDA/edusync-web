@@ -132,7 +132,10 @@ function ProductsWatch({common,token}:{common:Common;token:string}){const s=useD
       :<p className="ui-card-hint">Tous les articles en vente sont disponibles.</p>}}</Async></Card>}
 function Headcounts({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData<EffectifsCounts>(()=>getEffectifsCounts(token,'section','ALL',yearId),[token,yearId]);
   return <Card level="info" {...common}><Async s={s}>{c=><><p className="ui-card-value">{n(c.total.active.total)}<small>élèves actifs</small></p>
-    <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p></>}</Async></Card>}
+    <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p>
+    {/* Par section (owner 2026-10-27): active pupils, girls / boys, share of the school — one hue, value printed. */}
+    {c.items.length>0&&<ul className="sh-sections" aria-label="Effectifs par section">{c.items.map(r=>{const share=c.total.active.total?Math.round(r.active.total*100/c.total.active.total):0;
+      return <li key={r.code||r.label}><span><b>{r.label}</b><small>{n(r.active.female)} F · {n(r.active.male)} G</small></span><i aria-hidden="true"><em style={{width:`${share}%`}}/></i><strong>{n(r.active.total)}</strong></li>})}</ul>}</>}</Async></Card>}
 function PersonnelSummary({common,token}:{common:Common;token:string}){const s=useData(()=>getPersonnelSummary(token),[token]);
   return <Card level="info" {...common}><Async s={s}>{d=><><p className="ui-card-value">{n(d.active)}<small>agents actifs</small></p>
     <p className="ui-card-hint">{n(d.teachers)} enseignant(s) · {n(d.administrative)} administratif(s){d.suspended?<> · <b>{n(d.suspended)} suspendu(s)</b></>:null}</p></>}</Async></Card>}

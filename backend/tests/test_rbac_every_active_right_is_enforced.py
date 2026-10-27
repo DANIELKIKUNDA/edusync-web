@@ -28,4 +28,6 @@ def test_gestionnaire_keeps_personnel_management_owner_decision_2026_10_26():
     assert {"personnel.create", "personnel.update", "personnel.exit", "personnel.assignments.add", "personnel.assignments.end", "personnel.functions.manage"} <= g
     # supervision without cash-desk operations: no collecting, no own cash session, no enrolling, no settings change
     assert not g & {"finance.checkout.collect", "finance.cash.open", "finance.cash.close", "enrollments.create", "settings.school_identity.update"}
-    assert {"finance.cash.other.read", "finance.cash.day.close", "finance.payments.reverse.supervisor", "finance.reports.periodic.generate"} <= g
+    assert {"finance.cash.other.read", "finance.payments.reverse.supervisor", "finance.reports.periodic.generate"} <= g
+    # owner decision 2026-10-27: a chief, not a permanent operator — he does not close / reopen the cashiers' day
+    assert not g & {"finance.cash.day.close", "finance.cash.reopen"}

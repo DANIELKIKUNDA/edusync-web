@@ -36,11 +36,15 @@ passed, vitest 80/80. GitHub : PR à nouveau fusionnable.
 
 - Le registre canonique `contracts/CAPABILITY_REGISTRY.json` (statut `CANONICAL`, décision du 23/10/2026) est la
   source de vérité ; il déclare lui-même `POINT3B_ROLE_DECISIONS_FINAL.json` **historique**.
-- Gestionnaire : **143** capacités au registre = les **118** de POINT3B (toutes présentes, aucune manquante) + **25**
+- Gestionnaire : **141** capacités au registre (143 avant l'amendement du 27/10) = les **118** de POINT3B (toutes présentes, aucune manquante) + **25**
   issues de décisions ultérieures : fusion des formats d'export (23/10), imports (24/10), gestion du personnel.
 - **Contradiction relevée et tranchée par le propriétaire (26/10/2026)** : le document de décision 04 disait Personnel
   en lecture seule ; le registre et la base donnaient l'écriture. Décision : **le Gestionnaire gère le personnel**.
   Amendement consigné dans `docs/rbac/POINT3B_DECISION_04_GESTIONNAIRE.md`. Aucun droit ajouté ni retiré.
+- **Amendement du propriétaire (27/10/2026)** : le Gestionnaire est un chef, pas un opérateur permanent ; lui imposer
+  la clôture de la journée bloquerait les caissiers. `finance.cash.day.close` et `finance.cash.reopen` lui sont
+  **retirés** (migration de retrait `0096_gestionnaire_no_cash_day_close.sql`, registre, tests). Aucune règle n'exige
+  une journée clôturée : chaque caissier clôture **sa** caisse. Une école peut attribuer ces droits à un rôle de son choix.
 
 ## 5. Matrice des capacités (A — calculée)
 
@@ -49,22 +53,23 @@ par `tools/rbac/role_capability_matrix.py GESTIONNAIRE` (calcul, pas déclaratio
 
 | Résultat | Nombre | Signification |
 |---|---|---|
-| PASS | 71 | ACTIVE, contrôlée par le serveur et couverte par un test automatisé |
-| FAIL (A) | 21 | ACTIVE et contrôlée par le serveur, mais **aucun test automatisé ne la nomme** |
+| PASS | 90 | ACTIVE, contrôlée par le serveur et couverte par un test automatisé |
+| FAIL (A) | 0 | — |
 | NOT APPLICABLE | 51 | ALIAS / DEPRECATED (format fusionné) ou PLANNED (non construite, masquée) |
 
 Aucune capacité active n'est sans contrôle serveur : invariant désormais vérifié pour **tous** les rôles standards par
-`backend/tests/test_rbac_every_active_right_is_enforced.py`. Les 21 capacités sans test unitaire (communications,
-familles, ouverture de documents, rapport du jour, ventes d'articles, exports, compte élève, mouvements de stock…)
-ont toutes été **exercées en navigateur réel** par le robot d'inspection (D, section 13) ; l'absence de test unitaire
-dédié reste un risque résiduel (section 16).
+`backend/tests/test_rbac_every_active_right_is_enforced.py`. Les 21 capacités qui n'avaient pas de test dédié
+(communications, familles, ouverture de documents, rapport du jour, ventes d'articles, exports, compte élève,
+mouvements de stock…) sont désormais couvertes par `backend/tests/test_gestionnaire_routes_permissions.py`
+(63 tests) : la route réelle qui contrôle chaque droit est trouvée par introspection de l'application, puis appelée
+sans le droit (403 qui nomme le droit) et avec les droits du Gestionnaire (contrôle franchi).
 
 ## 6. Audit des modules
 
 | Module | Ce qui a été vérifié | Statut |
 |---|---|---|
 | Accueil | pilotage (caisses, effectifs, personnel, recouvrement, décisions, rapports), données réelles, aucun bloc d'administration, aucun raccourci d'encaissement | PASS (D) |
-| Supervision des caisses | « Vue de supervision », aucune ouverture de caisse, situation globale, caisses de **tous** les caissiers, journal PDF + Excel d'une caisse, clôture de la journée disponible | PASS (D) |
+| Supervision des caisses | « Vue de supervision », aucune ouverture de caisse, situation globale, caisses de **tous** les caissiers, journal PDF + Excel d'une caisse, **aucun** bouton de clôture ni de réouverture de la journée (amendement 27/10) | PASS (D) |
 | Centre financier | onglets selon les droits, **pas d'onglet Encaissement** ; recouvrement, suivi financier, rapports (périodique, analyses par caissier, générés), décisions | PASS (D) |
 | Personnel | synthèse, annuaire, « Nouvel agent » (décision 26/10), import | PASS (D) |
 | Effectifs | indicateurs, mouvements, tableaux par classe | PASS (D) |
@@ -105,7 +110,7 @@ non construites **par décision** et sont masquées.
 
 ## 11. Résultats exacts
 
-- pytest : **984 passed, 1 skipped** (982 avant ajout des 2 tests d'invariant RBAC).
+- pytest : **1047 passed, 1 skipped** (984 + 63 tests de routes réelles du Gestionnaire).
 - vitest : **80 passed**.
 - Recette : 18/18 (détail ci-dessous), dont les appels interdits avec la session du Gestionnaire :
   `POST /finance/cash/open` → 403 · `POST /finance/checkout/collect` → 403 · `POST /schooling/enrollments/family` → 403 ·
@@ -119,7 +124,7 @@ push (le présent fichier fait partie de ce commit ; un SHA ne peut pas se citer
 ## 13. Tests navigateur (D)
 
 01 connexion · 02 accueil de pilotage · 03 menu · 10 supervision des caisses · 11 caisse passée (journal PDF, Excel) ·
-12 clôture de la journée disponible · 20 centre financier sans encaissement · 21 rapports · 22 décisions ·
+12 aucune clôture ni réouverture de la journée · 20 centre financier sans encaissement · 21 rapports · 22 décisions ·
 23 recouvrement et suivi financier · 30 personnel · 40 effectifs · 50 documents · 60 intendance ·
 70 opérations interdites (403) · 75 isolation entre écoles (404) · 80 responsive 320/360/390/768/1024/1440 px sans
 débordement · 90 déconnexion / reconnexion — **tous PASS**.
@@ -138,9 +143,8 @@ débordement · 90 déconnexion / reconnexion — **tous PASS**.
 
 ## 15. Problèmes restants
 
-- 21 capacités actives couvertes en navigateur mais sans test automatisé dédié (section 5).
-- Clôture de la journée : présence du bouton vérifiée, l'action elle-même n'a pas été déclenchée (elle fige la journée
-  des caissiers ; à exercer sur staging avec l'accord de l'école).
+- Aucun problème bloquant. Ajouts du 27/10 : effectifs **par section** sur l'accueil (filles / garçons, part de
+  l'effectif), recette étendue (création réelle d'un agent, rapport officiel, absence du bouton de clôture).
 
 ## 16. Risques résiduels
 
@@ -154,7 +158,7 @@ débordement · 90 déconnexion / reconnexion — **tous PASS**.
 | Niveau | Statut | Preuve |
 |---|---|---|
 | A — Audit statique | **PASS** | matrice calculée, contrat tranché, invariant RBAC |
-| B — Tests et CI | **PASS** sous réserve de la CI verte sur le SHA final (section 12) | pytest 984, vitest 80, tsc, build |
+| B — Tests et CI | **PASS** sous réserve de la CI verte sur le SHA final (section 12) | pytest 1047, vitest 80, tsc, build |
 | C — Staging | **BLOCKED** | non déployé : la fusion dans `main` (qui déclenche le staging) attend l'accord du propriétaire |
 | D — UX réelle | **PASS** (pile locale) | recette 18/18, robot 123 écrans, 7 captures |
 | E — Production | **BLOCKED** | aucune mise en production sans autorisation |

@@ -130,5 +130,10 @@ modification des paramètres de l'école. Ces interdictions sont vérifiées par
 `frontend/browser-tests/local_gestionnaire_certification.mjs` et par `backend/tests/test_rbac_every_active_right_is_enforced.py`.
 
 Le contrat `contracts/POINT3B_ROLE_DECISIONS_FINAL.json` (118 capacités) est **historique** ; le contrat en vigueur est
-le registre canonique (143 capacités pour le Gestionnaire, dont 25 issues des décisions du 23/10 — fusion des formats
+le registre canonique (141 capacités pour le Gestionnaire depuis l'amendement du 27/10 ; 143 auparavant, dont 25 issues des décisions du 23/10 — fusion des formats
 d'export —, du 24/10 — imports — et de cet amendement).
+
+**Amendement du propriétaire (27/10/2026) : pas de clôture de la journée.** « Le Gestionnaire n'est pas un opérateur
+permanent, c'est un chef. » Lui imposer la clôture bloquerait la journée des caissiers. `finance.cash.day.close` et
+`finance.cash.reopen` sont retirés du rôle standard (migration `0096_gestionnaire_no_cash_day_close.sql`) ; aucun rôle
+standard ne les détient ; une école peut les attribuer au rôle de son choix. Chaque caissier clôture sa propre caisse.

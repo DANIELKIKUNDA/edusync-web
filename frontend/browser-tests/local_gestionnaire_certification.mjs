@@ -39,6 +39,8 @@ await step('02 accueil de pilotage (ordinateur)', async () => {
   await p.getByText(/pilotage de l’établissement/).first().waitFor({timeout: 15000});
   for (const t of ['Situation des caisses', 'Décisions financières actives', 'Rapports officiels récents']) await p.getByText(t, {exact: true}).first().waitFor({timeout: 15000});
   await p.getByRole('button', {name: 'Superviser les caisses'}).first().waitFor();
+  const sections = await p.locator('.sh-sections li').count(); if (!sections) throw new Error('effectifs par section absents de l’accueil');
+  console.log(`      effectifs par section : ${(await p.locator('.sh-sections li').allInnerTexts()).map(t => t.replace(/\s+/g, ' ')).join(' | ')}`);
   await noText('Mise en service de l’établissement', 'bloc d’administration affiché au gestionnaire');
   if (await p.getByRole('button', {name: 'Nouvel encaissement'}).count()) throw new Error('raccourci d’encaissement affiché au gestionnaire'); }, 'gest_01_tableau_de_bord_ordinateur');
 await step('03 menu : modules du gestionnaire', async () => {
@@ -60,8 +62,8 @@ await step('11 caisse passée : journal et export', async () => {
   // PDF opens in the in-app viewer (main 2026-10-26): visible, then closed with Échap (viewer, then the session window).
   await d.getByRole('button', {name: 'Journal PDF'}).click(); await p.getByText('Aperçu dans EduSync').waitFor({timeout: 15000});
   await p.keyboard.press('Escape'); await p.waitForTimeout(400); if (await d.isVisible().catch(() => false)) await p.keyboard.press('Escape'); await p.waitForTimeout(400); });
-await step('12 clôture de la journée de l’école disponible', async () => { await p.getByText('Supervision des caisses').first().waitFor();
-  await p.getByRole('button', {name: /Clôturer la journée|Journée clôturée|Rouvrir la journée/}).first().waitFor({timeout: 10000}); });
+await step('12 aucune clôture ni réouverture de la journée pour le gestionnaire', async () => { await p.getByText('Supervision des caisses').first().waitFor(); await p.waitForTimeout(1500);
+  if (await p.getByRole('button', {name: /Clôturer la journée|Rouvrir la journée/}).count()) throw new Error('bouton de clôture / réouverture de la journée affiché au gestionnaire'); });
 
 await step('20 centre financier : onglets de supervision, sans encaissement', async () => { await module('Centre financier');
   const tabs = (await p.locator('.financeTabs button').allInnerTexts()).map(t => t.trim()); console.log('      onglets :', tabs.join(' | '));
@@ -69,6 +71,7 @@ await step('20 centre financier : onglets de supervision, sans encaissement', as
   for (const t of ['Recouvrement', 'Caisse', 'Suivi financier', 'Rapports', 'Décisions financières']) if (!tabs.includes(t)) throw new Error(`onglet ${t} absent`); }, 'gest_06_centre_financier');
 await step('21 rapports : périodique, analyses, rapports générés', async () => { await finTab('Rapports');
   await p.getByRole('tab', {name: 'Rapports périodiques'}).click(); await p.getByRole('button', {name: /^(Aperçu|Afficher)$/}).click(); await p.waitForTimeout(2500);
+  const official = p.getByRole('button', {name: 'Générer le rapport officiel'}); if (await official.count()) { await official.click(); await p.getByText('Aperçu dans EduSync').waitFor({timeout: 30000}); await p.keyboard.press('Escape'); await p.waitForTimeout(500); }
   await p.getByRole('tab', {name: 'Analyses de gestion'}).click(); await p.getByText('Analyse par caissier').waitFor({timeout: 15000});
   await p.getByRole('tab', {name: 'Rapports générés'}).click(); await p.waitForTimeout(1200); }, 'gest_07_rapports');
 await step('22 décisions financières', async () => { await finTab('Décisions financières'); await p.waitForTimeout(1500); await p.locator('.financePage').getByText(/Décision|exonération|Aucune/i).first().waitFor({timeout: 15000}); });
@@ -78,6 +81,11 @@ await step('23 recouvrement et suivi financier', async () => { await finTab('Rec
 await step('30 personnel : synthèse, annuaire, gestion autorisée', async () => { await module('Personnel');
   await p.getByText('Agents actifs').first().waitFor({timeout: 15000});
   await p.getByRole('button', {name: /Nouvel agent/}).first().waitFor({timeout: 10000});                                  // décision 2026-10-26
+  const RUN = Date.now().toString(36).slice(-4).toUpperCase();
+  await p.getByRole('button', {name: /Nouvel agent/}).first().click(); const m = p.locator('.modalBackdrop, [role=dialog]').last();
+  await m.getByLabel('Matricule *').fill(`GST${RUN}`); await m.getByLabel('Nom *').fill(`KASONGO${RUN}`); await m.getByLabel('Prénom').fill('Gestion');
+  await m.getByLabel('Catégorie *').selectOption({index: 1}).catch(() => {}); await m.getByRole('button', {name: 'Créer le dossier'}).click();
+  await p.getByText('Agent ajouté au personnel').first().waitFor({timeout: 20000});
   await p.getByRole('button', {name: /^Annuaire/}).first().click(); await p.waitForTimeout(1500); }, 'gest_04_personnel');
 await step('40 effectifs : indicateurs, mouvements, export', async () => { await module('Effectifs & dépôts');
   await p.locator('.fx2Kpis').waitFor({timeout: 15000}); await p.getByRole('tab', {name: 'Mouvements'}).click(); await p.waitForTimeout(1200);
