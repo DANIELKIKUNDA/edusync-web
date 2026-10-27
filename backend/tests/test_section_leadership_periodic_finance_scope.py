@@ -182,3 +182,38 @@ def test_template_preview_applies_cashier_and_section_filters():
     assert "JOIN school_sections ss_scope" in preview
     assert 'scope_where+where+" GROUP BY' in preview
     assert "p.update(scope_params)" in preview
+
+
+def test_scoped_student_account_missing_enrollment_is_not_disclosed():
+    """A student outside the grant must not expose even account metadata."""
+    from unittest.mock import Mock
+    from sqlalchemy.sql.elements import TextClause
+    conn = Mock()
+    conn.execute.return_value.mappings.return_value.first.return_value = None
+    repo = PostgresPeriodicReportsRepository(conn)
+    import pytest
+    with pytest.raises(LookupError, match="Élève introuvable"):
+        repo.student_account(uuid4(), uuid4(), scopes=(("SECTION", "PRIMAIRE"),))
+    stmt, params = conn.execute.call_args.args
+    assert isinstance(stmt, TextClause)
+    assert stmt._bindparams["scope_sections"].expanding
+    assert params["scope_sections"] == ["PRIMAIRE"]
+    assert "AND (upper(ss_scope.code) IN :scope_sections)" in str(stmt)
+
+
+def test_analytics_scope_queries_are_executable_and_bound():
+    from unittest.mock import Mock
+    from sqlalchemy.sql.elements import TextClause
+    for method in ("analysis_by_fee_type", "analysis_by_cashier", "analysis_advance_funds"):
+        conn = Mock()
+        conn.execute.return_value.mappings.return_value.all.return_value = []
+        repo = PostgresPeriodicReportsRepository(conn)
+        repo._year = lambda school_id, year_id: uuid4()
+        assert getattr(repo, method)(uuid4(), scopes=(("SECTION", "MATERNELLE"), ("CLASS", "M1A"))) == []
+        stmt, params = conn.execute.call_args.args
+        assert isinstance(stmt, TextClause)
+        assert "AND (upper(ss_scope.code) IN :scope_sections OR upper(sc_scope.code) IN :scope_classes)" in str(stmt)
+        assert stmt._bindparams["scope_sections"].expanding
+        assert stmt._bindparams["scope_classes"].expanding
+        assert params["scope_sections"] == ["MATERNELLE"]
+        assert params["scope_classes"] == ["M1A"]
