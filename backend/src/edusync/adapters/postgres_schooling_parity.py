@@ -221,7 +221,14 @@ class PostgresSchoolingParityRepository:
                                   scopes: tuple[tuple[str, str | None], ...]) -> list[dict]:
         """Never return a pupil outside the caller's authorized sections."""
         year = self._year(school_id, year_id)
-        where, scope_params = _student_scope_where(scopes, alias="s")
+        sections = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
+        classes = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
+        schoolwide = any(t=="SCHOOL" for t,_ in scopes)
+        where = ("TRUE" if schoolwide else
+                 "(upper(ss.code) IN :scope_sections OR upper(sc.code) IN :scope_classes)"
+                 if sections or classes else "FALSE")
+        scope_params = {} if schoolwide or not (sections or classes) else {
+            "scope_sections": sections, "scope_classes": classes}
         args = {"sid": school_id, "year": year, **scope_params}
         if metric == "LARGE_ELIGIBLE":
             # Children list must be built from scoped pupils, not all siblings.
@@ -232,6 +239,7 @@ class PostgresSchoolingParityRepository:
                            coalesce(s.first_name,''), ', ') AS children
                 FROM families f JOIN students s ON s.family_id=f.id
                 JOIN enrollments e ON e.student_id=s.id
+                JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id
                 WHERE f.school_id=:sid AND e.academic_year_id=:year
                   AND e.status='VALIDATED' AND s.status='ACTIVE' AND {where}
                 GROUP BY f.id HAVING count(DISTINCT s.id)>=:minimum
@@ -246,7 +254,7 @@ class PostgresSchoolingParityRepository:
                 JOIN enrollments e ON e.student_id=s.id AND e.academic_year_id=sb.academic_year_id
                     AND e.status='VALIDATED'
                 LEFT JOIN families f ON f.id=s.family_id
-                LEFT JOIN school_classes sc ON sc.id=e.class_id
+                JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id
                 WHERE sb.school_id=:sid AND sb.academic_year_id=:year
                   AND sb.active AND {where}
                 ORDER BY sb.kind, s.last_name, s.first_name"""
