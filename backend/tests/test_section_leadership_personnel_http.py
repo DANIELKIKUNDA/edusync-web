@@ -85,3 +85,51 @@ def test_section_cannot_add_global_assignment(harness):
             json={"staff_id":str(uuid4()),"function_id":str(uuid4()),
                   "scope_type":"SCHOOL"})
     assert response.status_code==403
+
+
+def test_primary_director_creates_staff_with_section_assignment_in_one_action(harness):
+    """HTTP -> endpoint -> scope validation -> staff and assignment repositories."""
+    client,state=harness
+    state["actor"]=grant("personnel.create")
+    section_id=uuid4()
+    def run_action(**kwargs):
+        status,payload=kwargs["action"](conn,kwargs["actor"])
+        return SimpleNamespace(status_code=status,body=payload)
+    conn=Mock()
+    conn.execute.return_value.first.return_value=("PRIMAIRE",)
+    repo=Mock()
+    repo.create_staff.return_value={"id":str(uuid4()),"employee_no":"PR-100"}
+    repo.add_assignment.return_value={"id":str(uuid4()),"scope_type":"SECTION"}
+    with patch("edusync.modules.personnel.api.router._mutate",side_effect=run_action), \
+         patch("edusync.modules.personnel.api.router.PostgresPersonnelRepository",return_value=repo), \
+         patch("edusync.modules.personnel.api.router._audit_outbox") as audit:
+        response=client.post("/personnel",headers={"Idempotency-Key":"scoped-create-ok"},
+            json={"employee_no":"PR-100","last_name":"KABUYA",
+                  "initial_assignment":{"function_id":str(uuid4()),
+                    "scope_type":"SECTION","scope_value":"PRIMAIRE",
+                    "section_id":str(section_id)}})
+    assert response.status_code==201, response.text
+    assert response.json()["initial_assignment"]["scope_type"]=="SECTION"
+    repo.create_staff.assert_called_once()
+    repo.add_assignment.assert_called_once()
+    assert audit.call_count==2
+
+
+def test_primary_director_rejects_foreign_section_before_staff_insert(harness):
+    client,state=harness
+    state["actor"]=grant("personnel.create")
+    conn=Mock()
+    conn.execute.return_value.first.return_value=None
+    repo=Mock()
+    def run_action(**kwargs):
+        return kwargs["action"](conn,kwargs["actor"])
+    with patch("edusync.modules.personnel.api.router._mutate",side_effect=run_action), \
+         patch("edusync.modules.personnel.api.router.PostgresPersonnelRepository",return_value=repo):
+        response=client.post("/personnel",headers={"Idempotency-Key":"foreign-section"},
+            json={"employee_no":"PR-101","last_name":"KABUYA",
+                  "initial_assignment":{"function_id":str(uuid4()),
+                    "scope_type":"SECTION","scope_value":"PRIMAIRE",
+                    "section_id":str(uuid4())}})
+    assert response.status_code==403
+    repo.create_staff.assert_not_called()
+    repo.add_assignment.assert_not_called()
