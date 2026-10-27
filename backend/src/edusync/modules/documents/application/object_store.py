@@ -188,11 +188,11 @@ def archive_generated_tx(services, actor, **kwargs) -> str | None:
 
 
 def school_wide_capabilities(actor) -> list[str]:
-    """Capabilities this actor holds at school scope (no scope rows = unrestricted, as everywhere else)."""
+    """Only explicit SCHOOL grants authorize reading school-wide archives."""
     out = []
     for cap in actor.permissions:
         scopes = actor.scopes_for(cap)
-        if not scopes or any(t == "SCHOOL" for t, _ in scopes):
+        if any(t == "SCHOOL" for t, _ in scopes):
             out.append(cap)
     return sorted(out)
 
