@@ -85,3 +85,31 @@ def test_missing_section_reference_is_rejected_before_query():
             "communications.send.section",
         )
     assert conn.executions == []
+
+
+def test_shared_guardian_with_children_in_two_sections_is_rejected():
+    actor = actor_for("SECONDAIRE")
+    shared = guardian("SECONDAIRE")
+    shared["section_codes"] = ["SECONDAIRE", "PRIMAIRE"]
+    conn = FakeConnection([shared])
+    with pytest.raises(PermissionError, match="hors de votre périmètre"):
+        resolve_audience(
+            conn, actor, actor.school_id, "SECTION", uuid4(),
+            "communications.send.section",
+        )
+    query = conn.executions[0][0]
+    assert "array_agg(DISTINCT sec.code)" in query
+    assert "GROUP BY g.id" in query
+    assert "DISTINCT ON (g.id)" not in query
+
+
+def test_shared_guardian_with_only_allowed_matched_sections_is_deduplicated():
+    actor = actor_for("SECONDAIRE")
+    shared = guardian("SECONDAIRE")
+    shared["section_codes"] = ["SECONDAIRE"]
+    recipients = resolve_audience(
+        FakeConnection([shared]), actor, actor.school_id,
+        "SECTION", uuid4(), "communications.send.section",
+    )
+    assert len(recipients) == 1
+    assert recipients[0].ref == shared["id"]
