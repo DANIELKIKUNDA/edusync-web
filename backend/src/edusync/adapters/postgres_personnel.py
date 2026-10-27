@@ -182,6 +182,7 @@ class PostgresPersonnelRepository:
 
     def summary(self, school_id: UUID, *, scopes: tuple[tuple[str, str | None], ...] = ()) -> StaffSummary:
         where_scope, params = _scope_where(scopes)
+        full = any(t == 'SCHOOL' for t, _ in scopes)
         stmt = _bind_scope(text(f"""
           WITH visible AS (SELECT sm.* FROM staff_members sm WHERE sm.school_id=:sid AND {where_scope})
           SELECT count(*) total,
@@ -200,7 +201,7 @@ class PostgresPersonnelRepository:
         r=self.connection.execute(stmt,{"sid":school_id,**params}).first()._mapping
         return StaffSummary(total=int(r['total']),active=int(r['active']),suspended=int(r['suspended']),left=int(r['left_count']),
                             teachers=int(r['teachers']),administrative=int(r['administrative']),workers=int(r['workers']),other=int(r['other']),
-                            active_assignments=int(r['active_assignments']),linked_accounts=int(r['linked_accounts']),staff_children=int(r['staff_children']))
+                            active_assignments=int(r['active_assignments']) if full else 0,linked_accounts=int(r['linked_accounts']) if full else 0,staff_children=int(r['staff_children']) if full else 0)
 
     def create_staff(self, member: StaffMember) -> dict[str, Any]:
         row=self.connection.execute(text("""
