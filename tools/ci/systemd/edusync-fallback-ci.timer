@@ -1,0 +1,12 @@
+# Installation manuelle uniquement sur HOTE CI DEDIE apres revue.
+[Unit]
+Description=EduSync - declencher verification CI independante toutes les 10 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=10min
+Persistent=false
+Unit=edusync-fallback-ci.service
+
+[Install]
+WantedBy=timers.target
