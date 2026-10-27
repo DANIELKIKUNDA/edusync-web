@@ -129,7 +129,9 @@ def periodic_pdf(b: PeriodicPdfBody, idempotency_key: str = Header(..., alias='I
     import re
     from fastapi.responses import Response as _Response
     from edusync.shared.infrastructure.object_storage import ObjectStorageError
-    need(actor, 'finance.reports.periodic.generate')
+    _need_periodic_scope(actor)
+    if not any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.periodic.generate')):
+        raise HTTPException(403, 'Rapport officiel réservé au périmètre école')
     a, z = _period(b.period_type, b.start, b.end)
     if not re.fullmatch(r'[A-Za-z0-9_-]{20,160}', idempotency_key):
         raise HTTPException(400, 'Idempotency-Key invalide')
@@ -252,10 +254,10 @@ def historical_status(currency: str = Query('CDF', pattern='^(CDF|USD)$'), year_
 
 @router.get('/students/{student_id}/account')
 def student_account(student_id: _UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'students.account.read')
+    _need_periodic_scope(actor, 'students.account.read')
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            return _jsonable(PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id))
+            return _jsonable(PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id, scopes=actor.scopes_for('students.account.read')))
     except LookupError as e:
         raise HTTPException(404, str(e)) from e
 
@@ -263,10 +265,10 @@ def student_account(student_id: _UUID, actor: ActorContext = Depends(require_sch
 @router.get('/students/{student_id}/account.pdf')
 def student_account_pdf_route(student_id: _UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """G-DOC-2 — Desktop export_student_account_pdf."""
-    need(actor, 'students.account.export')
+    _need_periodic_scope(actor, 'students.account.export')
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            acc = PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id)
+            acc = PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id, scopes=actor.scopes_for('students.account.export'))
             school = _school(c, actor.school_id)
     except LookupError as e:
         raise HTTPException(404, str(e)) from e
