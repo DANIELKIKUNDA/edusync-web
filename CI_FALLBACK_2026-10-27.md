@@ -30,12 +30,48 @@ git clone git@github.com:DANIELKIKUNDA/edusync-web.git edusync-web-ci
 cd edusync-web-ci
 git fetch origin
 git checkout infra/fallback-ci-20261027
-# Certifier le SHA exact présent sur main, pas le nom de la branche :
+# LECTURE SEULE : RAM, stockage, architecture, droit Docker :
+bash tools/ci/fallback_preflight.sh
+# Tester le SHA exact de main ; source immuable extraite avec git archive :
 TARGET_SHA="$(git rev-parse origin/main)"
 bash tools/ci/fallback_local.sh "$TARGET_SHA"
+# Tester INDEPENDAMMENT le travail Prefet/Direction non fusionne :
+git fetch origin chatgpt/prefet-directeur-certification
+PREFET_SHA="$(git rev-parse origin/chatgpt/prefet-directeur-certification)"
+bash tools/ci/fallback_local.sh "$PREFET_SHA"
 ```
 
-Une fois le correctif de ce runner relu et fusionné sur `main`, il pourra être appelé depuis cette branche. Les rapports sont sous `~/edusync-ci-reports/<sha>-<date UTC>/` (fichiers en accès privé, à vérifier avant tout partage).
+Le test de la branche Préfet/Direction porte sur la version exacte du travail en cours et ne doit pas être confondu avec la certification de `main`. Le script marque explicitement `NOT_APPLICABLE` l'intégration d'isolation de sections lorsqu'un ancien SHA ne la contient pas ; il ne s'agit pas d'une preuve de réussite de cette intégration. Les rapports sont sous `~/edusync-ci-reports/<sha>-<date UTC>/` (fichiers en accès privé, à vérifier avant tout partage).
+
+
+## 1 bis. Exécution périodique sans GitHub Actions (uniquement machine CI dédiée)
+
+Pour obtenir une véritable vérification automatique **indépendante des minutes GitHub Actions**, le dépôt fournit maintenant `tools/ci/fallback_poll.sh` et des modèles systemd dans `tools/ci/systemd/`.
+
+Le poller lit toutes les 10 minutes les changements approuvés sur `origin/main`, prend un verrou `flock`, puis lance `fallback_local.sh` **une fois par SHA**. Il conserve `~/edusync-ci-control/last_sha`, `last_result`, ainsi que les rapports `~/edusync-ci-reports/`. Les exécutions qui échouent ne deviennent jamais PASS. Une interruption reste `IN_PROGRESS` jusqu'à un examen manuel ; il n'y a pas de redémarrage incontrôlé sur le même SHA.
+
+**Prérequis et avertissements :**
+
+- Machine Linux **dédiée à la CI**, indépendante du staging/production ; ne pas installer ce service sur le VPS Hetzner partagé sans analyse de capacité et décision explicite.
+- SSH GitHub en **lecture seule** pour `edusync-ci` et accès au dépôt privé ; ne jamais enregistrer de token dans le dépôt ou l'unité systemd.
+- Docker avec accès au démon depuis `edusync-ci`. **L'accès au groupe docker est équivalent à root sur la machine** : compte isolé sur hôte dédié uniquement. Aucune PR extérieure n'est exécutée par le poller.
+- Chemin du checkout prévu par les unités : `/srv/edusync-ci/edusync-web`. Il faut créer le compte et le répertoire avec les bonnes permissions, y cloner le dépôt et sélectionner `infra/fallback-ci-20261027` pour les outils tant que la PR est en revue.
+- Après installation manuelle par un administrateur du serveur de CI uniquement :
+
+```bash
+sudo install -m 0644 tools/ci/systemd/edusync-fallback-ci.service /etc/systemd/system/
+sudo install -m 0644 tools/ci/systemd/edusync-fallback-ci.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now edusync-fallback-ci.timer
+# Consultation des journaux (aucun effet sur les applications) :
+sudo systemctl status edusync-fallback-ci.timer
+sudo journalctl -u edusync-fallback-ci.service -n 50 --no-pager
+```
+
+La commande systemd ci-dessus ne doit être utilisée qu'une fois le compte de service et son checkout en place, sur un serveur de CI séparé, après revue. Aucun de ces services n'a été installé sur Hetzner dans cette session.
+
+**Limite architecturale critique :** le poller est un **contrôle CI**. Il ne construit pas d'images multiarch, ne publie pas de statuts de réussite GitHub Actions et ne déclenche **aucun déploiement**. Le contrôleur staging officiel exige une CI GitHub réussie ; l'automate indépendant ne doit pas fabriquer ou contourner cette preuve. Pour une CD indépendante il faut spécifier une nouvelle chaîne de confiance auditable et tester un contrôleur compatible sur un hôte jetable, avant toute adoption.
+
 
 ## 2. Ce qui n'est pas résolu par le secours local
 
