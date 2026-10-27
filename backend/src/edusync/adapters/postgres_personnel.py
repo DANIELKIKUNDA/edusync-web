@@ -26,8 +26,8 @@ def _scope_where(scopes: tuple[tuple[str, str | None], ...], *, alias: str = "sm
     """
     if any(t == "SCHOOL" for t, _ in scopes):
         return "TRUE", {}
-    sections = sorted({v for t, v in scopes if t == "SECTION" and v})
-    classes = sorted({v for t, v in scopes if t == "CLASS" and v})
+    sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+    classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
     if not sections and not classes:
         return "FALSE", {}
     clauses: list[str] = []
@@ -209,7 +209,7 @@ class PostgresPersonnelRepository:
         params:dict[str,Any]={"sid":school_id,"staff":staff_id}
         if not include_history: clauses.append("a.end_date IS NULL")
         if not full:
-            sections=sorted({v for t,v in scopes if t=='SECTION' and v});classes=sorted({v for t,v in scopes if t=='CLASS' and v})
+            sections=sorted({str(v).upper() for t,v in scopes if t=='SECTION' and v});classes=sorted({str(v).upper() for t,v in scopes if t=='CLASS' and v})
             bits=[]
             if sections:
                 bits += ["(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)","(a.scope_type='CLASS' AND EXISTS(SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id WHERE sc.id=a.class_id AND upper(ss.code) IN :sections))"]
