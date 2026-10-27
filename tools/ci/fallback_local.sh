@@ -68,6 +68,19 @@ cleanup() {
   set +e
   docker rm -f "$PG" >/dev/null 2>&1
   docker network rm "$NET" >/dev/null 2>&1
+  # Les captures/JSON Playwright se trouvent dans le workspace ephemere.
+  # Les conserver AVANT nettoyage, sinon Claude/Codex n'auraient que les logs.
+  if [[ -d "$WORK/ci-evidence" ]]; then
+    mkdir -p "$OUT/ci-evidence"
+    if ! cp -a "$WORK/ci-evidence/." "$OUT/ci-evidence/"; then
+      echo "Echec de conservation des preuves navigateur" >&2
+      [[ "$rc" == 0 ]] && rc=74
+    fi
+  fi
+  if [[ -d "$WORK/frontend/test-results" ]]; then
+    mkdir -p "$OUT/playwright-last-results"
+    cp -a "$WORK/frontend/test-results/." "$OUT/playwright-last-results/" || true
+  fi
   # Les tests s'executent en root DANS les conteneurs : restaurer la possession
   # uniquement dans le dossier temporaire avant de l'effacer (jamais sur le projet).
   if [[ -d "$WORK" ]]; then
@@ -178,8 +191,12 @@ log_step frontend_browser docker run --rm --init \
     npm test
     npx playwright install --with-deps chromium
     npm run test:browser
+    mkdir -p /code/ci-evidence/browser-dev
+    cp -a test-results/. /code/ci-evidence/browser-dev/
     npx vite build
     EDUSYNC_TEST_BUILD=1 npm run test:browser -- platform.spec.ts offline.spec.ts school_offline.spec.ts
+    mkdir -p /code/ci-evidence/browser-compiled
+    cp -a test-results/. /code/ci-evidence/browser-compiled/
     npm audit --omit=dev
   '
 
