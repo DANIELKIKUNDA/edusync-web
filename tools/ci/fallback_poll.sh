@@ -68,14 +68,14 @@ fi
 if bash "$ROOT/tools/ci/fallback_local.sh" "$SHA"; then
   printf 'PASS_LOCAL %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
   if ! publish_status success "Tests CI locaux PASS; CD/staging non certifies"; then
-    printf 'PASS_LOCAL_STATUS_UNPUBLISHED %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
+    printf 'PASS_LOCAL_STATUS_UNPUBLISHED %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
     echo "Les tests locaux passent, mais GitHub n'a pas recu leur statut." >&2
     exit 74
   fi
   echo "PASS local pour $BRANCH au SHA $SHA. Aucune preuve de workflow CI Actions, aucun deploiement."
 else
   code=$?
-  printf 'FAIL rc=%d %s\n' "$code" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATE/last_result"
+  printf 'FAIL rc=%d %s\n' "$code" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LAST_RESULT"
   publish_status failure "Tests CI locaux FAIL; consulter les journaux du runner" || true
   echo "FAIL rc=$code pour $SHA : consulter ~/edusync-ci-reports." >&2
   exit "$code"
