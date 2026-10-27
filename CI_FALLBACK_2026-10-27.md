@@ -88,6 +88,33 @@ bash tools/ci/fallback_build_images.sh "$SHA" "/chemin/reel/vers/summary.txt"
 
 Le rapport contient les identifiants immuables locaux (`docker image inspect .Id`) et le SHA source. Aucune image issue de ce script ne doit être substituée manuellement aux images certifiées GHCR du contrôleur staging.
 
+## 1 quater. Suivi depuis Claude, Codex et l'interface GitHub sans Actions
+
+**Problème résolu au niveau protocole (non installé/testé sur Hetzner)** : pour qu'un assistant ou un développeur voie le résultat de la CI de secours **dans GitHub**, le poller peut publier un **statut de commit externe** via l'API REST GitHub. Cette API ne consomme pas de minutes GitHub Actions.
+
+- Script : `tools/ci/fallback_github_status.py`.
+- Contexte explicite : `external/edusync-ci` (distinct de la CI GitHub Actions officielle).
+- Statuts : `pending` au début, puis `success` ou `failure` uniquement sur la base de l'exécution réelle de `fallback_local.sh` pour le SHA testé. En cas d'échec de publication, le poller enregistre `PASS_LOCAL_STATUS_UNPUBLISHED` ou `FAIL` ; jamais de faux succès distant.
+- Les assistants Claude/Codex disposant d'accès GitHub au dépôt privé peuvent consulter ces statuts sur le commit SHA, dans la PR associée si GitHub les affiche, ou avec la ressource `GET /repos/DANIELKIKUNDA/edusync-web/commits/{sha}/status`. Les **journaux détaillés restent sur l'hôte CI** ; ne pas prétendre qu'ils sont accessibles dans GitHub. Un accès SSH autorisé ou une solution d'archivage de preuves privée est nécessaire pour lire les logs, captures et traces complets.
+- Le compteur GitHub Actions reste bloqué : ceci n'exécute pas les jobs `ci.yml`, ne produit pas les preuves de staging, n'édite pas les règles de protection de branche et **ne déverrouille pas le contrôleur de déploiement actuel**.
+
+**Activation sur le serveur CI dédié UNIQUEMENT après revue du code :**
+
+1. Créer dans GitHub un *fine-grained personal access token* limité au seul dépôt `DANIELKIKUNDA/edusync-web`, avec permission **Commit statuses: Read and write**. Garder la durée de vie minimale compatible avec le dépannage. Le token est destiné uniquement au signalement des statuts ; pas d'accès administration ou déploiement.
+2. Créer **sur l'hôte CI**, sous le compte `edusync-ci`, le dossier `/srv/edusync-ci/.secrets/` mode 0700 et le fichier `/srv/edusync-ci/.secrets/github-status-token` mode **0600**, propriétaire `edusync-ci`. Saisir la valeur du token dans ce fichier par un éditeur sécurisé, **jamais dans ChatGPT, GitHub, un argument de commande ou un journal**. Éviter de conserver le jeton dans l'historique Bash.
+3. L'unité `tools/ci/systemd/edusync-fallback-ci.service` contient uniquement le **chemin** du fichier, via `EDUSYNC_GITHUB_STATUS_TOKEN_FILE`, jamais le secret lui-même.
+4. Installer/démarrer le timer systemd selon §1 bis, contrôler le journal et vérifier sous le SHA testé que GitHub affiche `external/edusync-ci`.
+
+**Pour un contrôle manuel** : le script utilise la même variable d'environnement et reçoit `SHA`, l'état (`pending`, `success`, `failure`, `error`) et une courte description. **Ne jamais appeler directement `success` sans preuve d'une exécution réelle pour le SHA exact.** L'automate seul se charge de la transition d'état normale.
+
+### Ce que Claude / Codex doivent faire
+
+1. Récupérer le SHA exact du commit étudié.
+2. Lire le statut `external/edusync-ci`. S'il est absent, afficher **NON EXÉCUTÉ OU NON PUBLIÉ**.
+3. Vérifier que le statut correspond à ce SHA et que la couverture de la suite de secours suffit pour la décision demandée.
+4. Pour audit complet, récupérer les logs/captures de la machine de CI via un accès autorisé (ou lancer les tests E2E sur leur environnement local).
+5. Ne fusionner/déployer que lorsque toutes les exigences spécifiques de `CICD.md` et `PRODUCTION.md` sont elles aussi satisfaites ; le statut externe ne leur est pas équivalent.
+
 ## 2. Ce qui n'est pas résolu par le secours local
 
 Le verdict du script ne vaut **pas** une certification de sortie en production. Restent impérativement :
