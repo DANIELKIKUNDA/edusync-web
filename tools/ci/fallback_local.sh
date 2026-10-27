@@ -12,12 +12,21 @@ usage() {
 [[ $# -eq 1 && "$1" =~ ^[0-9a-f]{40}$ ]] || usage
 SHA="$1"
 ROOT="$(git rev-parse --show-toplevel)"
-# Autoriser HEAD (commit de branche) ou un commit contenu dans origin/main.
-# La copie testée provient TOUJOURS du SHA fourni, pas du checkout de l'outillage.
+# Autoriser la branche courante ou deux branches officielles du proprietaire :
+# main et le chantier Prefet/Direction. Refuser les PR externes arbitraires.
+# Les tests portent sur l'archive du SHA fourni, pas sur les outils de ce checkout.
 if [[ "$(git -C "$ROOT" rev-parse HEAD)" != "$SHA" ]]; then
-  MAIN_REF="$(git -C "$ROOT" rev-parse -q --verify refs/remotes/origin/main || true)"
-  if [[ -z "$MAIN_REF" ]] || ! git -C "$ROOT" merge-base --is-ancestor "$SHA" "$MAIN_REF"; then
-    echo "REFUS : le SHA doit etre HEAD ou un ancetre de origin/main (faire git fetch origin)." >&2
+  approved=0
+  for branch in main chatgpt/prefet-directeur-certification; do
+    remote_sha="$(git -C "$ROOT" rev-parse -q --verify "refs/remotes/origin/$branch" || true)"
+    if [[ -n "$remote_sha" ]] && git -C "$ROOT" merge-base --is-ancestor "$SHA" "$remote_sha"; then
+      approved=1
+      break
+    fi
+  done
+  if [[ "$approved" != 1 ]]; then
+    echo "REFUS : SHA en dehors de HEAD, origin/main et origin/chatgpt/prefet-directeur-certification." >&2
+    echo "Faire git fetch origin avant tout essai." >&2
     exit 65
   fi
 fi
@@ -54,8 +63,11 @@ cleanup() {
   # Les tests s'executent en root DANS les conteneurs : restaurer la possession
   # uniquement dans le dossier temporaire avant de l'effacer (jamais sur le projet).
   if [[ -d "$WORK" ]]; then
-    docker run --rm --network none -v "$WORK:/code" python:3.13-bookworm \
-      chown -R "$(id -u):$(id -g)" /code >/dev/null 2>&1
+    # Eviter tout retelechargement d'image dans un trap en cas d'erreur reseau.
+    if docker image inspect python:3.13-bookworm >/dev/null 2>&1; then
+      docker run --rm --network none -v "$WORK:/code" python:3.13-bookworm \
+        chown -R "$(id -u):$(id -g)" /code >/dev/null 2>&1
+    fi
     rm -rf -- "$WORK"
   fi
   {
@@ -79,7 +91,11 @@ log_step() {
   fi
 }
 
+# Ne jamais tester un arbre de travail non suivi. Extraction depuis le SHA exact.
+# En cas d'echec git archive, pipefail empeche tout faux succes.
 git -C "$ROOT" archive "$SHA" | tar -x -C "$WORK"
+# Reseau ephemere prive au moteur Docker (aucun port hote publie).
+# La sortie Internet reste necessaire aux dependances pip/npm.
 docker network create --driver bridge "$NET" >/dev/null
 
 # PostgreSQL jetable, sans publication de port et sans réutilisation des bases existantes.
@@ -99,14 +115,16 @@ done
 [[ "$ok" == 1 ]] || { echo "PostgreSQL de test indisponible." >&2; exit 1; }
 
 # Même socle de contrôles que ci.yml : Python 3.13, migrations, rôles, caisse et audits.
+# Partager la namespace reseau du PostgreSQL jetable : localhost:5432
+# vu des tests designe uniquement CE PostgreSQL, jamais une BD du VPS.
 log_step backend_rbac_security docker run --rm --init \
-  --network "$NET" --cpus=2 --memory=3g --pids-limit=384 \
+  --network "container:$PG" --cpus=2 --memory=3g --pids-limit=384 \
   --security-opt no-new-privileges \
   -v "$WORK:/code" -w /code/backend \
   -e PYTHONPATH=src -e PYTHONUTF8=1 -e CI=true \
-  -e "EDUSYNC_OWNER_DATABASE_URL=postgresql+psycopg://edusync_owner:ci-owner-only@$PG:5432/edusync" \
-  -e "EDUSYNC_TENANT_DATABASE_URL=postgresql+psycopg://edusync_tenant:ci-tenant-only@$PG:5432/edusync" \
-  -e "EDUSYNC_PLATFORM_DATABASE_URL=postgresql+psycopg://edusync_platform:ci-platform-only@$PG:5432/edusync" \
+  -e "EDUSYNC_OWNER_DATABASE_URL=postgresql+psycopg://edusync_owner:ci-owner-only@127.0.0.1:5432/edusync" \
+  -e "EDUSYNC_TENANT_DATABASE_URL=postgresql+psycopg://edusync_tenant:ci-tenant-only@127.0.0.1:5432/edusync" \
+  -e "EDUSYNC_PLATFORM_DATABASE_URL=postgresql+psycopg://edusync_platform:ci-platform-only@127.0.0.1:5432/edusync" \
   python:3.13-bookworm bash -euo pipefail -c '
     python -m pip install -c requirements.lock .
     python -m pip install -c requirements.lock pytest pypdf
@@ -124,6 +142,7 @@ log_step backend_rbac_security docker run --rm --init \
     python scripts/provision_database.py
     python ../tools/ci/rbac_registry.py check
     python ../tools/ci/cashier_postgres_integration.py
+    python ../tools/ci/section_isolation_postgres_integration.py
     (cd /code && python tools/ci/secret_patterns.py && python tools/certification/supply_chain.py)
     python -m pip install pip-audit==2.10.1
     pip-audit -r requirements.lock --progress-spinner off
