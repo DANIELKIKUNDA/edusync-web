@@ -3,18 +3,19 @@ import {test,expect,type Page} from '@playwright/test';
 const school={id:'11111111-1111-4111-8111-111111111111',code:'REC',name:'École Recette'};
 const user={id:'22222222-2222-4222-8222-222222222222',full_name:'Daniel Caissier',email:'cashier@example.test'};
 const family='33333333-3333-4333-8333-333333333333';
+const cashierToken=`e30.${btoa(JSON.stringify({sub:user.id,school_id:school.id}))}.sig`;
 const person=(n:number,name:string)=>({student_id:`44444444-4444-4444-8444-44444444444${n}`,family_id:family,matricule:`EDU-00${n}`,last_name:'KIKUNDA',middle_name:'',first_name:name,family_name:'Foyer Kikunda',enrollment_id:`55555555-5555-4555-8555-55555555555${n}`,class_label:n===1?'2e CG':'3e primaire'});
 const children=[person(1,'Daniel'),person(2,'Dorcas')];
-const fees:Record<string,string>={[children[0].enrollment_id]:'fee-daniel',[children[1].enrollment_id]:'fee-dorcas'};
+const fees:Record<string,string>={[children[0].enrollment_id]:'66666666-6666-4666-8666-666666666661',[children[1].enrollment_id]:'66666666-6666-4666-8666-666666666662'};
 const permissions=['finance.checkout.collect','finance.checkout.family.collect','finance.checkout.search','finance.checkout.balance.read','finance.cash.read'];
 
-async function prepare(page:Page){
+async function prepare(page:Page,ambiguous=false){
   let attempts=0;const keys:string[]=[];
   await page.route('**/api/**',async route=>{
     const req=route.request();const path=new URL(req.url()).pathname.replace('/api/v1','');
     if(path.endsWith('/stream'))return route.fulfill({contentType:'text/event-stream',body:''});
     let body:unknown={items:[],total:0};
-    if(path==='/auth/refresh')body={access_token:'fixture-cashier',scope:'SCHOOL',school,user,permissions};
+    if(path==='/auth/refresh')body={access_token:cashierToken,scope:'SCHOOL',school,user,permissions};
     else if(path==='/auth/contexts')body={contexts:[],current:{scope:'SCHOOL'},current_valid:true};
     else if(path==='/access/me')body={membership_id:'cashier-member',school_id:school.id,role_label:'Caissier',permissions,scoped:[],roles:[],navigation:[{key:'home',label:'Accueil',icon:'home'},{key:'finance',label:'Centre financier',icon:'wallet'}],widgets:[],actions:[]};
     else if(path.startsWith('/finance/checkout/search'))body={items:[children[0]]};
@@ -32,8 +33,8 @@ async function prepare(page:Page){
       expect(submitted.mode).toBe('MOBILE_MONEY');
       expect(submitted.reference).toBe('MM-1234');
       keys.push(req.headers()['idempotency-key']);
-      if(attempts===1)return route.fulfill({status:409,json:{detail:'Aucune caisse ouverte pour cet utilisateur'}});
-      body={basket_id:'basket-1',family_id:family,totals:{CDF:'100000'},replayed:false,lines:children.map((child,i)=>({line_no:i+1,payment_id:`payment-${i+1}`,receipt_number:`REC-${i+1}`,amount:'50000',currency:'CDF',last_name:child.last_name,first_name:child.first_name,class_label:child.class_label,allocations:[]}))};
+      if(attempts===1)return route.fulfill({status:409,json:{detail:ambiguous?'Réponse du serveur perdue':'Aucune caisse ouverte pour cet utilisateur'}});
+      body={basket_id:'basket-1',family_id:family,totals:{CDF:'100000'},replayed:ambiguous,lines:children.map((child,i)=>({line_no:i+1,payment_id:`payment-${i+1}`,receipt_number:`REC-${i+1}`,amount:'50000',currency:'CDF',last_name:child.last_name,first_name:child.first_name,class_label:child.class_label,allocations:[]}))};
     }
     return route.fulfill({json:body});
   });
@@ -88,3 +89,27 @@ for(const vp of [{name:'desktop',width:1440,height:900},{name:'desktop-court',wi
     expect(result.attempts()).toBe(2);expect(result.keys[0]).toBe(result.keys[1]);
     await page.screenshot({path:testInfo.outputPath(`${vp.name}-success.png`),fullPage:false});  });
 }
+
+test('panier partiellement payé : reprise après réponse perdue réutilise la clé',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  const result=await prepare(page,true);
+  let aside=page.getByRole('complementary',{name:'Transaction active'});
+  await aside.getByRole('textbox',{name:'Référence de transaction du panier'}).fill('MM-1234');
+  await aside.getByRole('button',{name:'Encaisser le panier'}).click();
+  await expect(aside.locator('.basketActionError')).toContainText('Réponse du serveur perdue');
+  expect(result.attempts()).toBe(1);
+  expect((await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('edusync.cashier-basket.')))).length).toBe(2);
+  await page.reload();
+  const finance=page.getByRole('complementary',{name:'Navigation principale'}).getByRole('button',{name:'Centre financier'});
+  await expect(finance).toBeVisible();
+  await finance.click();
+  await expect(page.getByText('Panier familial retrouvé')).toBeVisible();
+  await page.getByRole('button',{name:'Reprendre et vérifier'}).click();
+  aside=page.getByRole('complementary',{name:'Transaction active'});
+  await expect(aside.getByText('Panier familial · 2 ligne(s)')).toBeVisible();
+  await aside.getByRole('textbox',{name:'Référence de transaction du panier'}).fill('MM-1234');
+  await aside.getByRole('button',{name:'Encaisser le panier'}).click();
+  await expect(aside.getByText('Panier encaissé · 2 reçu(s) (déjà enregistré)')).toBeVisible();
+  expect(result.keys).toHaveLength(2);
+  expect(result.keys[1]).toBe(result.keys[0]);
+});
