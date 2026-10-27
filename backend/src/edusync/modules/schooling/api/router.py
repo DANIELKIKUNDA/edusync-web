@@ -39,6 +39,15 @@ def _scopes(actor:ActorContext, capability:str)->tuple[tuple[str,str|None],...]:
     scopes=actor.scopes_for(capability)
     return scopes if scopes else (() if capability in actor.permissions else ())
 
+def _require_schoolwide_parity(actor:ActorContext, capability:str)->None:
+    """Legacy parity repository methods accept school_id but not section scopes.
+    Refuse section grants until these methods support scoped SQL queries.
+    """
+    _need(actor,capability)
+    scopes=actor.scopes_for(capability)
+    if scopes and not any(kind=='SCHOOL' for kind,_ in scopes):
+        raise HTTPException(status_code=403,detail='Consultation non disponible pour ce périmètre de section')
+
 def _key(value:str|None)->str:
     key=(value or '').strip()
     if not key: raise HTTPException(status_code=400,detail='Idempotency-Key obligatoire')
@@ -153,34 +162,40 @@ from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRe
 @router.get('/students/probable')
 def probable_students(last_name:str=Query(...,min_length=1,max_length=120),middle_name:str='',first_name:str='',birth_date:date|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-1 — Desktop find_probable_students: likely existing pupils before a new permanent record."""
-    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_need(actor,'students.read')
+    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_require_schoolwide_parity(actor,'students.read')
+    else:
+        for cap in ('enrollments.create','enrollments.reenroll'):
+            if cap in actor.permissions:_require_schoolwide_parity(actor,cap)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return {'items':_jsonable(PostgresSchoolingParityRepository(conn).probable_students(actor.school_id,last_name=last_name,middle_name=middle_name,first_name=first_name,birth_date=birth_date))}
 
 @router.get('/students/{student_id}/historical-arrears')
 def historical_arrears(student_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-2 — Desktop student_historical_arrears: earlier years only, never mixed with the new enrollment."""
-    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_need(actor,'students.account.read')
+    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_require_schoolwide_parity(actor,'students.account.read')
+    else:
+        for cap in ('enrollments.create','enrollments.reenroll'):
+            if cap in actor.permissions:_require_schoolwide_parity(actor,cap)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return {'items':_jsonable(PostgresSchoolingParityRepository(conn).historical_arrears(actor.school_id,student_id))}
 
 @router.get('/families/diagnostics')
 def family_diagnostics(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-4 — Desktop family_contact_diagnostics (read only)."""
-    _need(actor,'families.read')
+    _require_schoolwide_parity(actor,'families.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return PostgresSchoolingParityRepository(conn).family_contact_diagnostics(actor.school_id)
 
 @router.get('/families/overview')
 def family_overview(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    _need(actor,'families.read')
+    _require_schoolwide_parity(actor,'families.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return PostgresSchoolingParityRepository(conn).family_overview(actor.school_id,year_id)
 
 @router.get('/families/kpi/{metric}')
 def family_kpi(metric:str,year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-3 — Desktop family_kpi_details (LARGE_ELIGIBLE, BENEFICIARIES, STAFF_CHILDREN)."""
-    _need(actor,'families.read')
+    _require_schoolwide_parity(actor,'families.read')
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
             return {'items':_jsonable(PostgresSchoolingParityRepository(conn).family_kpi_details(actor.school_id,metric=metric.upper(),year_id=year_id))}
