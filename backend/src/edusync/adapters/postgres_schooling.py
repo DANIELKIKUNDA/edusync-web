@@ -192,11 +192,16 @@ class PostgresSchoolingRepository:
         # The selected enrollment itself must be authorized. Otherwise a
         # pupil visible through one section can reveal a newer enrollment
         # in a different section via the lateral join and exports.
-        lateral_scope = "TRUE" if any(t=="SCHOOL" for t,_ in scopes) else (
-            "(upper(ss1.code) IN :lateral_sections OR upper(sc1.code) IN :lateral_classes)"
-            if any(t in ("SECTION","CLASS") and v for t,v in scopes) else "FALSE")
         args["lateral_sections"] = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
         args["lateral_classes"] = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
+        lateral_clauses = []
+        if args["lateral_sections"]:
+            lateral_clauses.append("upper(ss1.code) IN :lateral_sections")
+        if args["lateral_classes"]:
+            lateral_clauses.append("upper(sc1.code) IN :lateral_classes")
+        lateral_scope = ("TRUE" if any(t=="SCHOOL" for t,_ in scopes) else
+                         "(" + " OR ".join(lateral_clauses) + ")"
+                         if lateral_clauses else "FALSE")
         if all_years:
             enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} ORDER BY ay1.start_date DESC,e1.enrolled_on DESC LIMIT 1) e ON true"""
         else:
@@ -230,9 +235,10 @@ class PostgresSchoolingRepository:
           LEFT JOIN academic_years ay ON ay.id=e.academic_year_id
           LEFT JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_sections ss ON ss.id=sc.section_id
           WHERE {' AND '.join(conditions)} ORDER BY s.last_name,s.middle_name,s.first_name LIMIT :limit OFFSET :offset""")
-        if lateral_scope not in ("TRUE","FALSE"):
-            stmt=stmt.bindparams(bindparam("lateral_sections",expanding=True),
-                                 bindparam("lateral_classes",expanding=True))
+        if args["lateral_sections"] and lateral_scope != "TRUE":
+            stmt=stmt.bindparams(bindparam("lateral_sections",expanding=True))
+        if args["lateral_classes"] and lateral_scope != "TRUE":
+            stmt=stmt.bindparams(bindparam("lateral_classes",expanding=True))
         stmt=_bind_scope(stmt,params);args['limit']=max(1,min(limit,1000));args['offset']=max(0,offset)
         return [_row(r) for r in self.connection.execute(stmt,args).all()]
 
