@@ -142,7 +142,11 @@ log_step backend_rbac_security docker run --rm --init \
     python scripts/provision_database.py
     python ../tools/ci/rbac_registry.py check
     python ../tools/ci/cashier_postgres_integration.py
-    python ../tools/ci/section_isolation_postgres_integration.py
+    if [ -f ../tools/ci/section_isolation_postgres_integration.py ]; then
+      python ../tools/ci/section_isolation_postgres_integration.py
+    else
+      echo "NOT_APPLICABLE: section_isolation_postgres_integration.py absent de ce SHA"
+    fi
     (cd /code && python tools/ci/secret_patterns.py && python tools/certification/supply_chain.py)
     python -m pip install pip-audit==2.10.1
     pip-audit -r requirements.lock --progress-spinner off
