@@ -45,7 +45,7 @@ def _require_schoolwide_parity(actor:ActorContext, capability:str)->None:
     """
     _need(actor,capability)
     scopes=actor.scopes_for(capability)
-    if scopes and not any(kind=='SCHOOL' for kind,_ in scopes):
+    if not any(kind=='SCHOOL' for kind,_ in scopes):
         raise HTTPException(status_code=403,detail='Consultation non disponible pour ce périmètre de section')
 
 def _key(value:str|None)->str:
