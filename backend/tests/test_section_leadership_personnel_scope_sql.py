@@ -94,10 +94,14 @@ def test_scoped_summary_never_queries_schoolwide_family_or_access_counts():
     sql=str(conn.execute.call_args.args[0])
     assert "FROM staff_access_links" not in sql
     assert "FROM staff_student_links" not in sql
-    assert "FROM staff_assignments a JOIN visible" not in sql
+    assert "FROM staff_assignments a JOIN visible" in sql
+    assert "a.scope_type='SECTION'" in sql
+    assert "a.scope_type='CLASS'" in sql
+    assert "a.scope_type='SCHOOL'" not in sql
+    assert "sc.school_id=a.school_id" in sql
     assert result.linked_accounts==0
     assert result.staff_children==0
-    assert result.active_assignments==0
+    assert result.active_assignments==99
 
 
 def test_schoolwide_summary_keeps_schoolwide_counters():
@@ -114,3 +118,36 @@ def test_schoolwide_summary_keeps_schoolwide_counters():
     assert result.active_assignments==2
     assert result.linked_accounts==1
     assert result.staff_children==3
+
+
+def test_class_only_summary_counts_exact_class_assignments():
+    from unittest.mock import Mock
+    from uuid import uuid4
+    from edusync.adapters.postgres_personnel import PostgresPersonnelRepository
+    conn=Mock()
+    conn.execute.return_value.first.return_value._mapping=dict(
+        total=2,active=2,suspended=0,left_count=0,teachers=2,
+        administrative=0,workers=0,other=0,active_assignments=1,
+        linked_accounts=0,staff_children=0)
+    result=PostgresPersonnelRepository(conn).summary(
+        uuid4(),scopes=(("CLASS","7A"),))
+    sql=str(conn.execute.call_args.args[0])
+    assert "a.scope_type='CLASS'" in sql
+    assert "a.scope_type='SECTION'" not in sql
+    assert "a.scope_type='SCHOOL'" not in sql
+    assert result.active_assignments==1
+    assert conn.execute.call_args.args[1]["summary_classes"]==["7A"]
+
+
+def test_no_scope_summary_does_not_count_assignments():
+    from unittest.mock import Mock
+    from uuid import uuid4
+    from edusync.adapters.postgres_personnel import PostgresPersonnelRepository
+    conn=Mock()
+    conn.execute.return_value.first.return_value._mapping=dict(
+        total=0,active=0,suspended=0,left_count=0,teachers=0,
+        administrative=0,workers=0,other=0,active_assignments=0,
+        linked_accounts=0,staff_children=0)
+    PostgresPersonnelRepository(conn).summary(uuid4(),scopes=())
+    sql=str(conn.execute.call_args.args[0])
+    assert "FROM staff_assignments a JOIN visible" not in sql
