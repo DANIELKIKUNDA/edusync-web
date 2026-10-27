@@ -198,6 +198,61 @@ class PostgresSchoolingParityRepository:
             raise ValueError("Indicateur familial inconnu")
         return [_plain(r) for r in rows]
 
+    def family_kpi_details_scoped(self, school_id: UUID, *, metric: str,
+                                  year_id: UUID | None = None,
+                                  scopes: tuple[tuple[str, str | None], ...]) -> list[dict]:
+        """Never return a pupil outside the caller's authorized sections."""
+        year = self._year(school_id, year_id)
+        where, scope_params = _student_scope_where(scopes, alias="s")
+        args = {"sid": school_id, "year": year, **scope_params}
+        if metric == "LARGE_ELIGIBLE":
+            # Children list must be built from scoped pupils, not all siblings.
+            query = f"""SELECT f.id AS family_id, f.code AS family_code,
+                f.display_name AS family_name, f.phone,
+                count(DISTINCT s.id) AS enrolled_children,
+                string_agg(DISTINCT s.matricule || ' - ' || s.last_name || ' ' ||
+                           coalesce(s.first_name,''), ', ') AS children
+                FROM families f JOIN students s ON s.family_id=f.id
+                JOIN enrollments e ON e.student_id=s.id
+                WHERE f.school_id=:sid AND e.academic_year_id=:year
+                  AND e.status='VALIDATED' AND s.status='ACTIVE' AND {where}
+                GROUP BY f.id HAVING count(DISTINCT s.id)>=:minimum
+                ORDER BY f.display_name"""
+            args["minimum"] = self._large_min(school_id, year)
+        elif metric == "BENEFICIARIES":
+            query = f"""SELECT s.id AS student_id, s.matricule, s.last_name,
+                s.middle_name, s.first_name, f.code AS family_code,
+                f.display_name AS family_name, sb.kind AS benefit_type,
+                sb.configured_percent, sb.applies_to_fee_code, sc.label AS class_label
+                FROM student_benefits sb JOIN students s ON s.id=sb.student_id
+                JOIN enrollments e ON e.student_id=s.id AND e.academic_year_id=sb.academic_year_id
+                    AND e.status='VALIDATED'
+                LEFT JOIN families f ON f.id=s.family_id
+                LEFT JOIN school_classes sc ON sc.id=e.class_id
+                WHERE sb.school_id=:sid AND sb.academic_year_id=:year
+                  AND sb.active AND {where}
+                ORDER BY sb.kind, s.last_name, s.first_name"""
+        elif metric == "STAFF_CHILDREN":
+            query = f"""SELECT s.id AS student_id, s.matricule, s.last_name,
+                s.middle_name, s.first_name, f.code AS family_code,
+                f.display_name AS family_name, sm.employee_no AS employee_code,
+                concat_ws(' ', sm.last_name, sm.first_name) AS staff_name,
+                coalesce(p.responsibility_mode,'FAMILY') AS finance_mode,
+                l.relationship, sc.label AS class_label
+                FROM staff_student_links l JOIN students s ON s.id=l.student_id
+                JOIN enrollments e ON e.student_id=s.id AND e.academic_year_id=:year
+                    AND e.status='VALIDATED'
+                JOIN staff_members sm ON sm.id=l.staff_id
+                LEFT JOIN families f ON f.id=s.family_id
+                LEFT JOIN school_classes sc ON sc.id=e.class_id
+                LEFT JOIN staff_student_finance_preferences p ON p.staff_student_link_id=l.id
+                WHERE l.school_id=:sid AND l.active AND {where}
+                ORDER BY staff_name, s.last_name, s.first_name"""
+        else:
+            raise ValueError("Indicateur familial inconnu")
+        rows = self.c.execute(_bind_scope(text(query), scope_params), args).mappings().all()
+        return [_plain(r) for r in rows]
+
     def product_sales_report(self, school_id: UUID, *, start_date: date, end_date: date) -> dict[str, Any]:
         if start_date > end_date:
             raise ValueError("La date de début doit précéder la date de fin")
