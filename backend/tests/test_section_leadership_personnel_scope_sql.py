@@ -78,3 +78,39 @@ def test_section_directory_empty_page_does_not_query_assignments():
     assert PostgresPersonnelRepository(conn).list_staff(
         uuid4(), scopes=(("SECTION", "PRIMAIRE"),)) == []
     assert conn.execute.call_count == 1
+
+
+def test_scoped_summary_never_queries_schoolwide_family_or_access_counts():
+    from unittest.mock import Mock
+    from uuid import uuid4
+    from edusync.adapters.postgres_personnel import PostgresPersonnelRepository
+    conn=Mock()
+    metrics=dict(total=4,active=3,suspended=1,left_count=0,teachers=2,
+                 administrative=1,workers=0,other=1,active_assignments=99,
+                 linked_accounts=99,staff_children=99)
+    conn.execute.return_value.first.return_value._mapping=metrics
+    result=PostgresPersonnelRepository(conn).summary(
+        uuid4(),scopes=(("SECTION","PRIMAIRE"),))
+    sql=str(conn.execute.call_args.args[0])
+    assert "FROM staff_access_links" not in sql
+    assert "FROM staff_student_links" not in sql
+    assert "FROM staff_assignments a JOIN visible" not in sql
+    assert result.linked_accounts==0
+    assert result.staff_children==0
+    assert result.active_assignments==0
+
+
+def test_schoolwide_summary_keeps_schoolwide_counters():
+    from unittest.mock import Mock
+    from uuid import uuid4
+    from edusync.adapters.postgres_personnel import PostgresPersonnelRepository
+    conn=Mock()
+    conn.execute.return_value.first.return_value._mapping=dict(
+        total=1,active=1,suspended=0,left_count=0,teachers=1,
+        administrative=0,workers=0,other=0,active_assignments=2,
+        linked_accounts=1,staff_children=3)
+    result=PostgresPersonnelRepository(conn).summary(
+        uuid4(),scopes=(("SCHOOL",None),))
+    assert result.active_assignments==2
+    assert result.linked_accounts==1
+    assert result.staff_children==3
