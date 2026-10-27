@@ -241,34 +241,37 @@ class PostgresPeriodicReportsRepository:
         return self.c.execute(text("""SELECT id FROM academic_years WHERE school_id=:s AND (CAST(:y AS uuid) IS NULL OR id=CAST(:y AS uuid))
             ORDER BY (status='ACTIVE') DESC, start_date DESC LIMIT 1"""), {"s": school_id, "y": str(year_id) if year_id else None}).scalar_one_or_none()
 
-    def analysis_by_fee_type(self, school_id: UUID, year_id: UUID | None = None) -> list[dict[str, Any]]:
+    def analysis_by_fee_type(self, school_id: UUID, year_id: UUID | None = None, scopes=None) -> list[dict[str, Any]]:
         y = self._year(school_id, year_id)
-        rows = self.c.execute(text("""SELECT upper(coalesce(ft.code,'')) AS fee_code, coalesce(ft.label, 'Autres frais') AS fee_name, fc.currency,
+        scope_where, scope_params = self._scope_clause(scopes)
+        rows = self.c.execute(self._scoped_sql(f"""SELECT upper(coalesce(ft.code,'')) AS fee_code, coalesce(ft.label, 'Autres frais') AS fee_name, fc.currency,
                 count(DISTINCT fc.enrollment_id) AS students, sum(coalesce(fc.gross_amount, fc.net_amount)) AS gross_expected,
                 sum(coalesce(fc.discount_amount,0)) + sum(finance_charge_decision_amount(fc.id)) AS discounts,
                 sum(fc.net_amount - finance_charge_decision_amount(fc.id)) AS net_expected, sum(fc.paid_amount) AS paid
-              FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
+              FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id JOIN school_classes sc_scope ON sc_scope.id=e.class_id JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
              WHERE fc.school_id=:s AND e.academic_year_id=:y AND e.status='VALIDATED' AND fc.status='ACTIVE'
-             GROUP BY 1,2,3 ORDER BY 2,3"""), {"s": school_id, "y": y}).mappings().all()
+             AND {scope_where} GROUP BY 1,2,3 ORDER BY 2,3""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{**{k: (str(money(v)) if isinstance(v, Decimal) else v) for k, v in dict(r).items()}, "balance": str(money(r["net_expected"]) - money(r["paid"]))} for r in rows]
 
-    def analysis_by_cashier(self, school_id: UUID, year_id: UUID | None = None) -> list[dict[str, Any]]:
+    def analysis_by_cashier(self, school_id: UUID, year_id: UUID | None = None, scopes=None) -> list[dict[str, Any]]:
         y = self._year(school_id, year_id)
-        rows = self.c.execute(text("""SELECT p.actor_user_id AS cashier_id, p.currency, count(*) AS payment_count, sum(p.amount) AS amount
-              FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id
+        scope_where, scope_params = self._scope_clause(scopes)
+        rows = self.c.execute(self._scoped_sql(f"""SELECT p.actor_user_id AS cashier_id, p.currency, count(*) AS payment_count, sum(p.amount) AS amount
+              FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN school_classes sc_scope ON sc_scope.id=e.class_id JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
              WHERE p.school_id=:s AND e.academic_year_id=:y AND NOT EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id)
-             GROUP BY 1,2 ORDER BY 1,2"""), {"s": school_id, "y": y}).mappings().all()
+             AND {scope_where} GROUP BY 1,2 ORDER BY 1,2""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{**dict(r), "cashier_id": str(r["cashier_id"]), "amount": str(money(r["amount"]))} for r in rows]
 
-    def analysis_advance_funds(self, school_id: UUID, year_id: UUID | None = None) -> list[dict[str, Any]]:
+    def analysis_advance_funds(self, school_id: UUID, year_id: UUID | None = None, scopes=None) -> list[dict[str, Any]]:
         y = self._year(school_id, year_id)
-        rows = self.c.execute(text("""SELECT f.currency, count(*) AS fund_count, sum(f.amount) AS received_total,
+        scope_where, scope_params = self._scope_clause(scopes)
+        rows = self.c.execute(self._scoped_sql(f"""SELECT f.currency, count(*) AS fund_count, sum(f.amount) AS received_total,
                 sum(CASE WHEN f.status IN ('ACTIF','EPUISE') THEN f.amount ELSE 0 END) AS retained_total,
                 sum(CASE WHEN f.status IN ('ACTIF','EPUISE') THEN f.allocated_amount ELSE 0 END) AS allocated_total,
                 sum(CASE WHEN f.status='ACTIF' THEN f.available_amount ELSE 0 END) AS available_total,
                 sum(CASE WHEN f.status IN ('ANNULE','REMBOURSE') THEN f.amount ELSE 0 END) AS reversed_total
-              FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id
-             WHERE f.school_id=:s AND e.academic_year_id=:y GROUP BY f.currency ORDER BY f.currency"""), {"s": school_id, "y": y}).mappings().all()
+              FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id JOIN school_classes sc_scope ON sc_scope.id=e.class_id JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+             WHERE f.school_id=:s AND e.academic_year_id=:y AND {scope_where} GROUP BY f.currency ORDER BY f.currency""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{k: (str(money(v)) if isinstance(v, Decimal) else v) for k, v in dict(r).items()} for r in rows]
 
     # ---------- Desktop historical_recovery_status ----------
