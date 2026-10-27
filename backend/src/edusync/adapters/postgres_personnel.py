@@ -34,7 +34,7 @@ def _scope_where(scopes: tuple[tuple[str, str | None], ...], *, alias: str = "sm
     params: dict[str, Any] = {}
     if sections:
         clauses.append("(sa.scope_type='SECTION' AND upper(sa.scope_value) IN :scope_sections)")
-        clauses.append("(sa.scope_type='CLASS' AND EXISTS (SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id WHERE sc.id=sa.class_id AND upper(ss.code) IN :scope_sections))")
+        clauses.append("(sa.scope_type='CLASS' AND EXISTS (SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id WHERE sc.id=sa.class_id AND sc.school_id=sa.school_id AND upper(ss.code) IN :scope_sections))")
         params["scope_sections"] = sections
     if classes:
         clauses.append("(sa.scope_type='CLASS' AND upper(sa.scope_value) IN :scope_classes)")
@@ -235,7 +235,7 @@ class PostgresPersonnelRepository:
             sections=sorted({str(v).upper() for t,v in scopes if t=='SECTION' and v});classes=sorted({str(v).upper() for t,v in scopes if t=='CLASS' and v})
             bits=[]
             if sections:
-                bits += ["(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)","(a.scope_type='CLASS' AND EXISTS(SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id WHERE sc.id=a.class_id AND upper(ss.code) IN :sections))"]
+                bits += ["(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)","(a.scope_type='CLASS' AND EXISTS(SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id WHERE sc.id=a.class_id AND sc.school_id=a.school_id AND upper(ss.code) IN :sections))"]
                 params['sections']=sections
             if classes: bits.append("(a.scope_type='CLASS' AND upper(a.scope_value) IN :classes)");params['classes']=classes
             if not sections and not classes: return []
