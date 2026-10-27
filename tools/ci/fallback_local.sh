@@ -44,6 +44,8 @@ if [[ -f "$ROOT/tools/ci/tests/test_fallback_github_status.py" ]]; then
   }
 fi
 docker info >/dev/null 2>&1 || { echo "Docker indisponible ou droits Docker insuffisants." >&2; exit 69; }
+# Protection contre toute execution sur le VPS staging/Coolify de l'utilisateur.
+bash "$ROOT/tools/ci/fallback_assert_ci_host.sh"
 
 # Ne pas mettre en concurrence les tests avec les services critiques du VPS.
 mem_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
