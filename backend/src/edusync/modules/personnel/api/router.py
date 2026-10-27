@@ -330,10 +330,10 @@ def scope_options(actor:ActorContext=Depends(require_school_actor),services:AppS
     # The selector is used to create assignments. Never merge a broad read
     # grant with a narrower write grant: that would advertise destinations
     # which the write endpoint must reject.
-    capability = ('personnel.assignments.add'
-                  if 'personnel.assignments.add' in actor.permissions
-                  else 'personnel.assignments.read')
-    if capability not in actor.permissions:
+    capability = next((cap for cap in (
+        'personnel.assignments.add', 'personnel.create',
+        'personnel.assignments.read') if cap in actor.permissions), None)
+    if capability is None:
         raise HTTPException(status_code=403,detail='Permission affectations requise')
     grants = list(_scopes(actor, capability))
     if not grants:
