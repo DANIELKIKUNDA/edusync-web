@@ -31,10 +31,18 @@ if [[ "$(git -C "$ROOT" rev-parse HEAD)" != "$SHA" ]]; then
   fi
 fi
 git -C "$ROOT" cat-file -e "$SHA^{commit}"
-for cmd in docker tar git awk df tee; do
+for cmd in docker tar git awk df tee python3; do
   command -v "$cmd" >/dev/null || { echo "Commande manquante : $cmd" >&2; exit 69; }
 done
 [[ "$EUID" -ne 0 ]] || { echo "REFUS : ne pas lancer ce script avec sudo/root." >&2; exit 77; }
+# Auto-tests du composant de publication avant de publier quoi que ce soit.
+# Cela teste les erreurs de SHA, permissions de fichier et reseau sans API GitHub.
+if [[ -f "$ROOT/tools/ci/tests/test_fallback_github_status.py" ]]; then
+  python3 -m unittest discover -s "$ROOT/tools/ci/tests" -p 'test_fallback_github_status.py' || {
+    echo "REFUS : autotests du publisher de statuts externes en echec." >&2
+    exit 65
+  }
+fi
 docker info >/dev/null 2>&1 || { echo "Docker indisponible ou droits Docker insuffisants." >&2; exit 69; }
 
 # Ne pas mettre en concurrence les tests avec les services critiques du VPS.
