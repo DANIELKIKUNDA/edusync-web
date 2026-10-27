@@ -1,0 +1,27 @@
+# Installation manuelle uniquement sur HOTE CI DEDIE apres revue.
+# L'utilisateur edusync-ci accede a Docker : privilege equivalent root sur CET hote.
+[Unit]
+Description=EduSync - CI independante (main, sans GitHub Actions)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+ConditionPathExists=/srv/edusync-ci/edusync-web/tools/ci/fallback_poll.sh
+
+[Service]
+Type=oneshot
+User=edusync-ci
+Group=edusync-ci
+SupplementaryGroups=docker
+WorkingDirectory=/srv/edusync-ci/edusync-web
+ExecStart=/usr/bin/bash /srv/edusync-ci/edusync-web/tools/ci/fallback_poll.sh /srv/edusync-ci/edusync-web
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+TimeoutStartSec=3h
+# La namespace /tmp est partagee avec Docker pour les bind mounts du workspace.
+# Ne pas ajouter PrivateTmp=yes : le daemon Docker ne verrait pas le dossier temporaire.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
