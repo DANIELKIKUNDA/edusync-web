@@ -29,9 +29,25 @@ from edusync.shared.domain.concurrency import IdempotencyConflict, IdempotencyIn
 router=APIRouter(tags=["Personnel"])
 
 
+# Mutations below currently target school-wide staff records, shared access links,
+# payroll and/or school-wide function catalogs. A section grant alone must not
+# authorize these operations until the target assignment is checked atomically.
+_SCHOOLWIDE_PERSONNEL_MUTATIONS = frozenset({
+    'personnel.create', 'personnel.update', 'personnel.activate',
+    'personnel.exit', 'personnel.reactivate', 'personnel.functions.manage',
+    'personnel.assignments.add', 'personnel.assignments.end',
+    'personnel.staff_children.link', 'personnel.staff_children.finance_mode',
+    'personnel.access_link.manage', 'personnel.payroll_deduction.confirm',
+    'personnel.payroll_deduction.cancel',
+})
+
+
 def _need(actor:ActorContext, capability:str)->None:
     try: actor.require(capability)
     except PermissionError as exc: raise HTTPException(status_code=403,detail=str(exc)) from exc
+    if capability in _SCHOOLWIDE_PERSONNEL_MUTATIONS:
+        if not any(kind == 'SCHOOL' for kind, _ in actor.scopes_for(capability)):
+            raise HTTPException(status_code=403, detail='Modification du personnel sans périmètre école : contrôle de section non disponible')
 
 def _key(value:str|None)->str:
     key=(value or "").strip()
