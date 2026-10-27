@@ -30,6 +30,8 @@ def test_explicit_schoolwide_grant_allows_mutation(capability):
 
 
 def test_unrelated_schoolwide_permission_does_not_widen_personnel():
+    # The capability's own scope must be evaluated by its resource guard.
+    from edusync.modules.personnel.api.router import _scopes
     capability = "personnel.update"
     actor = ActorContext(
         user_id=uuid4(), school_id=uuid4(), membership_id=uuid4(),
@@ -39,14 +41,16 @@ def test_unrelated_schoolwide_permission_does_not_widen_personnel():
             ("personnel.read", "SCHOOL", None),
         ),
     )
-    with pytest.raises(HTTPException) as exc:
-        _need(actor, capability)
-    assert exc.value.status_code == 403
+    _need(actor, capability)
+    assert _scopes(actor, capability) == (("SECTION", "SECONDAIRE"),)
 
 
-def test_missing_grant_denied_even_if_permission_present():
+def test_missing_grant_fails_closed_in_scoped_authorizer():
+    from unittest.mock import Mock
+    from edusync.modules.personnel.api.router import _authorize_staff_update
+    actor = actor_for("personnel.update", [])
     with pytest.raises(HTTPException) as exc:
-        _need(actor_for("personnel.update", []), "personnel.update")
+        _authorize_staff_update(Mock(), actor, uuid4())
     assert exc.value.status_code == 403
 
 
