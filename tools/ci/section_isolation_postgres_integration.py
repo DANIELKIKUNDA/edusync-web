@@ -75,6 +75,10 @@ with engine.connect() as conn:
                     assert {e["section_code"] for e in detail["enrollments"]} == {section_name}
                 else:
                     assert detail is None, (names, section_name)
+            family_detail = repo.get_family(school, family, scopes=grants)
+            assert family_detail is not None
+            assert {child["id"] for child in family_detail["children"]} == expected
+            assert {child["section_code"] for child in family_detail["children"]} == set(names)
             families = repo.list_families(school, scopes=grants,
                                          academic_year_id=year,
                                          enrolled_only=True)
@@ -111,6 +115,10 @@ with engine.connect() as conn:
         assert repo.list_families(school, scopes=(),
                                   academic_year_id=year,
                                   enrolled_only=True) == []
+        assert repo.get_family(school, family, scopes=()) is None
+        class_family = repo.get_family(school, family, scopes=class_grant)
+        assert class_family is not None
+        assert {child["id"] for child in class_family["children"]} == {students["PRIMAIRE"]}
         # No-grant detail lookup must not expose an otherwise valid student.
         assert repo.get_student(school, students["PRIMAIRE"], scopes=()) is None
         # School-wide detail lookup is intentionally allowed.
