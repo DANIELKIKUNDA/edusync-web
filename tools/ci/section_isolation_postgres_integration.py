@@ -111,6 +111,14 @@ with engine.connect() as conn:
         assert repo.list_families(school, scopes=(),
                                   academic_year_id=year,
                                   enrolled_only=True) == []
+        # No-grant detail lookup must not expose an otherwise valid student.
+        assert repo.get_student(school, students["PRIMAIRE"], scopes=()) is None
+        # School-wide detail lookup is intentionally allowed.
+        for student_id in students.values():
+            detail = repo.get_student(school, student_id,
+                                      scopes=(("SCHOOL", None),))
+            assert detail is not None
+            assert len(detail["enrollments"]) == 1
         schoolwide = repo.list_students(school, scopes=(("SCHOOL", None),),
                                         all_years=True)
         assert {row["id"] for row in schoolwide} == set(students.values())
