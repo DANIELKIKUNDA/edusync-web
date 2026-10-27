@@ -270,7 +270,7 @@ class PostgresSchoolingParityRepository:
                     AND e.status='VALIDATED'
                 JOIN staff_members sm ON sm.id=l.staff_id
                 LEFT JOIN families f ON f.id=s.family_id
-                LEFT JOIN school_classes sc ON sc.id=e.class_id
+                JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id
                 LEFT JOIN staff_student_finance_preferences p ON p.staff_student_link_id=l.id
                 WHERE l.school_id=:sid AND l.active AND {where}
                 ORDER BY staff_name, s.last_name, s.first_name"""
