@@ -170,3 +170,15 @@ def test_no_grant_uses_false_sql_predicate():
     assert "AND FALSE" in str(stmt)
     assert "scope_sections" not in params
     assert "scope_classes" not in params
+
+
+def test_template_preview_applies_cashier_and_section_filters():
+    from pathlib import Path
+    router = (Path(__file__).resolve().parents[1] /
+              "src/edusync/modules/finance_reports/api/router.py").read_text()
+    preview = router.split("def preview(", 1)[1].split("# ---------------------------------------------------------------- N3-G", 1)[0]
+    assert "_need_periodic_scope(actor, 'finance.reports.periodic.generate')" in preview
+    assert "_scope_clause(scopes)" in preview
+    assert "JOIN school_sections ss_scope" in preview
+    assert "AND \"\"\"+scope_where+where+" GROUP BY" in preview
+    assert "p.update(scope_params)" in preview
