@@ -17,7 +17,7 @@ def need(a,c):
 def rows(conn,sql,p):return [dict(x._mapping) for x in conn.execute(text(sql),p)]
 @router.get('/dashboard')
 def dashboard(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- if not ({'inventory.stock.read','inventory.assets.read','inventory.counts.read'} & set(actor.permissions)): raise HTTPException(403,'Permission Intendance requise')
+ if not ({'inventory.stock.read','inventory.assets.read','inventory.counts.read','inventory.stock.low_alerts.read'} & set(actor.permissions)): raise HTTPException(403,'Permission Intendance requise')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   p={'sid':str(actor.school_id)}
   permissions=set(actor.permissions)
