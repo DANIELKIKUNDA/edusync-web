@@ -54,6 +54,7 @@ opération de caisse. Aucun droit n'a été ajouté.
 | Recette navigateur des 3 rôles | `browser-tests/local_section_leaders_certification.mjs` | **33/33 PASS** |
 | Non-régression Gestionnaire | `browser-tests/local_gestionnaire_certification.mjs` | **18/18 PASS** |
 | Non-régression Caissier | `browser-tests/local_caissier_certification.mjs` | **0 échec** (script remis à jour : visionneuse PDF, « Compté FC ») |
+| Tests navigateur de composants | `EDUSYNC_TEST_BROWSER=msedge npm run test:browser` (rejoués seuls) | **28 passed**, 3 skipped, 0 échec (1er passage pendant le robot : saturation mémoire, non retenu) |
 | Robot d'exploration (Préfet, 1440 px) | `browser-tests/local_audit_robot.mjs` | 1er passage : anomalies 2, 6–10 ; 2e passage seul : 3 constats, tous sur un second accès à « Dépôts matériels » → corrigé et vérifié (aucun refus serveur) |
 
 ### Détail de la sonde API (extraits vérifiés contre la base)
@@ -83,7 +84,6 @@ Accueil, Élèves et Personnel à 320, 390, 768, 1024 et 1440 px pour les trois 
 | Point | Raison |
 |---|---|
 | CI GitHub sur le commit final | Tous les jobs refusés au lancement : « recent account payments have failed or your spending limit needs to be increased » (facturation du compte GitHub). Aucun résultat CI n'est revendiqué |
-| Tests navigateur de composants (`npm run test:browser`) | Exécution locale perturbée par la saturation mémoire (17 réussis, 11 en échec pendant que le robot tournait) ; non rejoués seuls : **non certifiés** |
 | Staging | Non déployé (la fusion déclenche le staging ; fusion non autorisée) |
 | Primaire : parcours positifs sur des élèves | Aucun élève inscrit au Primaire dans le jeu de test : seuls les refus et les zéros sont vérifiés |
 | Plan E2E : révocation en session active, concurrence (E2E-14, 16, 17) | Non exécutés dans ce lot |
@@ -107,5 +107,5 @@ La PR rend un agent affecté à **toute l'école** invisible aux responsables de
 Le code de la branche corrigée est **apte sur le plan fonctionnel et sécurité** pour les trois responsables : isolation
 vérifiée sur base réelle et par l'API, aucune régression sur le Gestionnaire et le Caissier, toutes les suites locales
 vertes. La PR **n'est pas encore fusionnable** : il faut (1) une CI GitHub verte sur le commit final (bloquée par la
-facturation), (2) la confirmation du § 5, (3) rejouer seuls les tests navigateur de composants. Les fonctions du § 6 restent
+facturation) et (2) la confirmation du § 5. Les fonctions du § 6 restent
 fermées et signalées.
