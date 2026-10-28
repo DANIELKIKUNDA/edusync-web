@@ -28,14 +28,16 @@ export default function StewardshipPage({token,permissions}:Props){
   const [move,setMove]=useState<{item:any;kind:MoveKind}|null>(null),[newItem,setNewItem]=useState(false),[countId,setCountId]=useState<string|null>(null);
   const canStock=has(permissions,'inventory.stock.read'),canAssets=has(permissions,'inventory.assets.read'),canCounts=has(permissions,'inventory.counts.read');
   const canMoves=has(permissions,'inventory.stock.movements.read'),canItem=has(permissions,'inventory.stock.item.manage');
+  const canDashboard=canStock||canAssets||canCounts||has(permissions,'inventory.stock.low_alerts.read');
   const can={RECEIPT:has(permissions,'inventory.stock.receive'),ISSUE:has(permissions,'inventory.stock.issue'),ADJUSTMENT:has(permissions,'inventory.stock.adjust')};
-  async function load(){try{setError('');const d:any={};d.dashboard=await stewardshipDashboard(token);
+  async function load(){try{setError('');const d:any={};if(canDashboard)d.dashboard=await stewardshipDashboard(token);
     if(canStock){d.stock=await stewardshipStock(token);d.sales=await stewardshipSaleStock(token)}
     if(canMoves)d.movements=await stewardshipMovements(token)
     if(canAssets){d.assets=await stewardshipAssets(token);d.locations=await stewardshipLocations(token)}
     if(canCounts)d.counts=await stewardshipCounts(token);setData(d)}catch(e){setError(friendlyError(e))}finally{setLoading(false)}}
-  useEffect(()=>{void load()},[token]);
-  const tabs:[Tab,string,boolean][]=[['overview','Vue d’ensemble',true],['stock','Consommables',canStock],['assets','Patrimoine & locaux',canAssets],['sales','Articles vendus',canStock],['movements','Entrées & sorties',canMoves],['counts','Inventaires physiques',canCounts]];
+  useEffect(()=>{void load()},[token,permissions.join('|')]);
+  useEffect(()=>{if(!canDashboard&&tab==='overview')setTab(canStock?'stock':canAssets?'assets':canMoves?'movements':canCounts?'counts':'overview')},[canDashboard,canStock,canAssets,canMoves,canCounts,tab]);
+  const tabs:[Tab,string,boolean][]=[['overview','Vue d’ensemble',canDashboard],['stock','Consommables',canStock],['assets','Patrimoine & locaux',canAssets],['sales','Articles vendus',canStock],['movements','Entrées & sorties',canMoves],['counts','Inventaires physiques',canCounts]];
   const items=(data.stock?.items??[]) as any[];
   async function newCount(){try{const r=await send(token,'POST','counts',{notes:'Inventaire physique'});toast.success('Inventaire ouvert : saisissez les quantités comptées');await load();setCountId(r.id)}catch(e){toast.error(e instanceof Error?e.message:friendlyError(e))}}
   return <div className="stewardship personnelPage pageEnter">
@@ -44,7 +46,7 @@ export default function StewardshipPage({token,permissions}:Props){
     {error&&<div className="error" role="alert">{error}</div>}
     <div className="personTabs" role="tablist">{tabs.filter(x=>x[2]).map(x=><button role="tab" aria-selected={tab===x[0]} className={tab===x[0]?'active':''} onClick={()=>setTab(x[0])} key={x[0]}>{x[1]}</button>)}</div>
 
-    {tab==='overview'&&<><div className="homeKpis">{canAssets&&<K l="Locaux" v={(data.dashboard?.locations??[]).reduce((a:any,x:any)=>a+Number(x.n),0)}/>}{canAssets&&<K l="Biens durables" v={(data.dashboard?.assets??[]).reduce((a:any,x:any)=>a+Number(x.n),0)}/>}{has(permissions,'inventory.stock.low_alerts.read')&&<K l="Stocks faibles" v={data.dashboard?.low_stock?.length??0}/>}{canStock&&<K l="Articles vendus suivis" v={data.dashboard?.sale_stock?.length??0}/>}</div>
+    {tab==='overview'&&canDashboard&&<><div className="homeKpis">{canAssets&&<K l="Locaux" v={(data.dashboard?.locations??[]).reduce((a:any,x:any)=>a+Number(x.n),0)}/>}{canAssets&&<K l="Biens durables" v={(data.dashboard?.assets??[]).reduce((a:any,x:any)=>a+Number(x.n),0)}/>}{has(permissions,'inventory.stock.low_alerts.read')&&<K l="Stocks faibles" v={data.dashboard?.low_stock?.length??0}/>}{canStock&&<K l="Articles vendus suivis" v={data.dashboard?.sale_stock?.length??0}/>}</div>
       <section className="homePanel"><h3>À votre attention</h3>{!has(permissions,'inventory.stock.low_alerts.read')?<p className="muted">Alertes de stock non accessibles avec vos permissions.</p>:data.dashboard?.low_stock?.length?<Table heads={['Article','Disponible','Seuil']} rows={data.dashboard.low_stock.map((x:any)=>[x.label,`${n(x.quantity)} ${x.unit}`,n(x.low_threshold)])}/>:<p className="okState">✓ Aucun stock consommable sous le seuil configuré</p>}</section></>}
 
     {tab==='stock'&&<section className="homePanel"><div className="stewardHead"><h3>Stock consommable</h3><small>{items.length} article{items.length>1?'s':''}</small></div>
