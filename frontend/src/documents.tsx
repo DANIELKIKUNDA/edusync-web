@@ -10,7 +10,7 @@ type Tab='history'|'catalog'|'identity';
 const SIZE=(n:number)=>n<1024?`${n} o`:n<1048576?`${(n/1024).toFixed(0)} Ko`:`${(n/1048576).toFixed(1)} Mo`;
 
 function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{token:string;canOpen:boolean;initialQuery?:string;codeFilter?:string;onClearCode?:()=>void}){
- const [data,setData]=useState<{items:ArchivedDocument[];has_more:boolean;offset:number;limit:number;storage_available:boolean}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [q,setQ]=useState(initialQuery);const [scope,setScope]=useState<'mine'|'school'>('school');const [viewer,setViewer]=useState<{url:string;title:string;fileName:string}|null>(null);const pdfFrame=useRef<HTMLIFrameElement>(null);
+ const [data,setData]=useState<{items:ArchivedDocument[];has_more:boolean;offset:number;limit:number;storage_available:boolean;restricted?:string}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [q,setQ]=useState(initialQuery);const [scope,setScope]=useState<'mine'|'school'>('school');const [viewer,setViewer]=useState<{url:string;title:string;fileName:string}|null>(null);const pdfFrame=useRef<HTMLIFrameElement>(null);
  useEffect(()=>{setData(null);documentHistory(token,0,scope).then(setData).catch(e=>setError(friendlyError(e)))},[token,scope]);
  async function more(){if(!data)return;try{const n=await documentHistory(token,data.offset+data.limit,scope);setData({...n,items:[...data.items,...n.items]})}catch(e){setError(friendlyError(e))}}
  async function open(d:ArchivedDocument){try{setBusy(d.id);const l=await documentLink(token,d.id);if(d.format==='PDF'){const response=await fetch(l.url,{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Document indisponible');setViewer({url:URL.createObjectURL(await response.blob()),title:d.title,fileName:d.file_name||'document.pdf'})}else window.open(l.url,'_blank','noopener')}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
@@ -19,6 +19,7 @@ function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{toke
  const items=(data?.items||[]).filter(d=>(!codeFilter||d.document_code===codeFilter)&&(!q||`${d.title} ${d.file_name||''}`.toLowerCase().includes(q.toLowerCase())));
  if(!data&&!error)return <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>;
  return <section className="panel docPanel">
+  {data?.restricted&&<div className="es-alert" role="status">{data.restricted}</div>}
   {data&&!data.storage_available&&<div className="es-alert es-alert-bad" role="status">Le stockage des documents n’est pas disponible : les nouveaux exports restent téléchargeables mais ne sont pas archivés.</div>}
   {error&&<div className="error">{error}</div>}
   <div className="docScopeTabs" role="tablist" aria-label="Portée des documents"><button type="button" role="tab" aria-selected={scope==='mine'} className={scope==='mine'?'active':''} onClick={()=>setScope('mine')}>Mes documents</button><button type="button" role="tab" aria-selected={scope==='school'} className={scope==='school'?'active':''} onClick={()=>setScope('school')}>Documents de l’école</button></div>

@@ -54,29 +54,30 @@ def test_missing_grant_fails_closed_in_scoped_authorizer():
     assert exc.value.status_code == 403
 
 
-def test_section_staff_detail_excludes_global_access_and_family_data():
+def test_section_staff_detail_excludes_global_access_and_family_data(monkeypatch):
     from unittest.mock import Mock
     from edusync.adapters.postgres_personnel import PostgresPersonnelRepository
-    conn = Mock()
-    repo = PostgresPersonnelRepository(conn)
-    repo._visible_staff_ids = lambda school_id, scopes: {staff_id}
+    # The repository is a slotted dataclass: its methods are patched on the class, not on the instance.
     staff_id = uuid4()
     school_id = uuid4()
+    conn = Mock()
+    repo = PostgresPersonnelRepository(conn)
+    stubs = {"list_assignments": Mock(return_value=[{"scope_type": "SECTION", "scope_value": "PRIMAIRE"}]),
+             "status_history": Mock(), "access_links": Mock(), "staff_children": Mock()}
+    monkeypatch.setattr(PostgresPersonnelRepository, "_visible_staff_ids", lambda self, school_id, scopes, **kw: {staff_id})
+    for name, stub in stubs.items():
+        monkeypatch.setattr(PostgresPersonnelRepository, name, lambda self, *a, _stub=stub, **kw: _stub(*a, **kw))
     row = Mock()
     row._mapping = {"id": staff_id, "school_id": school_id, "last_name": "TEST"}
     conn.execute.return_value.first.return_value = row
-    repo.list_assignments = Mock(return_value=[{"scope_type": "SECTION", "scope_value": "PRIMAIRE"}])
-    repo.status_history = Mock()
-    repo.access_links = Mock()
-    repo.staff_children = Mock()
     result = repo.get_staff(school_id, staff_id, scopes=(("SECTION", "PRIMAIRE"),))
     assert result["assignments"][0]["scope_value"] == "PRIMAIRE"
     assert result["history"] == []
     assert result["access_links"] == []
     assert result["staff_children"] == []
-    repo.status_history.assert_not_called()
-    repo.access_links.assert_not_called()
-    repo.staff_children.assert_not_called()
+    stubs["status_history"].assert_not_called()
+    stubs["access_links"].assert_not_called()
+    stubs["staff_children"].assert_not_called()
 
 
 def test_section_creator_requires_initial_assignment():

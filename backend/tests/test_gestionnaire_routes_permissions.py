@@ -63,8 +63,8 @@ def _guarded_routes(cap: str) -> list[tuple[str, APIRoute]]:
             src = inspect.getsource(r.endpoint)
         except (OSError, TypeError):
             continue
-        # the route CHECKS the capability (not merely mentions it in a list)
-        if re.search(r"(?:need|require)\(\s*(?:actor\s*,\s*)?['\"]" + re.escape(cap) + r"['\"]", src):
+        # the route CHECKS the capability (not merely mentions it in a list); _need_* are scope-aware guards
+        if re.search(r"(?:need|require|_need_[a-z_]+)\(\s*(?:actor\s*,\s*)?['\"]" + re.escape(cap) + r"['\"]", src):
             out.append((path, r))
     return sorted(out, key=lambda pr: (0 if "GET" in pr[1].methods else 1, pr[0]))
 

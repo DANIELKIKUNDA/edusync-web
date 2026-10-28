@@ -121,6 +121,15 @@ def _assert_managers_remain(conn, school_id: UUID) -> None:
     policies.assert_managers_remain(conn, school_id)
 
 
+# Standard leadership roles bound to sections (POINT3B scope policy): Préfet = Secondaire (database trigger 0009),
+# Direction de section = Primaire / Maternelle or both. They are never granted on the whole school implicitly.
+SECTION_BOUND_ROLES = frozenset({"PREFET_ETUDES", "DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE", "DIRECTION_SECTION"})
+
+
+def _section_bound(role) -> bool:
+    return role["kind"] == "SCHOOL_STANDARD" and role["code"] in SECTION_BOUND_ROLES
+
+
 def _role(conn, role_id: UUID, *, for_update: bool = False) -> dict:
     row = conn.execute(text("""SELECT id,school_id,code,label,description,kind,status,version FROM rbac_roles
                                WHERE id=:id AND level='SCHOOL'"""), {"id": str(role_id)}).mappings().first()
@@ -386,6 +395,8 @@ def _assign_core(conn, actor: ActorContext, membership_id: UUID, b: AssignInput,
         raise HTTPException(404, "Rôle introuvable")
     role_caps = _role_caps_here(conn, actor, role)
     _assert_can_delegate(actor, role_caps)  # N2 anti-escalation: only what the assigner holds
+    if _section_bound(role) and any(s.type == "SCHOOL" for s in b.scopes):
+        raise HTTPException(422, f"Le rôle « {role['label']} » s’attribue sur une ou plusieurs sections, jamais sur toute l’école")
     scopes = []
     for s in b.scopes:
         if s.type == "SCHOOL":
@@ -471,6 +482,8 @@ class MemberCreate(BaseModel):
     email: str = Field(min_length=5, max_length=320, pattern=EMAIL_PATTERN)
     full_name: str = Field(min_length=3, max_length=180)
     role_id: UUID | None = None
+    # Scopes of that first role; omitted = whole school. Required (sections) for a section-bound leadership role.
+    scopes: list[ScopeInput] | None = Field(default=None, min_length=1, max_length=20)
     reason: str = Field(min_length=3, max_length=500)
     # INVITATION: a single-use link e-mailed to the person (no password shown or sent); needs platform e-mail.
     delivery: str = Field(default="TEMPORARY_PASSWORD", pattern="^(TEMPORARY_PASSWORD|INVITATION)$")
@@ -548,10 +561,24 @@ def create_member(b: MemberCreate, idempotency_key: str | None = Header(None, al
     _need(actor, "access.users.create")
     if b.role_id:
         _need(actor, "access.permissions.assign")
+    if b.scopes and any(s.type != "SCHOOL" for s in b.scopes):
+        _need(actor, "access.scopes.assign")
+    # Section / class codes are school data: checked in a tenant transaction (the member itself is written through the
+    # platform connection, which has no access to school_sections).
+    first_scopes = [("SCHOOL", None)]
+    if b.scopes:
+        first_scopes = []
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as tconn:
+            for s in b.scopes:
+                value = (s.value or "").strip().upper() if s.type != "SCHOOL" else None
+                if s.type != "SCHOOL" and (not value or not tconn.execute(SECTION_EXISTS if s.type == "SECTION" else CLASS_EXISTS,
+                                                                         {"s": str(actor.school_id), "v": value}).first()):
+                    raise HTTPException(422, f"Périmètre inconnu dans cette école : {s.type} {s.value}")
+                first_scopes.append((s.type, value))
     email = b.email.strip().lower()
     # The temporary password is never part of the idempotency payload nor of the audit.
     payload = {"email": email, "full_name": b.full_name.strip(), "role_id": str(b.role_id) if b.role_id else None, "reason": b.reason,
-               "delivery": b.delivery}
+               "delivery": b.delivery, "scopes": [s.model_dump() for s in b.scopes] if b.scopes else None}
     invite = b.delivery == "INVITATION"
     if invite and not account_links.email_available(services.settings):
         raise HTTPException(409, "L’envoi d’e-mails n’est pas disponible sur la plateforme : utilisez un mot de passe provisoire")
@@ -585,10 +612,18 @@ def create_member(b: MemberCreate, idempotency_key: str | None = Header(None, al
             if role["status"] != "ACTIVE" or (role["kind"] == "SCHOOL_CUSTOM" and str(role["school_id"]) != str(actor.school_id)):
                 raise HTTPException(404, "Rôle introuvable")
             _assert_can_delegate(actor, _role_caps_here(conn, actor, role))
+            scopes = first_scopes
+            if _section_bound(role) and any(t == "SCHOOL" for t, _ in scopes):
+                raise HTTPException(422, f"Le rôle « {role['label']} » s’attribue sur une ou plusieurs sections : choisissez sa ou ses sections")
             aid = conn.execute(text("""INSERT INTO rbac_assignments(user_id,role_id,school_id,membership_id,granted_by_user_id,reason)
                 VALUES(:u,:r,:s,:m,:by,:reason) RETURNING id"""), {"u": str(uid), "r": str(b.role_id), "s": str(actor.school_id), "m": str(mid),
                                                                     "by": str(actor.user_id), "reason": b.reason}).scalar_one()
-            conn.execute(text("INSERT INTO rbac_assignment_scopes(assignment_id,scope_type,scope_value) VALUES(:a,'SCHOOL',NULL)"), {"a": str(aid)})
+            try:
+                for t, v in sorted(set(scopes), key=lambda x: (x[0], x[1] or "")):
+                    conn.execute(text("INSERT INTO rbac_assignment_scopes(assignment_id,scope_type,scope_value) VALUES(:a,:t,:v)"),
+                                 {"a": str(aid), "t": t, "v": v})
+            except DBAPIError as e:  # scope rules of a standard role (e.g. Préfet = Secondaire only) are database triggers
+                raise HTTPException(422, "Périmètre refusé : " + str(getattr(e.orig, "diag", None) and e.orig.diag.message_primary or "non autorisé pour ce rôle")) from None
             role_label = role["label"]
         out = {"membership_id": str(mid), "email": email, "full_name": b.full_name.strip() if created else user["full_name"],
                "created": created, "attached_existing_account": not created, "role_label": role_label}
@@ -1045,7 +1080,7 @@ def access_me(actor: ActorContext = Depends(require_school_actor), services: App
             "role_label": " · ".join(r["label"] for r in roles) or "Membre",
             "permissions": sorted(c for c in caps if lifecycle.get(c) in ("ACTIVE", "ALIAS")),
             "scoped": [{"capability": c, "type": t, "value": v} for c, t, v in scoped],
-            "navigation": projection.navigation(caps), "widgets": projection.widgets(caps), "actions": projection.actions(caps)}
+            "navigation": projection.navigation(caps), "widgets": projection.widgets(caps, {c for c, t, _ in actor.capability_scopes if t == "SCHOOL"}), "actions": projection.actions(caps)}
 
 
 @router.get("/dashboard")

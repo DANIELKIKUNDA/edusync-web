@@ -130,7 +130,11 @@ def document_history(offset: int = Query(0, ge=0, le=100_000), limit: int = Quer
     # expose even the creator's archive to a section-only actor: ownership
     # does not prove that its contents belong to the currently granted scope.
     if not any(t == "SCHOOL" for t, _ in actor.scopes_for("documents.history.read")):
-        raise HTTPException(403, "Historique documentaire sans provenance de section vérifiable")
+        # Fail closed WITHOUT breaking the screen: no archive is listed, and the reason is stated (PR #27; provenance
+        # persistence is the open item of the section isolation handoff).
+        return {"items": [], "has_more": False, "offset": offset, "limit": limit, "storage_available": True,
+                "restricted": "Historique documentaire sans provenance de section vérifiable : les archives de l’école "
+                              "ne sont consultables qu’avec un périmètre école. Vos exports restent téléchargeables à leur création."}
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
         if scope == "mine":
             rows = conn.execute(text("""SELECT g.id,g.document_code,g.format,g.title,g.byte_size,g.generated_at updated_at,g.file_name,u.full_name generated_by,

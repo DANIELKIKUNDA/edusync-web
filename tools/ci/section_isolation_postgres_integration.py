@@ -176,7 +176,17 @@ with engine.connect() as conn:
                             if row["id"] == students["PRIMAIRE"]]
             assert len(primary_rows) == 1
             assert primary_rows[0]["section_code"] == expected_section
-        print("PASS: real PostgreSQL section directory, shared family, dual grants")
+        # Family indicators (PR #27 certification): a section-only grant has NO class list. An empty expanding list
+        # used to render « IN (SELECT CAST(NULL AS INTEGER)…) » and fail with « text = integer » (HTTP 500).
+        from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRepository
+        parity = PostgresSchoolingParityRepository(conn)
+        for grant in ((("SECTION", "SECONDAIRE"),), (("CLASS", "CI-PRIMAIRE"),),
+                      (("SECTION", "MATERNELLE"), ("CLASS", "CI-PRIMAIRE")), ()):
+            overview = parity.family_overview_scoped(school, year, scopes=grant)
+            assert set(overview) >= {"families", "large_eligible", "beneficiaries", "staff_children"}
+            parity.family_kpi_details_scoped(school, metric="LARGE_ELIGIBLE", year_id=year, scopes=grant)
+        assert parity.family_overview_scoped(school, year, scopes=())["families"] == 0
+        print("PASS: real PostgreSQL section directory, shared family, dual grants, scoped family indicators")
     finally:
         tx.rollback()
 engine.dispose()

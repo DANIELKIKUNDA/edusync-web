@@ -15,8 +15,10 @@ def test_capability_bound_scopes_do_not_borrow_unrelated_school_scope():
     assert not a.scope_allows('personnel.read','SECTION','PRIMAIRE')
 
 
-def test_personnel_repository_includes_schoolwide_assignment_for_section_leader_but_filters_other_sections():
-    assert "sa.scope_type='SCHOOL'" in REPO
+def test_personnel_repository_filters_section_leader_to_its_sections_only():
+    # Amended by PR #27 (section isolation): a SCHOOL staff assignment no longer makes the agent visible to a
+    # section / class leader (stricter than point 4B; owner confirmation tracked in the PR #27 certification report).
+    assert "clauses: list[str] = []" in REPO and "A school-wide staff assignment must not implicitly widen section access." in REPO
     assert "upper(sa.scope_value) IN :scope_sections" in REPO
     assert 'school_classes sc JOIN school_sections ss' in REPO
 

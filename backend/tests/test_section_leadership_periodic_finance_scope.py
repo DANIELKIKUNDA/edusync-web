@@ -198,7 +198,13 @@ def test_scoped_student_account_missing_enrollment_is_not_disclosed():
     assert isinstance(stmt, TextClause)
     assert stmt._bindparams["scope_sections"].expanding
     assert params["scope_sections"] == ["PRIMAIRE"]
-    assert "AND (upper(ss_scope.code) IN :scope_sections)" in str(stmt)
+    assert "AND (upper(ss_scope.code) IN :scope_sections)" in _sql(stmt)
+
+
+def _sql(stmt) -> str:
+    """SQL text with expanding parameters shown as :name (str() renders them as IN (__[POSTCOMPILE_name]))."""
+    import re
+    return re.sub(r"\(__\[POSTCOMPILE_(\w+)\]\)", r":\1", str(stmt))
 
 
 def test_analytics_scope_queries_are_executable_and_bound():
@@ -212,7 +218,7 @@ def test_analytics_scope_queries_are_executable_and_bound():
         assert getattr(repo, method)(uuid4(), scopes=(("SECTION", "MATERNELLE"), ("CLASS", "M1A"))) == []
         stmt, params = conn.execute.call_args.args
         assert isinstance(stmt, TextClause)
-        assert "AND (upper(ss_scope.code) IN :scope_sections OR upper(sc_scope.code) IN :scope_classes)" in str(stmt)
+        assert "AND (upper(ss_scope.code) IN :scope_sections OR upper(sc_scope.code) IN :scope_classes)" in _sql(stmt)
         assert stmt._bindparams["scope_sections"].expanding
         assert stmt._bindparams["scope_classes"].expanding
         assert params["scope_sections"] == ["MATERNELLE"]

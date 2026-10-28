@@ -35,7 +35,6 @@ router=APIRouter(tags=["Personnel"])
 # These reads return global identity, family, account or status information
 # without a resource-level section filter. Keep them SCHOOL-only.
 _SCHOOLWIDE_PERSONNEL_READS = frozenset({
-    'personnel.history.read',
     'personnel.staff_children.read',
     'personnel.access_link.read',
 })

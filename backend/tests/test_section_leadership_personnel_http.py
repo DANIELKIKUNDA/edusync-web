@@ -41,15 +41,33 @@ def grant(capability,scope="SECTION",value="PRIMAIRE"):
 
 
 @pytest.mark.parametrize("endpoint", [
-    "/personnel/history/events",
     "/personnel/12345678-1234-1234-1234-123456789012/children",
 ])
 def test_section_cannot_read_unfiltered_global_personnel_data(harness,endpoint):
     client,state=harness
-    capability="personnel.history.read" if endpoint.endswith("events") else "personnel.staff_children.read"
-    state["actor"]=grant(capability)
+    state["actor"]=grant("personnel.staff_children.read")
     response=client.get(endpoint)
     assert response.status_code==403
+
+
+def test_section_status_history_is_served_filtered_to_its_section(harness):
+    # Certification PR #27: the contract grants personnel.history.read to section leaders for THEIR scope. The global
+    # status history is filtered by the visible staff of that scope (repository), never served school-wide.
+    client,state=harness
+    state["actor"]=grant("personnel.history.read")
+    with patch("edusync.modules.personnel.api.router.PostgresPersonnelRepository") as repo:
+        repo.return_value.list_status_history.return_value=[]
+        response=client.get("/personnel/history/events")
+    assert response.status_code==200
+    assert repo.return_value.list_status_history.call_args.kwargs["scopes"]==(("SECTION","PRIMAIRE"),)
+
+
+def test_section_status_history_without_scope_fails_closed():
+    from edusync.adapters.postgres_personnel import PostgresPersonnelRepository
+    conn=Mock()
+    conn.execute.return_value.all.return_value=[]
+    assert PostgresPersonnelRepository(conn).list_status_history(uuid4(),scopes=())==[]
+    assert "FALSE" in str(conn.execute.call_args_list[0].args[0])  # no grant: the visible-staff query matches nothing
 
 
 def test_section_cannot_create_staff_without_assignment(harness):

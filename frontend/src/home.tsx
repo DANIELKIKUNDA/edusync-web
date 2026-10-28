@@ -78,7 +78,7 @@ function Readiness({token,open,go}:{token:string;open:(section:string)=>void;go:
   </Card>;
 }
 
-function BusinessCard({w,token,yearId,index,go,permissions}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void;permissions:string[]}){
+function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void}){
   const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
   switch(w.id){
     case 'cash.today':return <CashToday common={common} token={token}/>;
@@ -87,7 +87,7 @@ function BusinessCard({w,token,yearId,index,go,permissions}:{w:AccessWidget;toke
     case 'cash.receipts':return <CashReceipts common={common} token={token}/>;
     case 'enrollments.today':return <Enrollments common={common} token={token}/>;
     case 'products.watch':return <ProductsWatch common={common} token={token}/>;
-    case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId} permissions={permissions}/>;
+    case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
     case 'personnel.summary':return <PersonnelSummary common={common} token={token}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
@@ -130,12 +130,15 @@ function ProductsWatch({common,token}:{common:Common;token:string}){const s=useD
     const out=items.filter(p=>Number(p.stock_quantity||0)<=0);const low=items.filter(p=>Number(p.stock_quantity||0)>0&&Number(p.low_threshold||0)>0&&Number(p.stock_quantity)<=Number(p.low_threshold));
     return out.length||low.length?<><p className="ui-card-value">{n(out.length+low.length)}<small>article(s) à signaler</small></p><ul className="ui-list">{[...low,...out].slice(0,3).map(p=><li key={p.id}><b>{p.label}</b><small>{Number(p.stock_quantity||0)<=0?'Rupture':`Stock bas : ${Number(p.stock_quantity).toLocaleString('fr-FR')}`}</small></li>)}</ul></>
       :<p className="ui-card-hint">Tous les articles en vente sont disponibles.</p>}}</Async></Card>}
-function Headcounts({common,token,yearId,permissions}:{common:Common;token:string;yearId?:string;permissions:string[]}){const group=permissions.includes('headcounts.by_section.read')?'section':permissions.includes('headcounts.by_class.read')?'class':permissions.includes('headcounts.by_option.read')?'option':null;const s=useData<EffectifsCounts|null>(()=>group?getEffectifsCounts(token,group,'ALL',yearId):Promise.resolve(null),[token,yearId,group]);const canOption=permissions.includes('headcounts.by_option.read');const options=useData<EffectifsCounts|null>(()=>canOption&&group!=='option'?getEffectifsCounts(token,'option','ALL',yearId):Promise.resolve(null),[token,yearId,canOption,group]);
+// breakdowns come from the server projection (section > class > option), never from browser-side permission checks.
+function Headcounts({common,token,yearId,breakdowns}:{common:Common;token:string;yearId?:string;breakdowns:('section'|'class'|'option')[]}){const group=(['section','class','option'] as const).find(g=>breakdowns.includes(g))??null;const s=useData<EffectifsCounts|null>(()=>group?getEffectifsCounts(token,group,'ALL',yearId):Promise.resolve(null),[token,yearId,group]);const canOption=breakdowns.includes('option');const options=useData<EffectifsCounts|null>(()=>canOption&&group!=='option'?getEffectifsCounts(token,'option','ALL',yearId):Promise.resolve(null),[token,yearId,canOption,group]);
   return <Card level="info" {...common}><Async s={s}>{c=>c?<><div className="sh-fgt" aria-label="Effectifs actifs"><div><small>Total</small><strong>{n(c.total.active.total)}</strong></div><div><small>Filles (F)</small><strong>{n(c.total.active.female)}</strong></div><div><small>Garçons (G)</small><strong>{n(c.total.active.male)}</strong></div></div><p className="ui-card-value">{n(c.total.active.total)}<small>élèves actifs</small></p>
     <p className="ui-card-hint">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</p>
     {/* Par section (owner 2026-10-27): active pupils, girls / boys, share of the school — one hue, value printed. */}
     {c.total.active.total!==c.total.active.female+c.total.active.male&&<p className="ui-card-hint">Sexe non renseigné : {n(c.total.active.total-c.total.active.female-c.total.active.male)}</p>}{c.items.length>0&&<ul className="sh-sections" aria-label="Effectifs par section">{c.items.map(r=>{const share=c.total.active.total?Math.round(r.active.total*100/c.total.active.total):0;
-      return <li key={r.code||r.label}><span><b>{r.label}</b><small>{n(r.active.female)} F · {n(r.active.male)} G</small></span><i aria-hidden="true"><em style={{width:`${share}%`}}/></i><strong>{n(r.active.total)}</strong></li>})}</ul>}{canOption&&group!=='option'&&<Async s={options}>{o=>o&&o.items.length>0?<><h4 className="sh-option-title">Effectifs par option</h4><ul className="sh-sections" aria-label="Effectifs par option">{o.items.map(r=><li key={r.section+'-'+r.code}><span><b>{r.label}</b><small>{n(r.active.female)} F · {n(r.active.male)} G</small></span><i aria-hidden="true"><em style={{width:`${o.total.active.total?Math.round(r.active.total*100/o.total.active.total):0}%`}}/></i><strong>{n(r.active.total)}</strong></li>)}</ul></>:null}</Async>}</>:<p className="ui-card-hint">Ventilation des effectifs non autorisée.</p>}</Async></Card>}
+      return <li key={r.code||r.label}><span><b>{r.label}</b><small>{n(r.active.female)} F · {n(r.active.male)} G</small></span><i aria-hidden="true"><em style={{width:`${share}%`}}/></i><strong>{n(r.active.total)}</strong></li>})}</ul>}{canOption&&group!=='option'&&<Async s={options}>{o=>{/* real options only; « sans option » is kept for a section that also has options (a section without any is already in the list above) */
+      const withOpt=new Set(o?.items.filter(r=>r.code).map(r=>r.section));const rows=(o?.items??[]).filter(r=>r.code||withOpt.has(r.section));
+      return o&&rows.length>0?<><h4 className="sh-option-title">Effectifs par option</h4><ul className="sh-sections" aria-label="Effectifs par option">{rows.map(r=><li key={r.section+'-'+r.code}><span><b>{r.code?r.label:`${r.section} · sans option`}</b><small>{n(r.active.female)} F · {n(r.active.male)} G</small></span><i aria-hidden="true"><em style={{width:`${o.total.active.total?Math.round(r.active.total*100/o.total.active.total):0}%`}}/></i><strong>{n(r.active.total)}</strong></li>)}</ul></>:null}}</Async>}</>:<p className="ui-card-hint">Ventilation des effectifs non autorisée.</p>}</Async></Card>}
 function PersonnelSummary({common,token}:{common:Common;token:string}){const s=useData(()=>getPersonnelSummary(token),[token]);
   return <Card level="info" {...common}><Async s={s}>{d=><><p className="ui-card-value">{n(d.active)}<small>agents actifs</small></p>
     <p className="ui-card-hint">{n(d.teachers)} enseignant(s) · {n(d.administrative)} administratif(s){d.suspended?<> · <b>{n(d.suspended)} suspendu(s)</b></>:null}</p></>}</Async></Card>}
@@ -208,7 +211,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)setFinanceTarget(target);onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
     ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
-    :<BusinessCard w={w} token={token} yearId={yearId} permissions={me.permissions} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
+    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
   return <div className={`ui-page sh-home${executive?' sh-home-executive':''}`}>
     <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
       subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive?'pilotage de l’établissement : caisses, effectifs, recouvrement et alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}

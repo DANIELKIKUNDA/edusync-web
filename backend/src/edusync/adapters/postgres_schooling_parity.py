@@ -22,6 +22,19 @@ from sqlalchemy import text
 from edusync.adapters.postgres_schooling import _student_scope_where, _family_scope_where, _bind_scope
 from sqlalchemy.engine import Connection
 
+
+def _section_class_where(sections: list[str], classes: list[str], *, schoolwide: bool) -> tuple[str, dict]:
+    """Scope predicate on ss (section) / sc (class). Only NON-EMPTY lists are bound: an empty expanding list renders as
+    IN (SELECT CAST(NULL AS INTEGER) WHERE 1!=1) and PostgreSQL fails with « text = integer » (section-only Préfet)."""
+    if schoolwide:
+        return "TRUE", {}
+    parts, params = [], {}
+    if sections:
+        parts.append("upper(ss.code) IN :scope_sections"); params["scope_sections"] = sections
+    if classes:
+        parts.append("upper(sc.code) IN :scope_classes"); params["scope_classes"] = classes
+    return ("(" + " OR ".join(parts) + ")" if parts else "FALSE"), params
+
 CENT = Decimal("0.01")
 
 
@@ -162,11 +175,7 @@ class PostgresSchoolingParityRepository:
         sections = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
         classes = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
         schoolwide = any(t=="SCHOOL" for t,_ in scopes)
-        where = ("TRUE" if schoolwide else
-                 "(upper(ss.code) IN :scope_sections OR upper(sc.code) IN :scope_classes)"
-                 if sections or classes else "FALSE")
-        scope_params = {} if schoolwide or not (sections or classes) else {
-            "scope_sections": sections, "scope_classes": classes}
+        where, scope_params = _section_class_where(sections, classes, schoolwide=schoolwide)
         join_section = " JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id"
         base = f"""FROM enrollments e JOIN students s ON s.id=e.student_id {join_section}
                     WHERE e.school_id=:sid AND e.academic_year_id=:year
@@ -231,11 +240,7 @@ class PostgresSchoolingParityRepository:
         sections = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
         classes = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
         schoolwide = any(t=="SCHOOL" for t,_ in scopes)
-        where = ("TRUE" if schoolwide else
-                 "(upper(ss.code) IN :scope_sections OR upper(sc.code) IN :scope_classes)"
-                 if sections or classes else "FALSE")
-        scope_params = {} if schoolwide or not (sections or classes) else {
-            "scope_sections": sections, "scope_classes": classes}
+        where, scope_params = _section_class_where(sections, classes, schoolwide=schoolwide)
         args = {"sid": school_id, "year": year, **scope_params}
         if metric == "LARGE_ELIGIBLE":
             # Children list must be built from scoped pupils, not all siblings.

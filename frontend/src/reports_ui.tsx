@@ -12,7 +12,7 @@ const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const auth = (token: string) => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
 // Server refusals go through the shared explainer (translated, remembered by friendlyError) — 2026-10-25.
 async function detail(r: Response, fallback: string) { let body: unknown = null; try { body = await r.json(); } catch { /* non JSON */ } return r.status ? explainHttpError(r.status, body) : fallback; }
-async function getJson<T>(token: string, path: string, fallback: string): Promise<T> { const r = await fetch(`${API}${path}`, {headers: auth(token)}); if (!r.ok) throw new Error(await detail(r, fallback)); return r.json(); }
+export async function getJson<T>(token: string, path: string, fallback: string): Promise<T> { const r = await fetch(`${API}${path}`, {headers: auth(token)}); if (!r.ok) throw new Error(await detail(r, fallback)); return r.json(); }
 async function getBlob(token: string, path: string, init: RequestInit = {}, fallback = 'Document indisponible'): Promise<Response> {
   const r = await fetch(`${API}${path}`, {...init, headers: {...auth(token), ...(init.headers ?? {})}}); if (!r.ok) throw new Error(await detail(r, fallback)); return r;
 }
