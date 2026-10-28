@@ -6,7 +6,14 @@ DASHBOARD = ROUTER.split("@router.get('/dashboard')", 1)[1].split("@router.get('
 
 
 def test_dashboard_requires_inventory_permission():
-    assert "'inventory.stock.read','inventory.assets.read','inventory.counts.read'" in DASHBOARD
+    assert "'inventory.stock.read','inventory.assets.read','inventory.counts.read','inventory.stock.low_alerts.read'" in DASHBOARD
+
+
+def test_low_alert_permission_can_access_dashboard_without_stock_read():
+    # The dashboard guard must admit the dedicated alert capability;
+    # each SQL dataset remains protected by its own permission.
+    assert "'inventory.stock.low_alerts.read'} & set(actor.permissions)" in DASHBOARD
+    assert "if 'inventory.stock.read' in permissions else []" in DASHBOARD
 
 
 def test_dashboard_authorizes_queries_before_execution():
