@@ -37,6 +37,7 @@ LEADERS = [("prefet", "SECONDAIRE", "Préfet des études (Secondaire)"),
            ("directrice_maternelle", "MATERNELLE", "Directrice (Maternelle)")]
 RESULTS: list[tuple[str, str, str]] = []
 RUN = uuid.uuid4().hex[:5].upper()
+TRANSVERSAL: str | None = None
 
 
 def check(name: str, ok: bool, detail: str = "") -> None:
@@ -181,6 +182,11 @@ def main() -> int:
             r = gest.post("/personnel", json={"last_name": f"AGENT{sec[:3]}", "first_name": "Recette", "category": "ENSEIGNANT", "employee_no": f"AG{sec[:3]}{RUN}",
                                               "initial_assignment": {"function_id": fn0["id"], "scope_type": "SECTION", "scope_value": sec, "section_id": secs0[sec]}}, headers=mut())
             print(f"agent de recette créé en {sec} par le Gestionnaire (HTTP {r.status_code})")
+    # Transversal agent (owner decision 2026-10-28): assigned to the WHOLE school only -> visible to no section leader.
+    global TRANSVERSAL
+    TRANSVERSAL = gest.post("/personnel", json={"last_name": f"TRANSVERSAL{RUN}", "first_name": "Recette", "category": "ADMINISTRATIF", "employee_no": f"TR{RUN}",
+                                                "initial_assignment": {"function_id": fn0["id"], "scope_type": "SCHOOL"}}, headers=mut()).json().get("id")
+    print(f"agent transversal (toute l’école) créé par le Gestionnaire : {'oui' if TRANSVERSAL else 'non'}")
     gest.close()
     sections = {r[0]: r[1] for r in q("SELECT upper(code), id::text FROM school_sections WHERE school_id=:s", s=SCHOOL_ID)}
 
@@ -254,6 +260,11 @@ def main() -> int:
                       if a.get("scope_type") == "SECTION" and str(a.get("scope_value") or "").upper() != section]
             check(f"{label} · annuaire : aucune affectation d’une autre section exposée", not leaked, str(leaked[:2]))
         other_staff = staff_only_in(section, other=True)
+        if TRANSVERSAL:
+            listed = rp.status_code == 200 and any(str(s["id"]) == TRANSVERSAL for s in (rp.json()["items"] if isinstance(rp.json(), dict) else rp.json()))
+            check(f"{label} · agent transversal (toute l’école) absent de l’annuaire (décision 28/10)", not listed, "agent transversal listé")
+            code = c.get(f"/personnel/{TRANSVERSAL}").status_code
+            check(f"{label} · fiche d’un agent transversal refusée", code in (403, 404), f"HTTP {code}")
         if other_staff:
             code = c.get(f"/personnel/{other_staff}").status_code
             check(f"{label} · fiche d’un agent d’une autre section refusée", code in (403, 404), f"HTTP {code}")

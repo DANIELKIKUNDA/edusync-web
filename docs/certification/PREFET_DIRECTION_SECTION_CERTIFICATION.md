@@ -50,7 +50,7 @@ opération de caisse. Aucun droit n'a été ajouté.
 | PostgreSQL réel — caissier | `tools/ci/cashier_postgres_integration.py` | **PASS** |
 | Registre RBAC | `tools/ci/rbac_registry.py check` | **0 dérive** |
 | Secrets · npm audit · compilation | `secret_patterns.py` · `npm audit --omit=dev` · `compileall` | **0 secret · 0 vulnérabilité · PASS** (dépendances identiques à `main`) |
-| Sonde API réelle des 3 rôles | `tools/local/section_leaders_probe.py` | **96/96 PASS** |
+| Sonde API réelle des 3 rôles | `tools/local/section_leaders_probe.py` | **102/102 PASS** (dont agent transversal invisible) |
 | Recette navigateur des 3 rôles | `browser-tests/local_section_leaders_certification.mjs` | **33/33 PASS** |
 | Non-régression Gestionnaire | `browser-tests/local_gestionnaire_certification.mjs` | **18/18 PASS** |
 | Non-régression Caissier | `browser-tests/local_caissier_certification.mjs` | **0 échec** (script remis à jour : visionneuse PDF, « Compté FC ») |
@@ -88,11 +88,13 @@ Accueil, Élèves et Personnel à 320, 390, 768, 1024 et 1440 px pour les trois 
 | Primaire : parcours positifs sur des élèves | Aucun élève inscrit au Primaire dans le jeu de test : seuls les refus et les zéros sont vérifiés |
 | Plan E2E : révocation en session active, concurrence (E2E-14, 16, 17) | Non exécutés dans ce lot |
 
-## 5. Décision à confirmer par le propriétaire
+## 5. Décision du propriétaire (28/10/2026) — règle stricte confirmée
 
-La PR rend un agent affecté à **toute l'école** invisible aux responsables de section (règle plus stricte que le point
-4B de `main`, où ils le voyaient en lecture). La règle stricte de la PR est conservée (« ne pas élargir ») ; le test
-4B est amendé en conséquence. À confirmer : un Préfet doit-il voir, en lecture, les agents affectés à toute l'école ?
+Le Préfet du secondaire, le Directeur du primaire et la Directrice de la maternelle consultent **uniquement** les agents
+affectés à leurs sections autorisées. Les agents transversaux (Gestionnaire, Caissier, etc., affectés à toute l'école)
+ne sont **jamais** visibles automatiquement. Cette règle remplace celle du point 4B de `main` (test 4B amendé) et est
+vérifiée : test unitaire `test_section_scope_excludes_global_assignment`, sonde API (agent transversal absent de
+l'annuaire et fiche refusée pour les trois responsables).
 
 ## 6. Fonctions volontairement fermées (NON CERTIFIÉES)
 
@@ -107,5 +109,5 @@ La PR rend un agent affecté à **toute l'école** invisible aux responsables de
 Le code de la branche corrigée est **apte sur le plan fonctionnel et sécurité** pour les trois responsables : isolation
 vérifiée sur base réelle et par l'API, aucune régression sur le Gestionnaire et le Caissier, toutes les suites locales
 vertes. La PR **n'est pas encore fusionnable** : il faut (1) une CI GitHub verte sur le commit final (bloquée par la
-facturation) et (2) la confirmation du § 5. Les fonctions du § 6 restent
+facturation). Les fonctions du § 6 restent
 fermées et signalées.
