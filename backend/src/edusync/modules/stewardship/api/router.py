@@ -20,19 +20,14 @@ def dashboard(actor:ActorContext=Depends(require_school_actor),services:AppServi
  if not ({'inventory.stock.read','inventory.assets.read','inventory.counts.read'} & set(actor.permissions)): raise HTTPException(403,'Permission Intendance requise')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   p={'sid':str(actor.school_id)}
-  locations=rows(c,"SELECT status,count(*) n FROM inventory_locations WHERE school_id=:sid GROUP BY status",p)
-  assets=rows(c,"SELECT status,coalesce(sum(quantity),0) n FROM inventory_assets WHERE school_id=:sid GROUP BY status",p)
-  low=rows(c,"SELECT id,code,label,unit,quantity,low_threshold FROM inventory_items WHERE school_id=:sid AND enabled AND quantity<=low_threshold ORDER BY quantity, label LIMIT 12",p)
-  sales=rows(c,"SELECT p.id,p.code,p.label,p.currency,p.unit_price,coalesce(s.quantity,0) quantity,coalesce(s.low_threshold,0) low_threshold FROM school_products p LEFT JOIN inventory_stock s ON s.school_id=p.school_id AND s.product_id=p.id WHERE p.school_id=:sid AND p.enabled AND p.stock_tracking ORDER BY p.label",p)
-  # Dashboard read models must not bypass the atomic inventory permissions.
-  # A user with only assets.read must not receive stock or sales data.
   permissions=set(actor.permissions)
-  return {
-   'locations':locations if 'inventory.assets.read' in permissions else [],
-   'assets':assets if 'inventory.assets.read' in permissions else [],
-   'low_stock':low if 'inventory.stock.low_alerts.read' in permissions else [],
-   'sale_stock':sales if 'inventory.stock.read' in permissions else [],
-  }
+  # Enforce each permission before running its SQL query, not only on output.
+  locations=rows(c,"SELECT status,count(*) n FROM inventory_locations WHERE school_id=:sid GROUP BY status",p) if 'inventory.assets.read' in permissions else []
+  assets=rows(c,"SELECT status,coalesce(sum(quantity),0) n FROM inventory_assets WHERE school_id=:sid GROUP BY status",p) if 'inventory.assets.read' in permissions else []
+  low=rows(c,"SELECT id,code,label,unit,quantity,low_threshold FROM inventory_items WHERE school_id=:sid AND enabled AND quantity<=low_threshold ORDER BY quantity, label LIMIT 12",p) if 'inventory.stock.low_alerts.read' in permissions else []
+  sales=rows(c,"SELECT p.id,p.code,p.label,p.currency,p.unit_price,coalesce(s.quantity,0) quantity,coalesce(s.low_threshold,0) low_threshold FROM school_products p LEFT JOIN inventory_stock s ON s.school_id=p.school_id AND s.product_id=p.id WHERE p.school_id=:sid AND p.enabled AND p.stock_tracking ORDER BY p.label",p) if 'inventory.stock.read' in permissions else []
+  return {'locations':locations,'assets':assets,'low_stock':low,'sale_stock':sales}
+
 @router.get('/stock')
 def stock(limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.stock.read')
