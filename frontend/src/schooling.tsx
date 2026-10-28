@@ -44,7 +44,7 @@ export default function SchoolingPage({token,permissions,schoolName,onNavigate}:
   useEffect(()=>{void refresh()},[token]);
   useEffect(()=>{const t=setTimeout(()=>{if(tab==='students'||tab==='families')void refresh()},280);return()=>clearTimeout(t)},[q,status,studentPage,familyPage,JSON.stringify(filters)]);
   // Level order and labels of the RDC reference catalogue: next class proposed at re-enrollment, level groups in the class picker.
-  useEffect(()=>{getReferenceCatalog(token).then(r=>{setRefOrder(Object.fromEntries(r.classes.map(c=>[c.code.toUpperCase(),c.sort_order])));setRefLabels(Object.fromEntries(r.classes.map(c=>[c.code.toUpperCase(),c.label])))}).catch(()=>{})},[token]);
+  useEffect(()=>{if(!can('settings.structure.read'))return;/* readers without it keep the alphabetical order */getReferenceCatalog(token).then(r=>{setRefOrder(Object.fromEntries(r.classes.map(c=>[c.code.toUpperCase(),c.sort_order])));setRefLabels(Object.fromEntries(r.classes.map(c=>[c.code.toUpperCase(),c.label])))}).catch(()=>{})},[token]);
   // Échap closes the open file (pupil or family) unless a dialog is on top of it.
   useEffect(()=>{if(!selected&&!selectedFamily)return;const k=(e:KeyboardEvent)=>{if(e.key!=='Escape'||wizardOpen||reenrollOpen||document.querySelector('[role=dialog][aria-modal=true]'))return;setSelected(null);setSelectedFamily(null)};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[selected,selectedFamily,wizardOpen,reenrollOpen]);
   // Deep link from the home search: open the pupil chosen there (owner report 2026-10-25).

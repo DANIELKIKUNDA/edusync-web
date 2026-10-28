@@ -440,5 +440,5 @@ def export_student_profile(student_id:UUID,actor:ActorContext=Depends(require_sc
         student=PostgresSchoolingRepository(conn).get_student(actor.school_id,student_id,scopes=scopes)
         if not student:raise HTTPException(status_code=404,detail='Élève introuvable')
         data=student_profile_pdf(school=_school_identity(conn,actor.school_id),student=student)
-        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='students.profile.print_pdf',document_code='students.profile',title='Fiche élève',file_name=f'fiche_eleve_{student_id}.pdf',academic_year_id=academic_year_id if 'students.profile'!='students.profile' else None)
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='students.profile.print_pdf',document_code='students.profile',title='Fiche élève',file_name=f'fiche_eleve_{student_id}.pdf',academic_year_id=None)
     return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="fiche_eleve.pdf"'})

@@ -53,7 +53,7 @@ from fastapi.responses import StreamingResponse as _Stream
 from edusync.adapters.postgres_periodic_reports import PostgresPeriodicReportsRepository
 from edusync.modules.finance_reports.application.documents import periodic_report_pdf, periodic_report_xlsx, student_account_pdf
 from edusync.modules.finance_reports.domain.periodic import PERIOD_LABELS, REPORT_PROFILES, periodic_title
-from edusync.modules.documents.application.object_store import archive_official_pdf_strict,read_official_pdf,discard_official_pdf
+from edusync.modules.documents.application.object_store import archive_generated_tx,archive_official_pdf_strict,read_official_pdf,discard_official_pdf
 
 
 def _school(c, sid):

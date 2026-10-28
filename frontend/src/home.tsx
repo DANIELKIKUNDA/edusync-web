@@ -4,6 +4,7 @@ import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {RecoveryChart} from './platform/recovery_chart';
 import {setFinanceTarget,type FinanceTarget} from './finance_nav';
 import {auditActionLabel} from './platform/labels';
+import {displayTitle} from './platform/format';
 import {Button,Card,EmptyState,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type JourneyStep} from './platform/ui';
 import {listStudents,type SchoolingStudent,cashCurrent,cashJournal,cashDaySummary,checkoutProducts,financeDecisions,generatedReports,documentHistory,getSchoolingSummary,getPersonnelSummary,feeTrackingOverview,getAccessDashboard,getEffectifsCounts,getEffectifsMovements,getSettingsOverview,recoveryMonthly,stewardshipCounts,stewardshipDashboard,
   type AccessMe,type AccessWidget,type EffectifsCounts,type SettingsOverview} from './api';
@@ -154,7 +155,7 @@ function FinancialDecisions({common,token}:{common:Common;token:string}){const s
 function LatestReports({common,token}:{common:Common;token:string}){const s=useData(()=>generatedReports(token),[token]);
   return <Card level="secondary" {...common}><Async s={s}>{items=>{const rows=(items??[]).slice(0,4);return rows.length?<><p className="ui-card-value">{n(items.length)}<small>{items.length>1?'rapports officiels':'rapport officiel'}</small></p><ul className="ui-list">{rows.map(r=><li key={r.id}><b>{r.report_label}</b><small>{frDate(r.start_date)} · {ago(r.generated_at)}</small></li>)}</ul></>:<p className="ui-card-hint">Aucun rapport officiel généré pour le moment.</p>}}</Async></Card>;}
 function RecentDocuments({common,token}:{common:Common;token:string}){const s=useData(()=>documentHistory(token,0),[token]);
-  return <Card level="secondary" {...common}><Async s={s}>{d=>{const rows=(d.items??[]).slice(0,4);return rows.length?<><p className="ui-card-value">{n(d.items.length)}<small>{d.items.length>1?'documents récents':'document récent'}</small></p><ul className="ui-list">{rows.map(x=><li key={x.id}><b>{x.title}</b><small>{x.format} · {ago(x.updated_at)}</small></li>)}</ul></>:<p className="ui-card-hint">Aucun document généré pour le moment.</p>}}</Async></Card>;}
+  return <Card level="secondary" {...common}><Async s={s}>{d=>{const rows=(d.items??[]).slice(0,4);return rows.length?<><p className="ui-card-value">{n(d.items.length)}<small>{d.items.length>1?'documents récents':'document récent'}</small></p><ul className="ui-list">{rows.map(x=><li key={x.id}><b>{displayTitle(x.title)}</b><small>{x.format} · {ago(x.updated_at)}</small></li>)}</ul></>:<p className="ui-card-hint">Aucun document généré pour le moment.</p>}}</Async></Card>;}
 function Stock({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipDashboard(token),[token]);
   return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const low=d?.low_stock??[];return low.length?<><p className="ui-card-value">{n(low.length)}<small>article(s) sous le seuil</small></p><ul className="ui-list">{low.slice(0,3).map((x:any)=><li key={x.id}><b>{x.label}</b><small>{x.quantity} {x.unit}</small></li>)}</ul></>
     :<p className="ui-card-hint">Aucun stock sous son seuil d’alerte.</p>}}</Async></Card>}

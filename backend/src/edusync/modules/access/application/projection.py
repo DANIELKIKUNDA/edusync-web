@@ -50,7 +50,9 @@ WIDGETS: list[dict] = [
     {"id": "cash.supervision", "title": "Situation des caisses", "module": "finance", "priority": 20, "all": ("finance.cash.other.read",)},
     {"id": "checkout.quick", "title": "Encaisser rapidement", "module": "finance", "priority": 21, "all": ("finance.checkout.collect",)},
     # Desk (cashier, who is usually also the secretary in the DRC): today's receipts, enrollments, articles to watch.
-    {"id": "cash.receipts", "title": "Encaissements du jour", "module": "finance", "priority": 22, "all": ("finance.cash.read", "finance.receipts.read")},
+    # Receipts of the user's OWN cash session: only for whoever opens a cash desk (certification 2026-10-28: the
+    # Promoteur / Responsable financier / Gestionnaire were told « Ouvrez votre caisse » — they supervise instead).
+    {"id": "cash.receipts", "title": "Encaissements du jour", "module": "finance", "priority": 22, "all": ("finance.cash.read", "finance.receipts.read", "finance.cash.open")},
     {"id": "enrollments.today", "title": "Inscriptions", "module": "students", "priority": 23, "all": ("enrollments.create", "students.read")},
     {"id": "products.watch", "title": "Articles à surveiller", "module": "finance", "priority": 24, "all": ("finance.products.sale",)},
     {"id": "headcounts.summary", "title": "Effectifs", "module": "headcounts", "priority": 30, "all": ("headcounts.read",)},
