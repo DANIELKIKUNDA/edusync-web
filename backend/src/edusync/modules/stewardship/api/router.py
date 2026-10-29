@@ -93,7 +93,7 @@ def movement(b:Movement,idempotency_key:str|None=Header(None,alias='Idempotency-
      payload=b.model_dump(mode='json'),school_id=str(actor.school_id),actor_user_id=str(actor.user_id),action=lambda:(201,_apply_movement(c,actor,b,delta))).body
  except (IdempotencyConflict,IdempotencyInProgress) as e:raise HTTPException(409,str(e)) from e
 def _apply_movement(c,actor,b,delta):
-  cur=c.execute(text('SELECT quantity FROM inventory_items WHERE id=:id AND school_id=:sid FOR UPDATE'),{'id':str(b.item_id),'sid':str(actor.school_id)}).scalar_one_or_none()
+  cur=c.execute(text('SELECT quantity FROM inventory_items WHERE id=:id AND school_id=:sid AND enabled FOR UPDATE'),{'id':str(b.item_id),'sid':str(actor.school_id)}).scalar_one_or_none()
   if cur is None:raise HTTPException(404,'Article introuvable')
   if Decimal(str(cur))+delta<0:raise HTTPException(409,'Stock insuffisant')
   c.execute(text('UPDATE inventory_items SET quantity=quantity+:d,version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid'),{'d':delta,'id':str(b.item_id),'sid':str(actor.school_id)})
