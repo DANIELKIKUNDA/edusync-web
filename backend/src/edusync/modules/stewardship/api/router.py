@@ -150,6 +150,7 @@ def asset_status(asset_id:UUID,b:AssetStatus,actor:ActorContext=Depends(require_
   if not old:raise HTTPException(404,'Bien introuvable')
   if old['status']=='DISPOSED' and b.status!='DISPOSED':raise HTTPException(409,'Un bien sorti du patrimoine ne peut pas être réactivé')
   if b.location_id and not c.execute(text('SELECT 1 FROM inventory_locations WHERE id=:id AND school_id=:sid'),{'id':b.location_id,'sid':actor.school_id}).first():raise HTTPException(404,'Local introuvable')
+  if b.status==old['status'] and (b.location_id is None or b.location_id==old['location_id']):return {'ok':True,'unchanged':True}
   c.execute(text("UPDATE inventory_assets SET status=:st,location_id=coalesce(:loc,location_id),version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid"),{'st':b.status,'loc':b.location_id,'id':asset_id,'sid':actor.school_id});c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,from_status,to_status,from_location_id,to_location_id,reason,actor_user_id) VALUES(:sid,:id,'STATUS',:fs,:ts,:fl,coalesce(:tl,:fl),:r,:uid)"),{'sid':actor.school_id,'id':asset_id,'fs':old['status'],'ts':b.status,'fl':old['location_id'],'tl':b.location_id,'r':b.reason,'uid':actor.user_id});return {'ok':True}
 class AssetRepair(BaseModel):
  reason:str=Field(min_length=3,max_length=700)
