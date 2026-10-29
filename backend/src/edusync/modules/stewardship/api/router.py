@@ -54,6 +54,7 @@ def create_item(b:ItemInput,idempotency_key:str|None=Header(None,alias='Idempote
  """New consumable: stock always starts at 0 and only moves through traced movements (receipt/issue/count)."""
  need(actor,'inventory.stock.item.manage')
  if not (idempotency_key or '').strip():raise HTTPException(400,'Idempotency-Key obligatoire')
+ if len(idempotency_key.strip())>180:raise HTTPException(400,'Idempotency-Key trop longue')
  def action(c):
   code=b.code.strip().upper()
   if c.execute(text('SELECT 1 FROM inventory_items WHERE school_id=:sid AND upper(code)=:c'),{'sid':str(actor.school_id),'c':code}).first():raise HTTPException(409,'Ce code article existe déjà')
@@ -86,6 +87,7 @@ def movement(b:Movement,idempotency_key:str|None=Header(None,alias='Idempotency-
  delta=b.quantity if b.movement_type=='RECEIPT' else (-b.quantity if b.movement_type=='ISSUE' else (b.quantity if b.adjustment_direction=='INCREASE' else -b.quantity))
  if b.movement_type=='ADJUSTMENT' and b.adjustment_direction is None:raise HTTPException(422,'Précisez le sens de la correction de stock')
  if not (idempotency_key or '').strip():raise HTTPException(400,'Idempotency-Key obligatoire')
+ if len(idempotency_key.strip())>180:raise HTTPException(400,'Idempotency-Key trop longue')
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
    # A network retry carrying the same key returns the first result instead of moving stock twice.
