@@ -80,9 +80,9 @@ def resolve_audience(conn, actor, school_id: UUID, audience_type: str, audience_
         FROM students s
         JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id AND e.status='VALIDATED'
         JOIN academic_years y ON y.id=e.academic_year_id AND y.status='ACTIVE'
-        JOIN school_classes c ON c.id=e.class_id
+        JOIN school_classes c ON c.id=e.class_id AND c.school_id=e.school_id
         JOIN school_sections sec ON sec.id=c.section_id
-        JOIN family_guardians fg ON fg.family_id=s.family_id AND fg.school_id=s.school_id AND fg.is_primary
+        JOIN family_guardians fg ON fg.family_id=s.family_id AND fg.school_id=s.school_id AND fg.is_primary AND fg.active
         JOIN guardians g ON g.id=fg.guardian_id
         WHERE s.school_id=:sid AND s.status='ACTIVE' {('AND ' + ' AND '.join(where)) if where else ''}
         ORDER BY g.id, sec.code"""), params).mappings().all()
