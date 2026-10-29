@@ -73,3 +73,57 @@ def test_discipline_identity_update_cannot_smuggle_profile_changes():
     assert "Séparez la correction d’identité des modifications du profil élève" in patch
     assert "('gender','birth_date','birth_place','nationality','address','previous_school','photo_url','notes')" in patch
     assert "repo.get_student(actor.school_id,student_id,scopes=scopes)" in patch
+
+
+def test_parent_audience_filters_section_before_deduplication():
+    from uuid import uuid4
+    from edusync.modules.communications.application.messaging import resolve_audience
+
+    parent = uuid4()
+    class Result:
+        def mappings(self):
+            return self
+        def all(self):
+            return [
+                {"id": parent, "full_name": "Parent", "phone": "+243900000001", "email": None, "section_code": "PRIMAIRE"},
+                {"id": parent, "full_name": "Parent", "phone": "+243900000001", "email": None, "section_code": "SECONDAIRE"},
+            ]
+
+    class Connection:
+        def execute(self, query, params):
+            return Result()
+
+    class Actor:
+        is_platform_admin = False
+        def scopes_for(self, cap):
+            return (("SECTION", "SECONDAIRE"),)
+        def scope_allows(self, cap, scope_type, value):
+            return scope_type == "SECTION" and value == "SECONDAIRE"
+
+    recipients = resolve_audience(Connection(), Actor(), uuid4(), "SCHOOL", None, "communications.send.all_parents")
+    assert len(recipients) == 1
+    assert recipients[0].ref == parent
+
+
+def test_parent_audience_does_not_expose_other_section():
+    from uuid import uuid4
+    from edusync.modules.communications.application.messaging import resolve_audience
+
+    class Result:
+        def mappings(self):
+            return self
+        def all(self):
+            return [{"id": uuid4(), "full_name": "Primary parent", "phone": None, "email": None, "section_code": "PRIMAIRE"}]
+
+    class Connection:
+        def execute(self, query, params):
+            return Result()
+
+    class Actor:
+        is_platform_admin = False
+        def scopes_for(self, cap):
+            return (("SECTION", "SECONDAIRE"),)
+        def scope_allows(self, cap, scope_type, value):
+            return value == "SECONDAIRE"
+
+    assert resolve_audience(Connection(), Actor(), uuid4(), "SECTION", uuid4(), "communications.send.section") == []
