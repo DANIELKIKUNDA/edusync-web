@@ -201,7 +201,7 @@ def count_validate(count_id:UUID,actor:ActorContext=Depends(require_school_actor
   state=c.execute(text("SELECT status FROM inventory_counts WHERE id=:cid AND school_id=:sid FOR UPDATE"),{'cid':count_id,'sid':actor.school_id}).scalar_one_or_none()
   if state is None:raise HTTPException(404,'Inventaire introuvable')
   if state!='DRAFT':raise HTTPException(409,'Cet inventaire est déjà validé')
-  lines=c.execute(text("SELECT item_id,theoretical_quantity,counted_quantity,reason FROM inventory_count_lines WHERE count_id=:cid AND school_id=:sid"),{'cid':count_id,'sid':actor.school_id}).mappings().all()
+  lines=c.execute(text("SELECT item_id,theoretical_quantity,counted_quantity,reason FROM inventory_count_lines WHERE count_id=:cid AND school_id=:sid ORDER BY item_id"),{'cid':count_id,'sid':actor.school_id}).mappings().all()
   if not lines:raise HTTPException(422,'Aucun comptage à valider')
   for x in lines:
    delta=Decimal(str(x['counted_quantity']))-Decimal(str(x['theoretical_quantity']))
