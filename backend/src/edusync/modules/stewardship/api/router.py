@@ -159,7 +159,10 @@ def asset_repair(asset_id:UUID,b:AssetRepair,actor:ActorContext=Depends(require_
 @router.get('/assets/{asset_id}/history')
 def asset_history(asset_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.assets.history.read')
- with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:return {'items':rows(c,"SELECT * FROM inventory_asset_events WHERE school_id=:sid AND asset_id=:id ORDER BY created_at DESC",{'sid':str(actor.school_id),'id':str(asset_id)})}
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  exists=c.execute(text('SELECT 1 FROM inventory_assets WHERE id=:id AND school_id=:sid'),{'id':asset_id,'sid':actor.school_id}).first()
+  if not exists:raise HTTPException(404,'Bien introuvable')
+  return {'items':rows(c,"SELECT * FROM inventory_asset_events WHERE school_id=:sid AND asset_id=:id ORDER BY created_at DESC",{'sid':str(actor.school_id),'id':str(asset_id)})}
 class CountInput(BaseModel):notes:str|None=Field(None,max_length=1000)
 @router.post('/counts',status_code=201)
 def count_create(b:CountInput,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
