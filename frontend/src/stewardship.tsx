@@ -26,7 +26,7 @@ const fr=(m:Record<string,string>,v:any)=>m[String(v)]??v;
 export default function StewardshipPage({token,permissions}:Props){
   const [tab,setTab]=useState<Tab>('overview'),[data,setData]=useState<any>({}),[error,setError]=useState(''),[loading,setLoading]=useState(true);
   const [move,setMove]=useState<{item:any;kind:MoveKind}|null>(null),[newItem,setNewItem]=useState(false),[countId,setCountId]=useState<string|null>(null);
-  const [assetAction,setAssetAction]=useState<any|null>(null),[newAsset,setNewAsset]=useState(false);
+  const [assetAction,setAssetAction]=useState<any|null>(null),[newAsset,setNewAsset]=useState(false),[repairAsset,setRepairAsset]=useState<any|null>(null);
   const canStock=has(permissions,'inventory.stock.read'),canAssets=has(permissions,'inventory.assets.read'),canCounts=has(permissions,'inventory.counts.read');
   const canMoves=has(permissions,'inventory.stock.movements.read'),canItem=has(permissions,'inventory.stock.item.manage');
   const canDashboard=canStock||canAssets||canCounts||has(permissions,'inventory.stock.low_alerts.read');
@@ -58,7 +58,7 @@ export default function StewardshipPage({token,permissions}:Props){
       </article>})}</div>:<div className="emptyState"><b>Aucun article de stock</b><span>{canItem?'Créez votre premier article (craie, papier, produits d’entretien…), puis enregistrez une entrée.':'Aucun article n’est encore enregistré.'}</span>{canItem&&<button className="primaryBtn compact" onClick={()=>setNewItem(true)}>Créer un article</button>}</div>}
     </section>}
 
-    {tab==='assets'&&<><section className="homePanel"><h3>Patrimoine durable</h3><Table heads={['Bien','Quantité','État','Localisation','Actions']} rows={(data.assets?.items??[]).map((x:any)=>[x.asset_type,n(x.quantity),fr(ASSET_FR,x.status),x.location_label??'—',<>{has(permissions,'inventory.assets.status.update')&&<button className="textBtn" onClick={()=>setAssetAction(x)}>Changer l’état</button>}{has(permissions,'inventory.assets.history.read')&&<button className="textBtn" onClick={()=>setAssetAction({...x,historyOnly:true})}>Historique</button>}</>])}/>{!(data.assets?.items??[]).length&&<p className="okState">Aucun bien durable enregistré.</p>}</section>
+    {tab==='assets'&&<><section className="homePanel"><h3>Patrimoine durable</h3><Table heads={['Bien','Quantité','État','Localisation','Actions']} rows={(data.assets?.items??[]).map((x:any)=>[x.asset_type,n(x.quantity),fr(ASSET_FR,x.status),x.location_label??'—',<>{has(permissions,'inventory.assets.repair.record')&&<button className="textBtn" onClick={()=>setRepairAsset(x)}>Réparation</button>}{has(permissions,'inventory.assets.status.update')&&<button className="textBtn" onClick={()=>setAssetAction(x)}>Changer l’état</button>}{has(permissions,'inventory.assets.history.read')&&<button className="textBtn" onClick={()=>setAssetAction({...x,historyOnly:true})}>Historique</button>}</>])}/>{!(data.assets?.items??[]).length&&<p className="okState">Aucun bien durable enregistré.</p>}</section>
       <section className="homePanel"><h3>Locaux</h3><Table heads={['Local','Type','Capacité','État']} rows={(data.locations?.items??[]).map((x:any)=>[x.label,x.location_type,x.capacity??'—',fr(ASSET_FR,x.status)])}/>{!(data.locations?.items??[]).length&&<p className="okState">Aucun local enregistré.</p>}</section></>}
     {tab==='sales'&&<section className="homePanel"><h3>Articles destinés à la vente</h3><p className="muted">L’Intendance gère le stock ; le Centre financier encaisse les ventes.</p><Table heads={['Article','Disponible','Seuil','Prix courant']} rows={(data.sales?.items??[]).map((x:any)=>[x.label,n(x.quantity),n(x.low_threshold),`${n(x.unit_price)} ${x.currency}`])}/></section>}
     {tab==='movements'&&<section className="homePanel"><h3>Traçabilité des entrées et sorties</h3><Table heads={['Date','Article','Mouvement','Quantité','Destination','Motif']} rows={(data.movements?.items??[]).map((x:any)=>{const m=MOVE_FR[x.movement_type]??{l:x.movement_type,tone:'adj'};return [String(x.created_at).slice(0,16).replace('T',' '),x.item_label,<i className={`movePill ${m.tone}`}>{m.l}</i>,<b className={Number(x.quantity_delta)<0?'neg':'pos'}>{Number(x.quantity_delta)>0?'+':''}{n(x.quantity_delta)} {x.unit}</b>,x.destination??'—',x.reason]})}/>{!(data.movements?.items??[]).length&&<p className="okState">Aucun mouvement enregistré.</p>}</section>}
@@ -66,11 +66,23 @@ export default function StewardshipPage({token,permissions}:Props){
       <Table heads={['Référence','Date','État','Lignes','Écart cumulé','']} rows={(data.counts?.items??[]).map((x:any)=>[x.code,String(x.counted_on??x.created_at??'').slice(0,10),<i className={`countPill ${String(x.status).toLowerCase()}`}>{fr(COUNT_FR,x.status)}</i>,x.line_count,n(x.total_variance),<button className="textBtn" onClick={()=>setCountId(x.id)}>{x.status==='DRAFT'&&has(permissions,'inventory.counts.record')?'Compter':'Voir'}</button>])}/>{!(data.counts?.items??[]).length&&<p className="okState">Aucun inventaire physique enregistré.</p>}</section>}
     {loading&&<div className="thinLoader"><i/></div>}
     {newAsset&&<AssetCreateDialog token={token} onClose={()=>setNewAsset(false)} onDone={async()=>{setNewAsset(false);setTab('assets');await load()}}/>}
+    {repairAsset&&<AssetRepairDialog token={token} asset={repairAsset} onClose={()=>setRepairAsset(null)} onDone={async()=>{setRepairAsset(null);await load()}}/>}
     {assetAction&&<AssetActionDialog token={token} asset={assetAction} canHistory={has(permissions,'inventory.assets.history.read')} onClose={()=>setAssetAction(null)} onDone={async()=>{setAssetAction(null);await load()}}/>}
     {move&&<MoveDialog token={token} item={move.item} kind={move.kind} onClose={()=>setMove(null)} onDone={async()=>{setMove(null);await load()}}/>}
     {newItem&&<ItemDialog token={token} onClose={()=>setNewItem(false)} onDone={async()=>{setNewItem(false);setTab('stock');await load()}}/>}
     {countId&&<CountSheet token={token} id={countId} items={items} canRecord={has(permissions,'inventory.counts.record')} canValidate={has(permissions,'inventory.counts.validate')} onClose={async()=>{setCountId(null);await load()}}/>}
   </div>;
+}
+
+function AssetRepairDialog({token,asset,onClose,onDone}:{token:string;asset:any;onClose:()=>void;onDone:()=>Promise<void>}){
+  const [reason,setReason]=useState(''),[completed,setCompleted]=useState(false),[busy,setBusy]=useState(false);
+  async function save(){if(reason.trim().length<3||busy)return;try{setBusy(true);await send(token,'POST',`assets/${asset.id}/repairs`,{reason:reason.trim(),completed});toast.success('Intervention enregistrée dans l’historique du bien');await onDone()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
+  return <div className="wizardBackdrop" onClick={onClose}><div className="accountSecurityDialog stewardDialog" role="dialog" aria-modal="true" aria-label="Enregistrer une réparation" onClick={e=>e.stopPropagation()}>
+    <div className="modalHead"><div><h3>Réparation : {asset.asset_type}</h3><p>État actuel : {fr(ASSET_FR,asset.status)}</p></div><button type="button" aria-label="Fermer" onClick={onClose}>×</button></div>
+    <label>Compte rendu de l’intervention *<textarea rows={3} value={reason} onChange={e=>setReason(e.target.value)} maxLength={700}/></label>
+    <label><input type="checkbox" checked={completed} onChange={e=>setCompleted(e.target.checked)}/> Réparation terminée : bien remis en bon état</label>
+    <div className="modalActions"><button className="ghost" onClick={onClose}>Annuler</button><button disabled={busy||reason.trim().length<3||['LOST','DISPOSED'].includes(asset.status)} onClick={()=>void save()}>{busy?'Enregistrement…':'Enregistrer la réparation'}</button></div>
+  </div></div>;
 }
 
 function AssetCreateDialog({token,onClose,onDone}:{token:string;onClose:()=>void;onDone:()=>Promise<void>}){
