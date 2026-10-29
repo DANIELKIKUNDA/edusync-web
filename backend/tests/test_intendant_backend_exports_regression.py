@@ -111,8 +111,7 @@ def test_asset_status_noop_does_not_append_event():
 
 
 def test_stock_movement_rejects_disabled_items():
-    section = _section("@router.post('/stock/movements')")
-    # _apply_movement is a shared internal function following the route.
+    section = ROUTER.split("def _apply_movement(", 1)[1].split("\\n@router.", 1)[0]
     assert "AND enabled FOR UPDATE" in section
 
 
@@ -142,7 +141,7 @@ def test_count_line_snapshot_locks_active_item():
 
 
 def test_stock_writes_normalize_and_bound_idempotency_keys():
-    for marker in ("@router.post('/items'", "@router.post('/stock/movements'"):
+    for marker in ("@router.post('/items'", "def movement("):
         section = _section(marker)
         assert "Idempotency-Key trop longue" in section
         assert "idempotency_key=idempotency_key.strip()" in section
