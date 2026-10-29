@@ -260,3 +260,11 @@ def _printable_table(title,headers,records):
  table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.lightgrey),('GRID',(0,0),(-1,-1),0.3,colors.grey),('VALIGN',(0,0),(-1,-1),'TOP')]))
  document.build([Paragraph(escape(title),styles['Title']),table])
  return stream.getvalue()
+
+@router.get('/stock/print.pdf')
+def stock_print(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'inventory.stock.sheet.print')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  data=rows(c,"SELECT code,label,unit,quantity,low_threshold FROM inventory_items WHERE school_id=:sid AND enabled ORDER BY label,code",{'sid':str(actor.school_id)})
+ payload=_printable_table('Fiche de stock',['Code','Article','Unité','Disponible','Seuil'],[(r['code'],r['label'],r['unit'],r['quantity'],r['low_threshold']) for r in data])
+ return Response(content=payload,media_type='application/pdf',headers={'Content-Disposition':'inline; filename="intendance_stock.pdf"','Cache-Control':'no-store'})
