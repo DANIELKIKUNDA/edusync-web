@@ -26,7 +26,7 @@ const fr=(m:Record<string,string>,v:any)=>m[String(v)]??v;
 export default function StewardshipPage({token,permissions}:Props){
   const [tab,setTab]=useState<Tab>('overview'),[data,setData]=useState<any>({}),[error,setError]=useState(''),[loading,setLoading]=useState(true);
   const [move,setMove]=useState<{item:any;kind:MoveKind}|null>(null),[newItem,setNewItem]=useState(false),[countId,setCountId]=useState<string|null>(null);
-  const [assetAction,setAssetAction]=useState<any|null>(null);
+  const [assetAction,setAssetAction]=useState<any|null>(null),[newAsset,setNewAsset]=useState(false);
   const canStock=has(permissions,'inventory.stock.read'),canAssets=has(permissions,'inventory.assets.read'),canCounts=has(permissions,'inventory.counts.read');
   const canMoves=has(permissions,'inventory.stock.movements.read'),canItem=has(permissions,'inventory.stock.item.manage');
   const canDashboard=canStock||canAssets||canCounts||has(permissions,'inventory.stock.low_alerts.read');
@@ -43,7 +43,7 @@ export default function StewardshipPage({token,permissions}:Props){
   async function newCount(){try{const r=await send(token,'POST','counts',{notes:'Inventaire physique'});toast.success('Inventaire ouvert : saisissez les quantités comptées');await load();setCountId(r.id)}catch(e){toast.error(e instanceof Error?e.message:friendlyError(e))}}
   return <div className="stewardship personnelPage pageEnter">
     <div className="personnelHero stewardHero"><div><span className="eyebrow">Logistique & patrimoine</span><h2>Intendance</h2><p>Consommables, patrimoine, locaux et inventaires. Chaque entrée, sortie ou correction est tracée et motivée.</p></div>
-      <div className="heroActions">{canItem&&<button className="softBtn" onClick={()=>setNewItem(true)}>＋ Nouvel article</button>}{has(permissions,'inventory.counts.create')&&<button className="primaryBtn" onClick={()=>void newCount()}>Nouvel inventaire</button>}</div></div>
+      <div className="heroActions">{has(permissions,'inventory.assets.create')&&<button className="softBtn" onClick={()=>setNewAsset(true)}>＋ Nouveau bien</button>}{canItem&&<button className="softBtn" onClick={()=>setNewItem(true)}>＋ Nouvel article</button>}{has(permissions,'inventory.counts.create')&&<button className="primaryBtn" onClick={()=>void newCount()}>Nouvel inventaire</button>}</div></div>
     {error&&<div className="error" role="alert">{error}</div>}
     <div className="personTabs" role="tablist">{tabs.filter(x=>x[2]).map(x=><button role="tab" aria-selected={tab===x[0]} className={tab===x[0]?'active':''} onClick={()=>setTab(x[0])} key={x[0]}>{x[1]}</button>)}</div>
 
@@ -65,11 +65,27 @@ export default function StewardshipPage({token,permissions}:Props){
     {tab==='counts'&&<section className="homePanel"><div className="stewardHead"><h3>Inventaires physiques</h3>{has(permissions,'inventory.counts.create')&&<button className="primaryBtn compact" onClick={()=>void newCount()}>Nouvel inventaire</button>}</div><p className="muted">Comptez le stock réel, justifiez chaque écart, puis validez. Une validation est définitive et tracée.</p>
       <Table heads={['Référence','Date','État','Lignes','Écart cumulé','']} rows={(data.counts?.items??[]).map((x:any)=>[x.code,String(x.counted_on??x.created_at??'').slice(0,10),<i className={`countPill ${String(x.status).toLowerCase()}`}>{fr(COUNT_FR,x.status)}</i>,x.line_count,n(x.total_variance),<button className="textBtn" onClick={()=>setCountId(x.id)}>{x.status==='DRAFT'&&has(permissions,'inventory.counts.record')?'Compter':'Voir'}</button>])}/>{!(data.counts?.items??[]).length&&<p className="okState">Aucun inventaire physique enregistré.</p>}</section>}
     {loading&&<div className="thinLoader"><i/></div>}
+    {newAsset&&<AssetCreateDialog token={token} onClose={()=>setNewAsset(false)} onDone={async()=>{setNewAsset(false);setTab('assets');await load()}}/>}
     {assetAction&&<AssetActionDialog token={token} asset={assetAction} canHistory={has(permissions,'inventory.assets.history.read')} onClose={()=>setAssetAction(null)} onDone={async()=>{setAssetAction(null);await load()}}/>}
     {move&&<MoveDialog token={token} item={move.item} kind={move.kind} onClose={()=>setMove(null)} onDone={async()=>{setMove(null);await load()}}/>}
     {newItem&&<ItemDialog token={token} onClose={()=>setNewItem(false)} onDone={async()=>{setNewItem(false);setTab('stock');await load()}}/>}
     {countId&&<CountSheet token={token} id={countId} items={items} canRecord={has(permissions,'inventory.counts.record')} canValidate={has(permissions,'inventory.counts.validate')} onClose={async()=>{setCountId(null);await load()}}/>}
   </div>;
+}
+
+function AssetCreateDialog({token,onClose,onDone}:{token:string;onClose:()=>void;onDone:()=>Promise<void>}){
+  const [types,setTypes]=useState<any[]>([]),[typeId,setTypeId]=useState(''),[quantity,setQuantity]=useState('1'),[tag,setTag]=useState(''),[notes,setNotes]=useState(''),[busy,setBusy]=useState(false);
+  useEffect(()=>{let active=true;fetch(`${API}/stewardship/asset-types`,{headers:{Authorization:`Bearer ${token}`}}).then(async r=>{if(!r.ok)throw new Error(await readError(r));return r.json()}).then(d=>{if(active)setTypes(d.items??[])}).catch(e=>toast.error(friendlyError(e)));return()=>{active=false}},[token]);
+  async function save(){const q=Number(quantity);if(!typeId||!Number.isInteger(q)||q<1||busy)return;try{setBusy(true);await send(token,'POST','assets',{asset_type_id:typeId,quantity:q,tag:tag.trim()||null,notes:notes.trim()||null});toast.success('Bien durable enregistré');await onDone()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
+  return <div className="wizardBackdrop" onClick={onClose}><div className="accountSecurityDialog stewardDialog" role="dialog" aria-modal="true" aria-label="Nouveau bien durable" onClick={e=>e.stopPropagation()}>
+    <div className="modalHead"><div><h3>Nouveau bien durable</h3><p>Enregistrement du patrimoine de l’établissement.</p></div><button type="button" aria-label="Fermer" onClick={onClose}>×</button></div>
+    <label>Type de bien *<select value={typeId} onChange={e=>setTypeId(e.target.value)}><option value="">Choisir un type</option>{types.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select></label>
+    {!types.length&&<p className="muted">Aucun type de bien disponible. Contactez l’administration pour configurer le catalogue.</p>}
+    <label>Quantité *<input type="number" min="1" step="1" value={quantity} onChange={e=>setQuantity(e.target.value)}/></label>
+    <label>Référence / étiquette<input value={tag} onChange={e=>setTag(e.target.value)} maxLength={96}/></label>
+    <label>Observations<textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} maxLength={1000}/></label>
+    <div className="modalActions"><button className="ghost" onClick={onClose}>Annuler</button><button disabled={busy||!typeId||!Number.isInteger(Number(quantity))||Number(quantity)<1} onClick={()=>void save()}>{busy?'Création…':'Enregistrer le bien'}</button></div>
+  </div></div>;
 }
 
 function AssetActionDialog({token,asset,canHistory,onClose,onDone}:{token:string;asset:any;canHistory:boolean;onClose:()=>void;onDone:()=>Promise<void>}){
