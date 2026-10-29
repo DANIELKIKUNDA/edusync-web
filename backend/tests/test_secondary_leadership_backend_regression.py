@@ -65,3 +65,11 @@ def test_secondary_communication_preview_and_send_resolve_scoped_audience():
     assert "if b.confirm_fingerprint != figures['fingerprint']" in COMMUNICATIONS
     assert "if not figures['sufficient']" in COMMUNICATIONS
     assert "idempotency_key=b.idempotency_key" in COMMUNICATIONS
+
+
+def test_discipline_identity_update_cannot_smuggle_profile_changes():
+    patch = SCHOOLING.split("@router.patch('/students/{student_id}')", 1)[1].split("\n@router.", 1)[0]
+    assert "capability='students.identity.update'" in patch
+    assert "Séparez la correction d’identité des modifications du profil élève" in patch
+    assert "('gender','birth_date','birth_place','nationality','address','previous_school','photo_url','notes')" in patch
+    assert "repo.get_student(actor.school_id,student_id,scopes=scopes)" in patch
