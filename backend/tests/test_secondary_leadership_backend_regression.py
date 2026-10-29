@@ -135,3 +135,10 @@ def test_parent_audience_uses_tenant_classes_and_active_guardians():
     assert "fg.school_id=s.school_id AND fg.is_primary AND fg.active" in messaging
     assert "SELECT g.id, g.full_name" in messaging
     assert "if r[\"id\"] in seen:" in messaging
+
+
+def test_parent_audience_joins_academic_year_section_and_guardian_with_tenant():
+    messaging = (ROOT / "src/edusync/modules/communications/application/messaging.py").read_text(encoding="utf-8")
+    assert "y.id=e.academic_year_id AND y.school_id=e.school_id" in messaging
+    assert "sec.id=c.section_id AND sec.school_id=c.school_id" in messaging
+    assert "g.id=fg.guardian_id AND g.school_id=fg.school_id" in messaging
