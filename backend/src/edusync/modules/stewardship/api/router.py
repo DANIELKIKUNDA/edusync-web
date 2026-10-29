@@ -113,6 +113,8 @@ class AssetInput(BaseModel): asset_type_id:UUID;tag:str|None=Field(None,max_leng
 def asset_create(b:AssetInput,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.assets.create')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  if not c.execute(text('SELECT 1 FROM inventory_asset_types WHERE id=:id AND school_id=:sid AND enabled'),{'id':b.asset_type_id,'sid':actor.school_id}).first():raise HTTPException(404,'Type de bien introuvable')
+  if b.location_id and not c.execute(text('SELECT 1 FROM inventory_locations WHERE id=:id AND school_id=:sid'),{'id':b.location_id,'sid':actor.school_id}).first():raise HTTPException(404,'Local introuvable')
   aid=c.execute(text("INSERT INTO inventory_assets(school_id,asset_type_id,asset_tag,quantity,location_id,status,notes) VALUES(:sid,:t,:tag,:q,:loc,:st,:n) RETURNING id"),{'sid':actor.school_id,'t':b.asset_type_id,'tag':b.tag,'q':b.quantity,'loc':b.location_id,'st':b.status,'n':b.notes}).scalar_one();c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,to_status,to_location_id,reason,actor_user_id) VALUES(:sid,:id,'CREATE',:st,:loc,'Création du bien',:uid)"),{'sid':actor.school_id,'id':aid,'st':b.status,'loc':b.location_id,'uid':actor.user_id});return {'id':str(aid)}
 class AssetStatus(BaseModel):status:Literal['GOOD','TO_REPAIR','IN_REPAIR','OUT_OF_SERVICE','LOST','DISPOSED'];reason:str=Field(min_length=3,max_length=700);location_id:UUID|None=None
 @router.post('/assets/{asset_id}/status')
