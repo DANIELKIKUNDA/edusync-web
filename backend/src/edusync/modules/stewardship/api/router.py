@@ -68,6 +68,7 @@ def update_item(item_id:UUID,b:ItemUpdate,if_match:str|None=Header(None,alias='I
   cur=c.execute(text('SELECT version FROM inventory_items WHERE id=:id AND school_id=:sid FOR UPDATE'),{'id':str(item_id),'sid':str(actor.school_id)}).scalar_one_or_none()
   if cur is None:raise HTTPException(404,'Article introuvable')
   if if_match is not None and if_match.strip('"')!=str(cur):raise HTTPException(409,'Article modifié par un autre utilisateur : rechargez')
+  if b.location_id and not c.execute(text('SELECT 1 FROM inventory_locations WHERE id=:id AND school_id=:sid'),{'id':b.location_id,'sid':actor.school_id}).first():raise HTTPException(404,'Local introuvable')
   row=c.execute(text('UPDATE inventory_items SET label=:l,unit=:u,low_threshold=:t,location_id=:loc,enabled=:e,version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid RETURNING id,code,label,unit,quantity,low_threshold,enabled,version'),
    {'l':b.label.strip(),'u':b.unit.strip(),'t':b.low_threshold,'loc':str(b.location_id) if b.location_id else None,'e':b.enabled,'id':str(item_id),'sid':str(actor.school_id)}).mappings().one()
   out={k:(str(v) if not isinstance(v,(int,str,bool)) else v) for k,v in dict(row).items()}
