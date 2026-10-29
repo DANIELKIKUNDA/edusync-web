@@ -111,7 +111,7 @@ def test_asset_status_noop_does_not_append_event():
 
 
 def test_stock_movement_rejects_disabled_items():
-    section = ROUTER.split("def _apply_movement(", 1)[1].split("\\n@router.", 1)[0]
+    section = ROUTER.split("def _apply_movement(", 1)[1].split(chr(10) + "@router.", 1)[0]
     assert "AND enabled FOR UPDATE" in section
 
 
