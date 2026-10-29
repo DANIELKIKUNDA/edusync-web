@@ -166,7 +166,7 @@ function CountSheet({token,id,items,canRecord,canValidate,onClose}:{token:string
   const draft=head?.status==='DRAFT';
   const rows=useMemo(()=>items.map(it=>{const e=entries[it.id];const counted=e&&e.q!==''?Number(e.q.replace(',','.')):null;const variance=counted===null?null:counted-Number(it.quantity);return {it,e,counted,variance}}),[items,entries]);
   const missingReason=rows.some(r=>r.variance!==null&&r.variance!==0&&!(r.e?.r??'').trim());
-  async function persistLines(){for(const r of rows){if(r.counted===null)continue;await send(token,'POST',`counts/${id}/lines`,{item_id:r.it.id,counted_quantity:String(r.counted),reason:(r.e?.r??'').trim()||null})}}
+  async function persistLines(){if(rows.some(r=>r.e?.q?.trim()&&(!Number.isFinite(r.counted)||Number(r.counted)<0)))throw new Error('Quantité comptée invalide');if(missingReason)throw new Error('Justifiez chaque écart');for(const r of rows){if(r.counted===null)continue;await send(token,'POST',`counts/${id}/lines`,{item_id:r.it.id,counted_quantity:String(r.counted),reason:(r.e?.r??'').trim()||null})}}
   async function saveAll(){try{setBusy(true);await persistLines();toast.success('Comptage enregistré');await load()}catch(e){toast.error(e instanceof Error?e.message:friendlyError(e))}finally{setBusy(false)}}
   async function validate(){try{setBusy(true);if(canRecord)await persistLines();await send(token,'POST',`counts/${id}/validate`,{});toast.success('Inventaire validé — écarts appliqués au stock');setConfirm(false);onClose()}catch(e){toast.error(e instanceof Error?e.message:friendlyError(e))}finally{setBusy(false)}}
   const set=(itemId:string,k:'q'|'r',v:string)=>setEntries(x=>({...x,[itemId]:{q:x[itemId]?.q??'',r:x[itemId]?.r??'',[k]:v}}));
