@@ -181,7 +181,7 @@ function CountSheet({token,id,items,canRecord,canValidate,onClose}:{token:string
       </div>)}
     </div>
     {draft&&missingReason&&<p className="afterPreview bad">Justifiez chaque écart avant de valider.</p>}
-    <div className="modalActions">{draft&&canRecord&&<button className="ghost" disabled={busy} onClick={()=>void saveAll()}>Enregistrer le comptage</button>}{draft&&canValidate&&<button disabled={busy||(canRecord?(missingReason||!rows.some(r=>r.counted!==null)):!(count?.items??[]).length)} onClick={()=>setConfirm(true)}>Valider l’inventaire</button>}{!draft&&<button onClick={onClose}>Fermer</button>}</div>
+    <div className="modalActions">{draft&&canRecord&&<button className="ghost" disabled={busy} onClick={()=>void saveAll()}>Enregistrer le comptage</button>}{draft&&canValidate&&<button disabled={busy||missingReason||rows.some(r=>r.e?.q?.trim()&&(!Number.isFinite(r.counted)||Number(r.counted)<0))||!(rows.some(r=>r.counted!==null)||(count?.items??[]).length)} onClick={()=>setConfirm(true)}>Valider l’inventaire</button>}{!draft&&<button onClick={onClose}>Fermer</button>}</div>
     {confirm&&<div className="confirmStrip" role="alertdialog" aria-label="Confirmer la validation"><span>La validation applique les écarts au stock et ne peut pas être annulée.</span><button className="ghost" onClick={()=>setConfirm(false)}>Revenir</button><button disabled={busy} onClick={()=>void validate()}>{busy?'Validation…':'Confirmer la validation'}</button></div>}
   </div></div>;
 }
