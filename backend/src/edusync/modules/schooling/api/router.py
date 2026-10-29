@@ -263,7 +263,10 @@ def enroll_family(body:FamilyEnrollmentBody,response:Response,idempotency_key:st
 @router.patch('/students/{student_id}')
 def patch_student(student_id:UUID,body:StudentPatch,if_match:str|None=Header(None,alias='If-Match'),idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     capability='students.identity.update' if any(getattr(body,x) is not None for x in ('last_name','middle_name','first_name')) else 'students.profile.complete'
-    _need(actor,capability);scopes=_scopes(actor,capability);expected=_expected(if_match);key=_key(idempotency_key)
+    _need(actor,capability)
+    if capability=='students.identity.update' and any(getattr(body,x) is not None for x in ('gender','birth_date','birth_place','nationality','address','previous_school','photo_url','notes')):
+        _need(actor,'students.profile.complete')
+    scopes=_scopes(actor,capability);expected=_expected(if_match);key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn);old=repo.get_student(actor.school_id,student_id,scopes=scopes)
