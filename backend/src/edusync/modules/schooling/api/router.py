@@ -265,7 +265,7 @@ def patch_student(student_id:UUID,body:StudentPatch,if_match:str|None=Header(Non
     capability='students.identity.update' if any(getattr(body,x) is not None for x in ('last_name','middle_name','first_name')) else 'students.profile.complete'
     _need(actor,capability)
     if capability=='students.identity.update' and any(getattr(body,x) is not None for x in ('gender','birth_date','birth_place','nationality','address','previous_school','photo_url','notes')):
-        _need(actor,'students.profile.complete')
+        raise HTTPException(status_code=422,detail='Séparez la correction d’identité des modifications du profil élève')
     scopes=_scopes(actor,capability);expected=_expected(if_match);key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
