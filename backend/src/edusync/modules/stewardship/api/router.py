@@ -268,3 +268,13 @@ def stock_print(actor:ActorContext=Depends(require_school_actor),services:AppSer
   data=rows(c,"SELECT code,label,unit,quantity,low_threshold FROM inventory_items WHERE school_id=:sid AND enabled ORDER BY label,code",{'sid':str(actor.school_id)})
  payload=_printable_table('Fiche de stock',['Code','Article','Unité','Disponible','Seuil'],[(r['code'],r['label'],r['unit'],r['quantity'],r['low_threshold']) for r in data])
  return Response(content=payload,media_type='application/pdf',headers={'Content-Disposition':'inline; filename="intendance_stock.pdf"','Cache-Control':'no-store'})
+
+@router.get('/counts/{count_id}/print.pdf')
+def count_print(count_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'inventory.counts.print')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  code=c.execute(text('SELECT code FROM inventory_counts WHERE id=:id AND school_id=:sid'),{'id':count_id,'sid':actor.school_id}).scalar_one_or_none()
+  if code is None:raise HTTPException(404,'Inventaire introuvable')
+  data=rows(c,"SELECT i.code,i.label,i.unit,l.theoretical_quantity,l.counted_quantity,(l.counted_quantity-l.theoretical_quantity) variance,l.reason FROM inventory_count_lines l JOIN inventory_items i ON i.id=l.item_id AND i.school_id=l.school_id WHERE l.count_id=:id AND l.school_id=:sid ORDER BY i.label",{'id':str(count_id),'sid':str(actor.school_id)})
+ payload=_printable_table('Inventaire '+str(code),['Code','Article','Unité','Théorique','Compté','Écart','Motif'],[(r['code'],r['label'],r['unit'],r['theoretical_quantity'],r['counted_quantity'],r['variance'],r['reason']) for r in data])
+ return Response(content=payload,media_type='application/pdf',headers={'Content-Disposition':'inline; filename="intendance_inventaire.pdf"','Cache-Control':'no-store'})
