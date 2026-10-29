@@ -133,3 +133,9 @@ def test_asset_history_is_bounded_and_tenant_scoped():
     assert "Query(100,ge=1,le=500)" in section
     assert "LIMIT :limit OFFSET :offset" in section
     assert "inventory_assets WHERE id=:id AND school_id=:sid" in section
+
+
+def test_count_line_snapshot_locks_active_item():
+    section = _section("@router.post('/counts/{count_id}/lines')")
+    assert "AND enabled FOR UPDATE" in section
+    assert "SELECT status FROM inventory_counts" in section
