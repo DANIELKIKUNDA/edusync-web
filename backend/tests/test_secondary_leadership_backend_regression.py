@@ -48,6 +48,7 @@ def test_student_read_routes_use_capability_scopes():
 def test_headcounts_queries_use_capability_scopes():
     assert '_need(actor,"headcounts.read");scopes=_scopes(actor,"headcounts.read")' in EFFECTIFS
     assert "repo.overview(actor.school_id,y[\"id\"],scopes=scopes" in EFFECTIFS
+    assert "cap,_,_=_group_meta(group_by);_need(actor,cap);scopes=_scopes(actor,cap)" in EFFECTIFS
     assert "repo.counts(actor.school_id,y[\"id\"],scopes=scopes" in EFFECTIFS
 
 
