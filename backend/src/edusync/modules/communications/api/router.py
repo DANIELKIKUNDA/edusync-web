@@ -242,7 +242,7 @@ def history(limit: int = 50, actor: ActorContext = Depends(require_school_actor)
             LEFT JOIN users u ON u.id=m.created_by
             LEFT JOIN LATERAL (SELECT d.channel, d.status, count(*) n, sum(d.segments_billed) billed,
                     max(d.last_error_code) FILTER (WHERE d.status IN ('FAILED_PERMANENT','FAILED_RETRYABLE')) err
-                FROM communication_deliveries d WHERE d.message_id=m.id GROUP BY d.channel, d.status) x ON true
+                FROM communication_deliveries d WHERE d.message_id=m.id AND d.school_id=m.school_id GROUP BY d.channel, d.status) x ON true
             WHERE m.school_id=:sid GROUP BY m.id, u.full_name ORDER BY m.created_at DESC LIMIT :n"""),
             {'sid': str(actor.school_id), 'n': max(1, min(limit, 200))}).mappings().all()
     return {'items': [dict(r) for r in rows]}
