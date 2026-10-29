@@ -110,7 +110,7 @@ def document_history(offset: int = Query(0, ge=0, le=100_000), limit: int = Quer
         else:
             rows = conn.execute(text("""SELECT c.latest_generation_id id,c.document_code,c.format,c.title,c.byte_size,c.updated_at,g.file_name,u.full_name generated_by,
                   (SELECT count(*) FROM generated_documents h WHERE h.school_id=c.school_id AND h.logical_key=c.logical_key) generations
-                FROM current_documents c JOIN generated_documents g ON g.id=c.latest_generation_id LEFT JOIN users u ON u.id=c.updated_by
+                FROM current_documents c JOIN generated_documents g ON g.id=c.latest_generation_id AND g.school_id=c.school_id LEFT JOIN users u ON u.id=c.updated_by
                 WHERE c.school_id=:s AND (g.generated_by=:u OR g.required_capability=ANY(CAST(:caps AS text[])))
                 ORDER BY c.updated_at DESC,c.logical_key LIMIT :l OFFSET :o"""),
                 {"s": str(actor.school_id), "u": str(actor.user_id), "caps": object_store.school_wide_capabilities(actor), "l": limit + 1, "o": offset}).mappings().all()
