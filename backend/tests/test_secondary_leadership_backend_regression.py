@@ -221,3 +221,9 @@ def test_staff_assignment_scope_options_are_filtered_by_capability():
     assert "actor.scope_allows(cap,'SECTION',section_code)" in endpoint
     assert "if visible(section['code'])" in endpoint
     assert "if visible(school_class['section_code'])" in endpoint
+
+
+def test_staff_scope_options_joins_belong_to_same_school():
+    endpoint = PERSONNEL.split("def scope_options(", 1)[1].split("\n@router.", 1)[0]
+    assert "s.id=c.section_id AND s.school_id=c.school_id" in endpoint
+    assert "y.id=c.academic_year_id AND y.school_id=c.school_id" in endpoint
