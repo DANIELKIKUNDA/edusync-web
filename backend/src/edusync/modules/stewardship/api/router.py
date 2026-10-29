@@ -248,3 +248,15 @@ def count_export(count_id:UUID,actor:ActorContext=Depends(require_school_actor),
   data=rows(c,"SELECT i.code,i.label,i.unit,l.theoretical_quantity,l.counted_quantity,(l.counted_quantity-l.theoretical_quantity) variance,l.reason FROM inventory_count_lines l JOIN inventory_items i ON i.id=l.item_id AND i.school_id=l.school_id WHERE l.count_id=:id AND l.school_id=:sid ORDER BY i.label",{'id':str(count_id),'sid':str(actor.school_id)})
  payload=workbook_bytes('Inventaire',['Code','Article','Unité','Théorique','Compté','Écart','Justification'],[(r['code'],r['label'],r['unit'],r['theoretical_quantity'],r['counted_quantity'],r['variance'],r['reason']) for r in data])
  return Response(content=payload,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="intendance_inventaire.xlsx"','Cache-Control':'no-store'})
+
+def _printable_table(title,headers,records):
+ stream=BytesIO()
+ document=SimpleDocTemplate(stream,pagesize=landscape(A4),leftMargin=24,rightMargin=24)
+ styles=getSampleStyleSheet()
+ cells=[[Paragraph(escape(str(v)),styles['BodyText']) for v in headers]]
+ cells.extend([[Paragraph(escape(str(v) if v is not None else ''),styles['BodyText']) for v in record] for record in records])
+ width=landscape(A4)[0]-48
+ table=Table(cells,colWidths=[width/len(headers)]*len(headers),repeatRows=1)
+ table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.lightgrey),('GRID',(0,0),(-1,-1),0.3,colors.grey),('VALIGN',(0,0),(-1,-1),'TOP')]))
+ document.build([Paragraph(escape(title),styles['Title']),table])
+ return stream.getvalue()
