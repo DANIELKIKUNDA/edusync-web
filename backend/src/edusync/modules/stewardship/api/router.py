@@ -222,7 +222,7 @@ def count_detail(count_id:UUID,actor:ActorContext=Depends(require_school_actor),
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   head=c.execute(text("SELECT id,code,counted_on,status,notes,created_at,validated_at FROM inventory_counts WHERE id=:id AND school_id=:sid"),{'id':count_id,'sid':actor.school_id}).mappings().first()
   if not head:raise HTTPException(404,'Inventaire introuvable')
-  lines=rows(c,"SELECT l.*,i.code item_code,i.label item_label,i.unit,(l.counted_quantity-l.theoretical_quantity) variance FROM inventory_count_lines l JOIN inventory_items i ON i.id=l.item_id WHERE l.count_id=:id AND l.school_id=:sid ORDER BY i.label",{'id':str(count_id),'sid':str(actor.school_id)})
+  lines=rows(c,"SELECT l.*,i.code item_code,i.label item_label,i.unit,(l.counted_quantity-l.theoretical_quantity) variance FROM inventory_count_lines l JOIN inventory_items i ON i.id=l.item_id AND i.school_id=l.school_id WHERE l.count_id=:id AND l.school_id=:sid ORDER BY i.label",{'id':str(count_id),'sid':str(actor.school_id)})
   return {'count':dict(head),'items':lines}
 
 @router.get('/stock/export.xlsx')
