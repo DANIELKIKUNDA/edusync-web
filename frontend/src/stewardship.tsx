@@ -160,7 +160,7 @@ function ItemDialog({token,onClose,onDone}:{token:string;onClose:()=>void;onDone
 
 function CountSheet({token,id,items,canRecord,canValidate,onClose}:{token:string;id:string;items:any[];canRecord:boolean;canValidate:boolean;onClose:()=>void}){
   const [count,setCount]=useState<any>(null),[entries,setEntries]=useState<Record<string,{q:string;r:string}>>({}),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false);
-  async function load(){try{const d=await stewardshipCountDetail(token,id);setCount(d);const e:Record<string,{q:string;r:string}>={};(d.items??[]).forEach((l:any)=>{e[l.item_id]={q:String(Number(l.counted_quantity)),r:l.reason??''}});setEntries(x=>({...e,...x}))}catch(err){toast.error(friendlyError(err))}}
+  async function load(){try{const d=await stewardshipCountDetail(token,id);setCount(d);const e:Record<string,{q:string;r:string}>={};(d.items??[]).forEach((l:any)=>{e[l.item_id]={q:String(Number(l.counted_quantity)),r:l.reason??''}});setEntries(e)}catch(err){toast.error(friendlyError(err))}}
   useEffect(()=>{void load()},[id]);
   const head=count?.count;
   const draft=head?.status==='DRAFT';
