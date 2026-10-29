@@ -121,3 +121,8 @@ def test_inventory_validation_handles_disabled_items_without_server_error():
     assert "AND enabled FOR UPDATE" in section
     assert "scalar_one_or_none()" in section
     assert "Article désactivé ou introuvable" in section
+
+
+def test_inventory_validation_uses_deterministic_item_lock_order():
+    section = _section("@router.post('/counts/{count_id}/validate')")
+    assert "WHERE count_id=:cid AND school_id=:sid ORDER BY item_id" in section
