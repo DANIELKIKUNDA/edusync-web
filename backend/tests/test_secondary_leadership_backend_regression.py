@@ -255,3 +255,9 @@ def test_notifications_are_scoped_to_actor_and_school():
 def test_audit_entity_history_has_school_and_capability_guard():
     assert "need(actor,'audit.entity.history.read')" in AUDIT
     assert "WHERE school_id=:sid AND entity_type=:et AND entity_id=:eid" in AUDIT
+
+
+def test_communication_history_aggregates_deliveries_in_same_school():
+    endpoint = COMMUNICATIONS.split("def history(", 1)[1].split("\n@router.", 1)[0]
+    assert "d.message_id=m.id AND d.school_id=m.school_id" in endpoint
+    assert "WHERE m.school_id=:sid" in endpoint
