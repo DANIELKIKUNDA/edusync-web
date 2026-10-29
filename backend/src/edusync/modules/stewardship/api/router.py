@@ -1,7 +1,8 @@
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
-from fastapi import APIRouter,Depends,Header,HTTPException,Query
+from fastapi import APIRouter,Depends,Header,HTTPException,Query,Response
+from edusync.modules.stewardship.api.workbook import workbook_bytes
 from pydantic import BaseModel,Field
 from sqlalchemy import text
 from edusync.bootstrap.dependencies import get_services,require_school_actor
@@ -222,3 +223,21 @@ def count_detail(count_id:UUID,actor:ActorContext=Depends(require_school_actor),
   if not head:raise HTTPException(404,'Inventaire introuvable')
   lines=rows(c,"SELECT l.*,i.code item_code,i.label item_label,i.unit,(l.counted_quantity-l.theoretical_quantity) variance FROM inventory_count_lines l JOIN inventory_items i ON i.id=l.item_id WHERE l.count_id=:id AND l.school_id=:sid ORDER BY i.label",{'id':str(count_id),'sid':str(actor.school_id)})
   return {'count':dict(head),'items':lines}
+
+@router.get('/stock/export.xlsx')
+def stock_export(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'inventory.stock.export_xlsx')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  data=rows(c,"SELECT code,label,item_kind,unit,quantity,low_threshold FROM inventory_items WHERE school_id=:sid AND enabled ORDER BY label,code",{'sid':str(actor.school_id)})
+ payload=workbook_bytes('Stock', ['Code','Article','Type','Unité','Quantité','Seuil faible'],[(r['code'],r['label'],r['item_kind'],r['unit'],r['quantity'],r['low_threshold']) for r in data])
+ return Response(content=payload,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="intendance_stock.xlsx"','Cache-Control':'no-store'})
+
+@router.get('/counts/{count_id}/export.xlsx')
+def count_export(count_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'inventory.counts.export_xlsx')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  head=c.execute(text('SELECT code FROM inventory_counts WHERE id=:id AND school_id=:sid'),{'id':count_id,'sid':actor.school_id}).scalar_one_or_none()
+  if head is None:raise HTTPException(404,'Inventaire introuvable')
+  data=rows(c,"SELECT i.code,i.label,i.unit,l.theoretical_quantity,l.counted_quantity,(l.counted_quantity-l.theoretical_quantity) variance,l.reason FROM inventory_count_lines l JOIN inventory_items i ON i.id=l.item_id AND i.school_id=l.school_id WHERE l.count_id=:id AND l.school_id=:sid ORDER BY i.label",{'id':str(count_id),'sid':str(actor.school_id)})
+ payload=workbook_bytes('Inventaire',['Code','Article','Unité','Théorique','Compté','Écart','Justification'],[(r['code'],r['label'],r['unit'],r['theoretical_quantity'],r['counted_quantity'],r['variance'],r['reason']) for r in data])
+ return Response(content=payload,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="intendance_inventaire.xlsx"','Cache-Control':'no-store'})
