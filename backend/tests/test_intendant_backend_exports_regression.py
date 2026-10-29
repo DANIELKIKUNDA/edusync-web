@@ -48,3 +48,16 @@ def test_workbook_escapes_formula_like_user_values():
     assert sheet["A2"].value == "=1+1"
     assert sheet["A2"].data_type == "s"
     assert sheet["A3"].value == "+SUM(1,2)"
+
+
+def test_repair_completion_requires_repairable_status():
+    section = _section("@router.post('/assets/{asset_id}/repairs')")
+    assert "b.completed and old['status'] not in ('IN_REPAIR','TO_REPAIR')" in section
+    assert "Aucune réparation en cours à clôturer" in section
+
+
+def test_asset_edit_uses_distinct_audit_event():
+    section = _section("@router.put('/assets/{asset_id}')")
+    assert "'UPDATE',:reason" in section
+    migration = (Path(__file__).resolve().parents[1] / "migrations/0097_stewardship_asset_update_event.sql").read_text(encoding="utf-8")
+    assert "'UPDATE'" in migration
