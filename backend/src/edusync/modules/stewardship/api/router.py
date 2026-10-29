@@ -1,4 +1,10 @@
 from decimal import Decimal
+from io import BytesIO
+from xml.sax.saxutils import escape
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
+from reportlab.lib import colors
 from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter,Depends,Header,HTTPException,Query,Response
