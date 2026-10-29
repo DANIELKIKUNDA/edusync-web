@@ -190,3 +190,26 @@ def test_director_discipline_bulk_sms_capability_allows_class_audience():
     draft = Draft(audience_type="CLASS", channel="SMS",
                   body="Réunion", idempotency_key="discipline-123456")
     assert _authorize(Actor(), draft, ["SMS"]) == "communications.send.class"
+
+
+PERSONNEL = (ROOT / "src/edusync/modules/personnel/api/router.py").read_text(encoding="utf-8")
+
+
+def test_directors_staff_directory_and_profile_use_read_scopes():
+    assert "_need(actor,'personnel.read');scopes=_scopes(actor,'personnel.read')" in PERSONNEL
+    assert "repo.list_staff(actor.school_id,query=q,status=status,category=category,scopes=scopes" in PERSONNEL
+    assert "repo.count_staff(actor.school_id,query=q,status=status,category=category,scopes=scopes)" in PERSONNEL
+    assert "get_staff(actor.school_id,staff_id,scopes=scopes)" in PERSONNEL
+
+
+def test_directors_staff_assignments_and_summary_use_independent_scopes():
+    assert "_need(actor,'personnel.assignments.read');scopes=_scopes(actor,'personnel.assignments.read')" in PERSONNEL
+    assert "list_assignments(actor.school_id,staff_id,scopes=scopes" in PERSONNEL
+    assert "_need(actor,'personnel.summary.read');scopes=_scopes(actor,'personnel.summary.read')" in PERSONNEL
+    assert "summary(actor.school_id,scopes=scopes)" in PERSONNEL
+
+
+def test_directors_cannot_see_staff_account_links_without_separate_permission():
+    assert "if 'personnel.access_link.read' not in actor.permissions: item['access_links']=[]" in PERSONNEL
+    for role in ("DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE"):
+        assert "personnel.access_link.read" not in _grants(role)
