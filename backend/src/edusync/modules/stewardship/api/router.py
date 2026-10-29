@@ -209,7 +209,8 @@ def count_validate(count_id:UUID,actor:ActorContext=Depends(require_school_actor
    if delta:
     # Apply the variance observed at count time to the CURRENT stock: movements recorded between counting
     # and validation are preserved, and the movement ledger keeps summing to the quantity.
-    current=c.execute(text("SELECT quantity FROM inventory_items WHERE id=:id AND school_id=:sid FOR UPDATE"),{'id':x['item_id'],'sid':actor.school_id}).scalar_one()
+    current=c.execute(text("SELECT quantity FROM inventory_items WHERE id=:id AND school_id=:sid AND enabled FOR UPDATE"),{'id':x['item_id'],'sid':actor.school_id}).scalar_one_or_none()
+    if current is None:raise HTTPException(409,'Article désactivé ou introuvable : inventaire à revoir')
     if Decimal(str(current))+delta<0:raise HTTPException(409,'Écart incompatible avec le stock actuel : recomptez cet article')
     c.execute(text("UPDATE inventory_items SET quantity=quantity+:d,version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid"),{'d':delta,'id':x['item_id'],'sid':actor.school_id});c.execute(text("INSERT INTO inventory_item_movements(school_id,item_id,movement_type,quantity_delta,reason,reference,actor_user_id) VALUES(:sid,:id,'COUNT_ADJUSTMENT',:d,:r,:ref,:uid)"),{'sid':actor.school_id,'id':x['item_id'],'d':delta,'r':x['reason'],'ref':str(count_id),'uid':actor.user_id})
   c.execute(text("UPDATE inventory_counts SET status='VALIDATED',validated_by_user_id=:uid,validated_at=now() WHERE id=:cid AND school_id=:sid AND status='DRAFT'"),{'uid':actor.user_id,'cid':count_id,'sid':actor.school_id});return {'status':'VALIDATED'}
