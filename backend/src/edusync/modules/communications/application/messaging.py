@@ -76,7 +76,7 @@ def resolve_audience(conn, actor, school_id: UUID, audience_type: str, audience_
     if audience_ref:
         params["ref"] = str(audience_ref)
     rows = conn.execute(text(f"""
-        SELECT g.id, g.full_name, coalesce(g.normalized_phone, g.phone) AS phone, g.email, sec.code AS section_code
+        SELECT DISTINCT ON (g.id, sec.code) g.id, g.full_name, coalesce(g.normalized_phone, g.phone) AS phone, g.email, sec.code AS section_code
         FROM students s
         JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id AND e.status='VALIDATED'
         JOIN academic_years y ON y.id=e.academic_year_id AND y.school_id=e.school_id AND y.status='ACTIVE'
