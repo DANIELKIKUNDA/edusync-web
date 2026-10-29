@@ -168,7 +168,7 @@ def count_validate(count_id:UUID,actor:ActorContext=Depends(require_school_actor
 
 @router.get('/asset-types')
 def asset_types(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- need(actor,'inventory.assets.read')
+ if not ({'inventory.assets.read','inventory.assets.create'} & set(actor.permissions)):raise HTTPException(403,'Permission patrimoine requise')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:return {'items':rows(c,"SELECT id,code,label,unit,enabled FROM inventory_asset_types WHERE school_id=:sid AND enabled ORDER BY label",{'sid':str(actor.school_id)})}
 
 @router.get('/counts')
