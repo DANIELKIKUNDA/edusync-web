@@ -180,6 +180,7 @@ def count_line(count_id:UUID,b:CountLine,actor:ActorContext=Depends(require_scho
   if state!='DRAFT':raise HTTPException(409,'Inventaire validé : il ne peut plus être modifié')
   theoretical=c.execute(text("SELECT quantity FROM inventory_items WHERE id=:id AND school_id=:sid"),{'id':b.item_id,'sid':actor.school_id}).scalar_one_or_none()
   if theoretical is None:raise HTTPException(404,'Article introuvable')
+  if b.counted_quantity!=Decimal(str(theoretical)) and not (b.reason or '').strip():raise HTTPException(422,'Justification requise pour chaque écart')
   c.execute(text("INSERT INTO inventory_count_lines(count_id,school_id,item_id,theoretical_quantity,counted_quantity,reason) VALUES(:cid,:sid,:iid,:t,:c,:r) ON CONFLICT(count_id,item_id) DO UPDATE SET counted_quantity=excluded.counted_quantity,reason=excluded.reason"),{'cid':count_id,'sid':actor.school_id,'iid':b.item_id,'t':theoretical,'c':b.counted_quantity,'r':b.reason});return {'variance':str(b.counted_quantity-Decimal(str(theoretical)))}
 @router.post('/counts/{count_id}/validate')
 def count_validate(count_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
