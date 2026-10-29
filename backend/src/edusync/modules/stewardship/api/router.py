@@ -96,7 +96,7 @@ def _apply_movement(c,actor,b,delta):
 @router.get('/stock/movements')
 def movement_list(limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.stock.movements.read')
- with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:p={'sid':str(actor.school_id),'limit':limit,'offset':offset}; items=rows(c,"SELECT m.*,i.label item_label,i.unit FROM inventory_item_movements m JOIN inventory_items i ON i.id=m.item_id WHERE m.school_id=:sid ORDER BY m.created_at DESC LIMIT :limit OFFSET :offset",p); total=c.execute(text("SELECT count(*) FROM inventory_item_movements WHERE school_id=:sid"),{'sid':str(actor.school_id)}).scalar_one(); return {'items':items,'total':int(total),'limit':limit,'offset':offset}
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:p={'sid':str(actor.school_id),'limit':limit,'offset':offset}; items=rows(c,"SELECT m.*,i.label item_label,i.unit FROM inventory_item_movements m JOIN inventory_items i ON i.id=m.item_id AND i.school_id=m.school_id WHERE m.school_id=:sid ORDER BY m.created_at DESC LIMIT :limit OFFSET :offset",p); total=c.execute(text("SELECT count(*) FROM inventory_item_movements WHERE school_id=:sid"),{'sid':str(actor.school_id)}).scalar_one(); return {'items':items,'total':int(total),'limit':limit,'offset':offset}
 @router.get('/assets')
 def assets(limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.assets.read')
