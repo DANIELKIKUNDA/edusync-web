@@ -130,7 +130,7 @@ def asset_update(asset_id:UUID,b:AssetEdit,actor:ActorContext=Depends(require_sc
   if int(old['version'])!=b.version:raise HTTPException(409,'Fiche modifiée entre-temps : actualisez les données')
   if old['asset_tag']==b.tag and old['notes']==b.notes and old['quantity']==b.quantity:return {'ok':True,'version':b.version}
   version=c.execute(text('UPDATE inventory_assets SET asset_tag=:tag,notes=:notes,quantity=:q,version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid RETURNING version'),{'tag':b.tag,'notes':b.notes,'q':b.quantity,'id':asset_id,'sid':actor.school_id}).scalar_one()
-  c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,reason,actor_user_id) VALUES(:sid,:id,'UPDATE',:reason,:uid)"),{'sid':actor.school_id,'id':asset_id,'reason':'Modification de la fiche patrimoniale (référence, quantité ou observations)','uid':actor.user_id})
+  c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,reason,actor_user_id) VALUES(:sid,:id,'STATUS',:reason,:uid)"),{'sid':actor.school_id,'id':asset_id,'reason':'Modification de la fiche patrimoniale (référence, quantité ou observations)','uid':actor.user_id})
   return {'ok':True,'version':version}
 
 class AssetStatus(BaseModel):status:Literal['GOOD','TO_REPAIR','IN_REPAIR','OUT_OF_SERVICE','LOST','DISPOSED'];reason:str=Field(min_length=3,max_length=700);location_id:UUID|None=None
