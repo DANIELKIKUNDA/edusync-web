@@ -134,7 +134,7 @@ def test_parent_audience_uses_tenant_classes_and_active_guardians():
     messaging = (ROOT / "src/edusync/modules/communications/application/messaging.py").read_text(encoding="utf-8")
     assert "c.id=e.class_id AND c.school_id=e.school_id" in messaging
     assert "fg.school_id=s.school_id AND fg.is_primary AND fg.active" in messaging
-    assert "SELECT g.id, g.full_name" in messaging
+    assert "SELECT DISTINCT ON (g.id, sec.code) g.id, g.full_name" in messaging
     assert "if r[\"id\"] in seen:" in messaging
 
 
