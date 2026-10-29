@@ -126,3 +126,10 @@ def test_inventory_validation_handles_disabled_items_without_server_error():
 def test_inventory_validation_uses_deterministic_item_lock_order():
     section = _section("@router.post('/counts/{count_id}/validate')")
     assert "WHERE count_id=:cid AND school_id=:sid ORDER BY item_id" in section
+
+
+def test_asset_history_is_bounded_and_tenant_scoped():
+    section = _section("@router.get('/assets/{asset_id}/history')")
+    assert "Query(100,ge=1,le=500)" in section
+    assert "LIMIT :limit OFFSET :offset" in section
+    assert "inventory_assets WHERE id=:id AND school_id=:sid" in section
