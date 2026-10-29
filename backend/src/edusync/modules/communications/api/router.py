@@ -172,6 +172,8 @@ def _check_channels(s: dict, channels: list[str], platform: dict) -> None:
 def preview(b: Draft, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """Number of recipients, invalid / duplicate numbers removed, SMS units, wallet balance after sending."""
     channels = [c for c in b.wanted() if c != 'IN_APP']
+    if not channels:
+        raise HTTPException(422, 'Choisissez au moins un canal : SMS, e-mail ou notification push')
     cap = _authorize(actor, b, channels)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
         _check_channels(_settings(c, actor.school_id), channels, channel_status(services.settings))
