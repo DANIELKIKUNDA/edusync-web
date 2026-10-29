@@ -76,7 +76,7 @@ def resolve_audience(conn, actor, school_id: UUID, audience_type: str, audience_
     if audience_ref:
         params["ref"] = str(audience_ref)
     rows = conn.execute(text(f"""
-        SELECT DISTINCT ON (g.id) g.id, g.full_name, coalesce(g.normalized_phone, g.phone) AS phone, g.email, sec.code AS section_code
+        SELECT g.id, g.full_name, coalesce(g.normalized_phone, g.phone) AS phone, g.email, sec.code AS section_code
         FROM students s
         JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id AND e.status='VALIDATED'
         JOIN academic_years y ON y.id=e.academic_year_id AND y.status='ACTIVE'
@@ -85,11 +85,14 @@ def resolve_audience(conn, actor, school_id: UUID, audience_type: str, audience_
         JOIN family_guardians fg ON fg.family_id=s.family_id AND fg.school_id=s.school_id AND fg.is_primary
         JOIN guardians g ON g.id=fg.guardian_id
         WHERE s.school_id=:sid AND s.status='ACTIVE' {('AND ' + ' AND '.join(where)) if where else ''}
-        ORDER BY g.id"""), params).mappings().all()
-    out = []
+        ORDER BY g.id, sec.code"""), params).mappings().all()
+    out, seen = [], set()
     for r in rows:
         if not _scope_ok(actor, cap, r["section_code"]):
-            raise PermissionError("Destinataires hors de votre périmètre de section")
+            continue
+        if r["id"] in seen:
+            continue
+        seen.add(r["id"])
         out.append(Recipient("GUARDIAN", r["id"], r["full_name"], r["phone"], r["email"]))
     return out
 
