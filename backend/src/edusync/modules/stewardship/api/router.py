@@ -147,6 +147,7 @@ class AssetStatus(BaseModel):status:Literal['GOOD','TO_REPAIR','IN_REPAIR','OUT_
 @router.post('/assets/{asset_id}/status')
 def asset_status(asset_id:UUID,b:AssetStatus,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.assets.status.update')
+ if len(b.reason.strip())<3:raise HTTPException(422,'Motif de changement de statut trop court')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   old=c.execute(text("SELECT status,location_id FROM inventory_assets WHERE id=:id AND school_id=:sid FOR UPDATE"),{'id':asset_id,'sid':actor.school_id}).mappings().first()
   if not old:raise HTTPException(404,'Bien introuvable')
@@ -160,6 +161,7 @@ class AssetRepair(BaseModel):
 @router.post('/assets/{asset_id}/repairs')
 def asset_repair(asset_id:UUID,b:AssetRepair,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.assets.repair.record')
+ if len(b.reason.strip())<3:raise HTTPException(422,'Motif de réparation trop court')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   old=c.execute(text('SELECT status,location_id FROM inventory_assets WHERE id=:id AND school_id=:sid FOR UPDATE'),{'id':asset_id,'sid':actor.school_id}).mappings().first()
   if not old:raise HTTPException(404,'Bien introuvable')
