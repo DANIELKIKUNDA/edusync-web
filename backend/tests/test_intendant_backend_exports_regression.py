@@ -97,3 +97,27 @@ def test_inventory_print_requires_ownership_and_print_capability():
 def test_pdf_renderer_escapes_user_content():
     assert "escape(str(v)" in ROUTER
     assert "repeatRows=1" in ROUTER
+
+
+def test_disposed_asset_cannot_be_reactivated():
+    section = _section("@router.post('/assets/{asset_id}/status')")
+    assert "old['status']=='DISPOSED' and b.status!='DISPOSED'" in section
+
+
+def test_asset_status_noop_does_not_append_event():
+    section = _section("@router.post('/assets/{asset_id}/status')")
+    assert "return {'ok':True,'unchanged':True}" in section
+    assert section.index("unchanged") < section.index("UPDATE inventory_assets")
+
+
+def test_stock_movement_rejects_disabled_items():
+    section = _section("@router.post('/stock/movements')")
+    # _apply_movement is a shared internal function following the route.
+    assert "AND enabled FOR UPDATE" in section
+
+
+def test_inventory_validation_handles_disabled_items_without_server_error():
+    section = _section("@router.post('/counts/{count_id}/validate')")
+    assert "AND enabled FOR UPDATE" in section
+    assert "scalar_one_or_none()" in section
+    assert "Article désactivé ou introuvable" in section
