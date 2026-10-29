@@ -145,3 +145,13 @@ def test_stock_writes_normalize_and_bound_idempotency_keys():
         section = _section(marker)
         assert "Idempotency-Key trop longue" in section
         assert "idempotency_key=idempotency_key.strip()" in section
+
+
+def test_workbook_preserves_numeric_quantities():
+    from decimal import Decimal
+    from io import BytesIO
+    from openpyxl import load_workbook
+    from edusync.modules.stewardship.api.workbook import workbook_bytes
+    sheet = load_workbook(BytesIO(workbook_bytes("Stock", ["Quantity"], [(Decimal("12.5"),)]))).active
+    assert sheet["A2"].data_type == "n"
+    assert sheet["A2"].value == 12.5
