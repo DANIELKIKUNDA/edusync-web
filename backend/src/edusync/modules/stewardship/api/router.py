@@ -65,7 +65,7 @@ def create_item(b:ItemInput,idempotency_key:str|None=Header(None,alias='Idempote
   _audit_item(c,actor,'INVENTORY_ITEM_CREATED',row['id'],out);return 201,out
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-   return IdempotentExecutor(PostgresIdempotencyRepository(c)).execute(scope_key=str(actor.school_id),idempotency_key=idempotency_key,operation='STEWARDSHIP_ITEM_CREATE',
+   return IdempotentExecutor(PostgresIdempotencyRepository(c)).execute(scope_key=str(actor.school_id),idempotency_key=idempotency_key.strip(),operation='STEWARDSHIP_ITEM_CREATE',
      payload=b.model_dump(mode='json'),school_id=str(actor.school_id),actor_user_id=str(actor.user_id),action=lambda:action(c)).body
  except (IdempotencyConflict,IdempotencyInProgress) as e:raise HTTPException(409,str(e)) from e
 @router.put('/items/{item_id}')
@@ -91,7 +91,7 @@ def movement(b:Movement,idempotency_key:str|None=Header(None,alias='Idempotency-
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
    # A network retry carrying the same key returns the first result instead of moving stock twice.
-   return IdempotentExecutor(PostgresIdempotencyRepository(c)).execute(scope_key=str(actor.school_id),idempotency_key=idempotency_key,operation='STEWARDSHIP_STOCK_MOVEMENT',
+   return IdempotentExecutor(PostgresIdempotencyRepository(c)).execute(scope_key=str(actor.school_id),idempotency_key=idempotency_key.strip(),operation='STEWARDSHIP_STOCK_MOVEMENT',
      payload=b.model_dump(mode='json'),school_id=str(actor.school_id),actor_user_id=str(actor.user_id),action=lambda:(201,_apply_movement(c,actor,b,delta))).body
  except (IdempotencyConflict,IdempotencyInProgress) as e:raise HTTPException(409,str(e)) from e
 def _apply_movement(c,actor,b,delta):
