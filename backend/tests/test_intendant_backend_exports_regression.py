@@ -101,7 +101,7 @@ def test_pdf_renderer_escapes_user_content():
 
 def test_disposed_asset_cannot_be_reactivated():
     section = _section("@router.post('/assets/{asset_id}/status')")
-    assert "old['status']=='DISPOSED' and b.status!='DISPOSED'" in section
+    assert "if old['status']=='DISPOSED':raise HTTPException(409" in section
 
 
 def test_asset_status_noop_does_not_append_event():
