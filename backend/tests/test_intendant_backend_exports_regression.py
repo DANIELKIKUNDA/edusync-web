@@ -61,3 +61,19 @@ def test_asset_edit_uses_distinct_audit_event():
     assert "'UPDATE',:reason" in section
     migration = (Path(__file__).resolve().parents[1] / "migrations/0097_stewardship_asset_update_event.sql").read_text(encoding="utf-8")
     assert "'UPDATE'" in migration
+
+
+def test_inventory_detail_joins_items_with_tenant_key():
+    section = _section("@router.get('/counts/{count_id}')")
+    assert "i.id=l.item_id AND i.school_id=l.school_id" in section
+
+
+def test_movement_list_joins_items_with_tenant_key():
+    section = _section("@router.get('/stock/movements')")
+    assert "i.id=m.item_id AND i.school_id=m.school_id" in section
+
+
+def test_assets_join_types_and_locations_with_tenant_key():
+    section = _section("@router.get('/assets')")
+    assert "t.id=a.asset_type_id AND t.school_id=a.school_id" in section
+    assert "l.id=a.location_id AND l.school_id=a.school_id" in section
