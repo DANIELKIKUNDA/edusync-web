@@ -77,3 +77,23 @@ def test_assets_join_types_and_locations_with_tenant_key():
     section = _section("@router.get('/assets')")
     assert "t.id=a.asset_type_id AND t.school_id=a.school_id" in section
     assert "l.id=a.location_id AND l.school_id=a.school_id" in section
+
+
+def test_stock_print_requires_independent_permission():
+    section = _section("@router.get('/stock/print.pdf')")
+    assert "need(actor,'inventory.stock.sheet.print')" in section
+    assert "school_id=:sid" in section
+    assert "application/pdf" in section
+
+
+def test_inventory_print_requires_ownership_and_print_capability():
+    section = _section("@router.get('/counts/{count_id}/print.pdf')")
+    assert "need(actor,'inventory.counts.print')" in section
+    assert "inventory_counts WHERE id=:id AND school_id=:sid" in section
+    assert "if code is None:raise HTTPException(404" in section
+    assert "l.school_id=:sid" in section
+
+
+def test_pdf_renderer_escapes_user_content():
+    assert "escape(str(v)" in ROUTER
+    assert "repeatRows=1" in ROUTER
