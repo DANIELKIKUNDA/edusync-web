@@ -213,3 +213,11 @@ def test_directors_cannot_see_staff_account_links_without_separate_permission():
     assert "if 'personnel.access_link.read' not in actor.permissions: item['access_links']=[]" in PERSONNEL
     for role in ("DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE"):
         assert "personnel.access_link.read" not in _grants(role)
+
+
+def test_staff_assignment_scope_options_are_filtered_by_capability():
+    endpoint = PERSONNEL.split("def scope_options(", 1)[1].split("\n@router.", 1)[0]
+    assert "capabilities=('personnel.assignments.add','personnel.assignments.read')" in endpoint
+    assert "actor.scope_allows(cap,'SECTION',section_code)" in endpoint
+    assert "if visible(section['code'])" in endpoint
+    assert "if visible(school_class['section_code'])" in endpoint
