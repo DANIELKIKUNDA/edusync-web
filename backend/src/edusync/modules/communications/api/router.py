@@ -255,7 +255,9 @@ def deliveries(message_id: UUID, actor: ActorContext = Depends(require_school_ac
         rows = c.execute(text("""SELECT d.id, d.channel, d.status, d.attempts, d.last_error_code, d.estimated_segments, d.segments_billed,
                 d.sent_at, d.delivered_at, d.failed_at, d.cancelled_at, r.display_name,
                 CASE WHEN d.channel='PUSH' THEN 'appareil' ELSE d.destination END AS destination
-            FROM communication_deliveries d LEFT JOIN communication_recipients r ON r.id=d.recipient_id
+            FROM communication_deliveries d
+            JOIN communication_messages m ON m.id=d.message_id AND m.school_id=d.school_id
+            LEFT JOIN communication_recipients r ON r.id=d.recipient_id AND r.school_id=d.school_id AND r.message_id=d.message_id
             WHERE d.message_id=:m AND d.school_id=:s ORDER BY r.display_name NULLS LAST, d.channel LIMIT 2000"""),
             {'m': str(message_id), 's': str(actor.school_id)}).mappings().all()
     return {'items': [{**dict(r), 'destination': None if str(r['destination'] or '').startswith('skip:') else r['destination']} for r in rows]}
