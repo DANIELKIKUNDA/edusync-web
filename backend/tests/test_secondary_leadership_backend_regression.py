@@ -142,3 +142,50 @@ def test_parent_audience_joins_academic_year_section_and_guardian_with_tenant():
     assert "y.id=e.academic_year_id AND y.school_id=e.school_id" in messaging
     assert "sec.id=c.section_id AND sec.school_id=c.school_id" in messaging
     assert "g.id=fg.guardian_id AND g.school_id=fg.school_id" in messaging
+
+
+def test_communications_preview_rejects_in_app_only_draft():
+    from fastapi import HTTPException
+    from edusync.modules.communications.api.router import Draft, preview
+    draft = Draft(audience_type="INDIVIDUAL", channel="IN_APP",
+                  body="Message", idempotency_key="preview-123456")
+    try:
+        preview(draft, actor=object(), services=object())
+    except HTTPException as exc:
+        assert exc.status_code == 422
+        assert "canal" in str(exc.detail)
+    else:
+        raise AssertionError("A preview without an external channel must be rejected")
+
+
+def test_director_studies_cannot_send_bulk_sms_without_capability():
+    from fastapi import HTTPException
+    from edusync.modules.communications.api.router import Draft, _authorize
+
+    class Actor:
+        def require(self, capability):
+            if capability not in {"communications.compose", "communications.send.class",
+                                  "communications.sms.send"}:
+                raise PermissionError(capability)
+
+    draft = Draft(audience_type="CLASS", channel="SMS",
+                  body="Réunion", idempotency_key="studies-123456")
+    try:
+        _authorize(Actor(), draft, ["SMS"])
+    except HTTPException as exc:
+        assert exc.status_code == 403
+    else:
+        raise AssertionError("Bulk SMS must require communications.sms.bulk_send")
+
+
+def test_director_discipline_bulk_sms_capability_allows_class_audience():
+    from edusync.modules.communications.api.router import Draft, _authorize
+
+    class Actor:
+        def require(self, capability):
+            assert capability in {"communications.compose", "communications.send.class",
+                                  "communications.sms.bulk_send"}
+
+    draft = Draft(audience_type="CLASS", channel="SMS",
+                  body="Réunion", idempotency_key="discipline-123456")
+    assert _authorize(Actor(), draft, ["SMS"]) == "communications.send.class"
