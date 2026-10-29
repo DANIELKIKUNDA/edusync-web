@@ -139,3 +139,10 @@ def test_count_line_snapshot_locks_active_item():
     section = _section("@router.post('/counts/{count_id}/lines')")
     assert "AND enabled FOR UPDATE" in section
     assert "SELECT status FROM inventory_counts" in section
+
+
+def test_stock_writes_normalize_and_bound_idempotency_keys():
+    for marker in ("@router.post('/items'", "@router.post('/stock/movements'"):
+        section = _section(marker)
+        assert "Idempotency-Key trop longue" in section
+        assert "idempotency_key=idempotency_key.strip()" in section
