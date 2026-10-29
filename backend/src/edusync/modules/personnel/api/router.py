@@ -166,6 +166,13 @@ def scope_options(actor:ActorContext=Depends(require_school_actor),services:AppS
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         sections=[_jsonable(dict(r._mapping)) for r in conn.execute(text("SELECT id,code,label FROM school_sections WHERE school_id=:sid AND enabled=true ORDER BY label"),{'sid':actor.school_id}).all()]
         classes=[_jsonable(dict(r._mapping)) for r in conn.execute(text("SELECT c.id,c.code,c.label,c.section_id,s.code section_code,s.label section_label FROM school_classes c JOIN school_sections s ON s.id=c.section_id JOIN academic_years y ON y.id=c.academic_year_id WHERE c.school_id=:sid AND c.enabled=true AND y.status='ACTIVE' ORDER BY s.label,c.label"),{'sid':actor.school_id}).all()]
+        # Never expose section/class options outside the actor's assignment capability scope.
+        capabilities=('personnel.assignments.add','personnel.assignments.read')
+        allowed=[cap for cap in capabilities if cap in actor.permissions]
+        def visible(section_code):
+            return any(not actor.scopes_for(cap) or actor.scope_allows(cap,'SECTION',section_code) for cap in allowed)
+        sections=[section for section in sections if visible(section['code'])]
+        classes=[school_class for school_class in classes if visible(school_class['section_code'])]
         return {'sections':sections,'classes':classes}
 
 @router.get('/history/events')
