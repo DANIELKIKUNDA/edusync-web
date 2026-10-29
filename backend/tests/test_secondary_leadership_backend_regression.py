@@ -227,3 +227,10 @@ def test_staff_scope_options_joins_belong_to_same_school():
     endpoint = PERSONNEL.split("def scope_options(", 1)[1].split("\n@router.", 1)[0]
     assert "s.id=c.section_id AND s.school_id=c.school_id" in endpoint
     assert "y.id=c.academic_year_id AND y.school_id=c.school_id" in endpoint
+
+
+def test_communication_delivery_history_joins_tenant_message_and_recipient():
+    endpoint = COMMUNICATIONS.split("def deliveries(", 1)[1].split("\n@router.", 1)[0]
+    assert "m.id=d.message_id AND m.school_id=d.school_id" in endpoint
+    assert "r.id=d.recipient_id AND r.school_id=d.school_id AND r.message_id=d.message_id" in endpoint
+    assert "WHERE d.message_id=:m AND d.school_id=:s" in endpoint
