@@ -154,6 +154,7 @@ def asset_repair(asset_id:UUID,b:AssetRepair,actor:ActorContext=Depends(require_
   old=c.execute(text('SELECT status,location_id FROM inventory_assets WHERE id=:id AND school_id=:sid FOR UPDATE'),{'id':asset_id,'sid':actor.school_id}).mappings().first()
   if not old:raise HTTPException(404,'Bien introuvable')
   if old['status'] in ('LOST','DISPOSED'):raise HTTPException(409,'Réparation impossible pour un bien perdu ou sorti du patrimoine')
+  if b.completed and old['status'] not in ('IN_REPAIR','TO_REPAIR'):raise HTTPException(409,'Aucune réparation en cours à clôturer')
   status='GOOD' if b.completed else 'IN_REPAIR'
   c.execute(text('UPDATE inventory_assets SET status=:st,version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid'),{'st':status,'id':asset_id,'sid':actor.school_id})
   c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,from_status,to_status,from_location_id,to_location_id,reason,actor_user_id) VALUES(:sid,:id,'REPAIR',:fs,:ts,:loc,:loc,:r,:uid)"),{'sid':actor.school_id,'id':asset_id,'fs':old['status'],'ts':status,'loc':old['location_id'],'r':b.reason.strip(),'uid':actor.user_id})
