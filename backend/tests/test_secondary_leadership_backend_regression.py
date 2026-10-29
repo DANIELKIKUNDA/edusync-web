@@ -234,3 +234,24 @@ def test_communication_delivery_history_joins_tenant_message_and_recipient():
     assert "m.id=d.message_id AND m.school_id=d.school_id" in endpoint
     assert "r.id=d.recipient_id AND r.school_id=d.school_id AND r.message_id=d.message_id" in endpoint
     assert "WHERE d.message_id=:m AND d.school_id=:s" in endpoint
+
+
+DOCUMENTS = (ROOT / "src/edusync/modules/documents/api/router.py").read_text(encoding="utf-8")
+AUDIT = (ROOT / "src/edusync/modules/audit/api/router.py").read_text(encoding="utf-8")
+NOTIFICATIONS = (ROOT / "src/edusync/modules/notifications/api/router.py").read_text(encoding="utf-8")
+
+
+def test_current_documents_history_joins_generations_in_same_tenant():
+    assert "g.id=c.latest_generation_id AND g.school_id=c.school_id" in DOCUMENTS
+    assert "g.required_capability=ANY(CAST(:caps AS text[]))" in DOCUMENTS
+    assert "object_store.school_wide_capabilities(actor)" in DOCUMENTS
+
+
+def test_notifications_are_scoped_to_actor_and_school():
+    assert "WHERE school_id=:sid AND user_id=:uid" in NOTIFICATIONS
+    assert "WHERE id=:id AND school_id=:sid AND user_id=:uid" in NOTIFICATIONS
+
+
+def test_audit_entity_history_has_school_and_capability_guard():
+    assert "need(actor,'audit.entity.history.read')" in AUDIT
+    assert "WHERE school_id=:sid AND entity_type=:et AND entity_id=:eid" in AUDIT
