@@ -32,9 +32,73 @@ def events(action:str|None=None,entity_type:str|None=None,actor_user_id:UUID|Non
         last=items[-1] if has_more and items else None
         return {'items':items,'limit':limit,'has_more':has_more,'next_cursor':({'occurred_at':last['occurred_at'],'id':last['id']} if last else None)}
 
+# Entity history (certification 2026-10-30, reserve of the handoff): audit.entity.history.read alone is NOT a back door to
+# the old / new values of any record. (1) Domain: the actor must also read the domain of the entity. (2) Scope: an actor
+# whose history right is limited to sections / classes only reaches pupils, families and staff that belong to them;
+# every other entity, or one outside the scope, answers 404 (existence is not disclosed).
+_FINANCE = ('finance.cash.read','finance.cash.other.read','finance.recovery.monthly.read','finance.reports.history.read','finance.decisions.read','finance.receipts.read')
+_SETTINGS = ('settings.structure.read','settings.academic_year.read','settings.school_identity.read')
+ENTITY_DOMAINS = {
+    'Student': ('student', ('students.read',)), 'Family': ('family', ('families.read',)),
+    'Staff': ('staff', ('personnel.read',)), 'StaffMember': ('staff', ('personnel.read',)), 'StaffAssignment': ('assignment', ('personnel.read',)),
+    'inventory_item': ('school', ('inventory.stock.read',)), 'InventoryAsset': ('school', ('inventory.assets.read',)),
+    'material_contribution': ('school', ('contributions.register.read',)), 'ContributionType': ('school', ('contributions.read','settings.contributions.read')),
+    **{t: ('school', _FINANCE) for t in ('FinancePayment','FinanceReceipt','CashExpense','CashDay','AdvanceFund','FinancialDecision','ChargeResponsibility',
+                                          'GeneratedReport','financial_history_import_batch','AnticipationPlan','AnticipationMembership','StaffNoncashSettlement')},
+    **{t: ('school', ('settings.tariffs.read','settings.fee_types.read') + _FINANCE) for t in ('Tariff','FeeType','SchoolPaymentPolicy','SchoolBillingPolicy')},
+    **{t: ('school', _SETTINGS) for t in ('School','SchoolBranding','SchoolClass','SchoolSection','SchoolOption','AcademicYear','SchoolPolicy','SchoolPrintSettings','AdmissionCondition','BenefitPolicy')},
+    **{t: ('school', ('access.users.read','access.roles.manage')) for t in ('school_membership','SchoolMembership','Membership','rbac_role','rbac_assignment','rbac_change_request')},
+    'SchoolProduct': ('school', ('settings.products.read','finance.products.read','inventory.stock.read')),
+    **{t: ('school', ('communications.read','communications.history.read')) for t in ('CommunicationMessage','CommunicationTemplate','CommunicationSettings','CommunicationDelivery','SchoolSmsWallet')},
+    'StaffFunction': ('school', ('personnel.functions.read',)), 'StaffAccessLink': ('school', ('personnel.access_link.read',)),
+    **{t: ('school', ('personnel.staff_children.read',)) for t in ('StaffStudentLink','StaffStudentFinancePreference')},
+    'student_import_batch': ('school', ('migration.students.analyze',)), 'staff_import_batch': ('school', ('migration.staff.analyze',)),
+    # User / UserSecurity / platform / probe / retention entries are personal or platform security records: never here.
+}
+_SCOPED_SQL = {
+    'student': """SELECT 1 FROM enrollments e JOIN school_classes sc ON sc.id=e.class_id AND sc.school_id=e.school_id
+                  JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                  JOIN academic_years y ON y.id=e.academic_year_id AND y.school_id=e.school_id AND y.status='ACTIVE'
+                  WHERE e.school_id=:sid AND e.student_id=:eid AND e.status<>'CANCELLED' AND (upper(ss.code)=ANY(:secs) OR upper(sc.code)=ANY(:cls)) LIMIT 1""",
+    'family': """SELECT 1 FROM students s JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id
+                 JOIN school_classes sc ON sc.id=e.class_id AND sc.school_id=e.school_id JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                 JOIN academic_years y ON y.id=e.academic_year_id AND y.school_id=e.school_id AND y.status='ACTIVE'
+                 WHERE s.school_id=:sid AND s.family_id=:eid AND e.status<>'CANCELLED' AND (upper(ss.code)=ANY(:secs) OR upper(sc.code)=ANY(:cls)) LIMIT 1""",
+    'staff': """SELECT 1 FROM staff_assignments a LEFT JOIN school_classes sc ON sc.id=a.class_id AND sc.school_id=a.school_id
+                LEFT JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                WHERE a.school_id=:sid AND a.staff_id=:eid AND a.end_date IS NULL
+                  AND ((a.scope_type='SECTION' AND upper(a.scope_value)=ANY(:secs)) OR (a.scope_type='CLASS' AND (upper(a.scope_value)=ANY(:cls) OR upper(ss.code)=ANY(:secs)))) LIMIT 1""",
+    'assignment': """SELECT 1 FROM staff_assignments a LEFT JOIN school_classes sc ON sc.id=a.class_id AND sc.school_id=a.school_id
+                LEFT JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                WHERE a.school_id=:sid AND a.id=:eid
+                  AND ((a.scope_type='SECTION' AND upper(a.scope_value)=ANY(:secs)) OR (a.scope_type='CLASS' AND (upper(a.scope_value)=ANY(:cls) OR upper(ss.code)=ANY(:secs)))) LIMIT 1""",
+}
+
+
+def _entity_visible(conn, actor: ActorContext, entity_type: str, entity_id: UUID) -> bool:
+    domain = ENTITY_DOMAINS.get(entity_type)
+    if domain is None:
+        return False
+    kind, read_caps = domain
+    if not any(cap in actor.permissions for cap in read_caps):
+        return False
+    scopes = actor.scopes_for('audit.entity.history.read')
+    if any(t == 'SCHOOL' for t, _ in scopes):
+        return True
+    if kind not in _SCOPED_SQL:
+        return False                                   # school-level records are not section data
+    secs = sorted({str(v).upper() for t, v in scopes if t == 'SECTION' and v})
+    cls = sorted({str(v).upper() for t, v in scopes if t == 'CLASS' and v})
+    if not secs and not cls:
+        return False
+    return conn.execute(text(_SCOPED_SQL[kind]), {'sid': str(actor.school_id), 'eid': str(entity_id), 'secs': secs, 'cls': cls}).first() is not None
+
+
 @router.get('/entities/{entity_type}/{entity_id}')
 def entity_history(entity_type:str,entity_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     need(actor,'audit.entity.history.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+        if not _entity_visible(c, actor, entity_type, entity_id):
+            raise HTTPException(404, 'Historique introuvable pour cet élément')
         rows=c.execute(text('SELECT id,occurred_at,actor_user_id,action,source,result,old_json,new_json,reason,correlation_id FROM audit_events WHERE school_id=:sid AND entity_type=:et AND entity_id=:eid ORDER BY occurred_at DESC LIMIT 300'),{'sid':str(actor.school_id),'et':entity_type,'eid':str(entity_id)}).all()
         return {'items':[dict(r._mapping) for r in rows]}

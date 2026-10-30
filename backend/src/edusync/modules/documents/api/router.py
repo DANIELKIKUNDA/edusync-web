@@ -138,10 +138,22 @@ def open_signed_document(token: str = Query(..., min_length=20, max_length=600),
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
     with services.tenant_db.tenant_transaction(school_id=UUID(claim["school_id"]), user_id=UUID(claim["user_id"])) as conn:
-        member = conn.execute(text("""SELECT 1 FROM school_memberships m JOIN schools s ON s.id=m.school_id
-            WHERE m.user_id=:u AND m.school_id=:s AND m.active AND s.status='ACTIVE'"""), {"u": claim["user_id"], "s": claim["school_id"]}).first()
-        doc = conn.execute(text("SELECT object_key,content_type,file_name,format FROM generated_documents WHERE school_id=:s AND id=:id"), {"s": claim["school_id"], "id": claim["document_id"]}).mappings().first()
-    if not member or not doc or not str(doc["object_key"]).startswith(f"schools/{claim['school_id']}/"):
+        member = conn.execute(text("""SELECT m.id FROM school_memberships m JOIN schools s ON s.id=m.school_id JOIN users u ON u.id=m.user_id
+            WHERE m.user_id=:u AND m.school_id=:s AND m.active AND s.status='ACTIVE' AND u.active"""), {"u": claim["user_id"], "s": claim["school_id"]}).first()
+        doc = conn.execute(text("SELECT object_key,content_type,file_name,format,generated_by,required_capability FROM generated_documents WHERE school_id=:s AND id=:id"), {"s": claim["school_id"], "id": claim["document_id"]}).mappings().first()
+        # Certification 2026-10-30: the RIGHTS are re-evaluated at opening, like every API request (permissions reloaded
+        # from PostgreSQL): a right withdrawn, an account disabled or a membership removed after the link was issued
+        # closes it immediately, not only at its expiry.
+        allowed = False
+        if member and doc:
+            from edusync.adapters.postgres_authorization import PostgresAuthorizationRepository
+            from edusync.adapters.postgres_repositories import PostgresMembershipRepository
+            holder = ActorContext(user_id=UUID(claim["user_id"]), school_id=UUID(claim["school_id"]), membership_id=member[0],
+                                  permissions=PostgresMembershipRepository(conn).permissions(member[0]),
+                                  capability_scopes=PostgresAuthorizationRepository(conn).effective_capability_grants(UUID(claim["user_id"]), UUID(claim["school_id"])))
+            allowed = "documents.open" in holder.permissions and (
+                str(doc["generated_by"]) == claim["user_id"] or doc["required_capability"] in object_store.school_wide_capabilities(holder))
+    if not member or not doc or not allowed or not str(doc["object_key"]).startswith(f"schools/{claim['school_id']}/"):
         raise HTTPException(403, "Lien invalide")
     try:
         data = _storage(services).get(doc["object_key"])
