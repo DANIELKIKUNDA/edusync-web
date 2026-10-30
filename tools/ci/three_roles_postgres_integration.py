@@ -384,11 +384,84 @@ def communications(A: dict, B: dict) -> None:
     check("école B : message de A introuvable", as_(other).get(f"/api/v1/communications/history/{r1['id']}/deliveries").status_code == 404)
 
 
+# ----------------------------------------------------------------------------------- notifications and authentication
+def notifications_and_auth(A: dict, B: dict) -> None:
+    print("\n== Notifications (destinataire seulement) et authentification")
+    dd = actor_for("DIRECTEUR_DISCIPLINE", A["id"], scope=("SECTION", "SECONDAIRE"))
+    de = actor_for("DIRECTEUR_ETUDES", A["id"], scope=("SECTION", "SECONDAIRE"))
+    nid = uuid.uuid4()
+    sql("INSERT INTO notifications(id,school_id,user_id,category,title,body) VALUES(:i,:s,:u,'GENERAL','Conseil de discipline','Réunion lundi')",
+        i=nid, s=A["id"], u=dd.user_id)
+    mine = as_(dd).get("/api/v1/notifications/inbox")
+    check("le destinataire voit sa notification", mine.status_code == 200 and str(nid) in mine.text, mine.status_code)
+    other = as_(de).get("/api/v1/notifications/inbox")
+    check("un autre membre ne la voit pas", other.status_code == 200 and str(nid) not in other.text)
+    r = as_(de).post(f"/api/v1/notifications/{nid}/dismiss", headers=key())
+    check("un autre membre ne peut pas l'acquitter (404) — non lue", r.status_code == 404 and one("SELECT read_at FROM notifications WHERE id=:i", i=nid)[0] is None, r.status_code)
+    rb = as_(actor_for("DIRECTEUR_DISCIPLINE", B["id"], scope=("SECTION", "SECONDAIRE"))).post(f"/api/v1/notifications/{nid}/dismiss", headers=key())
+    check("un membre d'une autre école ne peut pas l'acquitter (404)", rb.status_code == 404, rb.status_code)
+    ok = as_(dd).post(f"/api/v1/notifications/{nid}/dismiss", headers=key())
+    check("le destinataire l'acquitte (200)", ok.status_code == 200 and one("SELECT read_at FROM notifications WHERE id=:i", i=nid)[0] is not None, ok.status_code)
+    nodismiss = actor_for("DIRECTEUR_DISCIPLINE", A["id"], scope=("SECTION", "SECONDAIRE"), drop={"notifications.internal.dismiss"})
+    check("acquittement sans le droit → 403", as_(nodismiss).post(f"/api/v1/notifications/{nid}/dismiss", headers=key()).status_code == 403)
+    # real authentication (no actor override): missing or forged token → 401
+    saved = APP.dependency_overrides.pop(require_school_actor)
+    try:
+        for path in ("/api/v1/stewardship/stock", "/api/v1/schooling/students", f"/api/v1/audit/entities/Student/{A['pupils']['SECONDAIRE']}"):
+            check(f"sans jeton → 401 : {path.split('/api/v1/')[1][:40]}", CLIENT.get(path).status_code == 401)
+        check("jeton falsifié → 401", CLIENT.get("/api/v1/stewardship/stock", headers={"Authorization": "Bearer abc.def.ghi"}).status_code == 401)
+    finally:
+        APP.dependency_overrides[require_school_actor] = saved
+
+
+# ------------------------------------------------------------------- directeurs : familles, personnel, exports, réglages
+def directors_reads(A: dict) -> None:
+    print("\n== Directeurs — familles, personnel, exports, fiche, réglages (lecture, secondaire)")
+    from openpyxl import load_workbook
+    fn = uuid.uuid4()
+    sql("INSERT INTO staff_functions(id,school_id,code,label) VALUES(:i,:s,'ENS','Enseignant')", i=fn, s=A["id"])
+    staff = {}
+    for name, stype, sval in (("SEC", "SECTION", "SECONDAIRE"), ("PRI", "SECTION", "PRIMAIRE"), ("ECOLE", "SCHOOL", None)):
+        sid = uuid.uuid4(); staff[name] = sid
+        sql("INSERT INTO staff_members(id,school_id,employee_no,last_name) VALUES(:i,:s,:e,:n)", i=sid, s=A["id"], e=f"AG-{name}-{RUN}", n=f"AGENT{name}")
+        sql("INSERT INTO staff_assignments(school_id,staff_id,function_id,scope_type,scope_value,section_id) VALUES(:s,:st,:f,:t,:v,:sec)",
+            s=A["id"], st=sid, f=fn, t=stype, v=sval, sec=A["sections"][sval] if sval else None)
+    for role in ("DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE"):
+        d = actor_for(role, A["id"], scope=("SECTION", "SECONDAIRE"))
+        c = as_(d)
+        fam = c.get("/api/v1/schooling/families", params={"limit": 200})
+        fids = {str(f["id"]) for f in (fam.json().get("items", []) if fam.status_code == 200 else [])}
+        check(f"{role} : familles = celles du secondaire", fam.status_code == 200 and str(A["families"]["SECONDAIRE"]) in fids and str(A["families"]["PRIMAIRE"]) not in fids, fam.text[:120])
+        check(f"{role} : fiche d'une famille du seul primaire → 404", c.get(f"/api/v1/schooling/families/{A['families']['PRIMAIRE']}").status_code == 404)
+        # Canonical registry: migration 0024 (Point 9) removed every personnel.* right from both Directors
+        # (« schooling-first »); the addendum still mentions « personnel du périmètre » — owner decision pending.
+        per = c.get("/api/v1/personnel")
+        check(f"{role} : personnel refusé (403), conforme au registre canonique (retrait du point 9)", per.status_code == 403, per.status_code)
+        check(f"{role} : fiche d'un agent → 403", c.get(f"/api/v1/personnel/{staff['SEC']}").status_code == 403)
+        x = c.get("/api/v1/schooling/exports/students.xlsx")
+        text_cells = " ".join(str(cell.value) for row in load_workbook(io.BytesIO(x.content)).active.iter_rows() for cell in row if cell.value) if x.status_code == 200 else ""
+        check(f"{role} : export Excel des élèves = secondaire seulement", x.status_code == 200 and f"M-SEC-{RUN}-A" in text_cells and f"M-PRI-{RUN}-A" not in text_cells, x.status_code)
+        hx = c.get("/api/v1/effectifs/exports/counts.xlsx", params={"group_by": "section"})
+        htxt = " ".join(str(cell.value) for row in load_workbook(io.BytesIO(hx.content)).active.iter_rows() for cell in row if cell.value) if hx.status_code == 200 else ""
+        check(f"{role} : export des effectifs par section sans le primaire", hx.status_code == 200 and "PRIMAIRE" not in htxt.upper(), hx.status_code)
+        check(f"{role} : fiche PDF d'un élève du primaire → 404", c.get(f"/api/v1/schooling/students/{A['pupils']['PRIMAIRE']}/profile.pdf").status_code == 404)
+        pdf = c.get(f"/api/v1/schooling/students/{A['pupils']['SECONDAIRE']}/profile.pdf")
+        check(f"{role} : fiche PDF d'un élève du secondaire", pdf.status_code == 200 and pdf.content[:4] == b"%PDF", pdf.status_code)
+        check(f"{role} : réglages scolaires en lecture (années, sections, identité)",
+              all(c.get(u).status_code == 200 for u in ("/api/v1/settings/academic-years", "/api/v1/settings/sections", "/api/v1/settings/overview")))
+        check(f"{role} : aucune modification des réglages (identité de l'école) → 403",
+              c.patch("/api/v1/settings/identity", json={"name": "Nom modifié"}, headers={**key(), "If-Match": "1"}).status_code == 403)
+        fx = c.get("/api/v1/schooling/exports/families.xlsx").status_code
+        check(f"{role} : export des familles {'autorisé' if role == 'DIRECTEUR_ETUDES' else 'refusé (droit absent)'}", fx == (200 if role == "DIRECTEUR_ETUDES" else 403), fx)
+
+
 def main() -> int:
     A, B = school("A"), school("B")
     intendant(A, B)
     directors(A, B)
+    directors_reads(A)
     communications(A, B)
+    notifications_and_auth(A, B)
     documents(A)
     CLIENT.__exit__(None, None, None)
     fails = [r for r in RESULTS if r[0] == "FAIL"]
