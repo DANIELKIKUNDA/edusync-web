@@ -3347,7 +3347,7 @@
    "sensitive": false,
    "notes": "",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false
@@ -3393,7 +3393,7 @@
    "sensitive": false,
    "notes": "",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false
@@ -3442,7 +3442,7 @@
    "sensitive": false,
    "notes": "Fusion des variantes de format (décision propriétaire 2026-10-23) : inventory.counts.export_xlsx, inventory.counts.print",
    "role_assignment": "OWNER_DECIDED",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false
@@ -3609,7 +3609,7 @@
    "sensitive": false,
    "notes": "",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false
@@ -3678,7 +3678,7 @@
    "sensitive": false,
    "notes": "",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false
@@ -3772,7 +3772,7 @@
    "sensitive": false,
    "notes": "",
    "role_assignment": "UNDECIDED_BY_OWNER",
-   "lifecycle": "PLANNED",
+   "lifecycle": "ACTIVE",
    "alias_of": null,
    "replaced_by": null,
    "school_adjustable": false

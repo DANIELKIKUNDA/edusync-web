@@ -101,6 +101,15 @@ def _apply_movement(c,actor,b,delta):
   c.execute(text('UPDATE inventory_items SET quantity=quantity+:d,version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid'),{'d':delta,'id':str(b.item_id),'sid':str(actor.school_id)})
   c.execute(text("INSERT INTO inventory_item_movements(school_id,item_id,movement_type,quantity_delta,reason,destination,reference,actor_user_id) VALUES(:sid,:id,:t,:d,:r,:dest,:ref,:uid)"),{'sid':str(actor.school_id),'id':str(b.item_id),'t':b.movement_type,'d':delta,'r':b.reason,'dest':b.destination,'ref':b.reference,'uid':str(actor.user_id)})
   return {'ok':True,'quantity':str(Decimal(str(cur))+delta)}
+@router.get('/stock/low-alerts')
+def low_alerts(limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """Active consumables at or under their alert threshold (a threshold of 0 alerts only on a stock-out)."""
+ need(actor,'inventory.stock.low_alerts.read')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  p={'sid':str(actor.school_id),'limit':limit,'offset':offset}
+  items=rows(c,"SELECT i.id,i.code,i.label,i.unit,i.quantity,i.low_threshold,(i.quantity<=0) out_of_stock,l.label location_label FROM inventory_items i LEFT JOIN inventory_locations l ON l.id=i.location_id AND l.school_id=i.school_id WHERE i.school_id=:sid AND i.enabled AND i.quantity<=i.low_threshold ORDER BY (i.quantity<=0) DESC,i.quantity,i.label LIMIT :limit OFFSET :offset",p)
+  total=c.execute(text('SELECT count(*) FROM inventory_items WHERE school_id=:sid AND enabled AND quantity<=low_threshold'),{'sid':str(actor.school_id)}).scalar_one()
+  return {'items':items,'total':int(total),'limit':limit,'offset':offset}
 @router.get('/stock/movements')
 def movement_list(limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.stock.movements.read')
@@ -118,14 +127,27 @@ def sale_stock(actor:ActorContext=Depends(require_school_actor),services:AppServ
  need(actor,'inventory.stock.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:return {'items':rows(c,"SELECT p.id,p.code,p.label,p.currency,p.unit_price,p.version,coalesce(s.quantity,0) quantity,coalesce(s.low_threshold,0) low_threshold FROM school_products p LEFT JOIN inventory_stock s ON s.school_id=p.school_id AND s.product_id=p.id WHERE p.school_id=:sid AND p.enabled AND p.stock_tracking ORDER BY p.label",{'sid':str(actor.school_id)})}
 
+def _idempotent_create(services,actor,key,operation,payload,create):
+ """Creation with an optional Idempotency-Key: with a key, a retry returns the first result (same payload) or 409
+ (different payload); without a key, the historical behaviour is kept (frontend compatibility)."""
+ key=(key or '').strip()
+ if len(key)>180:raise HTTPException(400,'Idempotency-Key trop longue')
+ try:
+  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+   if not key:return create(c)
+   return IdempotentExecutor(PostgresIdempotencyRepository(c)).execute(scope_key=str(actor.school_id),idempotency_key=key,operation=operation,
+     payload=payload,school_id=str(actor.school_id),actor_user_id=str(actor.user_id),action=lambda:(201,create(c))).body
+ except (IdempotencyConflict,IdempotencyInProgress) as e:raise HTTPException(409,str(e)) from e
+
 class AssetInput(BaseModel): asset_type_id:UUID;tag:str|None=Field(None,max_length=96);quantity:int=Field(ge=1);location_id:UUID|None=None;status:Literal['GOOD','TO_REPAIR','IN_REPAIR','OUT_OF_SERVICE','LOST','DISPOSED']='GOOD';notes:str|None=Field(None,max_length=1000)
 @router.post('/assets',status_code=201)
-def asset_create(b:AssetInput,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def asset_create(b:AssetInput,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.assets.create')
- with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-  if not c.execute(text('SELECT 1 FROM inventory_asset_types WHERE id=:id AND school_id=:sid AND enabled'),{'id':b.asset_type_id,'sid':actor.school_id}).first():raise HTTPException(404,'Type de bien introuvable')
-  if b.location_id and not c.execute(text('SELECT 1 FROM inventory_locations WHERE id=:id AND school_id=:sid'),{'id':b.location_id,'sid':actor.school_id}).first():raise HTTPException(404,'Local introuvable')
-  aid=c.execute(text("INSERT INTO inventory_assets(school_id,asset_type_id,asset_tag,quantity,location_id,status,notes) VALUES(:sid,:t,:tag,:q,:loc,:st,:n) RETURNING id"),{'sid':actor.school_id,'t':b.asset_type_id,'tag':b.tag,'q':b.quantity,'loc':b.location_id,'st':b.status,'n':b.notes}).scalar_one();c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,to_status,to_location_id,reason,actor_user_id) VALUES(:sid,:id,'CREATE',:st,:loc,'Création du bien',:uid)"),{'sid':actor.school_id,'id':aid,'st':b.status,'loc':b.location_id,'uid':actor.user_id});return {'id':str(aid)}
+ return _idempotent_create(services,actor,idempotency_key,'STEWARDSHIP_ASSET_CREATE',b.model_dump(mode='json'),lambda c:_asset_create(c,actor,b))
+def _asset_create(c,actor,b):
+ if not c.execute(text('SELECT 1 FROM inventory_asset_types WHERE id=:id AND school_id=:sid AND enabled'),{'id':b.asset_type_id,'sid':actor.school_id}).first():raise HTTPException(404,'Type de bien introuvable')
+ if b.location_id and not c.execute(text('SELECT 1 FROM inventory_locations WHERE id=:id AND school_id=:sid'),{'id':b.location_id,'sid':actor.school_id}).first():raise HTTPException(404,'Local introuvable')
+ aid=c.execute(text("INSERT INTO inventory_assets(school_id,asset_type_id,asset_tag,quantity,location_id,status,notes) VALUES(:sid,:t,:tag,:q,:loc,:st,:n) RETURNING id"),{'sid':actor.school_id,'t':b.asset_type_id,'tag':b.tag,'q':b.quantity,'loc':b.location_id,'st':b.status,'n':b.notes}).scalar_one();c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,to_status,to_location_id,reason,actor_user_id) VALUES(:sid,:id,'CREATE',:st,:loc,'Création du bien',:uid)"),{'sid':actor.school_id,'id':aid,'st':b.status,'loc':b.location_id,'uid':actor.user_id});return {'id':str(aid)}
 class AssetEdit(BaseModel):
  tag:str|None=Field(None,max_length=96)
  notes:str|None=Field(None,max_length=1000)
@@ -135,8 +157,9 @@ class AssetEdit(BaseModel):
 def asset_update(asset_id:UUID,b:AssetEdit,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.assets.update')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-  old=c.execute(text('SELECT version,asset_tag,notes,quantity FROM inventory_assets WHERE id=:id AND school_id=:sid FOR UPDATE'),{'id':asset_id,'sid':actor.school_id}).mappings().first()
+  old=c.execute(text('SELECT version,asset_tag,notes,quantity,status FROM inventory_assets WHERE id=:id AND school_id=:sid FOR UPDATE'),{'id':asset_id,'sid':actor.school_id}).mappings().first()
   if not old:raise HTTPException(404,'Bien introuvable')
+  if old['status']=='DISPOSED':raise HTTPException(409,'Un bien sorti du patrimoine ne peut plus être modifié')
   if int(old['version'])!=b.version:raise HTTPException(409,'Fiche modifiée entre-temps : actualisez les données')
   if old['asset_tag']==b.tag and old['notes']==b.notes and old['quantity']==b.quantity:return {'ok':True,'version':b.version}
   version=c.execute(text('UPDATE inventory_assets SET asset_tag=:tag,notes=:notes,quantity=:q,version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid RETURNING version'),{'tag':b.tag,'notes':b.notes,'q':b.quantity,'id':asset_id,'sid':actor.school_id}).scalar_one()
@@ -147,6 +170,7 @@ class AssetStatus(BaseModel):status:Literal['GOOD','TO_REPAIR','IN_REPAIR','OUT_
 @router.post('/assets/{asset_id}/status')
 def asset_status(asset_id:UUID,b:AssetStatus,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.assets.status.update')
+ # 2026-10-30: parameters are typed (CAST … AS uuid) — an untyped NULL location made PostgreSQL fail (AmbiguousParameter, HTTP 500).
  if len(b.reason.strip())<3:raise HTTPException(422,'Motif de changement de statut trop court')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   old=c.execute(text("SELECT status,location_id FROM inventory_assets WHERE id=:id AND school_id=:sid FOR UPDATE"),{'id':asset_id,'sid':actor.school_id}).mappings().first()
@@ -154,7 +178,7 @@ def asset_status(asset_id:UUID,b:AssetStatus,actor:ActorContext=Depends(require_
   if old['status']=='DISPOSED':raise HTTPException(409,'Un bien sorti du patrimoine ne peut plus changer de statut ou de local')
   if b.location_id and not c.execute(text('SELECT 1 FROM inventory_locations WHERE id=:id AND school_id=:sid'),{'id':b.location_id,'sid':actor.school_id}).first():raise HTTPException(404,'Local introuvable')
   if b.status==old['status'] and (b.location_id is None or b.location_id==old['location_id']):return {'ok':True,'unchanged':True}
-  c.execute(text("UPDATE inventory_assets SET status=:st,location_id=coalesce(:loc,location_id),version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid"),{'st':b.status,'loc':b.location_id,'id':asset_id,'sid':actor.school_id});c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,from_status,to_status,from_location_id,to_location_id,reason,actor_user_id) VALUES(:sid,:id,'STATUS',:fs,:ts,:fl,coalesce(:tl,:fl),:r,:uid)"),{'sid':actor.school_id,'id':asset_id,'fs':old['status'],'ts':b.status,'fl':old['location_id'],'tl':b.location_id,'r':b.reason,'uid':actor.user_id});return {'ok':True}
+  c.execute(text("UPDATE inventory_assets SET status=:st,location_id=coalesce(CAST(:loc AS uuid),location_id),version=version+1,updated_at=now() WHERE id=:id AND school_id=:sid"),{'st':b.status,'loc':b.location_id,'id':asset_id,'sid':actor.school_id});c.execute(text("INSERT INTO inventory_asset_events(school_id,asset_id,event_type,from_status,to_status,from_location_id,to_location_id,reason,actor_user_id) VALUES(:sid,:id,'STATUS',:fs,:ts,CAST(:fl AS uuid),coalesce(CAST(:tl AS uuid),CAST(:fl AS uuid)),:r,:uid)"),{'sid':actor.school_id,'id':asset_id,'fs':old['status'],'ts':b.status,'fl':old['location_id'],'tl':b.location_id,'r':b.reason,'uid':actor.user_id});return {'ok':True}
 class AssetRepair(BaseModel):
  reason:str=Field(min_length=3,max_length=700)
  completed:bool=False
@@ -182,10 +206,11 @@ def asset_history(asset_id:UUID,limit:int=Query(100,ge=1,le=500),offset:int=Quer
   return {'items':rows(c,"SELECT * FROM inventory_asset_events WHERE school_id=:sid AND asset_id=:id ORDER BY created_at DESC,id DESC LIMIT :limit OFFSET :offset",{'sid':str(actor.school_id),'id':str(asset_id),'limit':limit,'offset':offset})}
 class CountInput(BaseModel):notes:str|None=Field(None,max_length=1000)
 @router.post('/counts',status_code=201)
-def count_create(b:CountInput,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def count_create(b:CountInput,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'inventory.counts.create')
- with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-  cid=c.execute(text("INSERT INTO inventory_counts(school_id,code,counted_on,status,notes,created_by_user_id) VALUES(:sid,'INV-'||to_char(clock_timestamp(),'YYYYMMDD-HH24MISSMS'),current_date,'DRAFT',:n,:uid) RETURNING id"),{'sid':actor.school_id,'n':b.notes,'uid':actor.user_id}).scalar_one();return {'id':str(cid)}
+ return _idempotent_create(services,actor,idempotency_key,'STEWARDSHIP_COUNT_CREATE',b.model_dump(mode='json'),lambda c:_count_create(c,actor,b))
+def _count_create(c,actor,b):
+ cid=c.execute(text("INSERT INTO inventory_counts(school_id,code,counted_on,status,notes,created_by_user_id) VALUES(:sid,'INV-'||to_char(clock_timestamp(),'YYYYMMDD-HH24MISSMS'),current_date,'DRAFT',:n,:uid) RETURNING id"),{'sid':actor.school_id,'n':b.notes,'uid':actor.user_id}).scalar_one();return {'id':str(cid)}
 class CountLine(BaseModel):item_id:UUID;counted_quantity:Decimal=Field(ge=0);reason:str|None=Field(None,max_length=700)
 @router.post('/counts/{count_id}/lines')
 def count_line(count_id:UUID,b:CountLine,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -249,7 +274,7 @@ def stock_export(actor:ActorContext=Depends(require_school_actor),services:AppSe
 
 @router.get('/counts/{count_id}/export.xlsx')
 def count_export(count_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- need(actor,'inventory.counts.export_xlsx')
+ need(actor,'inventory.counts.export')   # Excel and PDF are aliases of the business capability
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   head=c.execute(text('SELECT code FROM inventory_counts WHERE id=:id AND school_id=:sid'),{'id':count_id,'sid':actor.school_id}).scalar_one_or_none()
   if head is None:raise HTTPException(404,'Inventaire introuvable')
@@ -279,7 +304,7 @@ def stock_print(actor:ActorContext=Depends(require_school_actor),services:AppSer
 
 @router.get('/counts/{count_id}/print.pdf')
 def count_print(count_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- need(actor,'inventory.counts.print')
+ need(actor,'inventory.counts.export')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   code=c.execute(text('SELECT code FROM inventory_counts WHERE id=:id AND school_id=:sid'),{'id':count_id,'sid':actor.school_id}).scalar_one_or_none()
   if code is None:raise HTTPException(404,'Inventaire introuvable')

@@ -18,7 +18,7 @@ def test_stock_export_has_dedicated_capability_and_school_filter():
 
 def test_count_export_checks_ownership_before_reading_lines():
     section = _section("@router.get('/counts/{count_id}/export.xlsx')")
-    assert "need(actor,'inventory.counts.export_xlsx')" in section
+    assert "need(actor,'inventory.counts.export')" in section
     assert "inventory_counts WHERE id=:id AND school_id=:sid" in section
     assert "if head is None:raise HTTPException(404" in section
     assert "l.school_id=:sid" in section
@@ -59,7 +59,7 @@ def test_repair_completion_requires_repairable_status():
 def test_asset_edit_uses_distinct_audit_event():
     section = _section("@router.put('/assets/{asset_id}')")
     assert "'UPDATE',:reason" in section
-    migration = (Path(__file__).resolve().parents[1] / "migrations/0097_stewardship_asset_update_event.sql").read_text(encoding="utf-8")
+    migration = (Path(__file__).resolve().parents[1] / "migrations/0099_stewardship_asset_update_event.sql").read_text(encoding="utf-8")
     assert "'UPDATE'" in migration
 
 
@@ -88,7 +88,7 @@ def test_stock_print_requires_independent_permission():
 
 def test_inventory_print_requires_ownership_and_print_capability():
     section = _section("@router.get('/counts/{count_id}/print.pdf')")
-    assert "need(actor,'inventory.counts.print')" in section
+    assert "need(actor,'inventory.counts.export')" in section
     assert "inventory_counts WHERE id=:id AND school_id=:sid" in section
     assert "if code is None:raise HTTPException(404" in section
     assert "l.school_id=:sid" in section
