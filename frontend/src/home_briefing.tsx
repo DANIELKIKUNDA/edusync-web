@@ -3,7 +3,7 @@
 // not the metric name), computed from the SAME read models as the cards below — no new data, no guess. Each finding is
 // a clickable line that opens its detail. Only the widgets granted by the server projection are used, never a role name.
 import React,{useEffect,useState} from 'react';
-import {cashDaySummary,financeDecisions,getEffectifsCounts,recoveryMonthly,stewardshipDashboard,type AccessWidget} from './api';
+import {cashDaySummary,financeDecisions,getEffectifsCounts,getEffectifsMovements,getPersonnelSummary,recoveryMonthly,stewardshipCounts,stewardshipDashboard,type AccessWidget} from './api';
 import {NavGlyph} from './platform/nav_icons';
 
 type Tone='ok'|'warn'|'bad'|'info';
@@ -49,23 +49,57 @@ async function decisionsFinding(token:string):Promise<Finding|null>{
   const d=await financeDecisions(token,'ACTIVE');const k=(d.items??[]).length;
   return k?{widget:'finance.decisions',tone:'info',icon:'shield',title:`${n(k)} décision${k>1?'s':''} financière${k>1?'s':''} active${k>1?'s':''}`,text:'Exonérations et réductions en vigueur : à garder sous contrôle.'}:null;
 }
-async function stockFinding(token:string):Promise<Finding|null>{
-  const s=await stewardshipDashboard(token);const low=num(s?.low_stock);
-  return low?{widget:'inventory.stock',tone:'warn',icon:'box',title:`${n(low)} article${low>1?'s':''} sous le seuil d’alerte`,text:'Le stock doit être réapprovisionné avant rupture.'}:null;
+// The dashboard returns the LIST of items under their alert threshold (low_stock) and the sale stock with its own
+// threshold; assets come as (status, quantity) rows. One finding for what runs out, one for equipment out of use.
+async function stockFindings(token:string):Promise<Finding[]>{
+  const s=await stewardshipDashboard(token);const out:Finding[]=[];
+  const low=[...(Array.isArray(s?.low_stock)?s.low_stock:[]),...(Array.isArray(s?.sale_stock)?s.sale_stock:[]).filter((x:any)=>num(x.low_threshold)>0&&num(x.quantity)<=num(x.low_threshold))];
+  if(low.length){const empty=low.filter((x:any)=>num(x.quantity)<=0).length;const names=low.slice(0,3).map((x:any)=>x.label).join(', ');
+    out.push({widget:'inventory.stock',tone:empty?'bad':'warn',icon:'box',title:empty?`${n(empty)} article${empty>1?'s':''} en rupture de stock`:`${n(low.length)} article${low.length>1?'s':''} sous le seuil d’alerte`,
+      text:`${names}${low.length>3?` et ${n(low.length-3)} autre(s)`:''} : à réapprovisionner${empty?' sans attendre':' avant rupture'}.`});}
+  const assets=Array.isArray(s?.assets)?s.assets:[];const qty=(st:string)=>num(assets.find((a:any)=>a.status===st)?.n);
+  const broken=qty('TO_REPAIR')+qty('OUT_OF_SERVICE'),repairing=qty('IN_REPAIR');
+  if(assets.length)out.push(broken?{widget:'inventory.stock',tone:'warn',icon:'settings',title:`${n(broken)} équipement${broken>1?'s':''} hors d’usage`,text:`À réparer ou remplacer${repairing?` · ${n(repairing)} déjà en réparation`:''}. Le détail est dans le patrimoine.`}
+    :{widget:'inventory.stock',tone:'ok',icon:'settings',title:'Patrimoine en état de marche',text:`${n(assets.reduce((a:number,x:any)=>a+num(x.n),0))} équipement(s) suivis${repairing?`, dont ${n(repairing)} en réparation`:''}.`});
+  if(!low.length&&(Array.isArray(s?.low_stock)||Array.isArray(s?.sale_stock)))out.unshift({widget:'inventory.stock',tone:'ok',icon:'box',title:'Stocks au-dessus des seuils',text:'Aucun article à réapprovisionner pour l’instant.'});
+  return out;
+}
+async function countsFinding(token:string):Promise<Finding|null>{
+  const c=await stewardshipCounts(token);const draft=(c?.items??[]).filter((x:any)=>x.status==='DRAFT');
+  if(!draft.length)return null;const gaps=draft.filter((x:any)=>num(x.total_variance)>0).length;
+  return {widget:'inventory.counts',tone:'warn',icon:'doc',title:`${n(draft.length)} inventaire${draft.length>1?'s':''} en cours à valider`,
+    text:`${gaps?`${n(gaps)} avec des écarts entre le compté et le théorique · `:''}le stock n’est corrigé qu’après validation.`};
+}
+async function movementsFinding(token:string,yearId?:string):Promise<Finding>{
+  const since=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+  const m=await getEffectifsMovements(token,'ALL',{yearId,limit:250});const recent=(m.items??[]).filter(x=>String(x.effective_date)>=since);
+  const k=(t:string)=>recent.filter(x=>x.event_type===t).length;const ab=k('ABANDON'),tr=k('TRANSFER');
+  if(!recent.length)return {widget:'headcounts.movements',tone:'ok',icon:'students',title:'Aucun mouvement d’élève ce mois-ci',text:'Ni abandon, ni transfert, ni suspension sur les 30 derniers jours.'};
+  const parts=[[ab,'abandon'],[tr,'transfert'],[k('SUSPEND'),'suspension'],[k('REINTEGRATE'),'réintégration'],[k('CLASS_CHANGE'),'changement de classe']].filter(([v])=>v).map(([v,l])=>`${n(v)} ${l}${Number(v)>1&&l!=='changement de classe'?'s':''}`);
+  return {widget:'headcounts.movements',tone:ab||tr?'warn':'info',icon:'students',title:ab?`${n(ab)} abandon${ab>1?'s':''} sur les 30 derniers jours`:`${n(recent.length)} mouvement${recent.length>1?'s':''} d’élèves ce mois-ci`,
+    text:`${parts.join(' · ')}. Le dernier : ${recent[0].student_name} (${recent[0].class_label}).`};
+}
+async function personnelFinding(token:string):Promise<Finding>{
+  const p=await getPersonnelSummary(token);
+  return {widget:'personnel.summary',tone:num(p.suspended)?'warn':'info',icon:'users',title:`${n(p.active)} agent${num(p.active)>1?'s':''} en service`,
+    text:`${n(p.teachers)} enseignant(s), ${n(p.administrative)} administratif(s), ${n(p.workers)} ouvrier(s)${num(p.suspended)?` · ${n(p.suspended)} suspendu(s)`:''}.`};
 }
 
 export function DailyBriefing({token,yearId,widgets,open}:{token:string;yearId?:string;widgets:AccessWidget[];open:(w:AccessWidget)=>void}){
   const has=(id:string)=>widgets.find(w=>w.id===id);
   const [items,setItems]=useState<Finding[]|null>(null);
   useEffect(()=>{let alive=true;setItems(null);
-    const jobs:Array<Promise<Finding|null>>=[];
+    const jobs:Array<Promise<Finding|Finding[]|null>>=[];
     if(has('finance.recovery'))jobs.push(recoveryFinding(token,yearId));
     if(has('cash.supervision'))jobs.push(cashFinding(token));
     if(has('headcounts.summary'))jobs.push(headcountFinding(token,yearId));
     if(has('finance.decisions'))jobs.push(decisionsFinding(token));
-    if(has('inventory.stock'))jobs.push(stockFinding(token));
+    if(has('headcounts.movements'))jobs.push(movementsFinding(token,yearId));
+    if(has('personnel.summary'))jobs.push(personnelFinding(token));
+    if(has('inventory.stock'))jobs.push(stockFindings(token));
+    if(has('inventory.counts'))jobs.push(countsFinding(token));
     // one unavailable read model never hides the others
-    Promise.allSettled(jobs).then(r=>{if(alive)setItems(r.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]))});
+    Promise.allSettled(jobs).then(r=>{if(alive)setItems(r.flatMap(x=>x.status==='fulfilled'&&x.value?(Array.isArray(x.value)?x.value:[x.value]):[]))});
     return()=>{alive=false}},[token,yearId,widgets.map(w=>w.id).join()]);
   if(items&&items.length===0)return null;
   const worst=items?.find(i=>i.tone==='bad')??items?.find(i=>i.tone==='warn');
@@ -74,7 +108,7 @@ export function DailyBriefing({token,yearId,widgets,open}:{token:string;yearId?:
       <div><h2 id="sh-brief-title">Le point du jour</h2>
         <p>{!items?'Lecture des chiffres de l’établissement…':worst?`À retenir en priorité : ${worst.title.charAt(0).toLowerCase()}${worst.title.slice(1)}.`:'Rien d’anormal aujourd’hui : les indicateurs suivis sont en ordre.'}</p></div></header>
     {!items?<div className="sh-brief-skel" aria-hidden="true"><i/><i/><i/></div>
-      :<ul>{items.map(f=>{const w=has(f.widget)!;return <li key={f.widget}>
+      :<ul>{items.map((f,i)=>{const w=has(f.widget)!;return <li key={`${f.widget}-${i}`}>
         <button type="button" className={`sh-brief-item tone-${f.tone}`} onClick={()=>open(w)} aria-label={`${f.title}. ${f.text} Ouvrir le détail`}>
           <span className="sh-brief-icon" aria-hidden="true"><NavGlyph g={f.icon} size={18}/></span>
           <span className="sh-brief-text"><b>{f.title}</b><small>{f.text}</small></span>

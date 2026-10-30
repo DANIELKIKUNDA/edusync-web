@@ -8,7 +8,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 import {
-  SchoolClass, SchoolOption, SchoolingStudent, StudentFilters, enrollFamily, listOptionSelector, listStudents, listYearSelector, studentDirectoryPdf, studentDirectoryXlsx,
+  SchoolClass, SchoolOption, SchoolingStudent, StudentFilters, enrollFamily, listOptionSelector, listStudents, listYearSelector, studentDirectoryPdf, studentDirectoryXlsx, enrollmentRegister,
   type AcademicYear,
 } from './api';
 import {friendlyError} from './platform/errors';
@@ -58,10 +58,12 @@ export function StudentDirectoryPro({token, schoolName, classes, filters, setFil
   const active = (['section_id', 'class_id', 'option_id', 'gender', 'status', 'academic_year_id'] as const).filter(k => filters[k]).length + (filters.all_years ? 1 : 0);
   async function pdf() { try { previewPdf(await studentDirectoryPdf(token, filters)); } catch (e) { toast.error(friendlyError(e)); } }
   async function xlsx() { try { await exportManaged(await studentDirectoryXlsx(token, filters), {school: schoolName, module: 'Scolarité', category: 'Élèves', filename: 'annuaire_eleves.xlsx'}); } catch (e) { toast.error(friendlyError(e)); } }
+  async function register(kind: 'pdf' | 'xlsx') { try { const blob = await enrollmentRegister(token, kind, filters); if (kind === 'pdf') previewPdf(blob); else await exportManaged(blob, {school: schoolName, module: 'Scolarité', category: 'Inscriptions', filename: 'registre_inscriptions.xlsx'}); } catch (e) { toast.error(friendlyError(e)); } }
   return <section className="kp-directory">
     <div className="kp-toolbar">
       <div className="kp-searchBig"><NavGlyph g="search" size={18}/><input aria-label="Rechercher un élève" placeholder="Matricule, nom, famille, responsable ou téléphone…" value={filters.q ?? ''} onChange={e => set({q: e.target.value})}/></div>
-      <div className="kp-exports">{can('students.directory.export') && <><button type="button" onClick={() => void pdf()}><NavGlyph g="doc" size={15}/>PDF</button><button type="button" onClick={() => void xlsx()}><NavGlyph g="sheet" size={15}/>Excel</button></>}</div>
+      <div className="kp-exports">{can('students.directory.export') && <><button type="button" onClick={() => void pdf()}><NavGlyph g="doc" size={15}/>PDF</button><button type="button" onClick={() => void xlsx()}><NavGlyph g="sheet" size={15}/>Excel</button></>}
+        {can('enrollments.export') && <span className="kp-register" role="group" aria-label="Registre des inscriptions"><small>Registre des inscriptions</small><button type="button" onClick={() => void register('pdf')} aria-label="Registre des inscriptions en PDF"><NavGlyph g="doc" size={15}/>PDF</button><button type="button" onClick={() => void register('xlsx')} aria-label="Registre des inscriptions en Excel"><NavGlyph g="sheet" size={15}/>Excel</button></span>}</div>
     </div>
     <div className="kp-filters" role="group" aria-label="Filtres de l’annuaire">
       <label><span>Section</span><select value={filters.section_id ?? ''} onChange={e => set({section_id: e.target.value, class_id: '', option_id: e.target.value && secs.find(s => s.id === e.target.value)?.code !== 'SECONDAIRE' ? '' : filters.option_id})}>

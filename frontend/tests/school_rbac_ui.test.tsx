@@ -118,8 +118,9 @@ it('gestionnaire: personnel oversight joins the executive cockpit without an ope
     actions: [{id: 'cash.supervise', label: 'Superviser les caisses', module: 'finance'}]};
   render(<HomePage token="t" me={me} schoolName="École A" userName="Gestionnaire Test" onNavigate={() => {}}/>);
   await waitFor(() => expect(screen.getByText('25', {selector: '.ui-card-value'})).toBeTruthy());
-  expect(screen.getByText(/18 enseignant/)).toBeTruthy();
-  expect(screen.getByText(/1 suspendu/)).toBeTruthy();
+  // the card and « Le point du jour » both state the staff (2026-10-30: the briefing speaks to every steering role)
+  expect((await screen.findAllByText(/18 enseignant/)).length).toBeGreaterThanOrEqual(2);
+  expect(screen.getAllByText(/1 suspendu/).length).toBeGreaterThanOrEqual(1);
   expect(screen.queryByRole('button', {name: /Nouvel agent/i})).toBeNull();
 });
 

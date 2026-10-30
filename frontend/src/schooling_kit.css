@@ -129,3 +129,5 @@ button.kp-row{cursor:pointer;transition:background .12s}button.kp-row:hover{back
 .ki-workspace>:not(.ki-root){overflow-x:auto}
 .ki-prepare.noyear{grid-template-columns:minmax(0,1fr) auto}
 @media (max-width:900px){.ki-prepare.noyear{grid-template-columns:1fr}}
+.kp-exports{flex-wrap:wrap;align-items:center}.kp-register{display:inline-flex;align-items:center;gap:6px;padding-left:10px;border-left:1px solid #e4e7ec}.kp-register small{font-size:12px;font-weight:700;color:#667085}
+@media (max-width:640px){.kp-register{border-left:0;padding-left:0;flex-wrap:wrap}}

@@ -4,6 +4,9 @@
 .stewardHead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
 .stewardHead h3{margin:0}
 .stewardHead small{color:#7a8699}
+.stewardHead{flex-wrap:wrap}
+.stewardExports,.stewardRowActions{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center}
+.stewardExports{margin-left:auto}
 
 .stockList{display:grid;gap:8px}
 .stockRow{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(90px,.6fr) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid #e8edf4;border-radius:13px;background:#fff;transition:border-color .18s ease,box-shadow .18s ease}

@@ -64,12 +64,13 @@ d'inscription ou de réglage pour les trois rôles.
 | Suite | Commande | Résultat |
 |---|---|---|
 | Base de départ (avant correctifs) | `cd backend && python -m pytest -q -p no:cacheprovider` | 1098 passed, **2 failed** (provisionneur, capacités PLANNED vérifiées) |
-| Backend complet (final, après fusion de la PR #27) | idem | **1359 passed**, 1 skipped, 0 échec |
+| Backend complet (final, après fusion des branches PR #27 et Responsable financier) | `PYTHONUTF8=1 python -m pytest -q -p no:cacheprovider` | **1375 passed**, 1 skipped, 0 échec |
 | Application réelle + PostgreSQL réel | `python tools/local/isolated_db.py create edusync_cert_3roles` puis `python tools/local/isolated_db.py env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/three_roles_postgres_integration.py` | **178/178 PASS** |
 | Isolation des sections (PR #27, fusionnée) | `… env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/section_isolation_postgres_integration.py` | **PASS** |
 | Registre canonique | `… env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/rbac_registry.py check` | **0 dérive** |
 | Caissier PostgreSQL (non-régression) | `… env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/cashier_postgres_integration.py` | **PASS** |
-| Frontend (non-régression, sans modification) | `cd frontend && npx vitest run` | 80/80 |
+| Frontend (après la phase frontend) | `cd frontend && npx vitest run tests --maxWorkers=4` | **83/83** (dont `tests/three_roles_ui.test.tsx`, 3 nouveaux) |
+| Recette navigateur des trois rôles | `cd frontend && node browser-tests/local_three_roles_certification.mjs` | **33/33 PASS** |
 | Matrice | `python tools/rbac/three_roles_matrix.py` | 121 attributions, 105 PASS, 16 N/A, 0 NON TESTÉ |
 
 Codes HTTP couverts : 200, 201, 401, 403, 404, 409, 422 (le 400 « clé d'idempotence trop longue » est couvert par le code
@@ -102,7 +103,7 @@ Fichiers : `backend/migrations/0099…`, `0100…`, `0101…`, `backend/scripts/
 
 ## 7. Non-régression
 
-Suite backend complète verte (1112), registre sans dérive, caissier PostgreSQL PASS, tests frontend 80/80. Les tests de la
+Suite backend complète verte (1375), registre sans dérive, caissier PostgreSQL PASS, tests frontend 83/83. Les tests de la
 branche qui lisaient l'ancien texte (`0097`, alias de comptage, audience vide) ont été alignés sur les correctifs sans
 retirer ce qu'ils vérifient.
 
@@ -111,13 +112,29 @@ retirer ce qu'ils vérifient.
 | # | Réserve | Nature |
 |---|---|---|
 | R1 | CI GitHub non exécutée (facturation du compte bloquée) ; le test PostgreSQL réel n'est pas branché dans `ci.yml` (base isolée et configuration complète de l'application nécessaires) | Hors de portée du code — bloquant pour la fusion |
-| R7 | Frontend de la branche : `src/stewardship.tsx` — 3 erreurs TypeScript (paramètre `r` sans type) | Traité dans la phase frontend qui suit |
 
-Toutes les autres réserves (R2, R3, R4, R5, R6, R8) sont **fermées** (section 1).
+Toutes les autres réserves (R2 à R8) sont **fermées** (section 1 ; R7, erreurs TypeScript, fermée dans la phase frontend — section 9).
+
+## 9. Phase frontend (30/10/2026)
+
+| Constat | Correctif |
+|---|---|
+| « Le point du jour » réservé aux rôles qui supervisent les caisses : l'Intendant et les directeurs arrivaient sur un accueil muet | Affiché pour tout rôle de pilotage (pas pour les guichets) ; nouveaux constats : mouvements d'élèves des 30 derniers jours, personnel en service, matériel hors d'usage, inventaires en cours à valider. Chaque constat ouvre son module |
+| Alerte de stock bas jamais affichée : le serveur renvoie une **liste**, l'écran la lisait comme un nombre | Lecture de la liste (consommables et articles vendus), rupture signalée en premier avec le nom des articles |
+| `inventory.stock.export_xlsx`, `inventory.stock.sheet.print`, `inventory.counts.export` : droits actifs sans aucun bouton | « Exporter en Excel », « Imprimer la fiche de stock », PDF / Excel de chaque inventaire — chacun visible seulement avec son droit |
+| `enrollments.export` (registre des inscriptions, activé le 30/10) : aucun bouton | « Registre des inscriptions » PDF / Excel dans l'annuaire, avec les filtres année / section / classe ; le périmètre est appliqué par le serveur |
+| Onglet « Inscription / Réinscription » affiché (vide) aux directeurs, qui n'ont ni `enrollments.create` ni `enrollments.reenroll` | Onglet masqué sans l'un de ces droits ; contrôlé par la recette |
+| `src/stewardship.tsx` : 3 erreurs TypeScript (R7) | Corrigées (`tsc --noEmit` propre) |
+
+Recette navigateur (`browser-tests/local_three_roles_certification.mjs`, Edge, pile locale) : connexion, accueil sans bouton
+hors droits, chaque constat du point du jour cliqué, exports réels (téléchargement Excel vérifié), chaque module et chaque
+onglet ouverts, responsive 320 → 1440 px avec la vraie navigation mobile (barre du bas et menu), aucun refus serveur, aucun
+« CDF » affiché : **33/33 PASS**. Limite : aucun inventaire physique dans la base de démonstration, l'export d'un inventaire
+est donc couvert par le test unitaire et non par la recette.
 
 ## Conclusion
 
 **Backend certifié en local** pour les trois rôles, sans réserve applicative ouverte : 121 attributions vérifiées (105 PASS
 exécutés, 16 N/A justifiés, 0 non testé), 4 failles de sécurité reproduites et corrigées (dont une critique), 8 défauts
 fonctionnels corrigés, décisions du propriétaire du 30/10 appliquées, isolation des sections de la PR #27 intégrée,
-178 contrôles sur PostgreSQL réel. Restent : la CI GitHub (facturation) et les erreurs TypeScript du frontend (phase suivante).
+178 contrôles sur PostgreSQL réel. Frontend des trois rôles livré et recetté (section 9). Reste : la CI GitHub (facturation).
