@@ -455,6 +455,39 @@ def directors_reads(A: dict) -> None:
         check(f"{role} : export des familles {'autorisé' if role == 'DIRECTEUR_ETUDES' else 'refusé (droit absent)'}", fx == (200 if role == "DIRECTEUR_ETUDES" else 403), fx)
 
 
+# ------------------------------------------------------------------------ compléments : chaque capacité active éprouvée
+def complements(A: dict) -> None:
+    print("\n== Compléments — lectures et éditions restantes de chaque rôle")
+    ia = actor_for("INTENDANT", A["id"])
+    c = as_(ia)
+    for label, path in (("historique documentaire", "/api/v1/documents/history"), ("personnel (lecture)", "/api/v1/personnel"),
+                        ("identité de l'école (lecture)", "/api/v1/settings/overview"), ("liste des biens", "/api/v1/stewardship/assets"),
+                        ("liste des comptages", "/api/v1/stewardship/counts"), ("locaux", "/api/v1/stewardship/locations"),
+                        ("stock des articles vendus", "/api/v1/stewardship/sale-stock"), ("notifications", "/api/v1/notifications/inbox")):
+        code = c.get(path).status_code
+        check(f"INTENDANT : {label} (200)", code == 200, code)
+    item = c.post("/api/v1/stewardship/items", json={"code": f"EDIT{RUN}", "label": "Cahier", "unit": "pièce"}, headers=key()).json()["id"]
+    v = one("SELECT version FROM inventory_items WHERE id=:i", i=item)[0]
+    up = c.put(f"/api/v1/stewardship/items/{item}", json={"label": "Cahier 100 pages", "unit": "pièce", "low_threshold": "5"}, headers={"If-Match": str(v)})
+    check("INTENDANT : fiche article modifiée (If-Match), quantité non modifiable par cette route", up.status_code == 200 and up.json().get("quantity") in ("0", "0.000", 0), up.text[:120])
+    check("INTENDANT : fiche article, version périmée → 409",
+          c.put(f"/api/v1/stewardship/items/{item}", json={"label": "X2", "unit": "pièce", "low_threshold": "5"}, headers={"If-Match": str(v)}).status_code == 409)
+    check("INTENDANT : élèves et effectifs non accessibles (403)",
+          c.get("/api/v1/schooling/students").status_code == 403 and c.get("/api/v1/effectifs/counts", params={"group_by": "section"}).status_code == 403)
+    for role in ("DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE"):
+        d = as_(actor_for(role, A["id"], scope=("SECTION", "SECONDAIRE")))
+        for label, path, params in (("effectifs par classe", "/api/v1/effectifs/counts", {"group_by": "class"}), ("mouvements des effectifs", "/api/v1/effectifs/movements", {}),
+                                    ("vue d'ensemble des effectifs", "/api/v1/effectifs/overview", {}), ("état des communications", "/api/v1/communications/readiness", {}),
+                                    ("historique documentaire", "/api/v1/documents/history", {}), ("indicateurs familles", "/api/v1/schooling/families/overview", {})):
+            code = d.get(path, params=params).status_code
+            check(f"{role} : {label} (200)", code == 200, code)
+        pupil = A["pupils"]["SECONDAIRE"]; ver = one("SELECT version FROM students WHERE id=:i", i=pupil)[0]
+        r = d.patch(f"/api/v1/schooling/students/{pupil}", json={"address": f"Avenue {role[:5]}"}, headers={**key(), "If-Match": str(ver)})
+        check(f"{role} : complément de profil (adresse) d'un élève du secondaire (200)", r.status_code == 200, r.text[:120])
+        check(f"{role} : aucune opération d'inscription (403)",
+              d.post("/api/v1/schooling/enrollments/family", json={"children": []}, headers=key()).status_code in (403, 422))
+
+
 def main() -> int:
     A, B = school("A"), school("B")
     intendant(A, B)
@@ -462,6 +495,7 @@ def main() -> int:
     directors_reads(A)
     communications(A, B)
     notifications_and_auth(A, B)
+    complements(A)
     documents(A)
     CLIENT.__exit__(None, None, None)
     fails = [r for r in RESULTS if r[0] == "FAIL"]

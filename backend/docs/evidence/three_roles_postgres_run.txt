@@ -1,0 +1,152 @@
+# Exécution — tools/ci/three_roles_postgres_integration.py — base isolée edusync_cert_3roles — 2026-10-30 — base du commit ce1e336 (+ compléments du test)
+== INTENDANT — stock, inventaires, patrimoine, exports
+PASS  article créé (201)
+PASS  idempotence : même clé → même article, une seule ligne
+PASS  idempotence : même clé, autre contenu → 409
+PASS  code d'article en double → 409
+PASS  réception de 10 (201)
+PASS  sortie de 3 (201)
+PASS  sortie supérieure au stock refusée (409), stock inchangé
+PASS  ajustement sans sens → 422
+PASS  ajustement à la baisse de 2 (201)
+PASS  quantité finale = 5 et grand livre cohérent
+PASS  sortie sans le droit inventory.stock.issue → 403
+PASS  mouvements consultables (3)
+PASS  alertes de stock faible : l'article (5 ≤ seuil 6) apparaît
+PASS  alertes sans le droit → 403
+PASS  concurrence : 2 sorties simultanées de 4 sur 5 → une seule réussit, stock 1
+PASS  écart sans justification → 422
+PASS  comptage justifié enregistré
+PASS  double validation simultanée → une seule (200 + 409)
+PASS  stock aligné sur le comptage (3) et un seul ajustement d'inventaire
+PASS  comptage validé non modifiable (409)
+PASS  article désactivé : comptage refusé (404) et mouvement refusé (404)
+PASS  immobilisation créée, idempotente (même clé → même bien, une ligne)
+PASS  modification de la fiche (version) → événement UPDATE
+PASS  version périmée → 409
+PASS  réparation ouverte puis clôturée (IN_REPAIR → GOOD)
+PASS  clôture sans réparation en cours → 409
+PASS  sortie du patrimoine (DISPOSED)
+PASS  bien sorti : modification refusée (409)
+PASS  bien sorti : réparation et changement d'état refusés (409)
+PASS  historique complet du bien (CREATE, UPDATE, REPAIR ×2, STATUS)
+PASS  export Excel du stock : fichier valide, quantités numériques
+PASS  export Excel du comptage valide
+PASS  fiche de stock et impression du comptage en PDF
+PASS  exports sans le droit → 403
+PASS  école B : article, comptage, bien de A introuvables (404) et absents des listes
+PASS  Intendant : ouverture de caisse et modification de l'identité de l'école refusées (403)
+== DIRECTEUR_ETUDES — périmètre SECTION=SECONDAIRE
+PASS  DIRECTEUR_ETUDES : liste des élèves = secondaire seulement
+PASS  DIRECTEUR_ETUDES : fiche d'un élève du primaire → 404
+PASS  DIRECTEUR_ETUDES : élève d'une autre école → 404
+PASS  DIRECTEUR_ETUDES : effectifs par section = SECONDAIRE seulement
+PASS  DIRECTEUR_ETUDES : effectifs par option autorisés
+PASS  DIRECTEUR_ETUDES : historique d'audit d'un élève du secondaire lisible
+PASS  DIRECTEUR_ETUDES : historique d'audit d'un élève du primaire → 404 (old/new non divulgués)
+PASS  DIRECTEUR_ETUDES : historique d'audit d'un paiement / d'un compte → 404
+PASS  DIRECTEUR_ETUDES : aucune opération financière (ouverture de caisse) → 403
+PASS  DIRECTEUR_ETUDES : SMS groupé refusé (403)
+PASS  DIRECTEUR_ETUDES : correction d'identité refusée (403)
+== DIRECTEUR_DISCIPLINE — périmètre SECTION=SECONDAIRE
+PASS  DIRECTEUR_DISCIPLINE : liste des élèves = secondaire seulement
+PASS  DIRECTEUR_DISCIPLINE : fiche d'un élève du primaire → 404
+PASS  DIRECTEUR_DISCIPLINE : élève d'une autre école → 404
+PASS  DIRECTEUR_DISCIPLINE : effectifs par section = SECONDAIRE seulement
+PASS  DIRECTEUR_DISCIPLINE : effectifs par option refusés (droit absent)
+PASS  DIRECTEUR_DISCIPLINE : historique d'audit d'un élève du secondaire lisible
+PASS  DIRECTEUR_DISCIPLINE : historique d'audit d'un élève du primaire → 404 (old/new non divulgués)
+PASS  DIRECTEUR_DISCIPLINE : historique d'audit d'un paiement / d'un compte → 404
+PASS  DIRECTEUR_DISCIPLINE : aucune opération financière (ouverture de caisse) → 403
+PASS  DIRECTEUR_DISCIPLINE : SMS groupé autorisé (pas 403)
+PASS  DIRECTEUR_DISCIPLINE : correction d'identité d'un élève du secondaire (200) + audit
+PASS  DIRECTEUR_DISCIPLINE : version périmée → 409
+PASS  DIRECTEUR_DISCIPLINE : identité + profil mélangés → 422
+PASS  DIRECTEUR_DISCIPLINE : élève du primaire hors périmètre → refusé, rien écrit
+== Directeurs — familles, personnel, exports, fiche, réglages (lecture, secondaire)
+PASS  DIRECTEUR_ETUDES : familles = celles du secondaire
+PASS  DIRECTEUR_ETUDES : fiche d'une famille du seul primaire → 404
+PASS  DIRECTEUR_ETUDES : personnel refusé (403), conforme au registre canonique (retrait du point 9)
+PASS  DIRECTEUR_ETUDES : fiche d'un agent → 403
+PASS  DIRECTEUR_ETUDES : export Excel des élèves = secondaire seulement
+PASS  DIRECTEUR_ETUDES : export des effectifs par section sans le primaire
+PASS  DIRECTEUR_ETUDES : fiche PDF d'un élève du primaire → 404
+PASS  DIRECTEUR_ETUDES : fiche PDF d'un élève du secondaire
+PASS  DIRECTEUR_ETUDES : réglages scolaires en lecture (années, sections, identité)
+PASS  DIRECTEUR_ETUDES : aucune modification des réglages (identité de l'école) → 403
+PASS  DIRECTEUR_ETUDES : export des familles autorisé
+PASS  DIRECTEUR_DISCIPLINE : familles = celles du secondaire
+PASS  DIRECTEUR_DISCIPLINE : fiche d'une famille du seul primaire → 404
+PASS  DIRECTEUR_DISCIPLINE : personnel refusé (403), conforme au registre canonique (retrait du point 9)
+PASS  DIRECTEUR_DISCIPLINE : fiche d'un agent → 403
+PASS  DIRECTEUR_DISCIPLINE : export Excel des élèves = secondaire seulement
+PASS  DIRECTEUR_DISCIPLINE : export des effectifs par section sans le primaire
+PASS  DIRECTEUR_DISCIPLINE : fiche PDF d'un élève du primaire → 404
+PASS  DIRECTEUR_DISCIPLINE : fiche PDF d'un élève du secondaire
+PASS  DIRECTEUR_DISCIPLINE : réglages scolaires en lecture (années, sections, identité)
+PASS  DIRECTEUR_DISCIPLINE : aucune modification des réglages (identité de l'école) → 403
+PASS  DIRECTEUR_DISCIPLINE : export des familles refusé (droit absent)
+== Communications — audience, déduplication, périmètre, crédit SMS, historique
+PASS  section secondaire : parent multi-sections et parent du secondaire, chacun une fois
+PASS  aucun parent de l'école B ni parent du seul primaire
+PASS  audience hors périmètre refusée : section primaire
+PASS  audience hors périmètre refusée : classe du primaire
+PASS  audience hors périmètre refusée : élève du primaire
+PASS  audience hors périmètre refusée : section d'une autre école
+PASS  élève du secondaire d'une famille multi-sections : son responsable
+PASS  toute l'école (périmètre école) : 3 responsables de A, dédoublonnés
+PASS  envoi enregistré : 2 destinataires, crédit SMS réservé (2 sur 3)
+PASS  idempotence : même clé → message rejoué, aucune réservation en plus
+PASS  crédit insuffisant (1 disponible, 2 nécessaires) refusé, rien enregistré
+PASS  historique : message du secondaire visible, message du primaire masqué
+PASS  détail des livraisons d'un message du primaire → 404 (numéros non divulgués)
+PASS  détail des livraisons d'un message du secondaire → 200
+PASS  école B : message de A introuvable
+== Notifications (destinataire seulement) et authentification
+PASS  le destinataire voit sa notification
+PASS  un autre membre ne la voit pas
+PASS  un autre membre ne peut pas l'acquitter (404) — non lue
+PASS  un membre d'une autre école ne peut pas l'acquitter (404)
+PASS  le destinataire l'acquitte (200)
+PASS  acquittement sans le droit → 403
+PASS  sans jeton → 401 : stewardship/stock
+PASS  sans jeton → 401 : schooling/students
+PASS  sans jeton → 401 : audit/entities/Student/ed8b4ff2-790f-410
+PASS  jeton falsifié → 401
+== Compléments — lectures et éditions restantes de chaque rôle
+PASS  INTENDANT : historique documentaire (200)
+PASS  INTENDANT : personnel (lecture) (200)
+PASS  INTENDANT : identité de l'école (lecture) (200)
+PASS  INTENDANT : liste des biens (200)
+PASS  INTENDANT : liste des comptages (200)
+PASS  INTENDANT : locaux (200)
+PASS  INTENDANT : stock des articles vendus (200)
+PASS  INTENDANT : notifications (200)
+PASS  INTENDANT : fiche article modifiée (If-Match), quantité non modifiable par cette route
+PASS  INTENDANT : fiche article, version périmée → 409
+PASS  INTENDANT : élèves et effectifs non accessibles (403)
+PASS  DIRECTEUR_ETUDES : effectifs par classe (200)
+PASS  DIRECTEUR_ETUDES : mouvements des effectifs (200)
+PASS  DIRECTEUR_ETUDES : vue d'ensemble des effectifs (200)
+PASS  DIRECTEUR_ETUDES : état des communications (200)
+PASS  DIRECTEUR_ETUDES : historique documentaire (200)
+PASS  DIRECTEUR_ETUDES : indicateurs familles (200)
+PASS  DIRECTEUR_ETUDES : complément de profil (adresse) d'un élève du secondaire (200)
+PASS  DIRECTEUR_ETUDES : aucune opération d'inscription (403)
+PASS  DIRECTEUR_DISCIPLINE : effectifs par classe (200)
+PASS  DIRECTEUR_DISCIPLINE : mouvements des effectifs (200)
+PASS  DIRECTEUR_DISCIPLINE : vue d'ensemble des effectifs (200)
+PASS  DIRECTEUR_DISCIPLINE : état des communications (200)
+PASS  DIRECTEUR_DISCIPLINE : historique documentaire (200)
+PASS  DIRECTEUR_DISCIPLINE : indicateurs familles (200)
+PASS  DIRECTEUR_DISCIPLINE : complément de profil (adresse) d'un élève du secondaire (200)
+PASS  DIRECTEUR_DISCIPLINE : aucune opération d'inscription (403)
+== Liens documentaires signés — révocation immédiate
+PASS  lien valide d'un membre autorisé : accès non refusé (200, ou 503 si l'objet est absent du stockage)
+PASS  droit retiré pendant la validité du lien → 403
+PASS  appartenance à l'école retirée → 403
+PASS  compte désactivé → 403
+PASS  lien signé pour une autre école → 403
+PASS  lien expiré → 403
+PASS  signature altérée → 403
+142/142 PASS · 0 FAIL

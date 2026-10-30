@@ -1,0 +1,16 @@
+# Mesures — tools/local/three_roles_perf.py — 2026-10-30 — machine locale (Windows, PostgreSQL local), sans seuil revendiqué
+route                                                           médiane      max  statut  octets
+INTENDANT /api/v1/stewardship/stock?limit=100                       30ms     607ms  200  40389
+INTENDANT /api/v1/stewardship/stock?limit=100&offset=4800           53ms      57ms  200  40208
+INTENDANT /api/v1/stewardship/stock/movements?limit=100             26ms      31ms  200  39834
+INTENDANT /api/v1/stewardship/stock/low-alerts?limit=100            21ms      22ms  200  18707
+INTENDANT /api/v1/stewardship/assets?limit=100                      20ms      22ms  200  40547
+INTENDANT /api/v1/stewardship/dashboard                             16ms      18ms  200  1826
+INTENDANT /api/v1/stewardship/stock/export.xlsx                    690ms     878ms  200  148903
+DIRECTEUR /api/v1/schooling/students?limit=100                      75ms      91ms  200  121622
+DIRECTEUR /api/v1/effectifs/counts?group_by=section                175ms     179ms  200  894
+
+Plans PostgreSQL (EXPLAIN ANALYZE) :
+  mouvements récents       Execution Time: 0.057 ms     ->  Index Scan using ix_inventory_item_movements_school_recent on inventory_item_movements  (cost=0.29..6795.25 rows=49944 width=507) (actual time=0.0
+  alertes de stock         Execution Time: 2.909 ms     ->  Seq Scan on inventory_items  (cost=0.00..331.07 rows=1667 width=20) (actual time=1.321..2.531 rows=1100 loops=1)
+  historique d'un article  Execution Time: 0.468 ms     ->  Seq Scan on inventory_items  (cost=0.00..306.06 rows=5000 width=16) (actual time=0.417..0.418 rows=1 loops=1) | ->  Index Scan using ix_inventory_
