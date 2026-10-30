@@ -12,7 +12,7 @@ const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const auth = (token: string) => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
 // Server refusals go through the shared explainer (translated, remembered by friendlyError) — 2026-10-25.
 async function detail(r: Response, fallback: string) { let body: unknown = null; try { body = await r.json(); } catch { /* non JSON */ } return r.status ? explainHttpError(r.status, body) : fallback; }
-async function getJson<T>(token: string, path: string, fallback: string): Promise<T> { const r = await fetch(`${API}${path}`, {headers: auth(token)}); if (!r.ok) throw new Error(await detail(r, fallback)); return r.json(); }
+export async function getJson<T>(token: string, path: string, fallback: string): Promise<T> { const r = await fetch(`${API}${path}`, {headers: auth(token)}); if (!r.ok) throw new Error(await detail(r, fallback)); return r.json(); }
 async function getBlob(token: string, path: string, init: RequestInit = {}, fallback = 'Document indisponible'): Promise<Response> {
   const r = await fetch(`${API}${path}`, {...init, headers: {...auth(token), ...(init.headers ?? {})}}); if (!r.ok) throw new Error(await detail(r, fallback)); return r;
 }
@@ -34,12 +34,22 @@ function bounds(type: string, ref: string): [string, string] {
 
 export function PeriodicReports({token, can}: {token: string; can: (p: string) => boolean}) {
   const today = iso(new Date());
+  const [officialAllowed, setOfficialAllowed] = useState(false); const [historyAllowed, setHistoryAllowed] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]); const [profile, setProfile] = useState('CONSOLIDE'); const [type, setType] = useState('JOURNALIER');
   const [ref, setRef] = useState(today); const [start, setStart] = useState(today); const [end, setEnd] = useState(today);
   const [report, setReport] = useState<Report | null>(null); const [generated, setGenerated] = useState<any[]>([]); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [a, b] = type === 'PERSONNALISE' ? [start, end] : bounds(type, ref);
-  useEffect(() => { getJson<{profiles: Profile[]}>(token, '/finance/reports/profiles', 'Profils indisponibles').then(x => setProfiles(x.profiles)).catch(e => setError(friendlyError(e)));
-    if (can('finance.reports.history.read')) getJson<{items: any[]}>(token, '/finance/reports/generated', '').then(x => setGenerated(x.items)).catch(() => undefined); }, [token]);
+  useEffect(() => {
+    setOfficialAllowed(false); setHistoryAllowed(false); setGenerated([]);
+    getJson<{profiles: Profile[]; official_pdf_available: boolean; generated_history_available: boolean}>(token, '/finance/reports/profiles', 'Profils indisponibles')
+      .then(x => {
+        setProfiles(x.profiles); setOfficialAllowed(x.official_pdf_available);
+        setHistoryAllowed(x.generated_history_available);
+        if (x.generated_history_available && can('finance.reports.history.read'))
+          getJson<{items: any[]}>(token, '/finance/reports/generated', '')
+            .then(y => setGenerated(y.items)).catch(() => undefined);
+      }).catch(e => setError(friendlyError(e)));
+  }, [token]);
   async function run() { try { setError(''); setReport(await getJson<Report>(token, `/finance/reports/periodic${qs({profile_code: profile, period_type: type, start: a, end: b})}`, 'Rapport indisponible')); } catch (e) { setError(friendlyError(e)); } }
   async function officialPdf() {
     try { setBusy(true); const payload = JSON.stringify({profile_code: profile, period_type: type, start: a, end: b});
@@ -48,7 +58,7 @@ export function PeriodicReports({token, can}: {token: string; can: (p: string) =
       sessionStorage.setItem(slot, JSON.stringify({payload,key}));
       const r = await getBlob(token, '/finance/reports/periodic/pdf', {method: 'POST', body: payload, headers: {'Idempotency-Key': key}});
       const n = r.headers.get('X-Report-Number'); previewPdf(await r.blob()); toast.success(`Rapport officiel ${n ?? ''} ${r.headers.get('X-Report-Replayed') === 'yes' ? 'retrouvé' : 'généré et archivé'}`);
-      if (can('finance.reports.history.read')) setGenerated((await getJson<{items: any[]}>(token, '/finance/reports/generated', '')).items); }
+      if (historyAllowed && can('finance.reports.history.read')) setGenerated((await getJson<{items: any[]}>(token, '/finance/reports/generated', '')).items); }
     catch (e) { setError(friendlyError(e)); } finally { setBusy(false); }
   }
   async function excel() {
@@ -68,7 +78,7 @@ export function PeriodicReports({token, can}: {token: string; can: (p: string) =
     {report ? <>
       <div className="reportTitle"><div><span className="eyebrow">{a === b ? formatDate(a) : `${formatDate(a)} → ${formatDate(b)}`} · {MODE_LABEL[report.partial_reporting_mode] ?? report.partial_reporting_mode}</span><h3>{report.profile.title}</h3><small>{report.profile.intro}</small></div>
         <b>{money(report.totals.CDF ?? 0, 'CDF')} · {money(report.totals.USD ?? 0, 'USD')}</b></div>
-      <div className="dayActions">{can('finance.reports.periodic.generate') && <button className="collectBtn" disabled={busy} onClick={() => void officialPdf()}>Générer le rapport officiel</button>}
+      <div className="dayActions">{officialAllowed && can('finance.reports.periodic.generate') && <button className="collectBtn" disabled={busy} onClick={() => void officialPdf()}>Générer le rapport officiel</button>}
         {can('finance.reports.periodic.export') && <button className="softBtn" onClick={() => void excel()}>Excel (sans numéro)</button>}</div>
       <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>N°</th><th>Noms et post-noms</th><th>Classe</th><th>Observation</th><th>FC</th><th>USD</th></tr></thead>
         <tbody>{report.rows.map((r, i) => <tr key={r.payment_id}><td>{i + 1}</td><td><b>{[r.last_name, r.middle_name, r.first_name].filter(Boolean).join(' ') || '—'}</b></td><td>{r.class_label || '—'}</td><td>{r.observation}</td>

@@ -26,10 +26,37 @@ def catalog(actor:ActorContext=Depends(require_school_actor)):
 @router.get("/student-import-template.xlsx")
 def student_import_template(academic_year_id:UUID|None=Query(None),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,"documents.student_import_template.export")
+    # Exporting a class template is a data read: never enumerate classes
+    # outside the export capability's explicit SECTION/CLASS grants.
+    scopes = actor.scopes_for("documents.student_import_template.export")
+    schoolwide = any(t == "SCHOOL" for t, _ in scopes)
+    sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+    class_codes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
+    if not schoolwide and not sections and not class_codes:
+        raise HTTPException(403, "Aucune classe autorisée pour cet export")
     classes=[]
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         if academic_year_id:
-            classes=[r[0] for r in conn.execute(text("SELECT code FROM school_classes WHERE school_id=:sid AND academic_year_id=:y AND enabled ORDER BY code"),{"sid":actor.school_id,"y":academic_year_id}).all()]
+            predicates = ["sc.school_id=:sid", "sc.academic_year_id=:y", "sc.enabled"]
+            params = {"sid": actor.school_id, "y": academic_year_id}
+            if not schoolwide:
+                allowed = []
+                if sections:
+                    allowed.append("upper(ss.code) IN :sections")
+                    params["sections"] = sections
+                if class_codes:
+                    allowed.append("upper(sc.code) IN :class_codes")
+                    params["class_codes"] = class_codes
+                predicates.append("(" + " OR ".join(allowed) + ")")
+            from sqlalchemy import bindparam
+            stmt = text(f"""SELECT sc.code FROM school_classes sc
+                JOIN school_sections ss ON ss.id=sc.section_id
+                WHERE {' AND '.join(predicates)} ORDER BY sc.code""")
+            if sections and not schoolwide:
+                stmt = stmt.bindparams(bindparam("sections", expanding=True))
+            if class_codes and not schoolwide:
+                stmt = stmt.bindparams(bindparam("class_codes", expanding=True))
+            classes=[row[0] for row in conn.execute(stmt, params).all()]
     data=student_import_template_xlsx(school_name="EduSync École",classes=classes)
     return StreamingResponse(BytesIO(data),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":'attachment; filename="modele_import_eleves_edusync.xlsx"'})
 
@@ -99,6 +126,15 @@ def document_history(offset: int = Query(0, ge=0, le=100_000), limit: int = Quer
                      scope: str = Query("school", pattern="^(mine|school)$"),
                      actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     _need(actor, "documents.history.read")
+    # Archived generations have no persisted section provenance. Do not
+    # expose even the creator's archive to a section-only actor: ownership
+    # does not prove that its contents belong to the currently granted scope.
+    if not any(t == "SCHOOL" for t, _ in actor.scopes_for("documents.history.read")):
+        # Fail closed WITHOUT breaking the screen: no archive is listed, and the reason is stated (PR #27; provenance
+        # persistence is the open item of the section isolation handoff).
+        return {"items": [], "has_more": False, "offset": offset, "limit": limit, "storage_available": True,
+                "restricted": "Historique documentaire sans provenance de section vérifiable : les archives de l’école "
+                              "ne sont consultables qu’avec un périmètre école. Vos exports restent téléchargeables à leur création."}
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
         if scope == "mine":
             rows = conn.execute(text("""SELECT g.id,g.document_code,g.format,g.title,g.byte_size,g.generated_at updated_at,g.file_name,u.full_name generated_by,
@@ -121,6 +157,8 @@ def document_history(offset: int = Query(0, ge=0, le=100_000), limit: int = Quer
 @router.post("/history/{generation_id}/link")
 def document_link(generation_id: UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     _need(actor, "documents.open")
+    if not any(t == "SCHOOL" for t, _ in actor.scopes_for("documents.open")):
+        raise HTTPException(403, "Document sans provenance de section vérifiable")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
         found = conn.execute(text("SELECT 1 FROM generated_documents WHERE school_id=:s AND id=:id AND (generated_by=:u OR required_capability=ANY(CAST(:caps AS text[])))"),
                              {"s": str(actor.school_id), "id": str(generation_id), "u": str(actor.user_id), "caps": object_store.school_wide_capabilities(actor)}).first()
@@ -138,22 +176,31 @@ def open_signed_document(token: str = Query(..., min_length=20, max_length=600),
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
     with services.tenant_db.tenant_transaction(school_id=UUID(claim["school_id"]), user_id=UUID(claim["user_id"])) as conn:
-        member = conn.execute(text("""SELECT m.id FROM school_memberships m JOIN schools s ON s.id=m.school_id JOIN users u ON u.id=m.user_id
+        # the account must still be active too (certification 2026-10-30: a disabled account closes its links at once)
+        member = conn.execute(text("""SELECT 1 FROM school_memberships m JOIN schools s ON s.id=m.school_id JOIN users u ON u.id=m.user_id
             WHERE m.user_id=:u AND m.school_id=:s AND m.active AND s.status='ACTIVE' AND u.active"""), {"u": claim["user_id"], "s": claim["school_id"]}).first()
         doc = conn.execute(text("SELECT object_key,content_type,file_name,format,generated_by,required_capability FROM generated_documents WHERE school_id=:s AND id=:id"), {"s": claim["school_id"], "id": claim["document_id"]}).mappings().first()
-        # Certification 2026-10-30: the RIGHTS are re-evaluated at opening, like every API request (permissions reloaded
-        # from PostgreSQL): a right withdrawn, an account disabled or a membership removed after the link was issued
-        # closes it immediately, not only at its expiry.
-        allowed = False
-        if member and doc:
-            from edusync.adapters.postgres_authorization import PostgresAuthorizationRepository
-            from edusync.adapters.postgres_repositories import PostgresMembershipRepository
-            holder = ActorContext(user_id=UUID(claim["user_id"]), school_id=UUID(claim["school_id"]), membership_id=member[0],
-                                  permissions=PostgresMembershipRepository(conn).permissions(member[0]),
-                                  capability_scopes=PostgresAuthorizationRepository(conn).effective_capability_grants(UUID(claim["user_id"]), UUID(claim["school_id"])))
-            allowed = "documents.open" in holder.permissions and (
-                str(doc["generated_by"]) == claim["user_id"] or doc["required_capability"] in object_store.school_wide_capabilities(holder))
-    if not member or not doc or not allowed or not str(doc["object_key"]).startswith(f"schools/{claim['school_id']}/"):
+        # Signed URLs cannot outlive membership or permission revocation.
+        # Re-evaluate effective RBAC inside the same tenant transaction.
+        if not member or not doc:
+            raise HTTPException(403, "Lien invalide")
+        from edusync.adapters.postgres_repositories import PostgresMembershipRepository
+        from edusync.adapters.postgres_authorization import PostgresAuthorizationRepository
+        membership = conn.execute(text("SELECT id FROM school_memberships WHERE school_id=:s AND user_id=:u AND active LIMIT 1"),
+                                  {"s": claim["school_id"], "u": claim["user_id"]}).first()
+        if not membership:
+            raise HTTPException(403, "Lien invalide")
+        permissions = PostgresMembershipRepository(conn).permissions(membership[0])
+        grants = PostgresAuthorizationRepository(conn).effective_capability_grants(UUID(claim["user_id"]), UUID(claim["school_id"]))
+        current_actor = ActorContext(user_id=UUID(claim["user_id"]), school_id=UUID(claim["school_id"]),
+                                     membership_id=membership[0], permissions=permissions, capability_scopes=grants)
+        if "documents.open" not in permissions:
+            raise HTTPException(403, "Droit de consultation révoqué")
+        if not any(t == "SCHOOL" for t, _ in current_actor.scopes_for("documents.open")):
+            raise HTTPException(403, "Document sans provenance de section vérifiable")
+        if str(doc["generated_by"]) != claim["user_id"] and doc["required_capability"] not in object_store.school_wide_capabilities(current_actor):
+            raise HTTPException(403, "Droit de consultation révoqué")
+    if not str(doc["object_key"]).startswith(f"schools/{claim['school_id']}/"):
         raise HTTPException(403, "Lien invalide")
     try:
         data = _storage(services).get(doc["object_key"])

@@ -53,14 +53,18 @@ WIDGETS: list[dict] = [
     {"id": "cash.receipts", "title": "Encaissements du jour", "module": "finance", "priority": 22, "all": ("finance.cash.read", "finance.receipts.read")},
     {"id": "enrollments.today", "title": "Inscriptions", "module": "students", "priority": 23, "all": ("enrollments.create", "students.read")},
     {"id": "products.watch", "title": "Articles à surveiller", "module": "finance", "priority": 24, "all": ("finance.products.sale",)},
-    {"id": "headcounts.summary", "title": "Effectifs", "module": "headcounts", "priority": 30, "all": ("headcounts.read",)},
+    # breakdowns: the groupings the card may load, decided here from the capabilities (never guessed in the browser).
+    {"id": "headcounts.summary", "title": "Effectifs", "module": "headcounts", "priority": 30, "all": ("headcounts.read",),
+     "breakdowns": (("section", "headcounts.by_section.read"), ("class", "headcounts.by_class.read"), ("option", "headcounts.by_option.read"))},
     {"id": "headcounts.movements", "title": "Mouvements récents", "module": "headcounts", "priority": 31, "all": ("headcounts.movements.read",)},
     {"id": "personnel.summary", "title": "Personnel", "module": "personnel", "priority": 32, "all": ("personnel.summary.read",)},
     {"id": "finance.recovery", "title": "Évolution du recouvrement", "module": "finance", "priority": 40, "all": ("finance.recovery.monthly.read",)},
     {"id": "finance.by_fee", "title": "Situation par familles de frais", "module": "finance", "priority": 41, "all": ("finance.analysis.by_fee.read",)},
     {"id": "finance.decisions", "title": "Décisions financières actives", "module": "finance", "priority": 42, "all": ("finance.decisions.read",)},
-    {"id": "reports.latest", "title": "Rapports officiels récents", "module": "finance", "priority": 43, "all": ("finance.reports.history.read",)},
-    {"id": "documents.recent", "title": "Documents récents", "module": "documents", "priority": 44, "all": ("documents.history.read",)},
+    # school_scope: the read model behind the card is school-wide only (official reports, archived documents without
+    # section provenance) — the API refuses a section-only grant, so the card is not offered to it (PR #27).
+    {"id": "reports.latest", "title": "Rapports officiels récents", "module": "finance", "priority": 43, "all": ("finance.reports.history.read",), "school_scope": True},
+    {"id": "documents.recent", "title": "Documents récents", "module": "documents", "priority": 44, "all": ("documents.history.read",), "school_scope": True},
     {"id": "inventory.stock", "title": "Stocks", "module": "stewardship", "priority": 50, "all": ("inventory.stock.read",)},
     {"id": "inventory.counts", "title": "Inventaires", "module": "stewardship", "priority": 51, "all": ("inventory.counts.read",)},
 ]
@@ -86,8 +90,17 @@ def navigation(caps: set[str]) -> list[dict]:
     return [{"key": k, "label": label, "icon": icon} for k, label, icon, any_of in NAVIGATION if not any_of or any(c in caps for c in any_of)]
 
 
-def widgets(caps: set[str]) -> list[dict]:
-    return [{k: v for k, v in w.items() if k not in ("all", "any")} for w in sorted(WIDGETS, key=lambda w: w["priority"]) if _allowed(w, caps)]
+def widgets(caps: set[str], school_caps: set[str] | None = None) -> list[dict]:
+    """school_caps: capabilities held with a SCHOOL scope (None = every capability is school-wide)."""
+    out = []
+    for w in sorted(WIDGETS, key=lambda w: w["priority"]):
+        if not _allowed(w, caps) or (w.get("school_scope") and school_caps is not None and not _allowed(w, school_caps)):
+            continue
+        item = {k: v for k, v in w.items() if k not in ("all", "any", "breakdowns", "school_scope")}
+        if "breakdowns" in w:
+            item["breakdowns"] = [group for group, cap in w["breakdowns"] if cap in caps]
+        out.append(item)
+    return out
 
 
 def actions(caps: set[str]) -> list[dict]:
@@ -98,5 +111,5 @@ def declared_capabilities() -> set[str]:
     """Every capability the projection relies on (checked against the registry by the tests)."""
     out = {c for _, _, _, any_of in NAVIGATION for c in any_of}
     for entry in WIDGETS + ACTIONS:
-        out |= set(entry.get("all", ())) | set(entry.get("any", ()))
+        out |= set(entry.get("all", ())) | set(entry.get("any", ())) | {cap for _, cap in entry.get("breakdowns", ())}
     return out

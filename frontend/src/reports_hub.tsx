@@ -8,7 +8,7 @@ import {cashDayPdf} from './api';
 import {previewPdf} from './document_io';
 import {friendlyError} from './platform/errors';
 import {NavGlyph} from './platform/nav_icons';
-import {FinanceAnalyses, PeriodicReports} from './reports_ui';
+import {FinanceAnalyses, PeriodicReports, getJson} from './reports_ui';
 import {ProductSalesReport} from './schooling_parity_ui';
 import {generatedReports, type GeneratedReport} from './api';
 import './reports_hub.css';
@@ -19,14 +19,20 @@ const PERIOD: Record<string, string> = {JOURNALIER: 'Journalier', HEBDOMADAIRE: 
 const frDay=(v:string)=>{const [y,m,d]=v.split('-').map(Number);return y&&m&&d?new Date(y,m-1,d).toLocaleDateString('fr-FR') : v};
 
 export function ReportsHubPro({token, can, templates}: {token: string; can: (p: string) => boolean; templates: React.ReactNode}) {
+  // Templates and the register of generated reports are school-wide read models: the server says whether this actor's
+  // scope reaches them (a section-only Préfet / Directeur does not — PR #27). Unknown (no periodic right) = unchanged.
+  const [schoolHistory, setSchoolHistory] = useState(true);
+  useEffect(() => { if (!can('finance.reports.periodic.generate')) return;
+    getJson<{generated_history_available: boolean}>(token, '/finance/reports/profiles', 'Profils indisponibles')
+      .then(x => setSchoolHistory(x.generated_history_available !== false)).catch(() => {}); }, [token, can]);
   const sections = useMemo(() => ([
     ['daily', 'Rapport du jour', 'doc', can('finance.reports.daily.generate')],
     ['periodic', 'Rapports périodiques', 'calendar', can('finance.reports.periodic.generate')],
     ['sales', 'Ventes d’articles', 'cart', can('finance.products.sales_report.read')],
     ['analyses', 'Analyses de gestion', 'chart', can('finance.analysis.by_fee.read') || can('finance.analysis.by_cashier.read') || can('finance.analysis.advance.read')],
-    ['templates', 'Synthèses par modèle', 'layers', can('finance.reports.periodic.generate')],
-    ['history', 'Rapports générés', 'clock', can('finance.reports.history.read')],
-  ] as Array<[Key, string, string, boolean]>).filter(s => s[3]), [can]);
+    ['templates', 'Synthèses par modèle', 'layers', can('finance.reports.periodic.generate') && schoolHistory],
+    ['history', 'Rapports générés', 'clock', can('finance.reports.history.read') && schoolHistory],
+  ] as Array<[Key, string, string, boolean]>).filter(s => s[3]), [can, schoolHistory]);
   const [key, setKey] = useState<Key | null>(sections[0]?.[0] ?? null);
   if (!sections.length) return <p className="rh-empty">Aucun rapport n’est ouvert à votre rôle.</p>;
   return <section className="rh-root">

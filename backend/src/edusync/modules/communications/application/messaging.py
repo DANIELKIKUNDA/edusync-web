@@ -78,17 +78,18 @@ def resolve_audience(conn, actor, school_id: UUID, audience_type: str, audience_
     # Certification 2026-10-30: a section-scoped sender targeting a section / class / pupil OUTSIDE its sections is
     # refused explicitly (403) before any guardian is read, instead of silently resolving an empty audience (409).
     if audience_type in ("SECTION", "CLASS", "INDIVIDUAL") and cap and not getattr(actor, "is_platform_admin", False)             and actor.scopes_for(cap) and not any(t == "SCHOOL" for t, _ in actor.scopes_for(cap)):
-        target = {"SECTION": "SELECT upper(code) FROM school_sections WHERE school_id=:sid AND id=:ref",
-                  "CLASS": """SELECT upper(sec.code) FROM school_classes c JOIN school_sections sec ON sec.id=c.section_id AND sec.school_id=c.school_id
+        target = {"SECTION": "SELECT upper(code) AS section_code FROM school_sections WHERE school_id=:sid AND id=:ref",
+                  "CLASS": """SELECT upper(sec.code) AS section_code FROM school_classes c JOIN school_sections sec ON sec.id=c.section_id AND sec.school_id=c.school_id
                               WHERE c.school_id=:sid AND c.id=:ref""",
-                  "INDIVIDUAL": """SELECT upper(sec.code) FROM enrollments e JOIN academic_years y ON y.id=e.academic_year_id AND y.school_id=e.school_id AND y.status='ACTIVE'
+                  "INDIVIDUAL": """SELECT upper(sec.code) AS section_code FROM enrollments e JOIN academic_years y ON y.id=e.academic_year_id AND y.school_id=e.school_id AND y.status='ACTIVE'
                                    JOIN school_classes c ON c.id=e.class_id AND c.school_id=e.school_id JOIN school_sections sec ON sec.id=c.section_id AND sec.school_id=c.school_id
                                    WHERE e.school_id=:sid AND e.student_id=:ref AND e.status='VALIDATED'"""}[audience_type]
-        codes = [r[0] for r in conn.execute(text(target), params).all()]
+        codes = [r["section_code"] for r in conn.execute(text(target), params).mappings().all()]
         if not codes or not any(_scope_ok(actor, cap, code) for code in codes):
             raise PermissionError("Audience hors de votre périmètre")
     rows = conn.execute(text(f"""
-        SELECT DISTINCT ON (g.id, sec.code) g.id, g.full_name, coalesce(g.normalized_phone, g.phone) AS phone, g.email, sec.code AS section_code
+        SELECT g.id, g.full_name, coalesce(g.normalized_phone, g.phone) AS phone, g.email,
+               min(sec.code) AS section_code, array_agg(DISTINCT sec.code) AS section_codes
         FROM students s
         JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id AND e.status='VALIDATED'
         JOIN academic_years y ON y.id=e.academic_year_id AND y.school_id=e.school_id AND y.status='ACTIVE'
@@ -97,14 +98,16 @@ def resolve_audience(conn, actor, school_id: UUID, audience_type: str, audience_
         JOIN family_guardians fg ON fg.family_id=s.family_id AND fg.school_id=s.school_id AND fg.is_primary AND fg.active
         JOIN guardians g ON g.id=fg.guardian_id AND g.school_id=fg.school_id
         WHERE s.school_id=:sid AND s.status='ACTIVE' {('AND ' + ' AND '.join(where)) if where else ''}
-        ORDER BY g.id, sec.code"""), params).mappings().all()
-    out, seen = [], set()
+        GROUP BY g.id, g.full_name, g.normalized_phone, g.phone, g.email
+        ORDER BY g.id"""), params).mappings().all()
+    out = []
     for r in rows:
-        if not _scope_ok(actor, cap, r["section_code"]):
-            continue
-        if r["id"] in seen:
-            continue
-        seen.add(r["id"])
+        # A guardian can have children in several sections. DISTINCT ON (g.id)
+        # previously kept an arbitrary section and could authorize a mixed
+        # audience incorrectly. Every matched section must be authorized.
+        sections = r.get("section_codes") or [r["section_code"]]
+        if not all(_scope_ok(actor, cap, section) for section in sections):
+            raise PermissionError("Destinataires hors de votre périmètre de section")
         out.append(Recipient("GUARDIAN", r["id"], r["full_name"], r["phone"], r["email"]))
     return out
 

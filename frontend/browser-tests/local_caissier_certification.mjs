@@ -68,10 +68,12 @@ await step('31 encaissement : montant, encaisser, reçu', async () => {
   const confirm = p.getByRole('button', {name: /Confirmer|Valider l’encaissement/}); if (await confirm.count()) await confirm.first().click();
   await p.getByText(/Reçu|REC-/).first().waitFor({timeout: 20000}); });
 await step('32 reçu : aperçu imprimable', async () => {
-  const show = p.getByRole('button', {name: /Imprimer le reçu|Voir le reçu|Reçu/}).first(); await show.click();
-  await p.locator('iframe.receiptFrame, .receiptFrame').first().waitFor({timeout: 20000}); await p.waitForTimeout(2500);
+  // the payment banner offers « Ouvrir le reçu » (preview); « Reçus · N en attente » at the top is the print queue
+  const show = p.getByRole('button', {name: /^(Ouvrir le reçu|Voir le reçu)$/}).first(); await show.click();
+  // since 2026-10-26 receipts open in the in-app PDF viewer (platform/pdf_viewer.tsx); the legacy frame is still accepted
+  await p.locator('.pdfv-shell, iframe.receiptFrame, .receiptFrame').first().waitFor({timeout: 20000}); await p.waitForTimeout(2500);
   if (csp.length) throw new Error(`aperçu du reçu bloqué par la politique de sécurité : ${csp[0]}`);
-  await p.getByRole('button', {name: 'Fermer'}).last().click(); });
+  await p.keyboard.press('Escape'); await p.waitForTimeout(400); if (await p.locator('.pdfv-shell').count()) await p.getByRole('button', {name: /Fermer|Retour/}).last().click(); });
 
 await step('40 vente d’un article scolaire', async () => { await module('Centre financier'); await finTab('Encaissement'); await finTab('Autres encaissements');
   await p.getByPlaceholder(/Nom, matricule, famille/).fill(PUPIL); await p.locator('.checkoutHits button').first().click();
@@ -88,7 +90,7 @@ await step('50 caisse : dépense justifiée', async () => { await finTab('Caisse
   await p.getByText(/Dépense enregistrée/i).first().waitFor({timeout: 15000}); });
 await step('51 caisse : clôture au montant compté', async () => {
   await p.getByRole('button', {name: 'Clôturer ma caisse'}).click(); const dlg = p.getByRole('dialog', {name: 'Clôturer ma caisse'});
-  const cdf = dlg.getByLabel('Compté CDF'); await cdf.fill((await cdf.getAttribute('placeholder')) ?? '0');
+  const cdf = dlg.getByLabel('Compté FC');   // the UI reads FC, never the internal code CDF await cdf.fill((await cdf.getAttribute('placeholder')) ?? '0');
   const usd = dlg.getByLabel('Compté USD'); await usd.fill((await usd.getAttribute('placeholder')) ?? '0');
   await dlg.getByRole('button', {name: 'Clôturer ma caisse'}).click(); await dlg.waitFor({state: 'detached', timeout: 20000});
   await p.locator('.cd-hero.closed').waitFor({timeout: 20000});

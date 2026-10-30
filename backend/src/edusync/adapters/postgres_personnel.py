@@ -19,21 +19,22 @@ def _row(row) -> dict[str, Any]:
 def _scope_where(scopes: tuple[tuple[str, str | None], ...], *, alias: str = "sm") -> tuple[str, dict[str, Any]]:
     """SQL visibility rule for personnel identities.
 
-    SCHOOL means full school. SECTION sees personnel with a SCHOOL assignment or
-    an assignment in that section. CLASS sees school-wide personnel or that class.
+    SCHOOL means full school. SECTION sees personnel assigned to that section
+    (including its classes). CLASS sees personnel assigned to that class.
+    A school-wide staff assignment must not implicitly widen section access.
     No effective scope fails closed.
     """
     if any(t == "SCHOOL" for t, _ in scopes):
         return "TRUE", {}
-    sections = sorted({v for t, v in scopes if t == "SECTION" and v})
-    classes = sorted({v for t, v in scopes if t == "CLASS" and v})
+    sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+    classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
     if not sections and not classes:
         return "FALSE", {}
-    clauses = ["sa.scope_type='SCHOOL'"]
+    clauses: list[str] = []
     params: dict[str, Any] = {}
     if sections:
         clauses.append("(sa.scope_type='SECTION' AND upper(sa.scope_value) IN :scope_sections)")
-        clauses.append("(sa.scope_type='CLASS' AND EXISTS (SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id WHERE sc.id=sa.class_id AND upper(ss.code) IN :scope_sections))")
+        clauses.append("(sa.scope_type='CLASS' AND EXISTS (SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id WHERE sc.id=sa.class_id AND sc.school_id=sa.school_id AND upper(ss.code) IN :scope_sections))")
         params["scope_sections"] = sections
     if classes:
         clauses.append("(sa.scope_type='CLASS' AND upper(sa.scope_value) IN :scope_classes)")
@@ -76,19 +77,24 @@ class PostgresPersonnelRepository:
         if category:
             conditions.append("sm.category=:category")
             args["category"] = category
-        stmt = text(f"""
-            SELECT sm.*,
-              (SELECT count(*) FROM staff_assignments a WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL) AS active_assignment_count,
-              EXISTS(SELECT 1 FROM staff_access_links l WHERE l.school_id=sm.school_id AND l.staff_id=sm.id AND l.active) AS has_linked_access,
-              (SELECT count(*) FROM staff_student_links sl WHERE sl.school_id=sm.school_id AND sl.staff_id=sm.id AND sl.active) AS staff_children_count,
-              coalesce((SELECT jsonb_agg(jsonb_build_object(
+        full = any(kind == "SCHOOL" for kind, _ in scopes)
+        assignment_count_sql = "(SELECT count(*) FROM staff_assignments a WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL)" if full else "0"
+        linked_access_sql = "EXISTS(SELECT 1 FROM staff_access_links l WHERE l.school_id=sm.school_id AND l.staff_id=sm.id AND l.active)" if full else "false"
+        children_count_sql = "(SELECT count(*) FROM staff_student_links sl WHERE sl.school_id=sm.school_id AND sl.staff_id=sm.id AND sl.active)" if full else "0"
+        assignment_json_sql = """coalesce((SELECT jsonb_agg(jsonb_build_object(
                  'id',a.id,'function_id',a.function_id,'function_code',f.code,'function_label',f.label,
                  'scope_type',a.scope_type,'scope_value',a.scope_value,'is_primary',a.is_primary,
                  'is_titular',a.is_titular,'titular_class_id',a.titular_class_id,'start_date',a.start_date,
                  'end_date',a.end_date,'version',a.version
                ) ORDER BY a.is_primary DESC,f.sort_order,f.label)
                FROM staff_assignments a JOIN staff_functions f ON f.id=a.function_id
-              WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL), '[]'::jsonb) AS assignments
+              WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL), '[]'::jsonb)""" if full else "'[]'::jsonb"
+        stmt = text(f"""
+            SELECT sm.*,
+              {assignment_count_sql} AS active_assignment_count,
+              {linked_access_sql} AS has_linked_access,
+              {children_count_sql} AS staff_children_count,
+              {assignment_json_sql} AS assignments
             FROM staff_members sm
             WHERE {' AND '.join(conditions)}
             ORDER BY CASE sm.status WHEN 'ACTIVE' THEN 0 WHEN 'SUSPENDED' THEN 1 WHEN 'INACTIVE' THEN 2 ELSE 3 END,
@@ -97,7 +103,57 @@ class PostgresPersonnelRepository:
         """)
         stmt = _bind_scope(stmt, params)
         args["limit"]=max(1,min(int(limit),1000));args["offset"]=max(0,int(offset))
-        return [_row(r) for r in self.connection.execute(stmt, args).all()]
+        rows = [_row(r) for r in self.connection.execute(stmt, args).all()]
+        if not any(kind == "SCHOOL" for kind, _ in scopes):
+            # Do not expose assignments or global linked-account/child counts
+            # outside the reader's section. Reuse the scoped assignment query.
+            # One batched query for the page avoids an N+1 database round-trip.
+            # The SQL applies scope filtering before rows enter Python.
+            grouped: dict[UUID, list[dict[str, Any]]] = {item["id"]: [] for item in rows}
+            if grouped:
+                sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+                classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
+                permitted = []
+                params_assign: dict[str, Any] = {"sid": school_id, "staff_ids": list(grouped)}
+                if sections:
+                    permitted.append("(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)")
+                    permitted.append("""(a.scope_type='CLASS' AND EXISTS (
+                        SELECT 1 FROM school_classes sc JOIN school_sections ss
+                        ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                        WHERE sc.id=a.class_id AND sc.school_id=a.school_id
+                        AND upper(ss.code) IN :sections))""")
+                    params_assign["sections"] = sections
+                if classes:
+                    permitted.append("(a.scope_type='CLASS' AND upper(a.scope_value) IN :classes)")
+                    params_assign["classes"] = classes
+                if permitted:
+                    stmt_assign = text(f"""
+                        SELECT a.*,f.code function_code,f.label function_label,
+                               f.category function_category,ss.label section_label,
+                               sc.label class_label,tc.label titular_class_label
+                        FROM staff_assignments a
+                        JOIN staff_functions f ON f.id=a.function_id
+                        LEFT JOIN school_sections ss ON ss.id=a.section_id
+                        LEFT JOIN school_classes sc ON sc.id=a.class_id
+                        LEFT JOIN school_classes tc ON tc.id=a.titular_class_id
+                        WHERE a.school_id=:sid AND a.staff_id IN :staff_ids
+                          AND a.end_date IS NULL AND ({' OR '.join(permitted)})
+                        ORDER BY a.is_primary DESC,a.start_date DESC
+                    """).bindparams(bindparam("staff_ids", expanding=True))
+                    if sections:
+                        stmt_assign = stmt_assign.bindparams(bindparam("sections", expanding=True))
+                    if classes:
+                        stmt_assign = stmt_assign.bindparams(bindparam("classes", expanding=True))
+                    for assignment_row in self.connection.execute(stmt_assign, params_assign).all():
+                        assignment = _row(assignment_row)
+                        grouped[assignment["staff_id"]].append(assignment)
+            for item in rows:
+                assignments = grouped[item["id"]]
+                item["assignments"] = assignments
+                item["active_assignment_count"] = len(assignments)
+                item["has_linked_access"] = False
+                item["staff_children_count"] = 0
+        return rows
 
     def count_staff(self, school_id: UUID, *, query: str | None = None, status: str | None = None, category: str | None = None, scopes: tuple[tuple[str,str|None], ...] = ()) -> int:
         where_scope,params=_scope_where(scopes);conditions=["sm.school_id=:sid",where_scope];args:dict[str,Any]={"sid":school_id,**params}
@@ -116,13 +172,45 @@ class PostgresPersonnelRepository:
             return None
         out=_row(row)
         out["assignments"] = self.list_assignments(school_id,staff_id,scopes=scopes,include_history=True)
-        out["history"] = self.status_history(school_id,staff_id)
-        out["access_links"] = self.access_links(school_id,staff_id)
-        out["staff_children"] = self.staff_children(school_id,staff_id)
+        # These collections are linked to the staff identity, not to a
+        # section assignment. A scoped reader must not learn school-wide
+        # access memberships, family relationships or global status events.
+        if any(kind == "SCHOOL" for kind, _ in scopes):
+            out["history"] = self.status_history(school_id,staff_id)
+            out["access_links"] = self.access_links(school_id,staff_id)
+            out["staff_children"] = self.staff_children(school_id,staff_id)
+        else:
+            out["history"] = []
+            out["access_links"] = []
+            out["staff_children"] = []
         return out
 
     def summary(self, school_id: UUID, *, scopes: tuple[tuple[str, str | None], ...] = ()) -> StaffSummary:
         where_scope, params = _scope_where(scopes)
+        full = any(t == 'SCHOOL' for t, _ in scopes)
+        assignment_expr = "(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id WHERE a.school_id=:sid AND a.end_date IS NULL)"
+        if not full:
+            # Count only assignments belonging to the exact section/class grant,
+            # not all assignments attached to otherwise visible employees.
+            sections = sorted({str(v).upper() for t,v in scopes if t == "SECTION" and v})
+            classes = sorted({str(v).upper() for t,v in scopes if t == "CLASS" and v})
+            allowed = []
+            if sections:
+                allowed.append("(a.scope_type='SECTION' AND upper(a.scope_value) IN :summary_sections)")
+                allowed.append("""(a.scope_type='CLASS' AND EXISTS (
+                    SELECT 1 FROM school_classes sc JOIN school_sections ss
+                    ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+                    WHERE sc.id=a.class_id AND sc.school_id=a.school_id
+                    AND upper(ss.code) IN :summary_sections))""")
+                params["summary_sections"] = sections
+            if classes:
+                allowed.append("(a.scope_type='CLASS' AND upper(a.scope_value) IN :summary_classes)")
+                params["summary_classes"] = classes
+            assignment_expr = ("(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id "
+                               "WHERE a.school_id=:sid AND a.end_date IS NULL AND ("
+                               + " OR ".join(allowed) + "))") if allowed else "0"
+        access_expr = "(SELECT count(*) FROM staff_access_links l JOIN visible v ON v.id=l.staff_id WHERE l.school_id=:sid AND l.active)" if full else "0"
+        children_expr = "(SELECT count(*) FROM staff_student_links sl JOIN visible v ON v.id=sl.staff_id WHERE sl.school_id=:sid AND sl.active)" if full else "0"
         stmt = _bind_scope(text(f"""
           WITH visible AS (SELECT sm.* FROM staff_members sm WHERE sm.school_id=:sid AND {where_scope})
           SELECT count(*) total,
@@ -133,15 +221,18 @@ class PostgresPersonnelRepository:
                  count(*) FILTER (WHERE category='ADMINISTRATIF') administrative,
                  count(*) FILTER (WHERE category='OUVRIER') workers,
                  count(*) FILTER (WHERE category='AUTRE') other,
-                 (SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id WHERE a.end_date IS NULL) active_assignments,
-                 (SELECT count(*) FROM staff_access_links l JOIN visible v ON v.id=l.staff_id WHERE l.active) linked_accounts,
-                 (SELECT count(*) FROM staff_student_links sl JOIN visible v ON v.id=sl.staff_id WHERE sl.active) staff_children
+                 {assignment_expr} active_assignments,
+                 {access_expr} linked_accounts,
+                 {children_expr} staff_children
             FROM visible
         """), params)
+        for name in ("summary_sections", "summary_classes"):
+            if name in params:
+                stmt = stmt.bindparams(bindparam(name, expanding=True))
         r=self.connection.execute(stmt,{"sid":school_id,**params}).first()._mapping
         return StaffSummary(total=int(r['total']),active=int(r['active']),suspended=int(r['suspended']),left=int(r['left_count']),
                             teachers=int(r['teachers']),administrative=int(r['administrative']),workers=int(r['workers']),other=int(r['other']),
-                            active_assignments=int(r['active_assignments']),linked_accounts=int(r['linked_accounts']),staff_children=int(r['staff_children']))
+                            active_assignments=int(r['active_assignments']),linked_accounts=int(r['linked_accounts']) if full else 0,staff_children=int(r['staff_children']) if full else 0)
 
     def create_staff(self, member: StaffMember) -> dict[str, Any]:
         row=self.connection.execute(text("""
@@ -183,6 +274,19 @@ class PostgresPersonnelRepository:
         return _row(row)
 
     def add_assignment(self, assignment: StaffAssignment) -> dict[str, Any]:
+        # Serialize with scoped identity updates. The staff row is the lock
+        # shared by every assignment insertion and identity mutation.
+        owner = self.connection.execute(text("""
+            SELECT id FROM staff_members WHERE school_id=:sid AND id=:staff FOR UPDATE
+        """), {"sid": assignment.school_id, "staff": assignment.staff_id}).first()
+        if owner is None:
+            raise LookupError("Agent introuvable dans cet établissement")
+        function = self.connection.execute(text("""
+            SELECT id FROM staff_functions
+            WHERE school_id=:sid AND id=:function AND enabled=true
+        """), {"sid": assignment.school_id, "function": assignment.function_id}).first()
+        if function is None:
+            raise ValueError("Fonction du personnel introuvable ou inactive dans cet établissement")
         if assignment.is_primary:
             self.connection.execute(text("UPDATE staff_assignments SET is_primary=false WHERE school_id=:sid AND staff_id=:staff AND end_date IS NULL AND is_primary"),{"sid":assignment.school_id,"staff":assignment.staff_id})
         row=self.connection.execute(text("""
@@ -200,10 +304,10 @@ class PostgresPersonnelRepository:
         params:dict[str,Any]={"sid":school_id,"staff":staff_id}
         if not include_history: clauses.append("a.end_date IS NULL")
         if not full:
-            sections=sorted({v for t,v in scopes if t=='SECTION' and v});classes=sorted({v for t,v in scopes if t=='CLASS' and v})
-            bits=["a.scope_type='SCHOOL'"]
+            sections=sorted({str(v).upper() for t,v in scopes if t=='SECTION' and v});classes=sorted({str(v).upper() for t,v in scopes if t=='CLASS' and v})
+            bits=[]
             if sections:
-                bits += ["(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)","(a.scope_type='CLASS' AND EXISTS(SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id WHERE sc.id=a.class_id AND upper(ss.code) IN :sections))"]
+                bits += ["(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)","(a.scope_type='CLASS' AND EXISTS(SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id WHERE sc.id=a.class_id AND sc.school_id=a.school_id AND upper(ss.code) IN :sections))"]
                 params['sections']=sections
             if classes: bits.append("(a.scope_type='CLASS' AND upper(a.scope_value) IN :classes)");params['classes']=classes
             if not sections and not classes: return []

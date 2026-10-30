@@ -255,7 +255,7 @@ export default function AccessPage({token,permissions,userName}:Props){
       onClose={()=>setOpenId(null)} onAssign={()=>setAssignFor(opened)} onRevoke={r=>void revoke(opened,r)} onAction={k=>memberAction(opened,k)} onRenamed={load}/>}
     {assignFor&&<AssignDialog token={token} member={assignFor} roles={activeRoles} scopes={scopes} canScope={canScope}
       onClose={()=>setAssignFor(null)} onSaved={async()=>{setAssignFor(null);await load()}}/>}
-    {adding&&<AddMemberDialog token={token} roles={activeRoles} canAssign={canAssign} onClose={()=>setAdding(false)}
+    {adding&&<AddMemberDialog token={token} roles={activeRoles} canAssign={canAssign} sections={scopes.sections} canScope={canScope} onClose={()=>setAdding(false)}
       onDone={async r=>{setAdding(false);setTab('members');setStatus('active');setQ('');if(r.temporary_password)setSecret({title:'Compte créé',name:r.full_name,email:r.email,password:r.temporary_password});else if(r.invitation_sent)toast.success(`Invitation envoyée à ${r.email} : lien valable 48 heures, utilisable une seule fois.`);else toast.success(r.attached_existing_account?`${r.full_name} a déjà un compte EduSync : il est rattaché à votre école et se connecte avec ses identifiants habituels.`:'Membre ajouté');await load()}}/>}
     {secret&&<SecretDialog {...secret} onClose={()=>setSecret(null)}/>}
     {confirm&&<ReasonDialog {...confirm} onClose={()=>setConfirm(null)}/>}
@@ -334,6 +334,9 @@ function RoleEditor({token,catalog,capIndex,editor,readOnly,onClose,onSaved}:{to
   </aside></div>;
 }
 
+// Mirrors SECTION_BOUND_ROLES of the access API (which enforces it): these leadership roles take sections, never the whole school.
+const SECTION_BOUND=new Set(['PREFET_ETUDES','DIRECTEUR_ETUDES','DIRECTEUR_DISCIPLINE','DIRECTION_SECTION']);
+const sectionBound=(r?:Role)=>!!r&&r.kind==='SCHOOL_STANDARD'&&SECTION_BOUND.has(r.code);
 const DURATIONS=[{k:'none',l:'Permanent'},{k:'7',l:'1 semaine'},{k:'30',l:'1 mois'},{k:'90',l:'3 mois'},{k:'date',l:'Date…'}] as const;
 
 function AssignDialog({token,member,roles,scopes,canScope,onClose,onSaved}:{token:string;member:Member;roles:Role[];scopes:ScopeOptions;canScope:boolean;onClose:()=>void;onSaved:()=>Promise<void>}){
@@ -342,6 +345,8 @@ function AssignDialog({token,member,roles,scopes,canScope,onClose,onSaved}:{toke
   const [roleId,setRoleId]=useState(available[0]?.id??''),[scopeType,setScopeType]=useState<'SCHOOL'|'SECTION'|'CLASS'>('SCHOOL'),[scopeValue,setScopeValue]=useState('');
   const [duration,setDuration]=useState<string>('none'),[until,setUntil]=useState(''),[reason,setReason]=useState(''),[busy,setBusy]=useState(false);
   const options=scopeType==='SECTION'?scopes.sections.map(s=>({v:s.code,l:s.label})):scopes.classes.map(c=>({v:c.code,l:`${c.label} · ${c.section}`}));
+  const bound=sectionBound(roles.find(r=>r.id===roleId));
+  useEffect(()=>{if(bound&&scopeType==='SCHOOL'){setScopeType('SECTION');setScopeValue('')}},[bound,scopeType]);
   const validUntil=duration==='none'?null:duration==='date'?(until?new Date(`${until}T23:59:59`).toISOString():null):new Date(Date.now()+Number(duration)*864e5).toISOString();
   const ready=roleId&&reason.trim().length>=3&&(scopeType==='SCHOOL'||scopeValue)&&(duration!=='date'||until);
   async function save(){if(!ready)return;try{setBusy(true);
@@ -354,7 +359,7 @@ function AssignDialog({token,member,roles,scopes,canScope,onClose,onSaved}:{toke
       <optgroup label="Rôles standards EduSync">{available.filter(r=>r.kind==='SCHOOL_STANDARD').map(r=><option key={r.id} value={r.id}>{r.label}</option>)}</optgroup>
     </select></label>
     <div className="fieldGroup"><span>Périmètre</span><div className="segmented" role="radiogroup">
-      {(['SCHOOL','SECTION','CLASS'] as const).map(t=><button key={t} type="button" role="radio" aria-checked={scopeType===t} disabled={t!=='SCHOOL'&&!canScope} className={scopeType===t?'on':''} onClick={()=>{setScopeType(t);setScopeValue('')}}>{t==='SCHOOL'?'Toute l’école':t==='SECTION'?'Une section':'Une classe'}</button>)}
+      {(['SCHOOL','SECTION','CLASS'] as const).filter(t=>!(bound&&t==='SCHOOL')).map(t=><button key={t} type="button" role="radio" aria-checked={scopeType===t} disabled={t!=='SCHOOL'&&!canScope} className={scopeType===t?'on':''} onClick={()=>{setScopeType(t);setScopeValue('')}}>{t==='SCHOOL'?'Toute l’école':t==='SECTION'?'Une section':'Une classe'}</button>)}
     </div>{scopeType!=='SCHOOL'&&<select value={scopeValue} onChange={e=>setScopeValue(e.target.value)} aria-label="Choisir le périmètre"><option value="">Choisir…</option>{options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>}</div>
     <div className="fieldGroup"><span>Durée</span><div className="segmented wrap" role="radiogroup">
       {DURATIONS.map(d=><button key={d.k} type="button" role="radio" aria-checked={duration===d.k} className={duration===d.k?'on':''} onClick={()=>setDuration(d.k)}>{d.l}</button>)}
@@ -416,7 +421,7 @@ type CreatedMember={membership_id:string;email:string;full_name:string;created:b
 // « Ajouter un membre » (premium pass 2026-10-24): own layout (no generic label styles), sticky head and foot, scrolling
 // body, role chosen on cards with search, access mode on two cards, one-click reasons, live summary. Same API and rules.
 const REASONS = ['Arrivée dans l’équipe', 'Remplacement', 'Nouvelle fonction', 'Stage', 'Renfort temporaire'];
-function AddMemberDialog({token,roles,canAssign,onClose,onDone}:{token:string;roles:Role[];canAssign:boolean;onClose:()=>void;onDone:(r:CreatedMember)=>Promise<void>}){
+function AddMemberDialog({token,roles,canAssign,sections,canScope,onClose,onDone}:{token:string;roles:Role[];canAssign:boolean;sections:{code:string;label:string}[];canScope:boolean;onClose:()=>void;onDone:(r:CreatedMember)=>Promise<void>}){
   const [email,setEmail]=useState(''),[name,setName]=useState(''),[roleId,setRoleId]=useState(''),[reason,setReason]=useState(REASONS[0]),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [delivery,setDelivery]=useState<'TEMPORARY_PASSWORD'|'INVITATION'>('TEMPORARY_PASSWORD');
   const [touched,setTouched]=useState(false);const [q,setQ]=useState('');
@@ -426,8 +431,10 @@ function AddMemberDialog({token,roles,canAssign,onClose,onDone}:{token:string;ro
   const shown=usable.filter(r=>!q.trim()||`${r.label} ${r.description}`.toLowerCase().includes(q.trim().toLowerCase()));
   const groups:[string,Role[]][]=[['Rôles propres à l’école',shown.filter(r=>r.kind==='SCHOOL_CUSTOM')],['Rôles standards EduSync',shown.filter(r=>r.kind==='SCHOOL_STANDARD')]];
   const role=usable.find(r=>r.id===roleId);
-  async function save(e:React.FormEvent){e.preventDefault();setTouched(true);setError('');if(!emailOk||!nameOk||!reasonOk)return;
-    try{setBusy(true);const r=await send<CreatedMember>(token,'POST','members',{email:email.trim().toLowerCase(),full_name:name.trim(),role_id:roleId||null,reason:reason.trim(),delivery});await onDone(r)}
+  // A section-bound leadership role (Préfet, Direction de section…) needs its section(s); several = explicit union.
+  const bound=sectionBound(role);const [picked,setPicked]=useState<string[]>([]);const sectionsOk=!bound||picked.length>0;
+  async function save(e:React.FormEvent){e.preventDefault();setTouched(true);setError('');if(!emailOk||!nameOk||!reasonOk||!sectionsOk)return;
+    try{setBusy(true);const r=await send<CreatedMember>(token,'POST','members',{email:email.trim().toLowerCase(),full_name:name.trim(),role_id:roleId||null,reason:reason.trim(),delivery,...(bound?{scopes:picked.map(v=>({type:'SECTION',value:v}))}:{})});await onDone(r)}
     catch(err){setError(err instanceof Error?err.message:friendlyError(err))}finally{setBusy(false)}}
   return createPortal(<div className="am-backdrop" onClick={()=>{if(!busy)onClose()}}>
     <form className="am-dialog" role="dialog" aria-modal="true" aria-labelledby="am-title" onClick={e=>e.stopPropagation()} onSubmit={save} noValidate>
@@ -457,7 +464,11 @@ function AddMemberDialog({token,roles,canAssign,onClose,onDone}:{token:string;ro
                 <em>{r.holders?`${r.holders} membre(s)`:'Nouveau'}</em></button>)}</React.Fragment>)}
             {shown.length===0&&q.trim()&&<p className="am-hint">Aucun rôle ne correspond à « {q.trim()} ».</p>}
           </div>
-          <small className="am-hint">Le rôle est attribué sur toute l’école ; vous pourrez le limiter à une section ou une classe depuis la fiche du membre.</small>
+          {bound?<div className={`am-field am-sections ${touched&&!sectionsOk?'invalid':''}`} role="group" aria-label="Sections du rôle"><label>Section(s) * <small>ce rôle ne s’attribue jamais sur toute l’école</small></label>
+            {canScope?<div className="am-chips">{sections.map(s=><button key={s.code} type="button" className={`am-chip ${picked.includes(s.code)?'on':''}`} aria-pressed={picked.includes(s.code)} onClick={()=>setPicked(x=>x.includes(s.code)?x.filter(v=>v!==s.code):[...x,s.code])}>{s.label}</button>)}</div>
+              :<small className="am-error">Vous n’avez pas le droit d’attribuer un périmètre de section : demandez-le à l’administrateur.</small>}
+            {touched&&!sectionsOk&&canScope&&<small className="am-error">Choisissez au moins une section.</small>}</div>
+          :<small className="am-hint">Le rôle est attribué sur toute l’école ; vous pourrez le limiter à une section ou une classe depuis la fiche du membre.</small>}
         </section>}
         <section className="am-section"><h4><span>{canAssign?3:2}</span>Comment se connecte-t-il ?</h4>
           <div className="am-options" role="radiogroup" aria-label="Accès du nouveau compte">
@@ -475,7 +486,7 @@ function AddMemberDialog({token,roles,canAssign,onClose,onDone}:{token:string;ro
         {error&&<div className="error" role="alert">{error}</div>}
       </div>
       <footer className="am-foot">
-        <span className="am-summary">{nameOk?<><b>{name.trim()}</b>{role?` · ${role.label}`:' · sans rôle'} · {delivery==='INVITATION'?'invitation e-mail':'mot de passe provisoire'}</>:'Complétez le nom et l’adresse e-mail'}</span>
+        <span className="am-summary">{nameOk?<><b>{name.trim()}</b>{role?` · ${role.label}${bound&&picked.length?` (${picked.map(v=>sections.find(s=>s.code===v)?.label||v).join(' + ')})`:''}`:' · sans rôle'} · {delivery==='INVITATION'?'invitation e-mail':'mot de passe provisoire'}</>:'Complétez le nom et l’adresse e-mail'}</span>
         <button type="button" className="am-btn ghost" disabled={busy} onClick={onClose}>Annuler</button>
         <button className="am-btn primary" disabled={busy}><Icon name="userPlus" size={16}/>{busy?'Création…':'Ajouter le membre'}</button>
       </footer>

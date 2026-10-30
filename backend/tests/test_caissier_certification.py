@@ -32,7 +32,8 @@ def test_setup_widgets_need_a_settings_manager():
 
 def test_personnel_never_waits_for_a_summary_it_cannot_read():
     assert "(summary||can('personnel.summary.read'))&&<div className=\"personMetrics\">" in PERSONNEL
-    assert "permissions.includes('personnel.summary.read')?'overview':'directory'" in PERSONNEL
+    # PR #27: a profile without personnel.read opens on the functions tab instead of an empty directory.
+    assert "permissions.includes('personnel.summary.read')?'overview':permissions.includes('personnel.read')?'directory':'functions'" in PERSONNEL
 
 
 def test_each_role_has_its_own_home():

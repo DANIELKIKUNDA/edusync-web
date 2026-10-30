@@ -19,7 +19,21 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
+from edusync.adapters.postgres_schooling import _student_scope_where, _family_scope_where, _bind_scope
 from sqlalchemy.engine import Connection
+
+
+def _section_class_where(sections: list[str], classes: list[str], *, schoolwide: bool) -> tuple[str, dict]:
+    """Scope predicate on ss (section) / sc (class). Only NON-EMPTY lists are bound: an empty expanding list renders as
+    IN (SELECT CAST(NULL AS INTEGER) WHERE 1!=1) and PostgreSQL fails with « text = integer » (section-only Préfet)."""
+    if schoolwide:
+        return "TRUE", {}
+    parts, params = [], {}
+    if sections:
+        parts.append("upper(ss.code) IN :scope_sections"); params["scope_sections"] = sections
+    if classes:
+        parts.append("upper(sc.code) IN :scope_classes"); params["scope_classes"] = classes
+    return ("(" + " OR ".join(parts) + ")" if parts else "FALSE"), params
 
 CENT = Decimal("0.01")
 
@@ -42,31 +56,49 @@ class PostgresSchoolingParityRepository:
     def __init__(self, connection: Connection):
         self.c = connection
 
-    def probable_students(self, school_id: UUID, *, last_name: str, middle_name: str = "", first_name: str = "", birth_date: date | None = None) -> list[dict]:
+    def probable_students(self, school_id: UUID, *, last_name: str, middle_name: str = "", first_name: str = "", birth_date: date | None = None, scopes: tuple[tuple[str, str | None], ...] = ()) -> list[dict]:
         last_name = (last_name or "").strip()
         if not last_name:
             return []
-        rows = self.c.execute(text("""SELECT s.id, s.matricule, s.last_name, s.middle_name, s.first_name, s.birth_date, s.status, f.display_name AS family_name
+        scope_where, scope_params = _student_scope_where(scopes)
+        rows = self.c.execute(_bind_scope(text(f"""SELECT s.id, s.matricule, s.last_name, s.middle_name, s.first_name, s.birth_date, s.status, f.display_name AS family_name
               FROM students s LEFT JOIN families f ON f.id=s.family_id
-             WHERE s.school_id=:sid AND upper(s.last_name) LIKE upper(:ln)
+             WHERE s.school_id=:sid AND {scope_where} AND upper(s.last_name) LIKE upper(:ln)
                AND (:mn = '' OR upper(coalesce(s.middle_name,'')) LIKE upper(:mnl)) AND (:fn = '' OR upper(coalesce(s.first_name,'')) LIKE upper(:fnl))
                AND (CAST(:bd AS date) IS NULL OR s.birth_date = CAST(:bd AS date))
-             ORDER BY s.last_name, s.middle_name, s.first_name LIMIT 8"""),
+             ORDER BY s.last_name, s.middle_name, s.first_name LIMIT 8"""), scope_params),
             {"sid": school_id, "ln": f"%{last_name}%", "mn": (middle_name or "").strip(), "mnl": f"%{(middle_name or '').strip()}%",
-             "fn": (first_name or "").strip(), "fnl": f"%{(first_name or '').strip()}%", "bd": birth_date}).mappings().all()
+             "fn": (first_name or "").strip(), "fnl": f"%{(first_name or '').strip()}%", "bd": birth_date, **scope_params}).mappings().all()
         return [_plain(r) for r in rows]
 
-    def historical_arrears(self, school_id: UUID, student_id: UUID, *, excluding_year_id: UUID | None = None) -> list[dict]:
+    def historical_arrears(self, school_id: UUID, student_id: UUID, *, excluding_year_id: UUID | None = None, scopes: tuple[tuple[str, str | None], ...] = ()) -> list[dict]:
         if excluding_year_id is None:
             excluding_year_id = self.c.execute(text("SELECT id FROM academic_years WHERE school_id=:s AND status='ACTIVE' LIMIT 1"), {"s": school_id}).scalar_one_or_none()
-        rows = self.c.execute(text("""SELECT ay.id AS year_id, ay.label AS year_label, fc.currency,
+        # Authorize the debt's own enrollment, not any other enrollment
+        # belonging to the same pupil (cross-section transfers).
+        sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+        classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
+        schoolwide = any(t == "SCHOOL" for t, _ in scopes)
+        # Bind only populated arrays: an empty expanding list can be inferred
+        # as integer[] by PostgreSQL and fail against the text class codes.
+        clauses = []
+        scope_params = {}
+        if sections and not schoolwide:
+            clauses.append("upper(ss.code) IN :scope_sections")
+            scope_params["scope_sections"] = sections
+        if classes and not schoolwide:
+            clauses.append("upper(sc.code) IN :scope_classes")
+            scope_params["scope_classes"] = classes
+        scope_where = "TRUE" if schoolwide else (
+            "(" + " OR ".join(clauses) + ")" if clauses else "FALSE")
+        rows = self.c.execute(_bind_scope(text(f"""SELECT ay.id AS year_id, ay.label AS year_label, fc.currency,
                 sum(GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount
                     - COALESCE((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.charge_id=fc.id),0), 0)) AS balance
-              FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id JOIN finance_charges fc ON fc.enrollment_id=e.id AND fc.status='ACTIVE'
-             WHERE e.school_id=:s AND e.student_id=:st AND e.status='VALIDATED' AND (CAST(:x AS uuid) IS NULL OR ay.id<>CAST(:x AS uuid))
+              FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id JOIN finance_charges fc ON fc.enrollment_id=e.id AND fc.status='ACTIVE' JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id
+             WHERE e.school_id=:s AND e.student_id=:st AND {scope_where} AND e.status='VALIDATED' AND (CAST(:x AS uuid) IS NULL OR ay.id<>CAST(:x AS uuid))
              GROUP BY ay.id, ay.label, ay.start_date, fc.currency HAVING sum(GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount
                     - COALESCE((SELECT sum(r.amount) FROM finance_charge_regularizations r WHERE r.charge_id=fc.id),0), 0)) > 0
-             ORDER BY ay.start_date DESC, fc.currency"""), {"s": school_id, "st": student_id, "x": str(excluding_year_id) if excluding_year_id else None}).mappings().all()
+             ORDER BY ay.start_date DESC, fc.currency"""), scope_params), {"s": school_id, "st": student_id, "x": str(excluding_year_id) if excluding_year_id else None, **scope_params}).mappings().all()
         return [{**_plain(r), "balance": str(money(r["balance"]))} for r in rows]
 
     def family_contact_diagnostics(self, school_id: UUID) -> dict[str, int]:
@@ -80,6 +112,36 @@ class PostgresSchoolingParityRepository:
                 WHERE fg.school_id=:s AND fg.active AND coalesce(btrim(g.phone),'')=''"""),
             "shared_phones": one("""SELECT count(*) FROM (SELECT coalesce(g.normalized_phone, g.phone) AS ph FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id
                 WHERE fg.school_id=:s AND fg.active AND coalesce(btrim(g.phone),'')<>'' GROUP BY 1 HAVING count(DISTINCT fg.family_id)>1) x"""),
+        }
+
+    def family_contact_diagnostics_scoped(self, school_id: UUID, *, scopes: tuple[tuple[str, str | None], ...]) -> dict[str, int]:
+        """Compute diagnostics only over families visible to the actor.
+
+        A family spanning several sections is counted once. No individual
+        pupil or guardian data is returned by this aggregate endpoint.
+        """
+        family_where, scope_params = _family_scope_where(scopes, alias="f")
+        base = f"f.school_id=:sid AND {family_where}"
+        def count(sql: str) -> int:
+            return int(self.c.execute(_bind_scope(text(sql), scope_params),
+                                      {"sid": school_id, **scope_params}).scalar_one() or 0)
+        return {
+            "without_responsible": count(f"""SELECT count(*) FROM families f WHERE {base}
+                AND NOT EXISTS (SELECT 1 FROM family_guardians fg
+                                WHERE fg.family_id=f.id AND fg.active)"""),
+            "multiple_primary": count(f"""SELECT count(*) FROM families f WHERE {base}
+                AND (SELECT count(*) FROM family_guardians fg
+                     WHERE fg.family_id=f.id AND fg.active AND fg.is_primary)>1"""),
+            "responsible_without_phone": count(f"""SELECT count(*) FROM family_guardians fg
+                JOIN families f ON f.id=fg.family_id JOIN guardians g ON g.id=fg.guardian_id
+                WHERE {base} AND fg.active AND coalesce(btrim(g.phone),'')=''"""),
+            "shared_phones": count(f"""SELECT count(*) FROM (
+                SELECT coalesce(g.normalized_phone, g.phone) AS ph
+                FROM family_guardians fg JOIN families f ON f.id=fg.family_id
+                JOIN guardians g ON g.id=fg.guardian_id
+                WHERE {base} AND fg.active AND coalesce(btrim(g.phone),'')<>''
+                GROUP BY 1 HAVING count(DISTINCT fg.family_id)>1
+                ) shared"""),
         }
 
     def _year(self, school_id: UUID, year_id: UUID | None):
@@ -102,6 +164,41 @@ class PostgresSchoolingParityRepository:
             "beneficiaries": one("SELECT count(DISTINCT student_id) FROM student_benefits WHERE school_id=:s AND academic_year_id=:y AND active"),
             "staff_children": one("""SELECT count(DISTINCT l.student_id) FROM staff_student_links l JOIN enrollments e ON e.student_id=l.student_id
                 WHERE l.school_id=:s AND l.active AND e.academic_year_id=:y AND e.status='VALIDATED'"""),
+            "large_family_min_children": minimum,
+        }
+
+    def family_overview_scoped(self, school_id: UUID, year_id: UUID | None = None,
+                               *, scopes: tuple[tuple[str, str | None], ...]) -> dict[str, int]:
+        """Counts only enrolled pupils and families inside the authorized sections."""
+        year = self._year(school_id, year_id)
+        minimum = self._large_min(school_id, year)
+        sections = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
+        classes = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
+        schoolwide = any(t=="SCHOOL" for t,_ in scopes)
+        where, scope_params = _section_class_where(sections, classes, schoolwide=schoolwide)
+        join_section = " JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id"
+        base = f"""FROM enrollments e JOIN students s ON s.id=e.student_id {join_section}
+                    WHERE e.school_id=:sid AND e.academic_year_id=:year
+                    AND e.status='VALIDATED' AND s.status='ACTIVE' AND {where}"""
+        args = {"sid": school_id, "year": year, **scope_params}
+        def count(sql: str, **extra) -> int:
+            return int(self.c.execute(_bind_scope(text(sql), scope_params),
+                                      {**args, **extra}).scalar_one() or 0)
+        return {
+            "families": count(f"SELECT count(DISTINCT s.family_id) {base}"),
+            "large_eligible": count(f"""SELECT count(*) FROM
+                (SELECT s.family_id {base} GROUP BY s.family_id
+                 HAVING count(DISTINCT s.id)>=:minimum) eligible""", minimum=minimum),
+            "beneficiaries": count(f"""SELECT count(DISTINCT sb.student_id)
+                FROM student_benefits sb JOIN students s ON s.id=sb.student_id
+                JOIN enrollments e ON e.student_id=s.id AND e.academic_year_id=sb.academic_year_id {join_section}
+                WHERE sb.school_id=:sid AND sb.academic_year_id=:year
+                AND sb.active AND {where}"""),
+            "staff_children": count(f"""SELECT count(DISTINCT l.student_id)
+                FROM staff_student_links l JOIN students s ON s.id=l.student_id
+                JOIN enrollments e ON e.student_id=s.id {join_section}
+                WHERE l.school_id=:sid AND l.active AND e.academic_year_id=:year
+                AND e.status='VALIDATED' AND {where}"""),
             "large_family_min_children": minimum,
         }
 
@@ -135,16 +232,93 @@ class PostgresSchoolingParityRepository:
             raise ValueError("Indicateur familial inconnu")
         return [_plain(r) for r in rows]
 
-    def product_sales_report(self, school_id: UUID, *, start_date: date, end_date: date) -> dict[str, Any]:
+    def family_kpi_details_scoped(self, school_id: UUID, *, metric: str,
+                                  year_id: UUID | None = None,
+                                  scopes: tuple[tuple[str, str | None], ...]) -> list[dict]:
+        """Never return a pupil outside the caller's authorized sections."""
+        year = self._year(school_id, year_id)
+        sections = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
+        classes = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
+        schoolwide = any(t=="SCHOOL" for t,_ in scopes)
+        where, scope_params = _section_class_where(sections, classes, schoolwide=schoolwide)
+        args = {"sid": school_id, "year": year, **scope_params}
+        if metric == "LARGE_ELIGIBLE":
+            # Children list must be built from scoped pupils, not all siblings.
+            query = f"""SELECT f.id AS family_id, f.code AS family_code,
+                f.display_name AS family_name, f.phone,
+                count(DISTINCT s.id) AS enrolled_children,
+                string_agg(DISTINCT s.matricule || ' - ' || s.last_name || ' ' ||
+                           coalesce(s.first_name,''), ', ') AS children
+                FROM families f JOIN students s ON s.family_id=f.id
+                JOIN enrollments e ON e.student_id=s.id
+                JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id
+                WHERE f.school_id=:sid AND e.academic_year_id=:year
+                  AND e.status='VALIDATED' AND s.status='ACTIVE' AND {where}
+                GROUP BY f.id HAVING count(DISTINCT s.id)>=:minimum
+                ORDER BY f.display_name"""
+            args["minimum"] = self._large_min(school_id, year)
+        elif metric == "BENEFICIARIES":
+            query = f"""SELECT s.id AS student_id, s.matricule, s.last_name,
+                s.middle_name, s.first_name, f.code AS family_code,
+                f.display_name AS family_name, sb.kind AS benefit_type,
+                sb.configured_percent, sb.applies_to_fee_code, sc.label AS class_label
+                FROM student_benefits sb JOIN students s ON s.id=sb.student_id
+                JOIN enrollments e ON e.student_id=s.id AND e.academic_year_id=sb.academic_year_id
+                    AND e.status='VALIDATED'
+                LEFT JOIN families f ON f.id=s.family_id
+                JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id
+                WHERE sb.school_id=:sid AND sb.academic_year_id=:year
+                  AND sb.active AND {where}
+                ORDER BY sb.kind, s.last_name, s.first_name"""
+        elif metric == "STAFF_CHILDREN":
+            query = f"""SELECT s.id AS student_id, s.matricule, s.last_name,
+                s.middle_name, s.first_name, f.code AS family_code,
+                f.display_name AS family_name, sm.employee_no AS employee_code,
+                concat_ws(' ', sm.last_name, sm.first_name) AS staff_name,
+                coalesce(p.responsibility_mode,'FAMILY') AS finance_mode,
+                l.relationship, sc.label AS class_label
+                FROM staff_student_links l JOIN students s ON s.id=l.student_id
+                JOIN enrollments e ON e.student_id=s.id AND e.academic_year_id=:year
+                    AND e.status='VALIDATED'
+                JOIN staff_members sm ON sm.id=l.staff_id
+                LEFT JOIN families f ON f.id=s.family_id
+                JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id
+                LEFT JOIN staff_student_finance_preferences p ON p.staff_student_link_id=l.id
+                WHERE l.school_id=:sid AND l.active AND {where}
+                ORDER BY staff_name, s.last_name, s.first_name"""
+        else:
+            raise ValueError("Indicateur familial inconnu")
+        rows = self.c.execute(_bind_scope(text(query), scope_params), args).mappings().all()
+        return [_plain(r) for r in rows]
+
+    def product_sales_report(self, school_id: UUID, *, start_date: date, end_date: date, scopes=None) -> dict[str, Any]:
         if start_date > end_date:
             raise ValueError("La date de début doit précéder la date de fin")
-        rows = self.c.execute(text("""SELECT ps.id, (p.created_at AT TIME ZONE 'Africa/Lubumbashi') AS sold_at, ps.quantity, ps.unit_price, p.amount AS total_amount, p.currency,
+        from sqlalchemy import bindparam
+        schoolwide = scopes is None or any(t == "SCHOOL" for t, _ in scopes)
+        sections = sorted({str(v).upper() for t, v in (scopes or ()) if t == "SECTION" and v})
+        classes = sorted({str(v).upper() for t, v in (scopes or ()) if t == "CLASS" and v})
+        predicates, scope_params = [], {}
+        if not schoolwide:
+            if sections:
+                predicates.append("upper(ss_scope.code) IN :scope_sections")
+                scope_params["scope_sections"] = sections
+            if classes:
+                predicates.append("upper(sc_scope.code) IN :scope_classes")
+                scope_params["scope_classes"] = classes
+        scope_where = "TRUE" if schoolwide else ("(" + " OR ".join(predicates) + ")" if predicates else "FALSE")
+        stmt = text(f"""SELECT ps.id, (p.created_at AT TIME ZONE 'Africa/Lubumbashi') AS sold_at, ps.quantity, ps.unit_price, p.amount AS total_amount, p.currency,
                 pr.code AS product_code, pr.label AS product_label, s.matricule, s.last_name, s.middle_name, s.first_name, p.actor_user_id AS cashier_id, p.receipt_number,
                 EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id) AS reversed
               FROM finance_product_sales ps JOIN finance_payments p ON p.id=ps.payment_id JOIN school_products pr ON pr.id=ps.product_id
               LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students s ON s.id=e.student_id
-             WHERE ps.school_id=:s AND (p.created_at AT TIME ZONE 'Africa/Lubumbashi')::date BETWEEN :a AND :b ORDER BY p.created_at, s.last_name"""),
-            {"s": school_id, "a": start_date, "b": end_date}).mappings().all()
+              LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+             WHERE ps.school_id=:s AND (p.created_at AT TIME ZONE 'Africa/Lubumbashi')::date BETWEEN :a AND :b
+               AND {scope_where} ORDER BY p.created_at, s.last_name""")
+        for key in ("scope_sections", "scope_classes"):
+            if key in scope_params:
+                stmt = stmt.bindparams(bindparam(key, expanding=True))
+        rows = self.c.execute(stmt, {"s": school_id, "a": start_date, "b": end_date, **scope_params}).mappings().all()
         totals: dict[str, Decimal] = {}
         for r in rows:
             if not r["reversed"]:

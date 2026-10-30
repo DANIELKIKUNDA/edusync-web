@@ -11,6 +11,14 @@ router=APIRouter(tags=['Centre financier · Rapports'])
 def need(a,c):
  try:a.require(c)
  except PermissionError as e:raise HTTPException(403,str(e))
+ # This router's periodic/analysis/account repositories currently accept school_id,
+ # not the actor's section scopes. A section-bound grant must NEVER silently
+ # become school-wide access. Fail closed until each query supports section filters.
+ if c.startswith('finance.') or c.startswith('students.account.'):
+  scopes=a.scopes_for(c)
+  if not any(scope_type=='SCHOOL' for scope_type,_ in scopes):
+   raise HTTPException(403,'Rapport financier indisponible pour ce périmètre de section')
+
 
 def system_templates():return [dict(x,system_template=True,enabled=True) for x in SYSTEM_TEMPLATES]
 @router.get('/templates')
@@ -31,7 +39,7 @@ def create_template(b:TemplateBody,actor:ActorContext=Depends(require_school_act
   r=c.execute(text("INSERT INTO finance_report_templates(school_id,code,label,description,scope_mode,sections) VALUES(:s,:c,:l,:d,:m,CAST(:j AS jsonb)) RETURNING id,code,label,description,scope_mode,sections,system_template,enabled"),{'s':str(actor.school_id),'c':b.code,'l':b.label,'d':b.description,'m':b.scope_mode,'j':__import__('json').dumps(sections)}).mappings().first();return dict(r)
 @router.get('/preview')
 def preview(template_code:str,period:str='TODAY',start:date|None=None,end:date|None=None,currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- need(actor,'finance.reports.periodic.generate')
+ _need_periodic_scope(actor, 'finance.reports.periodic.generate')
  try:a,b=period_bounds(period,date.today(),start,end)
  except ValueError as e:raise HTTPException(422,str(e))
  sys=next((x for x in SYSTEM_TEMPLATES if x['code']==template_code),None)
@@ -42,7 +50,23 @@ def preview(template_code:str,period:str='TODAY',start:date|None=None,end:date|N
   if all_cash and 'finance.cash.other.read' not in actor.permissions:raise HTTPException(403,'La consolidation de plusieurs caisses exige un droit de contrôle')
   where='' if all_cash else ' AND cs.membership_id=:mid'
   p={'s':str(actor.school_id),'a':a,'b':b,'cur':currency,'mid':str(actor.membership_id)}
-  rows=c.execute(text("""SELECT COALESCE(ft.label,ch.label,'Autres encaissements') category,COALESCE(sum(COALESCE(pa.amount,fp.amount)),0) amount,count(DISTINCT fp.id) operations FROM finance_payments fp JOIN finance_cash_sessions cs ON cs.id=fp.cash_session_id LEFT JOIN finance_payment_allocations pa ON pa.payment_id=fp.id LEFT JOIN finance_charges ch ON ch.id=pa.charge_id LEFT JOIN fee_types ft ON ft.id=ch.fee_type_id WHERE fp.school_id=:s AND fp.currency=:cur AND fp.created_at::date BETWEEN :a AND :b AND NOT EXISTS (SELECT 1 FROM finance_payment_reversals rv WHERE rv.payment_id=fp.id)"""+where+" GROUP BY 1 ORDER BY 1"),p).mappings().all()
+  # The template preview must enforce the same enrollment scope as periodic reports.
+  # Cashier scope and section scope are independent restrictions (logical AND).
+  scopes=actor.scopes_for('finance.reports.periodic.generate')
+  scope_where,scope_params=PostgresPeriodicReportsRepository._scope_clause(scopes)
+  p.update(scope_params)
+  stmt=PostgresPeriodicReportsRepository._scoped_sql("""SELECT COALESCE(ft.label,ch.label,'Autres encaissements') category,
+      COALESCE(sum(COALESCE(pa.amount,fp.amount)),0) amount,count(DISTINCT fp.id) operations
+      FROM finance_payments fp JOIN finance_cash_sessions cs ON cs.id=fp.cash_session_id
+      LEFT JOIN finance_payment_allocations pa ON pa.payment_id=fp.id
+      LEFT JOIN finance_charges ch ON ch.id=pa.charge_id LEFT JOIN fee_types ft ON ft.id=ch.fee_type_id
+      LEFT JOIN enrollments e ON e.id=fp.enrollment_id
+      LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id
+      LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+      WHERE fp.school_id=:s AND fp.currency=:cur AND fp.created_at::date BETWEEN :a AND :b
+        AND NOT EXISTS (SELECT 1 FROM finance_payment_reversals rv WHERE rv.payment_id=fp.id)
+        AND """+scope_where+where+" GROUP BY 1 ORDER BY 1",scope_params)
+  rows=c.execute(stmt,p).mappings().all()
   total=sum((Decimal(str(x['amount'])) for x in rows),Decimal('0'))
  return {'template':dict(tpl),'period':{'start':str(a),'end':str(b)},'currency':currency,'items':[dict(x) for x in rows],'total':str(total),'doctrine':'date_encaissement_preserve_annee_origine_obligation'}
 
@@ -69,8 +93,10 @@ def _jsonable(v):
 
 @router.get('/profiles')
 def report_profiles(actor: ActorContext = Depends(require_school_actor)):
-    need(actor, 'finance.reports.periodic.generate')
-    return {'profiles': [{'code': k, **{x: (list(y) if isinstance(y, tuple) else y) for x, y in v.items()}} for k, v in REPORT_PROFILES.items() if k in {'CONSOLIDE','FRAIS_SCOLAIRES','ARTICLES_SCOLAIRES'}],
+    _need_periodic_scope(actor)
+    return {'official_pdf_available': any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.periodic.generate')),
+            'generated_history_available': ('finance.reports.history.read' in actor.permissions and any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.history.read'))),
+            'profiles': [{'code': k, **{x: (list(y) if isinstance(y, tuple) else y) for x, y in v.items()}} for k, v in REPORT_PROFILES.items() if k in {'CONSOLIDE','FRAIS_SCOLAIRES','ARTICLES_SCOLAIRES'}],
             'period_types': [{'code': k, 'label': v} for k, v in PERIOD_LABELS.items()]}
 
 
@@ -82,14 +108,25 @@ def _period(period_type, start, end):
     return start, end
 
 
+def _need_periodic_scope(actor, capability='finance.reports.periodic.generate'):
+    """Periodic preview is section-aware; official issued reports remain school-wide."""
+    try:
+        actor.require(capability)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    if not actor.scopes_for(capability):
+        raise HTTPException(403, 'Aucun périmètre financier autorisé')
+
+
 @router.get('/periodic')
 def periodic(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIER', start: date | None = None, end: date | None = None,
              actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """Desktop financial_report_rows: rows per payment, deposits presented per the payment policy, FC / USD apart."""
-    need(actor, 'finance.reports.periodic.generate'); a, b = _period(period_type, start, end)
+    _need_periodic_scope(actor)
+    a, b = _period(period_type, start, end)
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            return _jsonable(PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=b, profile_code=profile_code))
+            return _jsonable(PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=b, profile_code=profile_code, scopes=actor.scopes_for('finance.reports.periodic.generate')))
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
 
@@ -108,7 +145,9 @@ def periodic_pdf(b: PeriodicPdfBody, idempotency_key: str = Header(..., alias='I
     import re
     from fastapi.responses import Response as _Response
     from edusync.shared.infrastructure.object_storage import ObjectStorageError
-    need(actor, 'finance.reports.periodic.generate')
+    _need_periodic_scope(actor)
+    if not any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.periodic.generate')):
+        raise HTTPException(403, 'Rapport officiel réservé au périmètre école')
     a, z = _period(b.period_type, b.start, b.end)
     if not re.fullmatch(r'[A-Za-z0-9_-]{20,160}', idempotency_key):
         raise HTTPException(400, 'Idempotency-Key invalide')
@@ -174,10 +213,10 @@ def periodic_pdf(b: PeriodicPdfBody, idempotency_key: str = Header(..., alias='I
 def periodic_xlsx(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIER', start: date | None = None, end: date | None = None,
                   actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """Desktop export_periodic_financial_report_xlsx: Excel companion, never consumes an official number."""
-    need(actor, 'finance.reports.periodic.export'); a, z = _period(period_type, start, end)
+    _need_periodic_scope(actor, 'finance.reports.periodic.export'); a, z = _period(period_type, start, end)
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            report = PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=z, profile_code=profile_code)
+            report = PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=z, profile_code=profile_code, scopes=actor.scopes_for('finance.reports.periodic.export'))
             school = _school(c, actor.school_id)
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
@@ -187,23 +226,25 @@ def periodic_xlsx(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIE
 
 @router.get('/generated')
 def generated_reports(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'finance.reports.history.read')
+    _need_periodic_scope(actor, 'finance.reports.history.read')
+    if not any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.history.read')):
+        raise HTTPException(403, 'Historique des rapports sans provenance de section vérifiable')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
         return {'items': _jsonable(PostgresPeriodicReportsRepository(c).generated(actor.school_id))}
 
 
 @router.get('/analysis/fees')
 def analysis_fees(year_id: _UUID | None = None, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'finance.analysis.by_fee.read')
+    _need_periodic_scope(actor, 'finance.analysis.by_fee.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-        return {'items': _jsonable(PostgresPeriodicReportsRepository(c).analysis_by_fee_type(actor.school_id, year_id))}
+        return {'items': _jsonable(PostgresPeriodicReportsRepository(c).analysis_by_fee_type(actor.school_id, year_id, scopes=actor.scopes_for('finance.analysis.by_fee.read')))}
 
 
 @router.get('/analysis/cashiers')
 def analysis_cashiers(year_id: _UUID | None = None, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'finance.analysis.by_cashier.read')
+    _need_periodic_scope(actor, 'finance.analysis.by_cashier.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-        items = PostgresPeriodicReportsRepository(c).analysis_by_cashier(actor.school_id, year_id)
+        items = PostgresPeriodicReportsRepository(c).analysis_by_cashier(actor.school_id, year_id, scopes=actor.scopes_for('finance.analysis.by_cashier.read'))
     ids = list({i['cashier_id'] for i in items})
     if ids:
         with services.platform_db.platform_transaction() as pc:
@@ -215,9 +256,9 @@ def analysis_cashiers(year_id: _UUID | None = None, actor: ActorContext = Depend
 
 @router.get('/analysis/advance-funds')
 def analysis_advance_funds(year_id: _UUID | None = None, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'finance.analysis.advance.read')
+    _need_periodic_scope(actor, 'finance.analysis.advance.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-        return {'items': _jsonable(PostgresPeriodicReportsRepository(c).analysis_advance_funds(actor.school_id, year_id))}
+        return {'items': _jsonable(PostgresPeriodicReportsRepository(c).analysis_advance_funds(actor.school_id, year_id, scopes=actor.scopes_for('finance.analysis.advance.read')))}
 
 
 @router.get('/historical-status')
@@ -231,10 +272,10 @@ def historical_status(currency: str = Query('CDF', pattern='^(CDF|USD)$'), year_
 
 @router.get('/students/{student_id}/account')
 def student_account(student_id: _UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    need(actor, 'students.account.read')
+    _need_periodic_scope(actor, 'students.account.read')
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            return _jsonable(PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id))
+            return _jsonable(PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id, scopes=actor.scopes_for('students.account.read')))
     except LookupError as e:
         raise HTTPException(404, str(e)) from e
 
@@ -242,10 +283,10 @@ def student_account(student_id: _UUID, actor: ActorContext = Depends(require_sch
 @router.get('/students/{student_id}/account.pdf')
 def student_account_pdf_route(student_id: _UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """G-DOC-2 — Desktop export_student_account_pdf."""
-    need(actor, 'students.account.export')
+    _need_periodic_scope(actor, 'students.account.export')
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            acc = PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id)
+            acc = PostgresPeriodicReportsRepository(c).student_account(actor.school_id, student_id, scopes=actor.scopes_for('students.account.export'))
             school = _school(c, actor.school_id)
     except LookupError as e:
         raise HTTPException(404, str(e)) from e
@@ -259,11 +300,11 @@ def student_account_pdf_route(student_id: _UUID, actor: ActorContext = Depends(r
 @router.get('/product-sales')
 def product_sales(start: date, end: date, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """N3-H / G-ART-1 — Desktop product_sales_report: sales of the period, cashier, totals per currency (reversed sales flagged)."""
-    need(actor, 'finance.products.sales_report.read')
+    _need_periodic_scope(actor, 'finance.products.sales_report.read')
     from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRepository
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            out = PostgresSchoolingParityRepository(c).product_sales_report(actor.school_id, start_date=start, end_date=end)
+            out = PostgresSchoolingParityRepository(c).product_sales_report(actor.school_id, start_date=start, end_date=end, scopes=actor.scopes_for('finance.products.sales_report.read'))
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
     ids = list({r['cashier_id'] for r in out['rows'] if r.get('cashier_id')})

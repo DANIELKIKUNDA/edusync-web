@@ -39,6 +39,33 @@ def _scopes(actor:ActorContext, capability:str)->tuple[tuple[str,str|None],...]:
     scopes=actor.scopes_for(capability)
     return scopes if scopes else (() if capability in actor.permissions else ())
 
+def _require_schoolwide_parity(actor:ActorContext, capability:str)->None:
+    """Legacy parity repository methods accept school_id but not section scopes.
+    Refuse section grants until these methods support scoped SQL queries.
+    """
+    _need(actor,capability)
+    scopes=actor.scopes_for(capability)
+    if not any(kind=='SCHOOL' for kind,_ in scopes):
+        raise HTTPException(status_code=403,detail='Consultation non disponible pour ce périmètre de section')
+
+def _require_whole_family_scope(repo:PostgresSchoolingRepository,school_id:UUID,
+                                family_id:UUID,scopes:tuple[tuple[str,str|None],...])->None:
+    """Shared-family mutations must not affect children in another section.
+
+    A section director may read the scoped children of a shared household,
+    but changing its common identity or guardians requires SCHOOL scope.
+    """
+    if any(kind=='SCHOOL' for kind,_ in scopes):
+        return
+    visible=repo._visible_ids(school_id,scopes)
+    if visible is None:
+        return
+    all_children={row[0] for row in repo.connection.execute(
+        text("SELECT id FROM students WHERE school_id=:sid AND family_id=:fid"),
+        {"sid":school_id,"fid":family_id}).all()}
+    if not all_children.issubset(visible):
+        raise PermissionError('Foyer partagé avec une autre section : modification réservée au périmètre école')
+
 def _key(value:str|None)->str:
     key=(value or '').strip()
     if not key: raise HTTPException(status_code=400,detail='Idempotency-Key obligatoire')
@@ -153,37 +180,50 @@ from edusync.adapters.postgres_schooling_parity import PostgresSchoolingParityRe
 @router.get('/students/probable')
 def probable_students(last_name:str=Query(...,min_length=1,max_length=120),middle_name:str='',first_name:str='',birth_date:date|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-1 — Desktop find_probable_students: likely existing pupils before a new permanent record."""
-    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_need(actor,'students.read')
+    # Search only students visible under the capability used for enrollment
+    # or student consultation; a section grant never becomes a school grant.
+    capability = next((cap for cap in ('students.read', 'enrollments.create', 'enrollments.reenroll')
+                       if cap in actor.permissions and actor.scopes_for(cap)), None)
+    if capability is None:
+        raise HTTPException(status_code=403, detail='Périmètre de consultation des élèves absent')
+    scopes = actor.scopes_for(capability)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return {'items':_jsonable(PostgresSchoolingParityRepository(conn).probable_students(actor.school_id,last_name=last_name,middle_name=middle_name,first_name=first_name,birth_date=birth_date))}
+        return {'items':_jsonable(PostgresSchoolingParityRepository(conn).probable_students(actor.school_id,last_name=last_name,middle_name=middle_name,first_name=first_name,birth_date=birth_date,scopes=scopes))}
 
 @router.get('/students/{student_id}/historical-arrears')
 def historical_arrears(student_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-2 — Desktop student_historical_arrears: earlier years only, never mixed with the new enrollment."""
-    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):_need(actor,'students.account.read')
+    capability = next((cap for cap in ('students.account.read', 'enrollments.create', 'enrollments.reenroll')
+                       if cap in actor.permissions and actor.scopes_for(cap)), None)
+    if capability is None:
+        raise HTTPException(status_code=403, detail='Périmètre de consultation des arriérés absent')
+    scopes = actor.scopes_for(capability)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return {'items':_jsonable(PostgresSchoolingParityRepository(conn).historical_arrears(actor.school_id,student_id))}
+        return {'items':_jsonable(PostgresSchoolingParityRepository(conn).historical_arrears(actor.school_id,student_id,scopes=scopes))}
 
 @router.get('/families/diagnostics')
 def family_diagnostics(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-4 — Desktop family_contact_diagnostics (read only)."""
     _need(actor,'families.read')
+    scopes=_scopes(actor,'families.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return PostgresSchoolingParityRepository(conn).family_contact_diagnostics(actor.school_id)
+        return PostgresSchoolingParityRepository(conn).family_contact_diagnostics_scoped(actor.school_id,scopes=scopes)
 
 @router.get('/families/overview')
 def family_overview(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'families.read')
+    scopes=_scopes(actor,'families.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return PostgresSchoolingParityRepository(conn).family_overview(actor.school_id,year_id)
+        return PostgresSchoolingParityRepository(conn).family_overview_scoped(actor.school_id,year_id,scopes=scopes)
 
 @router.get('/families/kpi/{metric}')
 def family_kpi(metric:str,year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """G-SCO-3 — Desktop family_kpi_details (LARGE_ELIGIBLE, BENEFICIARIES, STAFF_CHILDREN)."""
     _need(actor,'families.read')
+    scopes=_scopes(actor,'families.read')
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-            return {'items':_jsonable(PostgresSchoolingParityRepository(conn).family_kpi_details(actor.school_id,metric=metric.upper(),year_id=year_id))}
+            return {'items':_jsonable(PostgresSchoolingParityRepository(conn).family_kpi_details_scoped(actor.school_id,metric=metric.upper(),year_id=year_id,scopes=scopes))}
     except ValueError as e:raise HTTPException(status_code=409,detail=str(e)) from e
 
 @router.get('/summary')
@@ -309,6 +349,7 @@ def patch_family(family_id:UUID,body:FamilyPatch,if_match:str|None=Header(None,a
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn);old=repo.get_family(actor.school_id,family_id,scopes=scopes);patch=body.model_dump(exclude_none=True)
             if not old: raise LookupError('Foyer introuvable dans votre périmètre')
+            _require_whole_family_scope(repo,actor.school_id,family_id,scopes)
             if 'display_name' in patch:patch['display_name_origin']='MANUAL_OVERRIDE'
             out=repo.update_family(actor.school_id,family_id,expected_version=expected,patch=patch);payload=_jsonable(out);_audit_outbox(conn,request_actor,action='FAMILY_UPDATED',entity_type='Family',entity_id=family_id,old=_jsonable(old),new=payload);return 200,payload
         return _mutate(services=services,actor=actor,key=key,operation='SCHOOLING_UPDATE_FAMILY',payload={**body.model_dump(mode='json'),'id':str(family_id),'expected':expected},action=action).body
@@ -321,6 +362,7 @@ def add_guardian(family_id:UUID,body:GuardianInput,response:Response,idempotency
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn)
             if not repo.get_family(actor.school_id,family_id,scopes=scopes):raise LookupError('Foyer introuvable dans votre périmètre')
+            _require_whole_family_scope(repo,actor.school_id,family_id,scopes)
             g=Guardian(school_id=actor.school_id,full_name=body.full_name,phone=body.phone,email=body.email,address=body.address,occupation=body.occupation,notes=body.notes);repo.create_guardian(g);link=repo.link_guardian(actor.school_id,family_id=family_id,guardian_id=g.id,role=body.role.value,is_primary=body.is_primary);payload=_jsonable(link);_audit_outbox(conn,request_actor,action='FAMILY_GUARDIAN_ADDED',entity_type='Family',entity_id=family_id,new={'guardian_id':str(g.id),**payload});return 201,{'guardian_id':str(g.id),**payload}
         result=_mutate(services=services,actor=actor,key=key,operation='SCHOOLING_ADD_GUARDIAN',payload={**body.model_dump(mode='json'),'family_id':str(family_id)},action=action);response.status_code=result.status_code;return result.body
     except Exception as exc:_error(exc)
@@ -348,6 +390,7 @@ def remove_guardian(family_id:UUID,guardian_id:UUID,idempotency_key:str|None=Hea
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn)
             if not repo.get_family(actor.school_id,family_id,scopes=scopes): raise LookupError('Foyer introuvable dans votre périmètre')
+            _require_whole_family_scope(repo,actor.school_id,family_id,scopes)
             out=repo.end_guardian_link(actor.school_id,family_id=family_id,guardian_id=guardian_id);payload=_jsonable(out);_audit_outbox(conn,request_actor,action='FAMILY_GUARDIAN_ENDED',entity_type='Family',entity_id=family_id,new=payload);return 200,payload
         return _mutate(services=services,actor=actor,key=key,operation='SCHOOLING_END_GUARDIAN',payload={'family_id':str(family_id),'guardian_id':str(guardian_id)},action=action).body
     except Exception as exc:_error(exc)

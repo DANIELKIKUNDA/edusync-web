@@ -78,21 +78,28 @@ def test_discipline_identity_update_cannot_smuggle_profile_changes():
 
 def test_parent_audience_filters_section_before_deduplication():
     from uuid import uuid4
+    import pytest
     from edusync.modules.communications.application.messaging import resolve_audience
 
     parent = uuid4()
+
     class Result:
+        def __init__(self, rows):
+            self.rows = rows
         def mappings(self):
             return self
         def all(self):
-            return [
-                {"id": parent, "full_name": "Parent", "phone": "+243900000001", "email": None, "section_code": "PRIMAIRE"},
-                {"id": parent, "full_name": "Parent", "phone": "+243900000001", "email": None, "section_code": "SECONDAIRE"},
-            ]
+            return self.rows
 
     class Connection:
+        """Grouped rows, as the real query returns them (one row per guardian with all matched sections)."""
+        def __init__(self, sections):
+            self.sections = sections
         def execute(self, query, params):
-            return Result()
+            if "FROM school_sections WHERE" in str(query):
+                return Result([{"section_code": "SECONDAIRE"}])
+            return Result([{"id": parent, "full_name": "Parent", "phone": "+243900000001", "email": None,
+                            "section_code": min(self.sections), "section_codes": self.sections}])
 
     class Actor:
         is_platform_admin = False
@@ -101,10 +108,12 @@ def test_parent_audience_filters_section_before_deduplication():
         def scope_allows(self, cap, scope_type, value):
             return scope_type == "SECTION" and value == "SECONDAIRE"
 
-    recipients = resolve_audience(Connection(), Actor(), uuid4(), "SCHOOL", None, "communications.send.all_parents")
-    assert len(recipients) == 1
-    assert recipients[0].ref == parent
-
+    # whole school reaching a primary child too: refused as a whole
+    with pytest.raises(PermissionError):
+        resolve_audience(Connection(["PRIMAIRE", "SECONDAIRE"]), Actor(), uuid4(), "SCHOOL", None, "communications.send.all_parents")
+    # secondary section audience: only the secondary child matches -> the shared parent once
+    recipients = resolve_audience(Connection(["SECONDAIRE"]), Actor(), uuid4(), "SECTION", uuid4(), "communications.send.section")
+    assert [r.ref for r in recipients] == [parent]
 
 def test_parent_audience_does_not_expose_other_section():
     from uuid import uuid4
@@ -119,7 +128,7 @@ def test_parent_audience_does_not_expose_other_section():
             return self
         def all(self):
             if self.target is not None:          # section lookup of the targeted audience (2026-10-30 explicit check)
-                return [(self.target,)]
+                return [{"section_code": self.target}]
             return [{"id": uuid4(), "full_name": "Primary parent", "phone": None, "email": None, "section_code": "PRIMAIRE"}]
 
     class Connection:
@@ -138,16 +147,17 @@ def test_parent_audience_does_not_expose_other_section():
     # a target outside the sender's sections is now refused explicitly (no silent empty audience)
     with pytest.raises(PermissionError):
         resolve_audience(Connection("PRIMAIRE"), Actor(), uuid4(), "SECTION", uuid4(), "communications.send.section")
-    # a target inside: guardians of another section are still filtered out after the query
-    assert resolve_audience(Connection("SECONDAIRE"), Actor(), uuid4(), "SECTION", uuid4(), "communications.send.section") == []
+    # a target inside whose matched guardian belongs to another section: refused as a whole (no partial list)
+    with pytest.raises(PermissionError):
+        resolve_audience(Connection("SECONDAIRE"), Actor(), uuid4(), "SECTION", uuid4(), "communications.send.section")
 
 
 def test_parent_audience_uses_tenant_classes_and_active_guardians():
     messaging = (ROOT / "src/edusync/modules/communications/application/messaging.py").read_text(encoding="utf-8")
     assert "c.id=e.class_id AND c.school_id=e.school_id" in messaging
     assert "fg.school_id=s.school_id AND fg.is_primary AND fg.active" in messaging
-    assert "SELECT DISTINCT ON (g.id, sec.code) g.id, g.full_name" in messaging
-    assert "if r[\"id\"] in seen:" in messaging
+    assert "array_agg(DISTINCT sec.code) AS section_codes" in messaging and "GROUP BY g.id" in messaging
+    assert "if not all(_scope_ok(actor, cap, section) for section in sections):" in messaging
 
 
 def test_parent_audience_joins_academic_year_section_and_guardian_with_tenant():
@@ -229,10 +239,10 @@ def test_directors_cannot_see_staff_account_links_without_separate_permission():
 
 def test_staff_assignment_scope_options_are_filtered_by_capability():
     endpoint = PERSONNEL.split("def scope_options(", 1)[1].split("\n@router.", 1)[0]
-    assert "capabilities=('personnel.assignments.add','personnel.assignments.read')" in endpoint
-    assert "actor.scope_allows(cap,'SECTION',section_code)" in endpoint
-    assert "if visible(section['code'])" in endpoint
-    assert "if visible(school_class['section_code'])" in endpoint
+    # merged with PR #27: options come from the grants of the capability used to assign, never a broad read grant
+    assert "'personnel.assignments.add', 'personnel.create'," in endpoint
+    assert "sections=[s for s in sections if str(s['code']).upper() in allowed_sections]" in endpoint
+    assert "or str(cl['section_code']).upper() in allowed_sections" in endpoint
 
 
 def test_staff_scope_options_joins_belong_to_same_school():

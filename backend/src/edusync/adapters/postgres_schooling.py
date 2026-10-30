@@ -117,10 +117,27 @@ class PostgresSchoolingRepository:
         out["guardians"]=[_row(x) for x in self.connection.execute(text("""SELECT fg.*,g.full_name,g.phone,g.email,g.address,g.occupation
           FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id WHERE fg.school_id=:sid AND fg.family_id=:fid AND fg.active ORDER BY fg.is_primary DESC,fg.created_at"""),{"sid":school_id,"fid":family_id}).all()]
         student_where,student_params=_student_scope_where(scopes,alias="s")
+        # A visible child can have enrollments in other sections. Restrict
+        # each joined enrollment, not only the child's overall visibility.
+        enrollment_clauses=[]
+        if "scope_sections" in student_params:
+            enrollment_clauses.append("upper(ss_child.code) IN :scope_sections")
+        if "scope_classes" in student_params:
+            enrollment_clauses.append("upper(sc_child.code) IN :scope_classes")
+        enrollment_where=("TRUE" if any(t=="SCHOOL" for t,_ in scopes) else
+                          "("+" OR ".join(enrollment_clauses)+")"
+                          if enrollment_clauses else "FALSE")
         child_stmt=_bind_scope(text(f"""SELECT s.*,e.id enrollment_id,e.academic_year_id,e.class_id,e.status enrollment_status,sc.label class_label,ss.code section_code
-          FROM students s LEFT JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id AND e.status<>'CANCELLED'
+          FROM students s LEFT JOIN LATERAL (
+            SELECT e1.* FROM enrollments e1
+            JOIN school_classes sc_child ON sc_child.id=e1.class_id
+            JOIN school_sections ss_child ON ss_child.id=sc_child.section_id
+            WHERE e1.school_id=s.school_id AND e1.student_id=s.id
+              AND e1.status<>'CANCELLED' AND {enrollment_where}
+          ) e ON true
           LEFT JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_sections ss ON ss.id=sc.section_id
-          WHERE s.school_id=:sid AND s.family_id=:fid AND {student_where} ORDER BY s.last_name,s.middle_name,s.first_name,e.enrolled_on DESC"""),student_params)
+          WHERE s.school_id=:sid AND s.family_id=:fid AND {student_where}
+          ORDER BY s.last_name,s.middle_name,s.first_name,e.enrolled_on DESC"""),student_params)
         out["children"]=[_row(x) for x in self.connection.execute(child_stmt,{"sid":school_id,"fid":family_id,**student_params}).all()]
         return out
 
@@ -189,14 +206,31 @@ class PostgresSchoolingRepository:
 
     def list_students(self, school_id:UUID, *, scopes:tuple[tuple[str,str|None],...], q:str|None=None, class_id:UUID|None=None, status:str|None=None, academic_year_id:UUID|None=None, section_id:UUID|None=None, gender:str|None=None, all_years:bool=False, limit:int=200, offset:int=0, option_id:UUID|None=None)->list[dict[str,Any]]:
         where,params=_student_scope_where(scopes);conditions=["s.school_id=:sid",where];args={"sid":school_id,**params}
+        # The selected enrollment itself must be authorized. Otherwise a
+        # pupil visible through one section can reveal a newer enrollment
+        # in a different section via the lateral join and exports.
+        args["lateral_sections"] = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
+        args["lateral_classes"] = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
+        lateral_clauses = []
+        if args["lateral_sections"]:
+            lateral_clauses.append("upper(ss1.code) IN :lateral_sections")
+        if args["lateral_classes"]:
+            lateral_clauses.append("upper(sc1.code) IN :lateral_classes")
+        lateral_scope = ("TRUE" if any(t=="SCHOOL" for t,_ in scopes) else
+                         "(" + " OR ".join(lateral_clauses) + ")"
+                         if lateral_clauses else "FALSE")
         if all_years:
-            enrollment_join="""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' ORDER BY ay1.start_date DESC,e1.enrolled_on DESC LIMIT 1) e ON true"""
+            enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} ORDER BY ay1.start_date DESC,e1.enrolled_on DESC LIMIT 1) e ON true"""
         else:
             if academic_year_id:
                 args['year_id']=academic_year_id
-                enrollment_join="""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND e1.academic_year_id=:year_id ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
+                enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} AND e1.academic_year_id=:year_id ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
             else:
-                enrollment_join="""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND ay1.status='ACTIVE' ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
+                enrollment_join=f"""LEFT JOIN LATERAL (SELECT e1.* FROM enrollments e1 JOIN school_classes sc1 ON sc1.id=e1.class_id JOIN school_sections ss1 ON ss1.id=sc1.section_id JOIN academic_years ay1 ON ay1.id=e1.academic_year_id WHERE e1.school_id=s.school_id AND e1.student_id=s.id AND e1.status<>'CANCELLED' AND {lateral_scope} AND ay1.status='ACTIVE' ORDER BY e1.enrolled_on DESC LIMIT 1) e ON true"""
+        # A scoped directory must never return a pupil without an enrollment
+        # in the requested year (or any authorized year for all_years).
+        # A school-wide reader retains the legacy all_years behavior.
+        if not all_years or not any(t=="SCHOOL" for t,_ in scopes):
             conditions.append("e.id IS NOT NULL")
         if q and q.strip():conditions.append("(s.matricule ILIKE :q OR concat_ws(' ',s.last_name,s.middle_name,s.first_name) ILIKE :q OR f.display_name ILIKE :q OR coalesce(f.phone,'') ILIKE :q OR EXISTS(SELECT 1 FROM family_guardians fgq JOIN guardians gq ON gq.id=fgq.guardian_id WHERE fgq.family_id=s.family_id AND fgq.active AND (gq.full_name ILIKE :q OR coalesce(gq.phone,'') ILIKE :q)))");args['q']=f"%{q.strip()}%"
         if class_id:conditions.append("e.class_id=:class_id");args['class_id']=class_id
@@ -218,6 +252,10 @@ class PostgresSchoolingRepository:
           LEFT JOIN academic_years ay ON ay.id=e.academic_year_id
           LEFT JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_sections ss ON ss.id=sc.section_id
           WHERE {' AND '.join(conditions)} ORDER BY s.last_name,s.middle_name,s.first_name LIMIT :limit OFFSET :offset""")
+        if args["lateral_sections"] and lateral_scope != "TRUE":
+            stmt=stmt.bindparams(bindparam("lateral_sections",expanding=True))
+        if args["lateral_classes"] and lateral_scope != "TRUE":
+            stmt=stmt.bindparams(bindparam("lateral_classes",expanding=True))
         stmt=_bind_scope(stmt,params);args['limit']=max(1,min(limit,1000));args['offset']=max(0,offset)
         return [_row(r) for r in self.connection.execute(stmt,args).all()]
 
@@ -228,8 +266,36 @@ class PostgresSchoolingRepository:
           FROM students s JOIN families f ON f.id=s.family_id WHERE s.school_id=:sid AND s.id=:id"""),{"sid":school_id,"id":student_id}).first()
         if not r:return None
         out=_row(r)
-        out['enrollments']=[_row(x) for x in self.connection.execute(text("""SELECT e.*,ay.code academic_year_code,ay.label academic_year_label,sc.code class_code,sc.label class_label,ss.code section_code,ss.label section_label
-          FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id WHERE e.school_id=:sid AND e.student_id=:id ORDER BY ay.start_date DESC"""),{"sid":school_id,"id":student_id}).all()]
+        # An otherwise visible student may have enrollment history in a different
+        # section. Filter each enrollment row; student visibility alone is insufficient.
+        enrollment_scopes = sorted({str(v).upper() for t,v in scopes if t=="SECTION" and v})
+        class_scopes = sorted({str(v).upper() for t,v in scopes if t=="CLASS" and v})
+        schoolwide = any(t=="SCHOOL" for t,_ in scopes)
+        history_clauses = []
+        if enrollment_scopes:
+            history_clauses.append("upper(ss.code) IN :history_sections")
+        if class_scopes:
+            history_clauses.append("upper(sc.code) IN :history_classes")
+        history_where = ("TRUE" if schoolwide else
+                         "(" + " OR ".join(history_clauses) + ")"
+                         if history_clauses else "FALSE")
+        history_params = {"sid":school_id,"id":student_id}
+        if not schoolwide and enrollment_scopes:
+            history_params["history_sections"] = enrollment_scopes
+        if not schoolwide and class_scopes:
+            history_params["history_classes"] = class_scopes
+        history_stmt = text(f"""SELECT e.*,ay.code academic_year_code,ay.label academic_year_label,
+              sc.code class_code,sc.label class_label,ss.code section_code,ss.label section_label
+              FROM enrollments e JOIN academic_years ay ON ay.id=e.academic_year_id
+              JOIN school_classes sc ON sc.id=e.class_id
+              JOIN school_sections ss ON ss.id=sc.section_id
+              WHERE e.school_id=:sid AND e.student_id=:id AND {history_where}
+              ORDER BY ay.start_date DESC""")
+        if not schoolwide and enrollment_scopes:
+            history_stmt = history_stmt.bindparams(bindparam("history_sections", expanding=True))
+        if not schoolwide and class_scopes:
+            history_stmt = history_stmt.bindparams(bindparam("history_classes", expanding=True))
+        out['enrollments']=[_row(x) for x in self.connection.execute(history_stmt,history_params).all()]
         out['guardians']=[_row(x) for x in self.connection.execute(text("""SELECT g.*,fg.role,fg.is_primary FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id WHERE fg.school_id=:sid AND fg.family_id=:fid AND fg.active ORDER BY fg.is_primary DESC"""),{"sid":school_id,"fid":out['family_id']}).all()]
         out['benefits']=[_row(x) for x in self.connection.execute(text("SELECT * FROM student_benefits WHERE school_id=:sid AND student_id=:id ORDER BY created_at DESC"),{"sid":school_id,"id":student_id}).all()]
         out['history']=[_row(x) for x in self.connection.execute(text("SELECT * FROM student_status_events WHERE school_id=:sid AND student_id=:id ORDER BY effective_date DESC,created_at DESC"),{"sid":school_id,"id":student_id}).all()]
@@ -385,16 +451,27 @@ class PostgresSchoolingRepository:
             conditions.append("(f.code ILIKE :q OR f.display_name ILIKE :q OR coalesce(f.phone,'') ILIKE :q OR EXISTS(SELECT 1 FROM family_guardians fgq JOIN guardians gq ON gq.id=fgq.guardian_id WHERE fgq.family_id=f.id AND fgq.active AND (gq.full_name ILIKE :q OR coalesce(gq.phone,'') ILIKE :q)))")
             args['q']=f"%{q.strip()}%"
         if contact_status:conditions.append("f.contact_status=:contact_status");args['contact_status']=contact_status
-        if large_family_only:conditions.append("(SELECT count(*) FROM students sx WHERE sx.family_id=f.id AND sx.school_id=f.school_id)>=5")
+        if large_family_only:conditions.append(f"(SELECT count(*) FROM students s WHERE s.family_id=f.id AND s.school_id=f.school_id AND {child_scope})>=5")
         year_filter=""
         if academic_year_id:
             args['year_id']=academic_year_id
             year_filter=" AND e.academic_year_id=:year_id"
         elif enrolled_only:
             year_filter=" AND EXISTS(SELECT 1 FROM academic_years ayx WHERE ayx.id=e.academic_year_id AND ayx.status='ACTIVE')"
+        # The enrollment being counted must belong to the caller's scope,
+        # not merely some other enrollment of the same pupil.
+        enrollment_clauses = []
+        if "scope_sections" in child_params:
+            enrollment_clauses.append("upper(ss.code) IN :scope_sections")
+        if "scope_classes" in child_params:
+            enrollment_clauses.append("upper(sc.code) IN :scope_classes")
+        enrollment_scope = ("TRUE" if any(t=="SCHOOL" for t,_ in scopes) else
+                            "(" + " OR ".join(enrollment_clauses) + ")"
+                            if enrollment_clauses else "FALSE")
+        enrollment_joins = " JOIN school_classes sc ON sc.id=e.class_id JOIN school_sections ss ON ss.id=sc.section_id"
         if enrolled_only:
-            conditions.append(f"EXISTS(SELECT 1 FROM students se JOIN enrollments e ON e.student_id=se.id AND e.school_id=se.school_id WHERE se.school_id=f.school_id AND se.family_id=f.id AND e.status<>'CANCELLED'{year_filter})")
-        enrolled_count_sql=f"""(SELECT count(DISTINCT s.id) FROM students s JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope} AND e.status<>'CANCELLED'{year_filter})""" if (academic_year_id or enrolled_only) else f"(SELECT count(*) FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope})"
+            conditions.append(f"EXISTS(SELECT 1 FROM students se JOIN enrollments e ON e.student_id=se.id AND e.school_id=se.school_id{enrollment_joins} WHERE se.school_id=f.school_id AND se.family_id=f.id AND e.status<>'CANCELLED' AND {enrollment_scope}{year_filter})")
+        enrolled_count_sql=f"""(SELECT count(DISTINCT s.id) FROM students s JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id{enrollment_joins} WHERE s.school_id=f.school_id AND s.family_id=f.id AND {enrollment_scope} AND e.status<>'CANCELLED'{year_filter})""" if (academic_year_id or enrolled_only) else f"(SELECT count(*) FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope})"
         stmt=text(f"""SELECT f.*,
           (SELECT count(*) FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id AND {child_scope}) child_count,
           {enrolled_count_sql} enrolled_children,

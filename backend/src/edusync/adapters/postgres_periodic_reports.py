@@ -17,7 +17,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
 from sqlalchemy.engine import Connection
 
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
@@ -41,19 +41,43 @@ class PostgresPeriodicReportsRepository:
         self.c = connection
 
     # ---------- raw material ----------
-    def _allocations(self, school_id: UUID, *, end_date: date, start_date: date | None, year_id: UUID | None) -> list[dict[str, Any]]:
-        rows = self.c.execute(text(f"""
+    @staticmethod
+    def _scope_clause(scopes):
+        if scopes is None or any(t == "SCHOOL" for t, _ in scopes):
+            return "TRUE", {}
+        sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+        classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
+        parts, params = [], {}
+        if sections:
+            parts.append("upper(ss_scope.code) IN :scope_sections")
+            params["scope_sections"] = sections
+        if classes:
+            parts.append("upper(sc_scope.code) IN :scope_classes")
+            params["scope_classes"] = classes
+        return ("(" + " OR ".join(parts) + ")" if parts else "FALSE"), params
+
+    @staticmethod
+    def _scoped_sql(sql, params):
+        stmt = text(sql)
+        for key in ("scope_sections", "scope_classes"):
+            if key in params:
+                stmt = stmt.bindparams(bindparam(key, expanding=True))
+        return stmt
+
+    def _allocations(self, school_id: UUID, *, end_date: date, start_date: date | None, year_id: UUID | None, scopes=None) -> list[dict[str, Any]]:
+        scope_where, scope_params = self._scope_clause(scopes)
+        rows = self.c.execute(self._scoped_sql(f"""
             SELECT p.id AS payment_id, {LOCAL_DAY} AS paid_day, p.created_at, p.currency, a.amount AS allocation_amount, fc.id AS charge_id, fc.net_amount,
                    upper(coalesce(ft.code,'')) AS fee_code, coalesce(fsch.period_code,'') AS period_code, coalesce(ft.label, fc.label) AS fee_label,
                    coalesce(fc.period_label, '') AS period_label, st.id AS student_id, st.matricule, st.last_name, st.middle_name, st.first_name,
                    sc.label AS class_label
               FROM finance_payments p JOIN finance_payment_allocations a ON a.payment_id=p.id JOIN finance_charges fc ON fc.id=a.charge_id
               LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id LEFT JOIN fee_schedules fsch ON fsch.id=fc.schedule_id
-              JOIN enrollments e ON e.id=p.enrollment_id JOIN students st ON st.id=e.student_id LEFT JOIN school_classes sc ON sc.id=e.class_id
+              JOIN enrollments e ON e.id=p.enrollment_id JOIN students st ON st.id=e.student_id LEFT JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
              WHERE p.school_id=:s AND NOT EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id)
                AND {LOCAL_DAY} <= :end AND (CAST(:start AS date) IS NULL OR {LOCAL_DAY} >= CAST(:start AS date))
                AND (CAST(:y AS uuid) IS NULL OR e.academic_year_id=CAST(:y AS uuid))
-             ORDER BY p.created_at, p.id"""), {"s": school_id, "end": end_date, "start": start_date, "y": str(year_id) if year_id else None}).mappings().all()
+             AND {scope_where} ORDER BY p.created_at, p.id""", scope_params), {"s": school_id, "end": end_date, "start": start_date, "y": str(year_id) if year_id else None, **scope_params}).mappings().all()
         out = []
         for r in rows:
             d = dict(r)
@@ -69,15 +93,16 @@ class PostgresPeriodicReportsRepository:
             d["has_inscription"] = d["payment_id"] in has_inscription
         return out
 
-    def _sales(self, school_id: UUID, *, start_date: date, end_date: date, year_id: UUID | None) -> list[dict[str, Any]]:
-        rows = self.c.execute(text(f"""
+    def _sales(self, school_id: UUID, *, start_date: date, end_date: date, year_id: UUID | None, scopes=None) -> list[dict[str, Any]]:
+        scope_where, scope_params = self._scope_clause(scopes)
+        rows = self.c.execute(self._scoped_sql(f"""
             SELECT p.id AS payment_id, {LOCAL_DAY} AS paid_day, p.currency, p.amount, pr.label AS product_label, ps.quantity,
                    st.id AS student_id, st.matricule, st.last_name, st.middle_name, st.first_name, sc.label AS class_label
               FROM finance_payments p JOIN finance_product_sales ps ON ps.payment_id=p.id JOIN school_products pr ON pr.id=ps.product_id
-              LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students st ON st.id=e.student_id LEFT JOIN school_classes sc ON sc.id=e.class_id
+              LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students st ON st.id=e.student_id LEFT JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
              WHERE p.school_id=:s AND NOT EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id)
                AND {LOCAL_DAY} BETWEEN :start AND :end AND (CAST(:y AS uuid) IS NULL OR e.academic_year_id=CAST(:y AS uuid))
-             ORDER BY p.created_at"""), {"s": school_id, "start": start_date, "end": end_date, "y": str(year_id) if year_id else None}).mappings().all()
+             AND {scope_where} ORDER BY p.created_at""", scope_params), {"s": school_id, "start": start_date, "end": end_date, "y": str(year_id) if year_id else None, **scope_params}).mappings().all()
         return [dict(r) for r in rows]
 
     @staticmethod
@@ -102,7 +127,7 @@ class PostgresPeriodicReportsRepository:
                 "first_name": item.get("first_name"), "class_label": item.get("class_label"), "currency": item["currency"], "amount": Decimal("0"), "_labels": []}
 
     # ---------- Desktop financial_report_rows ----------
-    def report_rows(self, school_id: UUID, *, start_date: date, end_date: date, profile_code: str = "CONSOLIDE", year_id: UUID | None = None) -> dict[str, Any]:
+    def report_rows(self, school_id: UUID, *, start_date: date, end_date: date, profile_code: str = "CONSOLIDE", year_id: UUID | None = None, scopes=None) -> dict[str, Any]:
         profile = REPORT_PROFILES.get(profile_code)
         if not profile:
             raise ValueError("Profil de rapport inconnu")
@@ -110,8 +135,8 @@ class PostgresPeriodicReportsRepository:
             raise ValueError("La date de début doit précéder la date de fin")
         mode = PostgresSettingsRepository(self.c).get_payment_policy(school_id).get("partial_reporting_mode") or "SEPARATE"
         if mode == "EXCLUDE_UNTIL_SETTLED":
-            return self._settled_only(school_id, start_date=start_date, end_date=end_date, profile_code=profile_code, profile=profile, year_id=year_id)
-        allocations = self._allocations(school_id, end_date=end_date, start_date=None, year_id=year_id)
+            return self._settled_only(school_id, start_date=start_date, end_date=end_date, profile_code=profile_code, profile=profile, year_id=year_id, scopes=scopes)
+        allocations = self._allocations(school_id, end_date=end_date, start_date=None, year_id=year_id, scopes=scopes)
         cumulative: dict[str, Decimal] = {}
         grouped: dict[str, dict] = {}
         for item in allocations:                     # chronological: cumulative paid on the charge up to this payment
@@ -128,7 +153,7 @@ class PostgresPeriodicReportsRepository:
                 row["_labels"].append(label)
             row["amount"] += money(item["allocation_amount"])
         if profile_code in ("CONSOLIDE", "ARTICLES_SCOLAIRES"):
-            for sale in self._sales(school_id, start_date=start_date, end_date=end_date, year_id=year_id):
+            for sale in self._sales(school_id, start_date=start_date, end_date=end_date, year_id=year_id, scopes=scopes):
                 row = grouped.setdefault(str(sale["payment_id"]), {**self._row(sale, str(sale["payment_id"])), "_statuses": []})
                 row["_statuses"].append("TOTAL")
                 label = f"{sale['product_label']} × {money(sale['quantity']).normalize()}"
@@ -147,10 +172,10 @@ class PostgresPeriodicReportsRepository:
         rows.sort(key=lambda r: (r["paid_day"], r["last_name"] or "", r["middle_name"] or "", r["first_name"] or ""))
         return self._finish(profile_code, profile, start_date, end_date, rows, mode)
 
-    def _settled_only(self, school_id: UUID, *, start_date: date, end_date: date, profile_code: str, profile: dict, year_id: UUID | None) -> dict[str, Any]:
+    def _settled_only(self, school_id: UUID, *, start_date: date, end_date: date, profile_code: str, profile: dict, year_id: UUID | None, scopes=None) -> dict[str, Any]:
         """Desktop _settled_only_report_rows: an instalment is recognised on the day its charge becomes fully paid."""
         by_charge: dict[str, list[dict]] = {}
-        for item in self._allocations(school_id, end_date=end_date, start_date=None, year_id=year_id):
+        for item in self._allocations(school_id, end_date=end_date, start_date=None, year_id=year_id, scopes=scopes):
             if self._eligible(profile_code, profile, item):
                 by_charge.setdefault(item["charge_id"], []).append(item)
         grouped: dict[tuple, dict] = {}
@@ -216,34 +241,37 @@ class PostgresPeriodicReportsRepository:
         return self.c.execute(text("""SELECT id FROM academic_years WHERE school_id=:s AND (CAST(:y AS uuid) IS NULL OR id=CAST(:y AS uuid))
             ORDER BY (status='ACTIVE') DESC, start_date DESC LIMIT 1"""), {"s": school_id, "y": str(year_id) if year_id else None}).scalar_one_or_none()
 
-    def analysis_by_fee_type(self, school_id: UUID, year_id: UUID | None = None) -> list[dict[str, Any]]:
+    def analysis_by_fee_type(self, school_id: UUID, year_id: UUID | None = None, scopes=None) -> list[dict[str, Any]]:
         y = self._year(school_id, year_id)
-        rows = self.c.execute(text("""SELECT upper(coalesce(ft.code,'')) AS fee_code, coalesce(ft.label, 'Autres frais') AS fee_name, fc.currency,
+        scope_where, scope_params = self._scope_clause(scopes)
+        rows = self.c.execute(self._scoped_sql(f"""SELECT upper(coalesce(ft.code,'')) AS fee_code, coalesce(ft.label, 'Autres frais') AS fee_name, fc.currency,
                 count(DISTINCT fc.enrollment_id) AS students, sum(coalesce(fc.gross_amount, fc.net_amount)) AS gross_expected,
                 sum(coalesce(fc.discount_amount,0)) + sum(finance_charge_decision_amount(fc.id)) AS discounts,
                 sum(fc.net_amount - finance_charge_decision_amount(fc.id)) AS net_expected, sum(fc.paid_amount) AS paid
-              FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
+              FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
              WHERE fc.school_id=:s AND e.academic_year_id=:y AND e.status='VALIDATED' AND fc.status='ACTIVE'
-             GROUP BY 1,2,3 ORDER BY 2,3"""), {"s": school_id, "y": y}).mappings().all()
+             AND {scope_where} GROUP BY 1,2,3 ORDER BY 2,3""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{**{k: (str(money(v)) if isinstance(v, Decimal) else v) for k, v in dict(r).items()}, "balance": str(money(r["net_expected"]) - money(r["paid"]))} for r in rows]
 
-    def analysis_by_cashier(self, school_id: UUID, year_id: UUID | None = None) -> list[dict[str, Any]]:
+    def analysis_by_cashier(self, school_id: UUID, year_id: UUID | None = None, scopes=None) -> list[dict[str, Any]]:
         y = self._year(school_id, year_id)
-        rows = self.c.execute(text("""SELECT p.actor_user_id AS cashier_id, p.currency, count(*) AS payment_count, sum(p.amount) AS amount
-              FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id
+        scope_where, scope_params = self._scope_clause(scopes)
+        rows = self.c.execute(self._scoped_sql(f"""SELECT p.actor_user_id AS cashier_id, p.currency, count(*) AS payment_count, sum(p.amount) AS amount
+              FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
              WHERE p.school_id=:s AND e.academic_year_id=:y AND NOT EXISTS (SELECT 1 FROM finance_payment_reversals r WHERE r.payment_id=p.id)
-             GROUP BY 1,2 ORDER BY 1,2"""), {"s": school_id, "y": y}).mappings().all()
+             AND {scope_where} GROUP BY 1,2 ORDER BY 1,2""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{**dict(r), "cashier_id": str(r["cashier_id"]), "amount": str(money(r["amount"]))} for r in rows]
 
-    def analysis_advance_funds(self, school_id: UUID, year_id: UUID | None = None) -> list[dict[str, Any]]:
+    def analysis_advance_funds(self, school_id: UUID, year_id: UUID | None = None, scopes=None) -> list[dict[str, Any]]:
         y = self._year(school_id, year_id)
-        rows = self.c.execute(text("""SELECT f.currency, count(*) AS fund_count, sum(f.amount) AS received_total,
+        scope_where, scope_params = self._scope_clause(scopes)
+        rows = self.c.execute(self._scoped_sql(f"""SELECT f.currency, count(*) AS fund_count, sum(f.amount) AS received_total,
                 sum(CASE WHEN f.status IN ('ACTIF','EPUISE') THEN f.amount ELSE 0 END) AS retained_total,
                 sum(CASE WHEN f.status IN ('ACTIF','EPUISE') THEN f.allocated_amount ELSE 0 END) AS allocated_total,
                 sum(CASE WHEN f.status='ACTIF' THEN f.available_amount ELSE 0 END) AS available_total,
                 sum(CASE WHEN f.status IN ('ANNULE','REMBOURSE') THEN f.amount ELSE 0 END) AS reversed_total
-              FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id
-             WHERE f.school_id=:s AND e.academic_year_id=:y GROUP BY f.currency ORDER BY f.currency"""), {"s": school_id, "y": y}).mappings().all()
+              FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+             WHERE f.school_id=:s AND e.academic_year_id=:y AND {scope_where} GROUP BY f.currency ORDER BY f.currency""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
         return [{k: (str(money(v)) if isinstance(v, Decimal) else v) for k, v in dict(r).items()} for r in rows]
 
     # ---------- Desktop historical_recovery_status ----------
@@ -263,12 +291,14 @@ class PostgresPeriodicReportsRepository:
                 "posted": counts.get("IMPORTED", 0), "total": sum(counts.values())}
 
     # ---------- Desktop student_account (relevé du compte élève) ----------
-    def student_account(self, school_id: UUID, student_id: UUID) -> dict[str, Any]:
-        st = self.c.execute(text("""SELECT s.id, s.matricule, s.last_name, s.middle_name, s.first_name, e.id AS enrollment_id, sc.label AS class_label,
+    def student_account(self, school_id: UUID, student_id: UUID, scopes=None) -> dict[str, Any]:
+        scope_where, scope_params = self._scope_clause(scopes)
+        st = self.c.execute(self._scoped_sql(f"""SELECT s.id, s.matricule, s.last_name, s.middle_name, s.first_name, e.id AS enrollment_id, sc.label AS class_label,
                 sec.label AS section_label, y.label AS year_label
               FROM students s JOIN enrollments e ON e.student_id=s.id JOIN academic_years y ON y.id=e.academic_year_id
               JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN school_sections sec ON sec.id=sc.section_id
-             WHERE s.school_id=:sch AND s.id=:st ORDER BY (y.status='ACTIVE') DESC, y.start_date DESC LIMIT 1"""), {"sch": school_id, "st": student_id}).mappings().first()
+              LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id
+             WHERE s.school_id=:sch AND s.id=:st AND {scope_where} ORDER BY (y.status='ACTIVE') DESC, y.start_date DESC LIMIT 1""", scope_params), {"sch": school_id, "st": student_id, **scope_params}).mappings().first()
         if not st:
             raise LookupError("Élève introuvable")
         charges = [dict(r) for r in self.c.execute(text("""SELECT fc.id, coalesce(fc.period_label, fc.label) AS fee_name, fc.label, fc.currency,
