@@ -164,7 +164,7 @@ function CountSheet({token,id,items,canRecord,canValidate,onClose}:{token:string
   useEffect(()=>{void load()},[id]);
   const head=count?.count;
   const draft=head?.status==='DRAFT';
-  const rows=useMemo(()=>(items.length?items:(count?.items??[]).map((l:any)=>({id:l.item_id,label:l.item_label,unit:l.unit,quantity:l.theoretical_quantity}))).map(it=>{const e=entries[it.id];const counted=e&&e.q!==''?Number(e.q.replace(',','.')):null;const variance=counted===null?null:counted-Number(it.quantity);return {it,e,counted,variance}}),[items,entries,count]);
+  const rows=useMemo(()=>((items.length?items:(count?.items??[]).map((l:any)=>({id:l.item_id,label:l.item_label,unit:l.unit,quantity:l.theoretical_quantity}))) as any[]).map((it:any)=>{const e=entries[it.id];const counted=e&&e.q!==''?Number(e.q.replace(',','.')):null;const variance=counted===null?null:counted-Number(it.quantity);return {it,e,counted,variance}}),[items,entries,count]);
   const missingReason=rows.some(r=>r.variance!==null&&r.variance!==0&&!(r.e?.r??'').trim());
   async function persistLines(){if(rows.some(r=>r.e?.q?.trim()&&(!Number.isFinite(r.counted)||Number(r.counted)<0)))throw new Error('Quantité comptée invalide');if(missingReason)throw new Error('Justifiez chaque écart');for(const r of rows){if(r.counted===null)continue;await send(token,'POST',`counts/${id}/lines`,{item_id:r.it.id,counted_quantity:String(r.counted),reason:(r.e?.r??'').trim()||null})}}
   async function saveAll(){try{setBusy(true);await persistLines();toast.success('Comptage enregistré');await load()}catch(e){toast.error(e instanceof Error?e.message:friendlyError(e))}finally{setBusy(false)}}
