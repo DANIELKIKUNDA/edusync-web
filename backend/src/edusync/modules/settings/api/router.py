@@ -305,6 +305,13 @@ class OptionPut(BaseModel):
     enabled:bool=True
     expected_version:int|None=Field(default=None,ge=1)
 
+@router.get('/options/selector')
+def options_selector(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Enabled options (labels, section) for operational filters (student directory), readable by every school member —
+    same doctrine as /classes/selector. Option administration stays behind settings.structure.read."""
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable([o for o in PostgresSettingsRepository(conn).list_options(actor.school_id) if o.get('enabled',True)])
+
 @router.get('/options')
 def options(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'settings.structure.read')

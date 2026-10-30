@@ -5,6 +5,8 @@ const NBSP = ' ';
 /** "1250000.50" + "CDF" → "1 250 000,50 FC". Never converts through Number, so large or precise amounts stay exact. */
 /** What the user reads for a currency code: « FC » for CDF (internal code), the code otherwise. */
 export function currencyLabel(code?: string | null): string { return code === 'CDF' ? 'FC' : (code ?? ''); }
+/** Titles stored before 2026-10-28 may carry the internal code: the reader always sees FC. */
+export function displayTitle(title?: string | null): string { return (title ?? '').replace(/\bCDF\b/g, 'FC'); }
 
 export function formatMoney(value: string | number | null | undefined, currency?: string | null): string {
   if (value === null || value === undefined || value === '') return '—';

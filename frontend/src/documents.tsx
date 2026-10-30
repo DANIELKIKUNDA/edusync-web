@@ -4,6 +4,7 @@ import {toast} from 'sonner';
 import {ArchivedDocument,DocumentCatalogItem,PrintSettings,documentHistory,documentLink,getDocumentCatalog,getPrintSettings,putPrintSettings,schoolLogoBlob,studentImportTemplate,uploadSchoolLogo} from './api';
 import {chooseManagedExportFolder,exportManaged,managedFolderReady,supportsManagedExportFolder} from './document_io';
 import {NavGlyph} from './platform/nav_icons';
+import {displayTitle} from './platform/format';
 import './documents.css';
 
 type Tab='history'|'catalog'|'identity';
@@ -27,13 +28,13 @@ function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{toke
   {items.length===0?<div className="docEmpty"><NavGlyph g="doc" size={28}/><b>{codeFilter?'Aucun document de ce type pour l’instant':'Aucun document généré pour l’instant'}</b><p>Chaque export PDF ou Excel réalisé dans EduSync apparaît ici automatiquement, avec son historique.</p></div>:
   <div className="docList" role="list">{items.map(d=><article key={d.id} className="docRow" role="listitem">
    <span className={`docFmt ${d.format.toLowerCase()}`} aria-hidden="true"><NavGlyph g={d.format==='PDF'?'doc':'sheet'} size={18}/></span>
-   <div className="docMain"><b>{d.title}</b><small>{d.file_name||d.document_code} · {SIZE(d.byte_size)}{d.generations>1?` · ${d.generations} versions`:''}</small></div>
+   <div className="docMain"><b>{displayTitle(d.title)}</b><small>{d.file_name||d.document_code} · {SIZE(d.byte_size)}{d.generations>1?` · ${d.generations} versions`:''}</small></div>
    <div className="docMeta"><span>{new Date(d.updated_at).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'})}</span><small>{d.generated_by||'Membre de l’école'}</small></div>
    {canOpen&&<button className="es-btn" disabled={busy===d.id} onClick={()=>void open(d)}><NavGlyph g="external" size={15}/>{busy===d.id?'Ouverture…':'Ouvrir'}</button>}
   </article>)}</div>}
   {data?.has_more&&<button className="es-btn es-btn-ghost" onClick={()=>void more()}>Afficher plus</button>}
   {viewer&&<div className="docViewerBackdrop" role="presentation"><div className="docViewer" role="dialog" aria-modal="true" aria-label={viewer.title}>
-   <div className="docViewerToolbar"><button type="button" onClick={()=>setViewer(null)}>← Retour</button><b>{viewer.title}</b><span/>
+   <div className="docViewerToolbar"><button type="button" onClick={()=>setViewer(null)}>← Retour</button><b>{displayTitle(viewer.title)}</b><span/>
     <button type="button" onClick={()=>pdfFrame.current?.contentWindow?.print()}>Imprimer</button>
     <a href={viewer.url} download={viewer.fileName}>Télécharger</a>
     <a href={viewer.url} target="_blank" rel="noopener">Nouvel onglet</a></div>

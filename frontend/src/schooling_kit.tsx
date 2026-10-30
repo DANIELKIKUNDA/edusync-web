@@ -8,7 +8,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 import {
-  SchoolClass, SchoolOption, SchoolingStudent, StudentFilters, enrollFamily, listOptions, listStudents, listYearSelector, studentDirectoryPdf, studentDirectoryXlsx,
+  SchoolClass, SchoolOption, SchoolingStudent, StudentFilters, enrollFamily, listOptionSelector, listStudents, listYearSelector, studentDirectoryPdf, studentDirectoryXlsx,
   type AcademicYear,
 } from './api';
 import {friendlyError} from './platform/errors';
@@ -51,7 +51,7 @@ export function StudentDirectoryPro({token, schoolName, classes, filters, setFil
   token: string; schoolName: string; classes: SchoolClass[]; filters: StudentFilters; setFilters: (f: StudentFilters) => void; students: SchoolingStudent[]; loading: boolean;
   can: (p: string) => boolean; onSelect: (s: SchoolingStudent) => void; page: number; hasMore: boolean; onPage: (p: number) => void}) {
   const [options, setOptions] = useState<SchoolOption[]>([]); const [years, setYears] = useState<AcademicYear[]>([]);
-  useEffect(() => { listOptions(token).then(o => setOptions(o.filter(x => x.enabled))).catch(() => setOptions([])); listYearSelector(token).then(setYears).catch(() => setYears([])); }, [token]);
+  useEffect(() => { listOptionSelector(token).then(o => setOptions(o.filter(x => x.enabled))).catch(() => setOptions([])); listYearSelector(token).then(setYears).catch(() => setYears([])); }, [token]);
   const secs = sections(classes);
   const set = (patch: StudentFilters) => setFilters({...filters, ...patch});
   const classChoices = classes.filter(c => (!filters.section_id || c.section_id === filters.section_id) && (!filters.option_id || c.option_id === filters.option_id));

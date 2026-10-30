@@ -89,9 +89,11 @@ it('gestionnaire: executive dashboard shows school cash supervision, not a perso
     actions: [{id: 'cash.supervise', label: 'Superviser les caisses', module: 'finance'}]};
   render(<HomePage token="t" me={me} schoolName="École A" userName="Gestionnaire Test" onNavigate={nav}/>);
   await waitFor(() => expect(screen.getByText('2', {selector: '.ui-card-value'})).toBeTruthy());
-  expect(screen.getByText(/245.?000 FC/)).toBeTruthy();
+  // the amount is in the supervision card AND in « Le point du jour » (2026-10-28: the system speaks first)
+  expect(screen.getAllByText(/245.?000 FC/).length).toBeGreaterThan(0);
   expect(screen.getByText(/20 USD/)).toBeTruthy();
   expect(screen.getByText('Vue d’ensemble')).toBeTruthy();
+  expect(await screen.findByText('Le point du jour')).toBeTruthy();
   expect(screen.queryByText('Ma caisse du jour')).toBeNull();
   await userEvent.click(screen.getByRole('button', {name: 'Situation des caisses — ouvrir'}));
   expect(nav).toHaveBeenCalledWith('finance');

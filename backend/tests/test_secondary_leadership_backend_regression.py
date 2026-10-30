@@ -276,7 +276,9 @@ def test_notifications_are_scoped_to_actor_and_school():
 
 def test_audit_entity_history_has_school_and_capability_guard():
     assert "need(actor,'audit.entity.history.read')" in AUDIT
-    assert "WHERE school_id=:sid AND entity_type=:et AND entity_id=:eid" in AUDIT
+    assert "WHERE e.school_id=:sid AND e.entity_type=:et AND e.entity_id=:eid" in AUDIT
+    # domain and section scope are checked before old/new values are read (certification 2026-10-30)
+    assert AUDIT.index("if not _entity_visible(c, actor, entity_type, entity_id):") < AUDIT.index("old_json,e.new_json")
 
 
 def test_communication_history_aggregates_deliveries_in_same_school():

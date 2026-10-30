@@ -187,3 +187,4 @@ function CountSheet({token,id,items,canRecord,canValidate,onClose}:{token:string
 }
 function K({l,v}:{l:string;v:any}){return <div className="homeKpi"><small>{l}</small><b>{n(v)}</b></div>}
 function Table({heads,rows}:{heads:string[];rows:any[][]}){return <div className="compactTable"><div className="tr th" style={{gridTemplateColumns:`repeat(${heads.length},minmax(0,1fr))`}}>{heads.map((h,i)=><span key={i}>{h}</span>)}</div>{rows.map((r,i)=><div className="tr" style={{gridTemplateColumns:`repeat(${heads.length},minmax(0,1fr))`}} key={i}>{r.map((v,j)=><span key={j}>{v}</span>)}</div>)}</div>}
+

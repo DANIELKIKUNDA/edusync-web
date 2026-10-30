@@ -220,6 +220,8 @@ def main() -> None:
             ("0094_receipt_print_queue", "0094_receipt_print_queue.sql"),
             ("0095_official_report_archive_idempotency", "0095_official_report_archive_idempotency.sql"),
             ("0096_gestionnaire_no_cash_day_close", "0096_gestionnaire_no_cash_day_close.sql"),
+            ("0097_promoteur_finance_no_history_execute", "0097_promoteur_finance_no_history_execute.sql"),
+            ("0098_responsable_finance_headcounts", "0098_responsable_finance_headcounts.sql"),
             ("0099_stewardship_asset_update_event", "0099_stewardship_asset_update_event.sql"),
             ("0100_intendance_capabilities_active", "0100_intendance_capabilities_active.sql"),
             ("0101_inventory_movements_recent_index", "0101_inventory_movements_recent_index.sql"),
