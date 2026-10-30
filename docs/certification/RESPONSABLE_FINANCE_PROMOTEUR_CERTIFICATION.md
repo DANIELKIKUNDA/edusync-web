@@ -8,13 +8,17 @@ aucune PR ouverte (une PR déclencherait GitHub Actions, bloqué par la facturat
 
 | Rôle | Doctrine (POINT3B, décisions 03 et 05) | Droits actifs |
 |---|---|---:|
-| Responsable chargé des finances | Contrôle et lecture financière globale ; pas d'encaissement ni de manipulation de caisse | 43 |
+| Responsable chargé des finances | Contrôle et lecture financière globale ; pas d'encaissement ni de manipulation de caisse | 45 |
 | Promoteur | Gouvernance : voir, suivre, imprimer, exporter ; aucune mutation, aucun SMS aux parents | 73 |
 
 **Décision du propriétaire (28/10/2026)** : les deux rôles **analysent** la reprise de l'historique financier mais ne
 l'**exécutent** pas (l'exécution écrit d'anciens paiements et dettes dans les comptes). Retrait par la migration
 `0097_promoteur_finance_no_history_execute.sql`, le registre canonique et des tests. L'exécution reste au Gestionnaire et
 au Caissier ; une école peut l'attribuer au rôle de son choix.
+
+**Décision du propriétaire (28/10/2026)** : le Responsable financier **lit les effectifs** — total, filles / garçons et par
+section — sur son tableau de bord (`headcounts.read`, `headcounts.by_section.read`, migration
+`0098_responsable_finance_headcounts.sql`). Lecture seule : ni mouvements, ni export, ni détail par classe.
 
 Aucun autre droit n'a été ajouté ni retiré.
 
@@ -28,19 +32,32 @@ Aucun autre droit n'a été ajouté ni retiré.
 | 4 | Faible | « CDF » affiché : titre archivé « Suivi mensuel du recouvrement (CDF) » (Documents, accueil) et état vide du recouvrement | Nouveaux titres en « FC » ; titres déjà archivés affichés en « FC » (`displayTitle`) ; état vide en « FC » (identique à la PR #27) |
 | 5 | Faible | Code mort `academic_year_id if 'students.profile'!='students.profile' else None` (fiche élève) signalé par le nouveau test | Remplacé par `None` (comportement inchangé) |
 
-## 3. Résultats
+## 3. Interface : tableau de bord qui « parle » et droits sans écran (demande du propriétaire, 28/10)
+
+| Élément | Avant | Après |
+|---|---|---|
+| **« Le point du jour »** (accueil du Promoteur, du Responsable financier et du Gestionnaire) | Des cartes de chiffres à interpréter | Quelques phrases en langage simple, titre = conclusion (« Recouvrement en retard : 1,5 % »), une ligne cliquable par constat, une phrase « à retenir en priorité ». Taux calculé sur les **mois échus** (et rappel de l'année), caisses du jour, effectifs par section, décisions actives, stock sous seuil |
+| Effectifs du Responsable financier | Absents | Carte effectifs (total, F / G, par section) ; page Effectifs limitée aux vues autorisées |
+| **Journal de l'établissement** (`audit.school.read`, `audit.school.filter`, `audit.entity.history.read`) | Droits détenus mais **aucun écran** | Onglet dans Accès & rôles : qui a fait quoi et quand, filtres par domaine et période, avant / après lisible (champs traduits, montants, FC, aucun identifiant technique). Noms des personnes lus par la connexion plateforme, limités aux membres de l'école (la règle RLS « chacun ne lit que son compte » est conservée) ; ~90 actions libellées en français |
+| **Historique d'un bien durable** (`inventory.assets.history.read`) | Droit sans écran | « Voir l'historique » sur chaque bien (Intendance) : changements d'état, de localisation, motif |
+| Effectifs : onglets par classe / option et « Dépôts matériels » | Affichés à tous, puis refusés (403) | Affichés selon le droit (correctif identique à la PR #27 pour les dépôts) |
+
+Bonnes pratiques retenues (recherche) : 4 à 6 indicateurs, titres qui énoncent la conclusion, chaque chiffre mène à son
+détail, synthèse rédigée en tête mise à jour avec les données.
+
+## 4. Résultats
 
 | Contrôle | Commande | Résultat |
 |---|---|---|
-| Tests backend | `python -m pytest -q` | **1060 passed**, 1 skipped, 0 échec |
+| Tests backend | `python -m pytest -q` | **1064 passed**, 1 skipped, 0 échec |
 | Tests frontend | `npx vitest run` | **80/80** |
 | TypeScript / build | `npx tsc --noEmit` · `npx vite build` | **PASS** |
 | Tests navigateur de composants | `EDUSYNC_TEST_BROWSER=msedge npm run test:browser` (seuls) | **28 passed**, 3 skipped, 0 échec |
 | Registre RBAC | `tools/ci/rbac_registry.py check` | **0 dérive** |
 | PostgreSQL réel — caissier | `tools/ci/cashier_postgres_integration.py` | **PASS** |
 | Sonde API des deux rôles | `tools/local/finance_roles_probe.py` | **36/36 PASS** |
-| Recette navigateur des deux rôles | `browser-tests/local_finance_roles_certification.mjs` | **20/20 PASS** |
-| Robot d'exploration | `local_audit_robot.mjs` à 1440 px | Responsable financier : 14 constats au 1er passage → **0** après correction ; Promoteur : **0** |
+| Recette navigateur des deux rôles | `browser-tests/local_finance_roles_certification.mjs` | **25/25 PASS** (dont point du jour, effectifs par section, journal et son détail) |
+| Robot d'exploration | `local_audit_robot.mjs` à 1440 px | Promoteur : **0** constat (après les ajouts d'interface). Responsable financier : 14 constats au 1er passage → 0 ; après les ajouts, « Dépôts matériels » visible sans droit → corrigé et vérifié ; quelques `401` en fin d'exploration (session) — le renouvellement de session a été vérifié en direct (3/3 réussis) |
 | Non-régression Gestionnaire | `local_gestionnaire_certification.mjs` | **18/18 PASS** |
 | Non-régression Caissier | `local_caissier_certification.mjs` | **0 échec** (script aligné sur celui de la PR #27) |
 
@@ -61,7 +78,7 @@ d'opération (encaisser, ouvrir une caisse, inscrire, nouvel agent, ajouter un m
 serveur, aucun « CDF ». Responsive : Accueil, Centre financier et Élèves à 320, 390, 768, 1024 et 1440 px, avec une
 navigation réelle (barre du bas sur téléphone) et aucun débordement horizontal.
 
-## 4. BLOCKED / non certifié
+## 5. BLOCKED / non certifié
 
 | Point | Raison |
 |---|---|
@@ -69,7 +86,7 @@ navigation réelle (barre du bas sur téléphone) et aucun débordement horizont
 | Staging | Non déployé |
 | Droits PLANNED des deux rôles (vues VF01 à VF04, historique des paiements, exports d'inventaire…) | Non construits, masqués ; hors de ce lot |
 
-## 5. Conclusion
+## 6. Conclusion
 
 Les deux rôles sont **certifiés en local** : contrat respecté, décision du 28/10 appliquée, aucune écriture possible,
 toutes les suites vertes, aucune régression sur le Gestionnaire et le Caissier. La branche est **techniquement prête

@@ -7971,6 +7971,8 @@
     "finance.views.vf02.read",
     "finance.views.vf03.read",
     "finance.views.vf04.read",
+    "headcounts.by_section.read",
+    "headcounts.read",
     "migration.finance_history.analyze",
     "notifications.internal.read",
     "notifications.internal.read_all",

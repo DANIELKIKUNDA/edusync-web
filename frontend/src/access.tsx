@@ -3,6 +3,7 @@ import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
 import {friendlyError} from './platform/errors';
 import {confirmAction} from './platform/dialogs';
+import {SchoolJournal} from './school_journal';
 import './access.css';
 
 /* Accès & rôles — each school sets its own access policy (owner decisions 2026-10-02 and 2026-10-23).
@@ -11,7 +12,7 @@ import './access.css';
    manager, BLOCK refuses (never self-approval). Everything is in the rights journal. */
 
 type Props={token:string;permissions:string[];userName:string};
-type Tab='members'|'roles'|'requests'|'journal';
+type Tab='members'|'roles'|'requests'|'journal'|'school';
 type Capability={code:string;label:string;group:string;risk:'LOW'|'MEDIUM'|'HIGH'|'CRITICAL'|string};
 type Domain={domain:string;capabilities:Capability[]};
 type Role={id:string;code:string;label:string;description:string;kind:'SCHOOL_STANDARD'|'SCHOOL_CUSTOM';status:string;version:number;holders:number;capabilities:string[];editable:boolean;adjustable?:boolean;adjustments?:number};
@@ -96,6 +97,8 @@ export default function AccessPage({token,permissions,userName}:Props){
   const canAssign=has(permissions,'access.permissions.assign');
   const canScope=has(permissions,'access.scopes.assign');
   const canJournal=canRead||has(permissions,'audit.school.read');
+  // the school's business journal (audit_events), distinct from the access-rights journal above
+  const canSchoolJournal=has(permissions,'audit.school.read');
   const canCreate=has(permissions,'access.users.create'),canUpdate=has(permissions,'access.users.update'),canActivate=has(permissions,'access.users.activate'),canReset=has(permissions,'access.users.credentials.reset');
   const [tab,setTab]=useState<Tab>(canRead?'members':'journal');
   const [loading,setLoading]=useState(true),[error,setError]=useState('');
@@ -186,6 +189,7 @@ export default function AccessPage({token,permissions,userName}:Props){
       {canRead&&<button role="tab" aria-selected={tab==='roles'} className={tab==='roles'?'active':''} onClick={()=>setTab('roles')}><Icon name="key" size={15}/> Rôles <span>{activeRoles.length}</span></button>}
       {canRead&&<button role="tab" aria-selected={tab==='requests'} className={tab==='requests'?'active':''} onClick={()=>setTab('requests')}><Icon name="clock" size={15}/> Demandes <span>{requests.length}</span></button>}
       {canJournal&&<button role="tab" aria-selected={tab==='journal'} className={tab==='journal'?'active':''} onClick={()=>setTab('journal')}><Icon name="history" size={15}/> Journal des droits <span>{journal.length}</span></button>}
+      {canSchoolJournal&&<button role="tab" aria-selected={tab==='school'} className={tab==='school'?'active':''} onClick={()=>setTab('school')}><Icon name="history" size={15}/> Journal de l’établissement</button>}
     </div>
 
     {tab==='members'&&canRead&&<section className="premiumCard">
@@ -234,6 +238,7 @@ export default function AccessPage({token,permissions,userName}:Props){
       {!loading&&!requests.length&&<div className="personEmpty"><span><Icon name="check" size={26}/></span><b>Aucune demande en attente</b><small>Les changements qui exigent une approbation apparaîtront ici.</small></div>}
     </section>}
 
+    {tab==='school'&&canSchoolJournal&&<SchoolJournal token={token} canFilter={has(permissions,'audit.school.filter')} canDetail={has(permissions,'audit.entity.history.read')}/>}
     {tab==='journal'&&canJournal&&<section className="premiumCard">
       <div className="cardHeading"><div><h3>Journal des droits</h3><p>Lecture seule : chaque changement est visible, daté et attribué, y compris les confirmations et les approbations.</p></div></div>
       <div className="timeline">{journal.map((j,i)=><div key={i} className="timelineItem"><span className="timelineDot"><Icon name={j.action==='ACCESS_ROLE_REVOKED'?'x':j.action==='ACCESS_ROLE_ASSIGNED'?'plus':'key'} size={15}/></span>

@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {NavGlyph} from './platform/nav_icons';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {RecoveryChart} from './platform/recovery_chart';
+import {DailyBriefing} from './home_briefing';
 import {setFinanceTarget,type FinanceTarget} from './finance_nav';
 import {auditActionLabel} from './platform/labels';
 import {displayTitle} from './platform/format';
@@ -219,6 +220,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
     {spot&&<StudentSpotlight token={token} onClose={()=>setSpot(false)} onPick={pick}/>}
     {me.widgets.length===0?<EmptyState icon="home" title="Aucun suivi pour votre rôle" text="Les modules auxquels vous avez accès sont dans le menu."/>:<>
       {readiness&&<ScreenBoundary compact label="readiness"><Readiness token={token} open={openSettings} go={()=>openSettings('overview')}/></ScreenBoundary>}
+      {executive&&<ScreenBoundary compact label="briefing"><DailyBriefing token={token} yearId={yearId} widgets={figures} open={openWidget}/></ScreenBoundary>}
       {figures.length>0&&(()=>{
         const overview=executive?figures.filter(w=>['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)):figures;
         const activityIds=new Set(['reports.latest','documents.recent']);

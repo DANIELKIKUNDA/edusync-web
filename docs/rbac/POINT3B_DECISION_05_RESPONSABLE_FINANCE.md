@@ -78,3 +78,5 @@ Contrôle financier global en lecture/rapports; pas d’encaissement ni de manip
 ## Amendement du propriétaire (28/10/2026)
 
 Reprise de l'historique financier : le Responsable chargé des finances **analyse** (`migration.finance_history.analyze`) mais n'**exécute** pas (`migration.finance_history.execute` retiré, migration `0097_promoteur_finance_no_history_execute.sql`). L'exécution écrit d'anciens paiements et dettes dans les comptes ; elle reste au Gestionnaire et au Caissier. Certification : `docs/certification/RESPONSABLE_FINANCE_PROMOTEUR_CERTIFICATION.md`.
+
+Effectifs (décision du propriétaire, 28/10/2026) : le Responsable chargé des finances **lit** les effectifs — total, filles / garçons et par section — sur son tableau de bord (`headcounts.read`, `headcounts.by_section.read`, migration `0098_responsable_finance_headcounts.sql`). Lecture seule : ni mouvements, ni export, ni détail par classe.

@@ -91,3 +91,13 @@ def test_supervisors_get_cash_supervision_not_an_own_cash_receipts_card(role):
     ids = {w["id"] for w in widgets(set(REG["standard_roles"][role]["capabilities"]))}
     assert "cash.receipts" not in ids and "cash.supervision" in ids
     assert "cash.receipts" in {w["id"] for w in widgets(set(REG["standard_roles"]["CAISSIER"]["capabilities"]))}
+
+
+def test_responsable_finance_reads_headcounts_total_and_by_section_owner_decision_2026_10_28():
+    rf = active("RESPONSABLE_FINANCE")
+    assert {"headcounts.read", "headcounts.by_section.read"} <= rf
+    assert not rf & {"headcounts.movements.read", "headcounts.export", "headcounts.by_class.read"}   # read only, no detail
+    sql = (ROOT / "backend/migrations/0098_responsable_finance_headcounts.sql").read_text(encoding="utf-8")
+    assert "'headcounts.read','headcounts.by_section.read'" in sql and "RESPONSABLE_FINANCE" in sql
+    from edusync.modules.access.application.projection import widgets
+    assert "headcounts.summary" in {w["id"] for w in widgets(set(REG["standard_roles"]["RESPONSABLE_FINANCE"]["capabilities"]))}

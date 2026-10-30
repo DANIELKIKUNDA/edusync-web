@@ -37,6 +37,24 @@ for (const R of ROLES) {
     menu = (await nav().getByRole('button').allInnerTexts()).map(x => x.trim()).filter(Boolean).filter(x => !/^[A-Z]{2}(\s|$)/.test(x) && x !== 'Réduire le menu');   // the account avatar (initials) is not a module
     console.log(`      menu : ${menu.join(' | ')}`); }, '01_accueil');
   await step('02 accueil sans opération', async () => { await noOperation('accueil'); });
+  // 2026-10-28 (owner): the system speaks first — « Le point du jour », one clickable finding per line; headcounts
+  // (total + per section) on the dashboard of both roles.
+  await step('03 « Le point du jour » : constats en clair et cliquables, effectifs par section', async () => {
+    await p.locator('.sh-brief-item').first().waitFor({timeout: 20000});
+    const lines = (await p.locator('.sh-brief-item b').allInnerTexts()); console.log(`      point du jour : ${lines.join(' | ')}`);
+    if (!lines.some(l => /élèves actifs/.test(l))) throw new Error('effectifs absents du point du jour');
+    if (!await p.locator('ul[aria-label="Effectifs par section"] li').count()) throw new Error('carte des effectifs par section absente');
+    await p.locator('.sh-brief-item').first().click(); await p.waitForTimeout(1500);
+    if (await p.locator('.sh-brief').count()) throw new Error('un constat ne mène nulle part');
+    await nav().getByRole('button', {name: 'Accueil', exact: true}).click(); await p.waitForTimeout(1500); }, '03_point_du_jour');
+  await step('04 journal de l’établissement : qui a fait quoi, détail lisible', async () => {
+    await nav().getByRole('button', {name: 'Accès & rôles', exact: true}).click(); await p.waitForTimeout(1500);
+    await p.getByRole('tab', {name: /Journal de l’établissement/}).click(); await p.locator('.sj-list li').first().waitFor({timeout: 20000});
+    await p.getByRole('button', {name: 'Finances', exact: true}).click(); await p.waitForTimeout(1500);
+    await p.locator('button.sj-row').first().click(); await p.locator('.sj-drawer .sj-timeline li').first().waitFor({timeout: 15000});
+    const detail = await p.locator('.sj-drawer').innerText();
+    if (/[0-9a-f]{8}-[0-9a-f]{4}-/.test(detail)) throw new Error('identifiant technique affiché dans le détail');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(400); }, '04_journal');
   for (const m of menu.filter(x => x !== 'Accueil')) {
     await step(`10 ${m} : ouvert en lecture, sans opération`, async () => {
       await nav().getByRole('button', {name: m, exact: true}).click(); await p.waitForTimeout(1800);

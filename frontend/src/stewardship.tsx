@@ -1,7 +1,7 @@
 import {friendlyError} from './platform/errors';
 import React,{useEffect,useMemo,useState} from 'react';
 import {toast} from 'sonner';
-import {stewardshipAssets,stewardshipCountDetail,stewardshipCounts,stewardshipDashboard,stewardshipLocations,stewardshipMovements,stewardshipSaleStock,stewardshipStock} from './api';
+import {stewardshipAssetHistory,stewardshipAssets,stewardshipCountDetail,stewardshipCounts,stewardshipDashboard,stewardshipLocations,stewardshipMovements,stewardshipSaleStock,stewardshipStock} from './api';
 import './stewardship.css';
 
 /* Intendance — consumables, durable assets, premises, physical inventories.
@@ -27,6 +27,8 @@ export default function StewardshipPage({token,permissions}:Props){
   const [tab,setTab]=useState<Tab>('overview'),[data,setData]=useState<any>({}),[error,setError]=useState(''),[loading,setLoading]=useState(true);
   const [move,setMove]=useState<{item:any;kind:MoveKind}|null>(null),[newItem,setNewItem]=useState(false),[countId,setCountId]=useState<string|null>(null);
   const canStock=has(permissions,'inventory.stock.read'),canAssets=has(permissions,'inventory.assets.read'),canCounts=has(permissions,'inventory.counts.read');
+  // 2026-10-28: the asset history right had no screen; each durable asset now opens its dated changes.
+  const canHistory=has(permissions,'inventory.assets.history.read');const [historyOf,setHistoryOf]=useState<any|null>(null);
   const canMoves=has(permissions,'inventory.stock.movements.read'),canItem=has(permissions,'inventory.stock.item.manage');
   const can={RECEIPT:has(permissions,'inventory.stock.receive'),ISSUE:has(permissions,'inventory.stock.issue'),ADJUSTMENT:has(permissions,'inventory.stock.adjust')};
   async function load(){try{setError('');const d:any={};d.dashboard=await stewardshipDashboard(token);
@@ -54,7 +56,7 @@ export default function StewardshipPage({token,permissions}:Props){
       </article>})}</div>:<div className="emptyState"><b>Aucun article de stock</b><span>{canItem?'Créez votre premier article (craie, papier, produits d’entretien…), puis enregistrez une entrée.':'Aucun article n’est encore enregistré.'}</span>{canItem&&<button className="primaryBtn compact" onClick={()=>setNewItem(true)}>Créer un article</button>}</div>}
     </section>}
 
-    {tab==='assets'&&<><section className="homePanel"><h3>Patrimoine durable</h3><Table heads={['Bien','Quantité','État','Localisation']} rows={(data.assets?.items??[]).map((x:any)=>[x.asset_type,n(x.quantity),fr(ASSET_FR,x.status),x.location_label??'—'])}/>{!(data.assets?.items??[]).length&&<p className="okState">Aucun bien durable enregistré.</p>}</section>
+    {tab==='assets'&&<><section className="homePanel"><h3>Patrimoine durable</h3><Table heads={['Bien','Quantité','État','Localisation',...(canHistory?['Historique']:[])]} rows={(data.assets?.items??[]).map((x:any)=>[x.asset_type,n(x.quantity),fr(ASSET_FR,x.status),x.location_label??'—',...(canHistory?[<button key="h" type="button" className="softBtn" onClick={()=>setHistoryOf(x)}>Voir l’historique</button>]:[])])}/>{!(data.assets?.items??[]).length&&<p className="okState">Aucun bien durable enregistré.</p>}</section>{historyOf&&<AssetHistory token={token} asset={historyOf} onClose={()=>setHistoryOf(null)}/>}
       <section className="homePanel"><h3>Locaux</h3><Table heads={['Local','Type','Capacité','État']} rows={(data.locations?.items??[]).map((x:any)=>[x.label,x.location_type,x.capacity??'—',fr(ASSET_FR,x.status)])}/>{!(data.locations?.items??[]).length&&<p className="okState">Aucun local enregistré.</p>}</section></>}
     {tab==='sales'&&<section className="homePanel"><h3>Articles destinés à la vente</h3><p className="muted">L’Intendance gère le stock ; le Centre financier encaisse les ventes.</p><Table heads={['Article','Disponible','Seuil','Prix courant']} rows={(data.sales?.items??[]).map((x:any)=>[x.label,n(x.quantity),n(x.low_threshold),`${n(x.unit_price)} ${x.currency}`])}/></section>}
     {tab==='movements'&&<section className="homePanel"><h3>Traçabilité des entrées et sorties</h3><Table heads={['Date','Article','Mouvement','Quantité','Destination','Motif']} rows={(data.movements?.items??[]).map((x:any)=>{const m=MOVE_FR[x.movement_type]??{l:x.movement_type,tone:'adj'};return [String(x.created_at).slice(0,16).replace('T',' '),x.item_label,<i className={`movePill ${m.tone}`}>{m.l}</i>,<b className={Number(x.quantity_delta)<0?'neg':'pos'}>{Number(x.quantity_delta)>0?'+':''}{n(x.quantity_delta)} {x.unit}</b>,x.destination??'—',x.reason]})}/>{!(data.movements?.items??[]).length&&<p className="okState">Aucun mouvement enregistré.</p>}</section>}
@@ -128,3 +130,20 @@ function CountSheet({token,id,items,canRecord,canValidate,onClose}:{token:string
 }
 function K({l,v}:{l:string;v:any}){return <div className="homeKpi"><small>{l}</small><b>{n(v)}</b></div>}
 function Table({heads,rows}:{heads:string[];rows:any[][]}){return <div className="compactTable"><div className="tr th" style={{gridTemplateColumns:`repeat(${heads.length},minmax(0,1fr))`}}>{heads.map((h,i)=><span key={i}>{h}</span>)}</div>{rows.map((r,i)=><div className="tr" style={{gridTemplateColumns:`repeat(${heads.length},minmax(0,1fr))`}} key={i}>{r.map((v,j)=><span key={j}>{v}</span>)}</div>)}</div>}
+
+const EVENT_FR:Record<string,string>={CREATED:'Bien enregistré',STATUS_CHANGED:'Changement d’état',MOVED:'Changement de localisation',REPAIR:'Réparation',DISPOSED:'Sortie du patrimoine'};
+function AssetHistory({token,asset,onClose}:{token:string;asset:any;onClose:()=>void}){
+  const [items,setItems]=useState<any[]|null>(null),[error,setError]=useState('');
+  useEffect(()=>{stewardshipAssetHistory(token,asset.id).then(r=>setItems(r.items)).catch(e=>setError(friendlyError(e)))},[token,asset]);
+  useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose]);
+  return <div className="wizardBackdrop" onClick={onClose}><aside className="sj-drawer" role="dialog" aria-modal="true" aria-label={`Historique : ${asset.asset_type}`} onClick={e=>e.stopPropagation()}>
+    <header><div><small>Patrimoine durable</small><h3>{asset.asset_type}</h3><p>Chaque changement d’état ou de localisation, du plus récent au plus ancien.</p></div><button type="button" aria-label="Fermer" onClick={onClose}>×</button></header>
+    {error&&<div className="error" role="alert">{error}</div>}
+    {!items&&!error&&<p>Chargement…</p>}
+    {items&&items.length===0&&<p className="okState">Aucun changement enregistré pour ce bien.</p>}
+    {items&&items.length>0&&<ol className="sj-timeline">{items.map(i=><li key={i.id}><b>{EVENT_FR[i.event_type]??i.event_type}</b>
+      <small>{new Date(i.created_at).toLocaleString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</small>
+      {(i.from_status||i.to_status)&&<small>État : {fr(ASSET_FR,i.from_status)||'—'} → {fr(ASSET_FR,i.to_status)||'—'}</small>}
+      {i.reason&&<small>Motif : « {i.reason} »</small>}</li>)}</ol>}
+  </aside></div>;
+}
