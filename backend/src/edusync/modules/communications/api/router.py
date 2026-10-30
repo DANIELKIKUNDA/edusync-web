@@ -229,9 +229,29 @@ def send(b: Draft, actor: ActorContext = Depends(require_school_actor), services
 
 
 # ------------------------------------------------------------------------------------------------ history
+def _history_scope(actor) -> tuple[str, dict]:
+    """Certification 2026-10-30: deliveries show recipients' names and phone numbers. A section-scoped reader only sees
+    the messages it sent or whose audience (section / class / pupil) lies in its sections — never another section's
+    or a whole-school message."""
+    scopes = actor.scopes_for('communications.history.read')
+    if not scopes or any(t == 'SCHOOL' for t, _ in scopes):
+        return 'TRUE', {}
+    secs = sorted({str(v).upper() for t, v in scopes if t == 'SECTION' and v})
+    return ('''(m.created_by=:hs_uid OR (m.audience_type='SECTION' AND EXISTS (SELECT 1 FROM school_sections hs WHERE hs.id=m.audience_ref
+                   AND hs.school_id=m.school_id AND upper(hs.code)=ANY(:hs_secs)))
+               OR (m.audience_type='CLASS' AND EXISTS (SELECT 1 FROM school_classes hc JOIN school_sections hs ON hs.id=hc.section_id AND hs.school_id=hc.school_id
+                   WHERE hc.id=m.audience_ref AND hc.school_id=m.school_id AND upper(hs.code)=ANY(:hs_secs)))
+               OR (m.audience_type='INDIVIDUAL' AND EXISTS (SELECT 1 FROM enrollments he JOIN school_classes hc ON hc.id=he.class_id AND hc.school_id=he.school_id
+                   JOIN school_sections hs ON hs.id=hc.section_id AND hs.school_id=hc.school_id
+                   JOIN academic_years hy ON hy.id=he.academic_year_id AND hy.school_id=he.school_id AND hy.status='ACTIVE'
+                   WHERE he.student_id=m.audience_ref AND he.school_id=m.school_id AND upper(hs.code)=ANY(:hs_secs))))''',
+            {'hs_uid': str(actor.user_id), 'hs_secs': secs})
+
+
 @router.get('/history')
 def history(limit: int = 50, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     need(actor, 'communications.history.read')
+    scope_sql, scope_params = _history_scope(actor)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
         rows = c.execute(text("""SELECT m.id, m.kind, m.subject, m.audience_type, m.channels, m.recipient_count, m.sms_segments_reserved,
                 m.created_at, m.dispatched_at, u.full_name AS author,
@@ -243,15 +263,19 @@ def history(limit: int = 50, actor: ActorContext = Depends(require_school_actor)
             LEFT JOIN LATERAL (SELECT d.channel, d.status, count(*) n, sum(d.segments_billed) billed,
                     max(d.last_error_code) FILTER (WHERE d.status IN ('FAILED_PERMANENT','FAILED_RETRYABLE')) err
                 FROM communication_deliveries d WHERE d.message_id=m.id AND d.school_id=m.school_id GROUP BY d.channel, d.status) x ON true
-            WHERE m.school_id=:sid GROUP BY m.id, u.full_name ORDER BY m.created_at DESC LIMIT :n"""),
-            {'sid': str(actor.school_id), 'n': max(1, min(limit, 200))}).mappings().all()
+            WHERE m.school_id=:sid AND """ + scope_sql + """ GROUP BY m.id, u.full_name ORDER BY m.created_at DESC LIMIT :n"""),
+            {'sid': str(actor.school_id), 'n': max(1, min(limit, 200)), **scope_params}).mappings().all()
     return {'items': [dict(r) for r in rows]}
 
 
 @router.get('/history/{message_id}/deliveries')
 def deliveries(message_id: UUID, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     need(actor, 'communications.history.read')
+    scope_sql, scope_params = _history_scope(actor)
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+        if not c.execute(text("SELECT 1 FROM communication_messages m WHERE m.id=:m AND m.school_id=:s AND " + scope_sql),
+                         {'m': str(message_id), 's': str(actor.school_id), **scope_params}).first():
+            raise HTTPException(404, 'Message introuvable')
         rows = c.execute(text("""SELECT d.id, d.channel, d.status, d.attempts, d.last_error_code, d.estimated_segments, d.segments_billed,
                 d.sent_at, d.delivered_at, d.failed_at, d.cancelled_at, r.display_name,
                 CASE WHEN d.channel='PUSH' THEN 'appareil' ELSE d.destination END AS destination

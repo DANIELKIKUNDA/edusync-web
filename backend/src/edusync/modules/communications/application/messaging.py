@@ -75,6 +75,18 @@ def resolve_audience(conn, actor, school_id: UUID, audience_type: str, audience_
         raise ValueError("Audience inconnue")
     if audience_ref:
         params["ref"] = str(audience_ref)
+    # Certification 2026-10-30: a section-scoped sender targeting a section / class / pupil OUTSIDE its sections is
+    # refused explicitly (403) before any guardian is read, instead of silently resolving an empty audience (409).
+    if audience_type in ("SECTION", "CLASS", "INDIVIDUAL") and cap and not getattr(actor, "is_platform_admin", False)             and actor.scopes_for(cap) and not any(t == "SCHOOL" for t, _ in actor.scopes_for(cap)):
+        target = {"SECTION": "SELECT upper(code) FROM school_sections WHERE school_id=:sid AND id=:ref",
+                  "CLASS": """SELECT upper(sec.code) FROM school_classes c JOIN school_sections sec ON sec.id=c.section_id AND sec.school_id=c.school_id
+                              WHERE c.school_id=:sid AND c.id=:ref""",
+                  "INDIVIDUAL": """SELECT upper(sec.code) FROM enrollments e JOIN academic_years y ON y.id=e.academic_year_id AND y.school_id=e.school_id AND y.status='ACTIVE'
+                                   JOIN school_classes c ON c.id=e.class_id AND c.school_id=e.school_id JOIN school_sections sec ON sec.id=c.section_id AND sec.school_id=c.school_id
+                                   WHERE e.school_id=:sid AND e.student_id=:ref AND e.status='VALIDATED'"""}[audience_type]
+        codes = [r[0] for r in conn.execute(text(target), params).all()]
+        if not codes or not any(_scope_ok(actor, cap, code) for code in codes):
+            raise PermissionError("Audience hors de votre périmètre")
     rows = conn.execute(text(f"""
         SELECT DISTINCT ON (g.id, sec.code) g.id, g.full_name, coalesce(g.normalized_phone, g.phone) AS phone, g.email, sec.code AS section_code
         FROM students s

@@ -110,15 +110,23 @@ def test_parent_audience_does_not_expose_other_section():
     from uuid import uuid4
     from edusync.modules.communications.application.messaging import resolve_audience
 
+    import pytest
+
     class Result:
+        def __init__(self, target):
+            self.target = target
         def mappings(self):
             return self
         def all(self):
+            if self.target is not None:          # section lookup of the targeted audience (2026-10-30 explicit check)
+                return [(self.target,)]
             return [{"id": uuid4(), "full_name": "Primary parent", "phone": None, "email": None, "section_code": "PRIMAIRE"}]
 
     class Connection:
+        def __init__(self, target_section):
+            self.target_section = target_section
         def execute(self, query, params):
-            return Result()
+            return Result(self.target_section if "FROM school_sections WHERE" in str(query) else None)
 
     class Actor:
         is_platform_admin = False
@@ -127,7 +135,11 @@ def test_parent_audience_does_not_expose_other_section():
         def scope_allows(self, cap, scope_type, value):
             return value == "SECONDAIRE"
 
-    assert resolve_audience(Connection(), Actor(), uuid4(), "SECTION", uuid4(), "communications.send.section") == []
+    # a target outside the sender's sections is now refused explicitly (no silent empty audience)
+    with pytest.raises(PermissionError):
+        resolve_audience(Connection("PRIMAIRE"), Actor(), uuid4(), "SECTION", uuid4(), "communications.send.section")
+    # a target inside: guardians of another section are still filtered out after the query
+    assert resolve_audience(Connection("SECONDAIRE"), Actor(), uuid4(), "SECTION", uuid4(), "communications.send.section") == []
 
 
 def test_parent_audience_uses_tenant_classes_and_active_guardians():

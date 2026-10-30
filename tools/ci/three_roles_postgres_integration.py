@@ -312,10 +312,83 @@ def documents(A: dict) -> None:
     check("signature altérée → 403", CLIENT.get(url[:-3] + ("AAA" if not url.endswith("AAA") else "BBB")).status_code == 403)
 
 
+# --------------------------------------------------------------------------------------------------- communications
+def communications(A: dict, B: dict) -> None:
+    print("\n== Communications — audience, déduplication, périmètre, crédit SMS, historique")
+    from edusync.modules.communications.application.messaging import request_message, resolve_audience
+    # a family with one child in the primary AND one in the secondary (same primary guardian), plus single-section families
+    fam, s_pri, s_sec = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    sql("INSERT INTO families(id,school_id,code,display_name) VALUES(:i,:s,:c,'Famille multi-sections')", i=fam, s=A["id"], c=f"F-MULTI-{RUN}")
+    for st, sec in ((s_pri, "PRIMAIRE"), (s_sec, "SECONDAIRE")):
+        sql("INSERT INTO students(id,school_id,family_id,matricule,last_name,middle_name,first_name) VALUES(:i,:s,:f,:m,'MULTI','ENFANT',:fn)",
+            i=st, s=A["id"], f=fam, m=f"MM-{sec[:3]}-{RUN}", fn=sec.title())
+        sql("INSERT INTO enrollments(id,school_id,student_id,academic_year_id,class_id,status) VALUES(:i,:s,:st,:y,:c,'VALIDATED')",
+            i=uuid.uuid4(), s=A["id"], st=st, y=A["year"], c=A["classes"][sec])
+    sql("UPDATE enrollments SET status='VALIDATED' WHERE school_id IN (:a,:b)", a=A["id"], b=B["id"])
+    g = {}
+    for name, sch, family in (("G_MULTI", A, fam), ("G_SEC", A, A["families"]["SECONDAIRE"]), ("G_PRI", A, A["families"]["PRIMAIRE"]), ("G_B", B, B["families"]["SECONDAIRE"])):
+        gid = uuid.uuid4(); g[name] = gid
+        # distinct numbers: the preview removes duplicate phone numbers (one SMS per number)
+        sql("INSERT INTO guardians(id,school_id,full_name,phone) VALUES(:i,:s,:n,:ph)", i=gid, s=sch["id"], n=name, ph=f"+24381000{len(g):04d}")
+        sql("INSERT INTO family_guardians(school_id,family_id,guardian_id,is_primary,active) VALUES(:s,:f,:g,true,true)", s=sch["id"], f=family, g=gid)
+    dd = actor_for("DIRECTEUR_DISCIPLINE", A["id"], scope=("SECTION", "SECONDAIRE"))
+    caps = {"SECTION": "communications.send.section", "CLASS": "communications.send.class", "INDIVIDUAL": "communications.send.individual"}
+    with ENGINE.connect() as conn:
+        def who(atype, ref, actor=dd):
+            return sorted(str(r.ref) for r in resolve_audience(conn, actor, A["id"], atype, ref, caps[atype]))
+        got = who("SECTION", A["sections"]["SECONDAIRE"])
+        check("section secondaire : parent multi-sections et parent du secondaire, chacun une fois", got == sorted([str(g["G_MULTI"]), str(g["G_SEC"])]), got)
+        check("aucun parent de l'école B ni parent du seul primaire", str(g["G_B"]) not in got and str(g["G_PRI"]) not in got)
+        for atype, ref, label in (("SECTION", A["sections"]["PRIMAIRE"], "section primaire"), ("CLASS", A["classes"]["PRIMAIRE"], "classe du primaire"),
+                                  ("INDIVIDUAL", s_pri, "élève du primaire"), ("SECTION", B["sections"]["SECONDAIRE"], "section d'une autre école")):
+            try:
+                who(atype, ref)
+                check(f"audience hors périmètre refusée : {label}", False, "aucune erreur")
+            except PermissionError:
+                check(f"audience hors périmètre refusée : {label}", True)
+        check("élève du secondaire d'une famille multi-sections : son responsable", who("INDIVIDUAL", s_sec) == [str(g["G_MULTI"])])
+        school_actor = actor_for("GESTIONNAIRE", A["id"])
+        allp = sorted(str(r.ref) for r in resolve_audience(conn, school_actor, A["id"], "SCHOOL", None, "communications.send.all_parents"))
+        check("toute l'école (périmètre école) : 3 responsables de A, dédoublonnés", allp == sorted(str(g[k]) for k in ("G_MULTI", "G_SEC", "G_PRI")), allp)
+    # SMS credit reservation and idempotency (real wallet function: row lock, idempotency key, no negative balance)
+    sql("SELECT school_sms_wallet_apply(:s,'TOPUP',3,:k,NULL,NULL,NULL,'Recette')", s=A["id"], k=f"topup-{RUN}")
+    k = f"t3r-msg-{RUN}"
+    with ENGINE.begin() as conn:
+        rec = resolve_audience(conn, dd, A["id"], "SECTION", A["sections"]["SECONDAIRE"], caps["SECTION"])
+        args = dict(school_id=A["id"], kind="COMMUNIQUE", channels=["SMS"], body="Réunion des parents samedi", recipients=rec,
+                    created_by=dd.user_id, audience_type="SECTION", audience_ref=A["sections"]["SECONDAIRE"])
+        r1 = request_message(conn, idempotency_key=k, **args)
+        r2 = request_message(conn, idempotency_key=k, **args)
+    w = one("SELECT balance,reserved FROM school_sms_wallets WHERE school_id=:s", s=A["id"])
+    check("envoi enregistré : 2 destinataires, crédit SMS réservé (2 sur 3)", r1["recipients"] == 2 and int(w[1]) == 2 and int(w[0]) == 3, f"{r1} {tuple(w)}")
+    check("idempotence : même clé → message rejoué, aucune réservation en plus", r2["replayed"] and r2["id"] == r1["id"]
+          and one("SELECT count(*) FROM communication_messages WHERE idempotency_key=:k", k=k)[0] == 1)
+    try:
+        with ENGINE.begin() as conn:
+            request_message(conn, idempotency_key=f"t3r-msg2-{RUN}", **{**args, "body": "Autre message"})
+        check("crédit insuffisant (1 disponible, 2 nécessaires) refusé", False, "aucune erreur")
+    except Exception as e:  # noqa: BLE001
+        check("crédit insuffisant (1 disponible, 2 nécessaires) refusé, rien enregistré", "SMS_INSUFFICIENT_CREDIT" in str(e)
+              and one("SELECT count(*) FROM communication_messages WHERE idempotency_key=:k", k=f"t3r-msg2-{RUN}")[0] == 0, str(e)[:120])
+    # history / deliveries: phone numbers of another section's message are never shown to a section-scoped reader
+    pri_msg = uuid.uuid4()
+    sql("""INSERT INTO communication_messages(id,school_id,kind,audience_type,audience_ref,body,created_by,idempotency_key,channels,recipient_count)
+           VALUES(:i,:s,'COMMUNIQUE','SECTION',:r,'Message du primaire',NULL,:k,ARRAY['SMS'],1)""", i=pri_msg, s=A["id"], r=A["sections"]["PRIMAIRE"], k=f"t3r-pri-{RUN}")
+    de = actor_for("DIRECTEUR_ETUDES", A["id"], scope=("SECTION", "SECONDAIRE"))
+    hist = as_(de).get("/api/v1/communications/history")
+    ids = {str(m["id"]) for m in hist.json().get("items", [])} if hist.status_code == 200 else set()
+    check("historique : message du secondaire visible, message du primaire masqué", hist.status_code == 200 and r1["id"] in ids and str(pri_msg) not in ids, hist.text[:120])
+    check("détail des livraisons d'un message du primaire → 404 (numéros non divulgués)", as_(de).get(f"/api/v1/communications/history/{pri_msg}/deliveries").status_code == 404)
+    check("détail des livraisons d'un message du secondaire → 200", as_(de).get(f"/api/v1/communications/history/{r1['id']}/deliveries").status_code == 200)
+    other = actor_for("DIRECTEUR_ETUDES", B["id"], scope=("SECTION", "SECONDAIRE"))
+    check("école B : message de A introuvable", as_(other).get(f"/api/v1/communications/history/{r1['id']}/deliveries").status_code == 404)
+
+
 def main() -> int:
     A, B = school("A"), school("B")
     intendant(A, B)
     directors(A, B)
+    communications(A, B)
     documents(A)
     CLIENT.__exit__(None, None, None)
     fails = [r for r in RESULTS if r[0] == "FAIL"]
