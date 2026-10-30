@@ -223,6 +223,9 @@ def main() -> None:
             ("0099_stewardship_asset_update_event", "0099_stewardship_asset_update_event.sql"),
             ("0100_intendance_capabilities_active", "0100_intendance_capabilities_active.sql"),
             ("0101_inventory_movements_recent_index", "0101_inventory_movements_recent_index.sql"),
+            ("0102_directors_personnel_read", "0102_directors_personnel_read.sql"),
+            ("0103_documents_print_removed", "0103_documents_print_removed.sql"),
+            ("0104_enrollments_export_active", "0104_enrollments_export_active.sql"),
         ]
         # CI only (rbac-contract job): stop after a given migration to snapshot the state BEFORE a later one.
         until = os.environ.get("EDUSYNC_MIGRATE_UNTIL", "").strip()

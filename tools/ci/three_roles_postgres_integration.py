@@ -27,6 +27,7 @@ URL = os.environ["EDUSYNC_OWNER_DATABASE_URL"]
 assert os.environ.get("CI") == "true", "Disposable CI only"
 assert "127.0.0.1" in URL or "localhost" in URL, "Remote databases forbidden"
 
+os.environ.setdefault("EDUSYNC_SMS_PROVIDER", "fake")   # simulated provider: refused by the settings in production
 from edusync.bootstrap.app import create_app  # noqa: E402
 from edusync.bootstrap.dependencies import require_school_actor  # noqa: E402
 from edusync.modules.documents.application import object_store  # noqa: E402
@@ -433,11 +434,24 @@ def directors_reads(A: dict) -> None:
         fids = {str(f["id"]) for f in (fam.json().get("items", []) if fam.status_code == 200 else [])}
         check(f"{role} : familles = celles du secondaire", fam.status_code == 200 and str(A["families"]["SECONDAIRE"]) in fids and str(A["families"]["PRIMAIRE"]) not in fids, fam.text[:120])
         check(f"{role} : fiche d'une famille du seul primaire → 404", c.get(f"/api/v1/schooling/families/{A['families']['PRIMAIRE']}").status_code == 404)
-        # Canonical registry: migration 0024 (Point 9) removed every personnel.* right from both Directors
-        # (« schooling-first »); the addendum still mentions « personnel du périmètre » — owner decision pending.
+        # Owner decision 2026-10-30 (migration 0102): both Directors READ the staff of their section — only agents assigned
+        # to the secondary, never agents of other sections nor agents assigned to the whole school (decision 2026-10-28).
         per = c.get("/api/v1/personnel")
-        check(f"{role} : personnel refusé (403), conforme au registre canonique (retrait du point 9)", per.status_code == 403, per.status_code)
-        check(f"{role} : fiche d'un agent → 403", c.get(f"/api/v1/personnel/{staff['SEC']}").status_code == 403)
+        body = per.json() if per.status_code == 200 else {}
+        pids = {str(x["id"]) for x in (body if isinstance(body, list) else body.get("items", []))}
+        check(f"{role} : personnel du secondaire lisible", per.status_code == 200 and str(staff["SEC"]) in pids, per.status_code)
+        check(f"{role} : agents du primaire et agents de toute l'école invisibles", str(staff["PRI"]) not in pids and str(staff["ECOLE"]) not in pids)
+        check(f"{role} : fiche d'un agent du secondaire (200)", c.get(f"/api/v1/personnel/{staff['SEC']}").status_code == 200)
+        check(f"{role} : fiche d'un agent du primaire ou de toute l'école → refusée",
+              c.get(f"/api/v1/personnel/{staff['PRI']}").status_code in (403, 404) and c.get(f"/api/v1/personnel/{staff['ECOLE']}").status_code in (403, 404))
+        check(f"{role} : affectations et fonctions lisibles", c.get(f"/api/v1/personnel/{staff['SEC']}/assignments").status_code == 200
+              and c.get("/api/v1/personnel/catalog/functions").status_code == 200)
+        sm = c.get("/api/v1/personnel/summary").status_code
+        check(f"{role} : synthèse du personnel {'lisible' if role == 'DIRECTEUR_ETUDES' else 'refusée (droit absent)'}", sm == (200 if role == "DIRECTEUR_ETUDES" else 403), sm)
+        w = c.post("/api/v1/personnel", json={"employee_no": f"X{RUN}", "last_name": "INTRUS", "category": "ENSEIGNANT"}, headers=key()).status_code
+        check(f"{role} : aucune création d'agent (403), lecture seule", w == 403, w)
+        ex = c.get("/api/v1/personnel/exports/register.xlsx").status_code
+        check(f"{role} : export du personnel refusé (lecture seule)", ex == 403, ex)
         x = c.get("/api/v1/schooling/exports/students.xlsx")
         text_cells = " ".join(str(cell.value) for row in load_workbook(io.BytesIO(x.content)).active.iter_rows() for cell in row if cell.value) if x.status_code == 200 else ""
         check(f"{role} : export Excel des élèves = secondaire seulement", x.status_code == 200 and f"M-SEC-{RUN}-A" in text_cells and f"M-PRI-{RUN}-A" not in text_cells, x.status_code)
@@ -488,14 +502,94 @@ def complements(A: dict) -> None:
               d.post("/api/v1/schooling/enrollments/family", json={"children": []}, headers=key()).status_code in (403, 422))
 
 
+# ------------------------------------------------------------------------------------- SMS de bout en bout (HTTP + worker)
+def sms_end_to_end(A: dict) -> None:
+    print("\n== SMS de bout en bout — aperçu, confirmation, envoi, livraison par le worker, historique, crédit")
+    from edusync.bootstrap.settings import Settings
+    from edusync.modules.communications import worker
+    sql("""INSERT INTO communication_settings(school_id,enabled,in_app_enabled,sms_enabled,email_enabled,whatsapp_enabled,push_enabled,sms_low_balance_threshold,updated_at,version)
+           VALUES(:s,true,true,true,false,false,false,5,now(),1) ON CONFLICT (school_id) DO UPDATE SET enabled=true,sms_enabled=true""", s=A["id"])
+    sql("SELECT school_sms_wallet_apply(:s,'TOPUP',20,:k,NULL,NULL,NULL,'Recette bout en bout')", s=A["id"], k=f"topup-e2e-{RUN}")
+    before = one("SELECT balance,reserved FROM school_sms_wallets WHERE school_id=:s", s=A["id"])
+    dd = actor_for("DIRECTEUR_DISCIPLINE", A["id"], scope=("SECTION", "SECONDAIRE"))
+    c = as_(dd)
+    draft = {"audience_type": "SECTION", "audience_ref": str(A["sections"]["SECONDAIRE"]), "channels": ["SMS"],
+             "body": "Conseil de discipline lundi à 8 h", "idempotency_key": f"t3r-e2e-{RUN}"}
+    pv = c.post("/api/v1/communications/preview", json=draft)
+    check("aperçu : destinataires, unités SMS et empreinte de confirmation", pv.status_code == 200 and pv.json().get("fingerprint"), pv.text[:160])
+    fp = pv.json().get("fingerprint")
+    check("envoi sans confirmation de l'aperçu → 409", c.post("/api/v1/communications/send", json=draft).status_code == 409)
+    sent = c.post("/api/v1/communications/send", json={**draft, "confirm_fingerprint": fp})
+    check("envoi confirmé : mis en file, crédit réservé", sent.status_code == 200 and sent.json().get("status") == "QUEUED" and sent.json().get("sms_units_reserved", 0) > 0, sent.text[:160])
+    replay = c.post("/api/v1/communications/send", json={**draft, "confirm_fingerprint": fp})
+    check("même clé d'idempotence → message rejoué, pas de second envoi", replay.status_code == 200 and replay.json().get("replayed") is True)
+    check("aperçu d'une section hors périmètre → 403",
+          c.post("/api/v1/communications/preview", json={**draft, "audience_ref": str(A["sections"]["PRIMAIRE"]), "idempotency_key": f"t3r-e2e-x-{RUN}"}).status_code == 403)
+    de = as_(actor_for("DIRECTEUR_ETUDES", A["id"], scope=("SECTION", "SECONDAIRE")))
+    check("Directeur des études : SMS groupé refusé (403)", de.post("/api/v1/communications/preview", json={**draft, "idempotency_key": f"t3r-e2e-de-{RUN}"}).status_code == 403)
+    # the communications worker (its own database role) dispatches and delivers through the simulated provider
+    cfg = Settings()
+    weng = create_engine(os.environ["EDUSYNC_WORKER_DATABASE_URL"], future=True)
+    worker.dispatch_pending(cfg, weng)
+    n = 0
+    while n < 50 and worker.run_once(cfg, None, weng):
+        n += 1
+    mid = sent.json()["id"]
+    st = sql("SELECT status, count(*) FROM communication_deliveries WHERE message_id=:m GROUP BY status", m=mid).all()
+    check("livraisons traitées par le worker (fournisseur simulé)", n > 0 and st and all(s[0] in ("SENT", "DELIVERED", "ACCEPTED") for s in st), f"{n} · {st}")
+    after = one("SELECT balance,reserved FROM school_sms_wallets WHERE school_id=:s", s=A["id"])
+    # the worker also delivered the message reserved earlier in this run: every reservation is consumed, the balance debited
+    check("crédit : toutes les réservations consommées, solde débité", int(after[1]) == 0 and int(after[0]) < int(before[0]), f"{tuple(before)} → {tuple(after)}")
+    h = as_(dd).get("/api/v1/communications/history").json()["items"]
+    mine = next((m for m in h if str(m["id"]) == mid), None)
+    check("historique : message visible avec ses statuts et les unités facturées", mine is not None and mine.get("sms_units_billed", 0) > 0, str(mine)[:200])
+    dl = as_(dd).get(f"/api/v1/communications/history/{mid}/deliveries")
+    check("détail des livraisons : destinataires du secondaire uniquement", dl.status_code == 200 and len(dl.json()["items"]) == sent.json()["recipients"], dl.text[:160])
+
+
+# ------------------------------------------------------------- décisions du 30/10 : export des inscriptions, ajout de membre
+def decisions_20261030(A: dict, B: dict) -> None:
+    print("\n== Décisions du 30/10 — registre des inscriptions, documents.print retiré, ajout de membre par section")
+    from openpyxl import load_workbook
+    for role in ("DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE"):
+        c = as_(actor_for(role, A["id"], scope=("SECTION", "SECONDAIRE")))
+        x = c.get("/api/v1/schooling/exports/enrollments.xlsx")
+        cells = [cell.value for row in load_workbook(io.BytesIO(x.content)).active.iter_rows() for cell in row if cell.value] if x.status_code == 200 else []
+        txt = " ".join(map(str, cells))
+        check(f"{role} : registre des inscriptions Excel = secondaire seulement", x.status_code == 200 and f"M-SEC-{RUN}-A" in txt and f"M-PRI-{RUN}-A" not in txt and "Primaire" not in txt, x.status_code)
+        pdf = c.get("/api/v1/schooling/exports/enrollments.pdf")
+        check(f"{role} : registre des inscriptions PDF", pdf.status_code == 200 and pdf.content[:4] == b"%PDF", pdf.status_code)
+        check(f"{role} : documents.print n'est plus un droit du rôle", "documents.print" not in REG["standard_roles"][role]["capabilities"])
+    sch = as_(actor_for("GESTIONNAIRE", A["id"]))
+    x = sch.get("/api/v1/schooling/exports/enrollments.xlsx")
+    txt = " ".join(str(cell.value) for row in load_workbook(io.BytesIO(x.content)).active.iter_rows() for cell in row if cell.value) if x.status_code == 200 else ""
+    check("Gestionnaire (toute l'école) : registre avec primaire et secondaire, sans l'école B", x.status_code == 200 and f"M-PRI-{RUN}-A" in txt and f"M-SEC-{RUN}-A" in txt and f"-{RUN}-B" not in txt, x.status_code)
+    check("registre sans le droit enrollments.export → 403", as_(actor_for("INTENDANT", A["id"])).get("/api/v1/schooling/exports/enrollments.xlsx").status_code == 403)
+    # « Ajouter un membre » for section-bound roles (fix of PR #27, merged): never the whole school, secondary only
+    admin = as_(actor_for("ADMIN_SYSTEME_ECOLE", A["id"]))
+    for code in ("DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE"):
+        role_id = str(one("SELECT id FROM rbac_roles WHERE code=:c AND kind='SCHOOL_STANDARD'", c=code)[0])
+        base = {"full_name": f"Sonde {code}", "role_id": role_id, "reason": "Recette 30/10"}
+        r0 = admin.post("/api/v1/access/members", json={**base, "email": f"no-{code.lower()}-{RUN.lower()}@example.test"}, headers=key())
+        check(f"{code} : ajout sans section → 422 (jamais toute l'école)", r0.status_code == 422, f"{r0.status_code} {r0.text[:100]}")
+        rp = admin.post("/api/v1/access/members", json={**base, "email": f"pri-{code.lower()}-{RUN.lower()}@example.test", "scopes": [{"type": "SECTION", "value": "PRIMAIRE"}]}, headers=key())
+        check(f"{code} : ajout sur la section PRIMAIRE → 422 (rôle limité au secondaire)", rp.status_code == 422, f"{rp.status_code} {rp.text[:100]}")
+        ok = admin.post("/api/v1/access/members", json={**base, "email": f"sec-{code.lower()}-{RUN.lower()}@example.test", "scopes": [{"type": "SECTION", "value": "SECONDAIRE"}]}, headers=key())
+        got = {r[0] for r in sql("""SELECT s.scope_type||':'||coalesce(s.scope_value,'') FROM rbac_assignment_scopes s JOIN rbac_assignments a ON a.id=s.assignment_id
+                                     WHERE a.membership_id=:m""", m=ok.json().get("membership_id")).all()} if ok.status_code == 201 else set()
+        check(f"{code} : ajout sur le SECONDAIRE → 201, seul périmètre enregistré", ok.status_code == 201 and got == {"SECTION:SECONDAIRE"}, f"{ok.status_code} {got} {ok.text[:100]}")
+
+
 def main() -> int:
     A, B = school("A"), school("B")
     intendant(A, B)
     directors(A, B)
     directors_reads(A)
     communications(A, B)
+    sms_end_to_end(A)
     notifications_and_auth(A, B)
     complements(A)
+    decisions_20261030(A, B)
     documents(A)
     CLIENT.__exit__(None, None, None)
     fails = [r for r in RESULTS if r[0] == "FAIL"]

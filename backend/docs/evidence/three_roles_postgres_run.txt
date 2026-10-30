@@ -1,4 +1,4 @@
-# Exécution — tools/ci/three_roles_postgres_integration.py — base isolée edusync_cert_3roles — 2026-10-30 — base du commit ce1e336 (+ compléments du test)
+# Exécution — tools/ci/three_roles_postgres_integration.py — base isolée edusync_cert_3roles recréée de zéro (migrations 0001 → 0104) — 2026-10-30
 == INTENDANT — stock, inventaires, patrimoine, exports
 PASS  article créé (201)
 PASS  idempotence : même clé → même article, une seule ligne
@@ -66,8 +66,14 @@ PASS  DIRECTEUR_DISCIPLINE : élève du primaire hors périmètre → refusé, r
 == Directeurs — familles, personnel, exports, fiche, réglages (lecture, secondaire)
 PASS  DIRECTEUR_ETUDES : familles = celles du secondaire
 PASS  DIRECTEUR_ETUDES : fiche d'une famille du seul primaire → 404
-PASS  DIRECTEUR_ETUDES : personnel refusé (403), conforme au registre canonique (retrait du point 9)
-PASS  DIRECTEUR_ETUDES : fiche d'un agent → 403
+PASS  DIRECTEUR_ETUDES : personnel du secondaire lisible
+PASS  DIRECTEUR_ETUDES : agents du primaire et agents de toute l'école invisibles
+PASS  DIRECTEUR_ETUDES : fiche d'un agent du secondaire (200)
+PASS  DIRECTEUR_ETUDES : fiche d'un agent du primaire ou de toute l'école → refusée
+PASS  DIRECTEUR_ETUDES : affectations et fonctions lisibles
+PASS  DIRECTEUR_ETUDES : synthèse du personnel lisible
+PASS  DIRECTEUR_ETUDES : aucune création d'agent (403), lecture seule
+PASS  DIRECTEUR_ETUDES : export du personnel refusé (lecture seule)
 PASS  DIRECTEUR_ETUDES : export Excel des élèves = secondaire seulement
 PASS  DIRECTEUR_ETUDES : export des effectifs par section sans le primaire
 PASS  DIRECTEUR_ETUDES : fiche PDF d'un élève du primaire → 404
@@ -77,8 +83,14 @@ PASS  DIRECTEUR_ETUDES : aucune modification des réglages (identité de l'écol
 PASS  DIRECTEUR_ETUDES : export des familles autorisé
 PASS  DIRECTEUR_DISCIPLINE : familles = celles du secondaire
 PASS  DIRECTEUR_DISCIPLINE : fiche d'une famille du seul primaire → 404
-PASS  DIRECTEUR_DISCIPLINE : personnel refusé (403), conforme au registre canonique (retrait du point 9)
-PASS  DIRECTEUR_DISCIPLINE : fiche d'un agent → 403
+PASS  DIRECTEUR_DISCIPLINE : personnel du secondaire lisible
+PASS  DIRECTEUR_DISCIPLINE : agents du primaire et agents de toute l'école invisibles
+PASS  DIRECTEUR_DISCIPLINE : fiche d'un agent du secondaire (200)
+PASS  DIRECTEUR_DISCIPLINE : fiche d'un agent du primaire ou de toute l'école → refusée
+PASS  DIRECTEUR_DISCIPLINE : affectations et fonctions lisibles
+PASS  DIRECTEUR_DISCIPLINE : synthèse du personnel refusée (droit absent)
+PASS  DIRECTEUR_DISCIPLINE : aucune création d'agent (403), lecture seule
+PASS  DIRECTEUR_DISCIPLINE : export du personnel refusé (lecture seule)
 PASS  DIRECTEUR_DISCIPLINE : export Excel des élèves = secondaire seulement
 PASS  DIRECTEUR_DISCIPLINE : export des effectifs par section sans le primaire
 PASS  DIRECTEUR_DISCIPLINE : fiche PDF d'un élève du primaire → 404
@@ -102,6 +114,17 @@ PASS  historique : message du secondaire visible, message du primaire masqué
 PASS  détail des livraisons d'un message du primaire → 404 (numéros non divulgués)
 PASS  détail des livraisons d'un message du secondaire → 200
 PASS  école B : message de A introuvable
+== SMS de bout en bout — aperçu, confirmation, envoi, livraison par le worker, historique, crédit
+PASS  aperçu : destinataires, unités SMS et empreinte de confirmation
+PASS  envoi sans confirmation de l'aperçu → 409
+PASS  envoi confirmé : mis en file, crédit réservé
+PASS  même clé d'idempotence → message rejoué, pas de second envoi
+PASS  aperçu d'une section hors périmètre → 403
+PASS  Directeur des études : SMS groupé refusé (403)
+PASS  livraisons traitées par le worker (fournisseur simulé)
+PASS  crédit : toutes les réservations consommées, solde débité
+PASS  historique : message visible avec ses statuts et les unités facturées
+PASS  détail des livraisons : destinataires du secondaire uniquement
 == Notifications (destinataire seulement) et authentification
 PASS  le destinataire voit sa notification
 PASS  un autre membre ne la voit pas
@@ -111,7 +134,7 @@ PASS  le destinataire l'acquitte (200)
 PASS  acquittement sans le droit → 403
 PASS  sans jeton → 401 : stewardship/stock
 PASS  sans jeton → 401 : schooling/students
-PASS  sans jeton → 401 : audit/entities/Student/ed8b4ff2-790f-410
+PASS  sans jeton → 401 : audit/entities/Student/8d8a0a5c-1798-43f
 PASS  jeton falsifié → 401
 == Compléments — lectures et éditions restantes de chaque rôle
 PASS  INTENDANT : historique documentaire (200)
@@ -141,6 +164,21 @@ PASS  DIRECTEUR_DISCIPLINE : historique documentaire (200)
 PASS  DIRECTEUR_DISCIPLINE : indicateurs familles (200)
 PASS  DIRECTEUR_DISCIPLINE : complément de profil (adresse) d'un élève du secondaire (200)
 PASS  DIRECTEUR_DISCIPLINE : aucune opération d'inscription (403)
+== Décisions du 30/10 — registre des inscriptions, documents.print retiré, ajout de membre par section
+PASS  DIRECTEUR_ETUDES : registre des inscriptions Excel = secondaire seulement
+PASS  DIRECTEUR_ETUDES : registre des inscriptions PDF
+PASS  DIRECTEUR_ETUDES : documents.print n'est plus un droit du rôle
+PASS  DIRECTEUR_DISCIPLINE : registre des inscriptions Excel = secondaire seulement
+PASS  DIRECTEUR_DISCIPLINE : registre des inscriptions PDF
+PASS  DIRECTEUR_DISCIPLINE : documents.print n'est plus un droit du rôle
+PASS  Gestionnaire (toute l'école) : registre avec primaire et secondaire, sans l'école B
+PASS  registre sans le droit enrollments.export → 403
+PASS  DIRECTEUR_ETUDES : ajout sans section → 422 (jamais toute l'école)
+PASS  DIRECTEUR_ETUDES : ajout sur la section PRIMAIRE → 422 (rôle limité au secondaire)
+PASS  DIRECTEUR_ETUDES : ajout sur le SECONDAIRE → 201, seul périmètre enregistré
+PASS  DIRECTEUR_DISCIPLINE : ajout sans section → 422 (jamais toute l'école)
+PASS  DIRECTEUR_DISCIPLINE : ajout sur la section PRIMAIRE → 422 (rôle limité au secondaire)
+PASS  DIRECTEUR_DISCIPLINE : ajout sur le SECONDAIRE → 201, seul périmètre enregistré
 == Liens documentaires signés — révocation immédiate
 PASS  lien valide d'un membre autorisé : accès non refusé (200, ou 503 si l'objet est absent du stockage)
 PASS  droit retiré pendant la validité du lien → 403
@@ -149,4 +187,4 @@ PASS  compte désactivé → 403
 PASS  lien signé pour une autre école → 403
 PASS  lien expiré → 403
 PASS  signature altérée → 403
-142/142 PASS · 0 FAIL
+178/178 PASS · 0 FAIL

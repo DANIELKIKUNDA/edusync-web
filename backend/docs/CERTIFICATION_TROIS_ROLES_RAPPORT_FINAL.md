@@ -11,15 +11,25 @@ Preuves brutes : `backend/docs/evidence/three_roles_postgres_run.txt`, `backend/
 
 | Rôle | Attributions (registre canonique) | PASS (exécuté) | N/A justifié | NON TESTÉ | FAIL |
 |---|---:|---:|---:|---:|---:|
-| INTENDANT | 30 | 29 | 1 | 0 | 0 |
-| DIRECTEUR_ETUDES | 46 | 33 | 13 | 0 | 0 |
-| DIRECTEUR_DISCIPLINE | 41 | 29 | 12 | 0 | 0 |
-| **Total** | **117** | **91** | **26** | **0** | **0** |
+| INTENDANT | 29 | 29 | 0 | 0 | 0 |
+| DIRECTEUR_ETUDES | 49 | 41 | 8 | 0 | 0 |
+| DIRECTEUR_DISCIPLINE | 43 | 35 | 8 | 0 | 0 |
+| **Total** | **121** | **105** | **16** | **0** | **0** |
 
-N/A : capacités DEPRECATED (tableau de bord remplacé par `/access/me`, inscriptions/familles lues par `students.read` /
-`families.read`) et capacités PLANNED non construites pour **tous** les rôles qui les détiennent (`documents.print`,
-`enrollments.export` et ses alias, `students.lifecycle.history.read`) : leur activation changerait aussi d'autres rôles,
-décision du propriétaire requise. Rapprochement 108 ↔ 117 : section « Rapprochement » de la matrice.
+N/A : 14 capacités DEPRECATED (tableau de bord remplacé par `/access/me`, inscriptions / familles lues par `students.read` /
+`families.read`) et `students.lifecycle.history.read` (reporté à la version des points, décision du 30/10).
+Rapprochement 108 ↔ 121 : section « Rapprochement » de la matrice.
+
+### Fermeture des réserves (décisions du propriétaire du 30/10/2026)
+
+| Réserve initiale | Décision | Fermeture | Preuve |
+|---|---|---|---|
+| R2 — personnel des directeurs (contradiction addendum / registre) | Lecture, agents de leur section seulement | Migration 0102 + isolation de la PR #27 fusionnée (agents transversaux et autres sections invisibles, aucune écriture ni export) | PG « personnel du secondaire lisible », « primaire et toute l'école invisibles », « aucune création (403) » |
+| R3 — agents de toute l'école visibles | Décision du 28/10 étendue | PR #27 fusionnée dans la branche (`df568db`) | PG ci-dessus ; test d'isolation des sections PostgreSQL PASS |
+| R4 — « Ajouter un membre » en erreur 500 pour ces rôles | — | Correctif de la PR #27 fusionné : section obligatoire | PG « ajout sans section → 422 », « PRIMAIRE → 422 », « SECONDAIRE → 201 » |
+| R5 — trois capacités PLANNED | Export des inscriptions maintenant ; parcours plus tard ; impression retirée | `GET /schooling/exports/enrollments.pdf|.xlsx` (0104) ; `documents.print` retiré (0103) | PG « registre = secondaire seulement », « Gestionnaire : toute l'école » |
+| R6 — SMS de bout en bout non exécuté | — | Fournisseur simulé (refusé en production), worker réel en processus | PG « SMS de bout en bout » : aperçu, confirmation, envoi, livraison, historique, crédit consommé |
+| R8 — numéros de migration | — | 0099 à 0104 uniques entre branches | — |
 
 ## 2. Audit de sécurité — anomalies et correctifs
 
@@ -54,12 +64,13 @@ d'inscription ou de réglage pour les trois rôles.
 | Suite | Commande | Résultat |
 |---|---|---|
 | Base de départ (avant correctifs) | `cd backend && python -m pytest -q -p no:cacheprovider` | 1098 passed, **2 failed** (provisionneur, capacités PLANNED vérifiées) |
-| Backend complet (final) | idem | **1112 passed**, 1 skipped, 0 échec |
-| Application réelle + PostgreSQL réel | `python tools/local/isolated_db.py create edusync_cert_3roles` puis `python tools/local/isolated_db.py env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/three_roles_postgres_integration.py` | **142/142 PASS** |
+| Backend complet (final, après fusion de la PR #27) | idem | **1359 passed**, 1 skipped, 0 échec |
+| Application réelle + PostgreSQL réel | `python tools/local/isolated_db.py create edusync_cert_3roles` puis `python tools/local/isolated_db.py env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/three_roles_postgres_integration.py` | **178/178 PASS** |
+| Isolation des sections (PR #27, fusionnée) | `… env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/section_isolation_postgres_integration.py` | **PASS** |
 | Registre canonique | `… env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/rbac_registry.py check` | **0 dérive** |
 | Caissier PostgreSQL (non-régression) | `… env edusync_cert_3roles -- ../.venv/Scripts/python.exe ../tools/ci/cashier_postgres_integration.py` | **PASS** |
 | Frontend (non-régression, sans modification) | `cd frontend && npx vitest run` | 80/80 |
-| Matrice | `python tools/rbac/three_roles_matrix.py` | 0 NON TESTÉ |
+| Matrice | `python tools/rbac/three_roles_matrix.py` | 121 attributions, 105 PASS, 16 N/A, 0 NON TESTÉ |
 
 Codes HTTP couverts : 200, 201, 401, 403, 404, 409, 422 (le 400 « clé d'idempotence trop longue » est couvert par le code
 existant des routes de stock).
@@ -99,19 +110,14 @@ retirer ce qu'ils vérifient.
 
 | # | Réserve | Nature |
 |---|---|---|
-| R1 | CI GitHub non exécutée (facturation du compte bloquée) ; le test PostgreSQL réel n'est pas branché dans `ci.yml` (il demande une base isolée et la configuration complète de l'application) | **Bloquant pour la fusion** |
-| R2 | Contradiction de contrat : l'addendum et la mission citent la consultation du personnel pour les deux directeurs ; la migration 0024 (point 9) et le registre canonique la retirent. Le serveur suit le registre (403) | Décision du propriétaire |
-| R3 | Agents affectés à toute l'école visibles par un acteur limité à des sections (règle de `main`) : la décision stricte du 28/10 est portée par la PR #27 (même code) | Dépend de la fusion de la PR #27 |
-| R4 | « Ajouter un membre » attribue toute l'école ; pour ces rôles limités au secondaire la base refuse (erreur 500) — corrigé dans la PR #27 | Dépend de la PR #27 |
-| R5 | `documents.print`, `enrollments.export` (+ alias), `students.lifecycle.history.read` : PLANNED, non construits | Décision du propriétaire |
-| R6 | Envoi SMS de bout en bout avec un fournisseur réel non exécuté (canaux non configurés en local) : audience, déduplication, crédit et idempotence testés au niveau des fonctions serveur et de la vraie fonction de portefeuille | Mineure |
-| R7 | Frontend de la branche (ChatGPT) : `src/stewardship.tsx` ligne 184 — 2 erreurs TypeScript (paramètre `r` sans type) ; le job « Frontend — typecheck » échouerait | Pour l'équipe frontend |
-| R8 | Numéros de migration : 0099–0101 ici ; 0097–0098 sur la branche Responsable financier — à vérifier lors des fusions successives | Mineure |
+| R1 | CI GitHub non exécutée (facturation du compte bloquée) ; le test PostgreSQL réel n'est pas branché dans `ci.yml` (base isolée et configuration complète de l'application nécessaires) | Hors de portée du code — bloquant pour la fusion |
+| R7 | Frontend de la branche : `src/stewardship.tsx` — 3 erreurs TypeScript (paramètre `r` sans type) | Traité dans la phase frontend qui suit |
+
+Toutes les autres réserves (R2, R3, R4, R5, R6, R8) sont **fermées** (section 1).
 
 ## Conclusion
 
-**Backend certifié en local** pour les trois rôles : 117 attributions vérifiées (91 PASS exécutés, 26 N/A justifiés, 0 non
-testé), 4 failles de sécurité reproduites et corrigées (dont une critique), 8 défauts fonctionnels corrigés, cohérence
-transactionnelle du stock et des inventaires démontrée en concurrence, isolation multi-écoles et restriction au secondaire
-démontrées sur PostgreSQL réel. **Pas « 100 % certifié »** : la CI GitHub n'a pas tourné (R1) et deux décisions du
-propriétaire restent ouvertes (R2, R5) ; R3/R4 dépendent de la PR #27.
+**Backend certifié en local** pour les trois rôles, sans réserve applicative ouverte : 121 attributions vérifiées (105 PASS
+exécutés, 16 N/A justifiés, 0 non testé), 4 failles de sécurité reproduites et corrigées (dont une critique), 8 défauts
+fonctionnels corrigés, décisions du propriétaire du 30/10 appliquées, isolation des sections de la PR #27 intégrée,
+178 contrôles sur PostgreSQL réel. Restent : la CI GitHub (facturation) et les erreurs TypeScript du frontend (phase suivante).

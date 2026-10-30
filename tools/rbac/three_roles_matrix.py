@@ -24,7 +24,7 @@ EVIDENCE = {
     "communications.send.class": f"{PG} « audience hors périmètre refusée : classe du primaire » ; tests/test_secondary_leadership_backend_regression.py",
     "communications.send.individual": f"{PG} « audience hors périmètre refusée : élève du primaire », « élève du secondaire d'une famille multi-sections »",
     "communications.send.section": f"{PG} « section secondaire : parent multi-sections, chacun une fois », « section primaire refusée »",
-    "communications.sms.send": f"{PG} « crédit SMS réservé (2 sur 3) », « idempotence », « crédit insuffisant refusé »",
+    "communications.sms.send": f"{PG} « crédit SMS réservé (2 sur 3) », « idempotence », « crédit insuffisant refusé » ; « SMS de bout en bout » (aperçu, confirmation, worker, crédit consommé)",
     "communications.sms.bulk_send": f"{PG} « DIRECTEUR_DISCIPLINE : SMS groupé autorisé (pas 403) » / « DIRECTEUR_ETUDES : refusé (403) »",
     "documents.history.read": f"{PG} « historique documentaire (200) » (3 rôles)",
     "documents.open": f"{PG} « Liens documentaires signés » : droit retiré / appartenance retirée / compte désactivé / autre école / expiré / altéré → 403",
@@ -58,7 +58,11 @@ EVIDENCE = {
     "inventory.stock.sheet.print": f"{PG} « fiche de stock et impression du comptage en PDF »",
     "notifications.internal.dismiss": f"{PG} « un autre membre / une autre école ne peut pas l'acquitter (404) », « le destinataire l'acquitte », « sans le droit → 403 »",
     "notifications.internal.read": f"{PG} « le destinataire voit sa notification », « un autre membre ne la voit pas »",
-    "personnel.read": f"{PG} « INTENDANT : personnel (lecture) (200) »",
+    "personnel.read": f"{PG} « INTENDANT : personnel (lecture) (200) » ; directeurs : « personnel du secondaire lisible », « agents du primaire et de toute l'école invisibles », « aucune création (403) »",
+    "personnel.assignments.read": f"{PG} « affectations et fonctions lisibles » (agent du secondaire)",
+    "personnel.functions.read": f"{PG} « affectations et fonctions lisibles » (catalogue des fonctions)",
+    "personnel.summary.read": f"{PG} « synthèse du personnel lisible (DIRECTEUR_ETUDES) / refusée (DIRECTEUR_DISCIPLINE) »",
+    "enrollments.export": f"{PG} « registre des inscriptions Excel = secondaire seulement », « registre PDF », « Gestionnaire : toute l'école sans l'école B », « sans le droit → 403 »",
     "settings.academic_year.read": f"{PG} « réglages scolaires en lecture (années, sections, identité) »",
     "settings.school_identity.read": f"{PG} « identité de l'école (lecture) (200) » ; « aucune modification des réglages → 403 »",
     "settings.structure.read": f"{PG} « réglages scolaires en lecture (années, sections, identité) »",
@@ -70,9 +74,7 @@ EVIDENCE = {
 }
 NA = {
     "DEPRECATED": "N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10)",
-    "documents.print": "N/A — PLANNED pour tous les rôles (aucune route) : décision du propriétaire requise, non activée ici",
-    "enrollments.export": "N/A — PLANNED pour tous les rôles qui la détiennent (Promoteur, Gestionnaire…) : décision du propriétaire requise",
-    "students.lifecycle.history.read": "N/A — PLANNED pour tous les rôles qui la détiennent : décision du propriétaire requise",
+    "students.lifecycle.history.read": "N/A — décision du propriétaire du 30/10 : historique du parcours reporté à la version des points (PLANNED)",
 }
 
 
@@ -114,9 +116,9 @@ def main() -> int:
               f"Le registre canonique (source de vérité, statut CANONICAL) compte **{total} attributions** pour ces trois rôles : les 108 de "
               "l'origine (migrations 0008 / 0009) + les variantes de format ajoutées par la décision du 23/10 (alias `*.export_pdf`, "
               "`*.export_xlsx`, `*.print`), **moins** les capacités `personnel.*` et `finance.*` retirées aux deux directeurs par la migration "
-              "0024 (point 9 : « secondary Directors are schooling-first »). Ces retraits ne figurent donc pas dans la matrice ; le serveur les "
-              "refuse (PG « personnel refusé (403), conforme au registre canonique »). **Contradiction à trancher** : l'addendum "
-              "`POINT3B_ADDENDUM_SECONDARY_LEADERSHIP.md` et la mission citent encore la consultation du personnel.", ""]
+              "0024 (point 9). **Décisions du propriétaire du 30/10** : le personnel est rendu aux deux directeurs **en lecture** (migration 0102, "
+              "agents de leur section seulement) ; `documents.print` est retiré de tous les rôles (0103) ; `enrollments.export` est construit et "
+              "activé (0104) ; l'historique du parcours est reporté à la version des points.", ""]
     (ROOT / "backend/docs/CERTIFICATION_TROIS_ROLES_MATRICE_FINALE.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(json.dumps(totals, ensure_ascii=False))
     return 1 if any("NON TESTÉ" in v for v in totals.values()) else 0

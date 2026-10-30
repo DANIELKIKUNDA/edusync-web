@@ -20,7 +20,7 @@ from edusync.bootstrap.dependencies import get_services, require_school_actor
 from edusync.bootstrap.services import AppServices
 from edusync.modules.audit.domain.audit import AuditRecord
 from edusync.modules.documents.application.object_store import archive_generated
-from edusync.modules.schooling.application.documents import family_directory_pdf, family_directory_xlsx, student_directory_pdf, student_directory_xlsx, student_profile_pdf
+from edusync.modules.schooling.application.documents import export_schooling_pdf_bytes, export_schooling_xlsx_bytes, family_directory_pdf, family_directory_xlsx, student_directory_pdf, student_directory_xlsx, student_profile_pdf
 from edusync.modules.schooling.application.use_cases import SchoolingService
 from edusync.modules.schooling.domain.models import Guardian, GuardianRole
 from edusync.modules.sync.domain.outbox import OutboxMessage
@@ -454,6 +454,63 @@ def export_students_xlsx(q:str|None=None,academic_year_id:UUID|None=None,section
         data=student_directory_xlsx(school=_school_identity(conn,actor.school_id),rows=rows,filters=filters)
         archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='students.directory.export',document_code='students.directory',title='Annuaire des élèves',file_name='annuaire_eleves.xlsx',academic_year_id=academic_year_id if 'students.directory'!='students.profile' else None)
     return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="annuaire_eleves.xlsx"'})
+
+# Register of enrollments (owner decision 2026-10-30): one business capability for PDF / Excel / print (aliases), the
+# section scope applied IN the SQL query, archived like every official export. Read only.
+_ENROLL_KIND = {'NEW': 'Nouvelle', 'REENROLLMENT': 'Réinscription', 'TRANSFER_IN': 'Transfert entrant'}
+_ENROLL_STATUS = {'DRAFT': 'Brouillon', 'VALIDATED': 'Validée', 'CANCELLED': 'Annulée', 'COMPLETED': 'Terminée'}
+_ENROLL_HEADERS = ['Matricule', 'Élève', 'Sexe', 'Classe', 'Section', 'Option', 'Type', "Date d'inscription", 'Statut']
+
+
+def _enrollment_register(conn, actor, academic_year_id, section_id, class_id, status):
+    scopes = _scopes(actor, 'enrollments.export')
+    params = {'sid': str(actor.school_id), 'y': str(academic_year_id) if academic_year_id else None,
+              'sec': str(section_id) if section_id else None, 'cls': str(class_id) if class_id else None, 'st': status}
+    scope_sql = 'TRUE'
+    if scopes and not any(t == 'SCHOOL' for t, _ in scopes):
+        params['secs'] = sorted({str(v).upper() for t, v in scopes if t == 'SECTION' and v})
+        params['clss'] = sorted({str(v).upper() for t, v in scopes if t == 'CLASS' and v})
+        if not params['secs'] and not params['clss']:
+            raise HTTPException(status_code=403, detail='Périmètre d’export absent')
+        scope_sql = '(upper(ss.code)=ANY(:secs) OR upper(sc.code)=ANY(:clss))'
+    rows = conn.execute(text("""SELECT s.matricule, concat_ws(' ', s.last_name, s.middle_name, s.first_name) AS student, s.gender,
+            sc.label AS class_label, ss.label AS section_label, o.label AS option_label, e.enrollment_kind, e.enrolled_on, e.status, y.label AS year_label
+        FROM enrollments e
+        JOIN students s ON s.id=e.student_id AND s.school_id=e.school_id
+        JOIN school_classes sc ON sc.id=e.class_id AND sc.school_id=e.school_id
+        JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id
+        LEFT JOIN school_options o ON o.id=sc.option_id AND o.school_id=sc.school_id
+        JOIN academic_years y ON y.id=e.academic_year_id AND y.school_id=e.school_id
+        WHERE e.school_id=:sid AND ((CAST(:y AS uuid) IS NULL AND y.status='ACTIVE') OR e.academic_year_id=CAST(:y AS uuid))
+          AND (CAST(:sec AS uuid) IS NULL OR ss.id=CAST(:sec AS uuid)) AND (CAST(:cls AS uuid) IS NULL OR sc.id=CAST(:cls AS uuid))
+          AND (CAST(:st AS text) IS NULL OR e.status=CAST(:st AS text)) AND """ + scope_sql + """
+        ORDER BY ss.label, sc.label, s.last_name, s.first_name LIMIT 5000"""), params).mappings().all()
+    year = rows[0]['year_label'] if rows else None
+    filters = [f"Année : {year or 'année active'}", f"Section : {'sélectionnée' if section_id else 'Toutes (de votre périmètre)'}",
+               f"Classe : {'sélectionnée' if class_id else 'Toutes'}", f"Statut : {_ENROLL_STATUS.get(status, 'Tous') if status else 'Tous'}"]
+    table = [[r['matricule'], r['student'], r['gender'] or '', r['class_label'], r['section_label'], r['option_label'] or '',
+              _ENROLL_KIND.get(r['enrollment_kind'], r['enrollment_kind'] or ''), r['enrolled_on'].strftime('%d/%m/%Y') if r['enrolled_on'] else '',
+              _ENROLL_STATUS.get(r['status'], r['status'])] for r in rows]
+    return filters, table
+
+
+@router.get('/exports/enrollments.pdf')
+def export_enrollments_pdf(academic_year_id:UUID|None=None,section_id:UUID|None=None,class_id:UUID|None=None,status:Literal['DRAFT','VALIDATED','CANCELLED','COMPLETED']|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'enrollments.export')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        filters,table=_enrollment_register(conn,actor,academic_year_id,section_id,class_id,status)
+        data=export_schooling_pdf_bytes(school=_school_identity(conn,actor.school_id),title='Registre des inscriptions',filters=filters,headers=_ENROLL_HEADERS,rows=table)
+        archive_generated(conn,actor,data=data,fmt='PDF',required_capability='enrollments.export',document_code='enrollments.register',title='Registre des inscriptions',file_name='registre_inscriptions.pdf',academic_year_id=academic_year_id)
+    return StreamingResponse(BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':'inline; filename="registre_inscriptions.pdf"'})
+
+@router.get('/exports/enrollments.xlsx')
+def export_enrollments_xlsx(academic_year_id:UUID|None=None,section_id:UUID|None=None,class_id:UUID|None=None,status:Literal['DRAFT','VALIDATED','CANCELLED','COMPLETED']|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'enrollments.export')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        filters,table=_enrollment_register(conn,actor,academic_year_id,section_id,class_id,status)
+        data=export_schooling_xlsx_bytes(school=_school_identity(conn,actor.school_id),title='Registre des inscriptions',filters=filters,headers=_ENROLL_HEADERS,rows=table)
+        archive_generated(conn,actor,data=data,fmt='XLSX',required_capability='enrollments.export',document_code='enrollments.register',title='Registre des inscriptions',file_name='registre_inscriptions.xlsx',academic_year_id=academic_year_id)
+    return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="registre_inscriptions.xlsx"'})
 
 @router.get('/exports/families.pdf')
 def export_families_pdf(q:str|None=None,academic_year_id:UUID|None=None,enrolled_only:bool=True,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):

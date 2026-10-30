@@ -1,15 +1,14 @@
 # Matrice finale des attributions — Intendant, Directeur des études, Directeur de discipline
 
-Générée par `tools/rbac/three_roles_matrix.py` sur le commit `ce1e336` (30/10/2026). PASS = contrôle **exécuté** (application réelle + PostgreSQL réel isolé, ou test unitaire) ; « PG » renvoie à `tools/ci/three_roles_postgres_integration.py` (sortie : `backend/docs/evidence/three_roles_postgres_run.txt`). Les routes sont trouvées par introspection de l'application.
+Générée par `tools/rbac/three_roles_matrix.py` sur le commit `df568db` (30/10/2026). PASS = contrôle **exécuté** (application réelle + PostgreSQL réel isolé, ou test unitaire) ; « PG » renvoie à `tools/ci/three_roles_postgres_integration.py` (sortie : `backend/docs/evidence/three_roles_postgres_run.txt`). Les routes sont trouvées par introspection de l'application.
 
-## INTENDANT — 30 attributions au registre canonique
+## INTENDANT — 29 attributions au registre canonique
 
 | Capacité | Cycle de vie | Route(s) qui la contrôlent | État | Preuve / justification |
 |---|---|---|---|---|
 | `audit.entity.history.read` | ACTIVE | GET /api/v1/audit/entities/{entity_type}/{entity_id} | **PASS** | PG « historique d'audit d'un élève du secondaire / primaire → 404 / paiement → 404 » ; tests/test_audit_entity_history_scope.py (10) |
 | `documents.history.read` | ACTIVE | GET /api/v1/documents/history | **PASS** | PG « historique documentaire (200) » (3 rôles) |
-| `documents.open` | ACTIVE | POST /api/v1/documents/history/{generation_id}/link | **PASS** | PG « Liens documentaires signés » : droit retiré / appartenance retirée / compte désactivé / autre école / expiré / altéré → 403 |
-| `documents.print` | PLANNED | — | **N/A** | N/A — PLANNED pour tous les rôles (aucune route) : décision du propriétaire requise, non activée ici |
+| `documents.open` | ACTIVE | POST /api/v1/documents/history/{generation_id}/link<br>GET /api/v1/documents/open | **PASS** | PG « Liens documentaires signés » : droit retiré / appartenance retirée / compte désactivé / autre école / expiré / altéré → 403 |
 | `inventory.assets.create` | ACTIVE | POST /api/v1/stewardship/assets | **PASS** | PG « immobilisation créée, idempotente (même clé → même bien, une ligne) » |
 | `inventory.assets.history.read` | ACTIVE | GET /api/v1/stewardship/assets/{asset_id}/history | **PASS** | PG « historique complet du bien (CREATE, UPDATE, REPAIR ×2, STATUS) » |
 | `inventory.assets.read` | ACTIVE | GET /api/v1/stewardship/assets<br>GET /api/v1/stewardship/locations | **PASS** | PG « liste des biens (200) », « locaux (200) » |
@@ -34,12 +33,12 @@ Générée par `tools/rbac/three_roles_matrix.py` sur le commit `ce1e336` (30/10
 | `inventory.stock.sheet.print` | ACTIVE | GET /api/v1/stewardship/stock/print.pdf | **PASS** | PG « fiche de stock et impression du comptage en PDF » |
 | `notifications.internal.dismiss` | ACTIVE | POST /api/v1/notifications/inbox/read-all<br>POST /api/v1/notifications/{notification_id}/dismiss | **PASS** | PG « un autre membre / une autre école ne peut pas l'acquitter (404) », « le destinataire l'acquitte », « sans le droit → 403 » |
 | `notifications.internal.read` | ACTIVE | GET /api/v1/notifications/inbox<br>GET /api/v1/notifications/push/config<br>GET /api/v1/notifications/push-subscriptions | **PASS** | PG « le destinataire voit sa notification », « un autre membre ne la voit pas » |
-| `personnel.read` | ACTIVE | GET /api/v1/personnel<br>GET /api/v1/personnel/{staff_id} | **PASS** | PG « INTENDANT : personnel (lecture) (200) » |
+| `personnel.read` | ACTIVE | GET /api/v1/personnel<br>GET /api/v1/personnel/{staff_id} | **PASS** | PG « INTENDANT : personnel (lecture) (200) » ; directeurs : « personnel du secondaire lisible », « agents du primaire et de toute l'école invisibles », « aucune création (403) » |
 | `settings.school_identity.read` | ACTIVE | GET /api/v1/settings/overview<br>GET /api/v1/settings/numbering | **PASS** | PG « identité de l'école (lecture) (200) » ; « aucune modification des réglages → 403 » |
 
-Bilan : N/A 1 · PASS 29
+Bilan : PASS 29
 
-## DIRECTEUR_ETUDES — 46 attributions au registre canonique
+## DIRECTEUR_ETUDES — 49 attributions au registre canonique
 
 | Capacité | Cycle de vie | Route(s) qui la contrôlent | État | Preuve / justification |
 |---|---|---|---|---|
@@ -50,18 +49,17 @@ Bilan : N/A 1 · PASS 29
 | `communications.send.class` | ACTIVE | — | **PASS** | PG « audience hors périmètre refusée : classe du primaire » ; tests/test_secondary_leadership_backend_regression.py |
 | `communications.send.individual` | ACTIVE | — | **PASS** | PG « audience hors périmètre refusée : élève du primaire », « élève du secondaire d'une famille multi-sections » |
 | `communications.send.section` | ACTIVE | — | **PASS** | PG « section secondaire : parent multi-sections, chacun une fois », « section primaire refusée » |
-| `communications.sms.send` | ACTIVE | — | **PASS** | PG « crédit SMS réservé (2 sur 3) », « idempotence », « crédit insuffisant refusé » |
+| `communications.sms.send` | ACTIVE | — | **PASS** | PG « crédit SMS réservé (2 sur 3) », « idempotence », « crédit insuffisant refusé » ; « SMS de bout en bout » (aperçu, confirmation, worker, crédit consommé) |
 | `dashboard.school.drilldown` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `dashboard.school.export` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `dashboard.school.print` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `dashboard.school.read` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `documents.history.read` | ACTIVE | GET /api/v1/documents/history | **PASS** | PG « historique documentaire (200) » (3 rôles) |
-| `documents.open` | ACTIVE | POST /api/v1/documents/history/{generation_id}/link | **PASS** | PG « Liens documentaires signés » : droit retiré / appartenance retirée / compte désactivé / autre école / expiré / altéré → 403 |
-| `documents.print` | PLANNED | — | **N/A** | N/A — PLANNED pour tous les rôles (aucune route) : décision du propriétaire requise, non activée ici |
-| `enrollments.export` | PLANNED | — | **N/A** | N/A — PLANNED pour tous les rôles qui la détiennent (Promoteur, Gestionnaire…) : décision du propriétaire requise |
-| `enrollments.export_pdf` | ALIAS | via enrollments.export | **N/A** | alias de `enrollments.export` (PLANNED) : N/A — PLANNED pour tous les rôles qui la détiennent (Promoteur, Gestionnaire…) : décision du propriétaire requise |
-| `enrollments.export_xlsx` | ALIAS | via enrollments.export | **N/A** | alias de `enrollments.export` (PLANNED) : N/A — PLANNED pour tous les rôles qui la détiennent (Promoteur, Gestionnaire…) : décision du propriétaire requise |
-| `enrollments.print` | ALIAS | via enrollments.export | **N/A** | alias de `enrollments.export` (PLANNED) : N/A — PLANNED pour tous les rôles qui la détiennent (Promoteur, Gestionnaire…) : décision du propriétaire requise |
+| `documents.open` | ACTIVE | POST /api/v1/documents/history/{generation_id}/link<br>GET /api/v1/documents/open | **PASS** | PG « Liens documentaires signés » : droit retiré / appartenance retirée / compte désactivé / autre école / expiré / altéré → 403 |
+| `enrollments.export` | ACTIVE | GET /api/v1/schooling/exports/enrollments.pdf<br>GET /api/v1/schooling/exports/enrollments.xlsx | **PASS** | PG « registre des inscriptions Excel = secondaire seulement », « registre PDF », « Gestionnaire : toute l'école sans l'école B », « sans le droit → 403 » |
+| `enrollments.export_pdf` | ALIAS | via enrollments.export | **PASS** | alias de `enrollments.export` : PG « registre des inscriptions Excel = secondaire seulement », « registre PDF », « Gestionnaire : toute l'école sans l'école B », « sans le droit → 403 » |
+| `enrollments.export_xlsx` | ALIAS | via enrollments.export | **PASS** | alias de `enrollments.export` : PG « registre des inscriptions Excel = secondaire seulement », « registre PDF », « Gestionnaire : toute l'école sans l'école B », « sans le droit → 403 » |
+| `enrollments.print` | ALIAS | via enrollments.export | **PASS** | alias de `enrollments.export` : PG « registre des inscriptions Excel = secondaire seulement », « registre PDF », « Gestionnaire : toute l'école sans l'école B », « sans le droit → 403 » |
 | `enrollments.read` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `families.children.read` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `families.directory.export` | ACTIVE | GET /api/v1/schooling/exports/families.pdf<br>GET /api/v1/schooling/exports/families.xlsx | **PASS** | PG « export des familles autorisé (DIRECTEUR_ETUDES) / refusé (DIRECTEUR_DISCIPLINE) » |
@@ -79,20 +77,24 @@ Bilan : N/A 1 · PASS 29
 | `headcounts.read` | ACTIVE | GET /api/v1/effectifs/overview<br>GET /api/v1/effectifs/classes | **PASS** | PG « vue d'ensemble des effectifs (200) » |
 | `notifications.internal.dismiss` | ACTIVE | POST /api/v1/notifications/inbox/read-all<br>POST /api/v1/notifications/{notification_id}/dismiss | **PASS** | PG « un autre membre / une autre école ne peut pas l'acquitter (404) », « le destinataire l'acquitte », « sans le droit → 403 » |
 | `notifications.internal.read` | ACTIVE | GET /api/v1/notifications/inbox<br>GET /api/v1/notifications/push/config<br>GET /api/v1/notifications/push-subscriptions | **PASS** | PG « le destinataire voit sa notification », « un autre membre ne la voit pas » |
+| `personnel.assignments.read` | ACTIVE | GET /api/v1/personnel/{staff_id}/assignments | **PASS** | PG « affectations et fonctions lisibles » (agent du secondaire) |
+| `personnel.functions.read` | ACTIVE | GET /api/v1/personnel/catalog/functions | **PASS** | PG « affectations et fonctions lisibles » (catalogue des fonctions) |
+| `personnel.read` | ACTIVE | GET /api/v1/personnel<br>GET /api/v1/personnel/{staff_id} | **PASS** | PG « INTENDANT : personnel (lecture) (200) » ; directeurs : « personnel du secondaire lisible », « agents du primaire et de toute l'école invisibles », « aucune création (403) » |
+| `personnel.summary.read` | ACTIVE | GET /api/v1/personnel/summary | **PASS** | PG « synthèse du personnel lisible (DIRECTEUR_ETUDES) / refusée (DIRECTEUR_DISCIPLINE) » |
 | `settings.academic_year.read` | ACTIVE | GET /api/v1/settings/academic-years | **PASS** | PG « réglages scolaires en lecture (années, sections, identité) » |
 | `settings.school_identity.read` | ACTIVE | GET /api/v1/settings/overview<br>GET /api/v1/settings/numbering | **PASS** | PG « identité de l'école (lecture) (200) » ; « aucune modification des réglages → 403 » |
 | `settings.structure.read` | ACTIVE | GET /api/v1/settings/reference-catalog<br>GET /api/v1/settings/sections<br>GET /api/v1/settings/options | **PASS** | PG « réglages scolaires en lecture (années, sections, identité) » |
 | `students.directory.export` | ACTIVE | GET /api/v1/schooling/exports/students.pdf<br>GET /api/v1/schooling/exports/students.xlsx | **PASS** | PG « export Excel des élèves = secondaire seulement » |
 | `students.directory.export_xlsx` | ALIAS | via students.directory.export | **PASS** | alias de `students.directory.export` : PG « export Excel des élèves = secondaire seulement » |
 | `students.directory.print_pdf` | ALIAS | via students.directory.export | **PASS** | alias de `students.directory.export` : PG « export Excel des élèves = secondaire seulement » |
-| `students.lifecycle.history.read` | PLANNED | — | **N/A** | N/A — PLANNED pour tous les rôles qui la détiennent : décision du propriétaire requise |
+| `students.lifecycle.history.read` | PLANNED | — | **N/A** | N/A — décision du propriétaire du 30/10 : historique du parcours reporté à la version des points (PLANNED) |
 | `students.profile.complete` | ACTIVE | — | **PASS** | PG « complément de profil (adresse) d'un élève du secondaire (200) » |
 | `students.profile.print_pdf` | ACTIVE | GET /api/v1/schooling/students/{student_id}/profile.pdf | **PASS** | PG « fiche PDF d'un élève du secondaire », « du primaire → 404 » |
-| `students.read` | ACTIVE | GET /api/v1/schooling/students/probable<br>GET /api/v1/schooling/summary<br>GET /api/v1/schooling/students | **PASS** | PG « liste des élèves = secondaire seulement », « fiche d'un élève du primaire / d'une autre école → 404 » |
+| `students.read` | ACTIVE | GET /api/v1/schooling/summary<br>GET /api/v1/schooling/students<br>GET /api/v1/schooling/students/{student_id} | **PASS** | PG « liste des élèves = secondaire seulement », « fiche d'un élève du primaire / d'une autre école → 404 » |
 
-Bilan : N/A 13 · PASS 33
+Bilan : N/A 8 · PASS 41
 
-## DIRECTEUR_DISCIPLINE — 41 attributions au registre canonique
+## DIRECTEUR_DISCIPLINE — 43 attributions au registre canonique
 
 | Capacité | Cycle de vie | Route(s) qui la contrôlent | État | Preuve / justification |
 |---|---|---|---|---|
@@ -104,17 +106,16 @@ Bilan : N/A 13 · PASS 33
 | `communications.send.individual` | ACTIVE | — | **PASS** | PG « audience hors périmètre refusée : élève du primaire », « élève du secondaire d'une famille multi-sections » |
 | `communications.send.section` | ACTIVE | — | **PASS** | PG « section secondaire : parent multi-sections, chacun une fois », « section primaire refusée » |
 | `communications.sms.bulk_send` | ACTIVE | — | **PASS** | PG « DIRECTEUR_DISCIPLINE : SMS groupé autorisé (pas 403) » / « DIRECTEUR_ETUDES : refusé (403) » |
-| `communications.sms.send` | ACTIVE | — | **PASS** | PG « crédit SMS réservé (2 sur 3) », « idempotence », « crédit insuffisant refusé » |
+| `communications.sms.send` | ACTIVE | — | **PASS** | PG « crédit SMS réservé (2 sur 3) », « idempotence », « crédit insuffisant refusé » ; « SMS de bout en bout » (aperçu, confirmation, worker, crédit consommé) |
 | `dashboard.school.drilldown` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `dashboard.school.export` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `dashboard.school.print` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `dashboard.school.read` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `documents.history.read` | ACTIVE | GET /api/v1/documents/history | **PASS** | PG « historique documentaire (200) » (3 rôles) |
-| `documents.open` | ACTIVE | POST /api/v1/documents/history/{generation_id}/link | **PASS** | PG « Liens documentaires signés » : droit retiré / appartenance retirée / compte désactivé / autre école / expiré / altéré → 403 |
-| `documents.print` | PLANNED | — | **N/A** | N/A — PLANNED pour tous les rôles (aucune route) : décision du propriétaire requise, non activée ici |
-| `enrollments.export` | PLANNED | — | **N/A** | N/A — PLANNED pour tous les rôles qui la détiennent (Promoteur, Gestionnaire…) : décision du propriétaire requise |
-| `enrollments.export_pdf` | ALIAS | via enrollments.export | **N/A** | alias de `enrollments.export` (PLANNED) : N/A — PLANNED pour tous les rôles qui la détiennent (Promoteur, Gestionnaire…) : décision du propriétaire requise |
-| `enrollments.print` | ALIAS | via enrollments.export | **N/A** | alias de `enrollments.export` (PLANNED) : N/A — PLANNED pour tous les rôles qui la détiennent (Promoteur, Gestionnaire…) : décision du propriétaire requise |
+| `documents.open` | ACTIVE | POST /api/v1/documents/history/{generation_id}/link<br>GET /api/v1/documents/open | **PASS** | PG « Liens documentaires signés » : droit retiré / appartenance retirée / compte désactivé / autre école / expiré / altéré → 403 |
+| `enrollments.export` | ACTIVE | GET /api/v1/schooling/exports/enrollments.pdf<br>GET /api/v1/schooling/exports/enrollments.xlsx | **PASS** | PG « registre des inscriptions Excel = secondaire seulement », « registre PDF », « Gestionnaire : toute l'école sans l'école B », « sans le droit → 403 » |
+| `enrollments.export_pdf` | ALIAS | via enrollments.export | **PASS** | alias de `enrollments.export` : PG « registre des inscriptions Excel = secondaire seulement », « registre PDF », « Gestionnaire : toute l'école sans l'école B », « sans le droit → 403 » |
+| `enrollments.print` | ALIAS | via enrollments.export | **PASS** | alias de `enrollments.export` : PG « registre des inscriptions Excel = secondaire seulement », « registre PDF », « Gestionnaire : toute l'école sans l'école B », « sans le droit → 403 » |
 | `enrollments.read` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `families.children.read` | DEPRECATED | — | **N/A** | N/A — capacité DEPRECATED (tableau de bord remplacé par /access/me et ses widgets ; inscriptions / familles lues par students.read et families.read, décision du 23/10) |
 | `families.read` | ACTIVE | GET /api/v1/schooling/families/diagnostics<br>GET /api/v1/schooling/families/overview<br>GET /api/v1/schooling/families/kpi/{metric} | **PASS** | PG « familles = celles du secondaire », « fiche d'une famille du seul primaire → 404 », « indicateurs familles (200) » |
@@ -127,20 +128,23 @@ Bilan : N/A 13 · PASS 33
 | `headcounts.read` | ACTIVE | GET /api/v1/effectifs/overview<br>GET /api/v1/effectifs/classes | **PASS** | PG « vue d'ensemble des effectifs (200) » |
 | `notifications.internal.dismiss` | ACTIVE | POST /api/v1/notifications/inbox/read-all<br>POST /api/v1/notifications/{notification_id}/dismiss | **PASS** | PG « un autre membre / une autre école ne peut pas l'acquitter (404) », « le destinataire l'acquitte », « sans le droit → 403 » |
 | `notifications.internal.read` | ACTIVE | GET /api/v1/notifications/inbox<br>GET /api/v1/notifications/push/config<br>GET /api/v1/notifications/push-subscriptions | **PASS** | PG « le destinataire voit sa notification », « un autre membre ne la voit pas » |
+| `personnel.assignments.read` | ACTIVE | GET /api/v1/personnel/{staff_id}/assignments | **PASS** | PG « affectations et fonctions lisibles » (agent du secondaire) |
+| `personnel.functions.read` | ACTIVE | GET /api/v1/personnel/catalog/functions | **PASS** | PG « affectations et fonctions lisibles » (catalogue des fonctions) |
+| `personnel.read` | ACTIVE | GET /api/v1/personnel<br>GET /api/v1/personnel/{staff_id} | **PASS** | PG « INTENDANT : personnel (lecture) (200) » ; directeurs : « personnel du secondaire lisible », « agents du primaire et de toute l'école invisibles », « aucune création (403) » |
 | `settings.academic_year.read` | ACTIVE | GET /api/v1/settings/academic-years | **PASS** | PG « réglages scolaires en lecture (années, sections, identité) » |
 | `settings.school_identity.read` | ACTIVE | GET /api/v1/settings/overview<br>GET /api/v1/settings/numbering | **PASS** | PG « identité de l'école (lecture) (200) » ; « aucune modification des réglages → 403 » |
 | `settings.structure.read` | ACTIVE | GET /api/v1/settings/reference-catalog<br>GET /api/v1/settings/sections<br>GET /api/v1/settings/options | **PASS** | PG « réglages scolaires en lecture (années, sections, identité) » |
 | `students.directory.export` | ACTIVE | GET /api/v1/schooling/exports/students.pdf<br>GET /api/v1/schooling/exports/students.xlsx | **PASS** | PG « export Excel des élèves = secondaire seulement » |
 | `students.directory.print_pdf` | ALIAS | via students.directory.export | **PASS** | alias de `students.directory.export` : PG « export Excel des élèves = secondaire seulement » |
 | `students.identity.update` | ACTIVE | — | **PASS** | PG « correction d'identité (200) + audit », « version périmée → 409 », « identité + profil → 422 », « élève du primaire → refusé » ; DIRECTEUR_ETUDES → 403 |
-| `students.lifecycle.history.read` | PLANNED | — | **N/A** | N/A — PLANNED pour tous les rôles qui la détiennent : décision du propriétaire requise |
+| `students.lifecycle.history.read` | PLANNED | — | **N/A** | N/A — décision du propriétaire du 30/10 : historique du parcours reporté à la version des points (PLANNED) |
 | `students.profile.complete` | ACTIVE | — | **PASS** | PG « complément de profil (adresse) d'un élève du secondaire (200) » |
 | `students.profile.print_pdf` | ACTIVE | GET /api/v1/schooling/students/{student_id}/profile.pdf | **PASS** | PG « fiche PDF d'un élève du secondaire », « du primaire → 404 » |
-| `students.read` | ACTIVE | GET /api/v1/schooling/students/probable<br>GET /api/v1/schooling/summary<br>GET /api/v1/schooling/students | **PASS** | PG « liste des élèves = secondaire seulement », « fiche d'un élève du primaire / d'une autre école → 404 » |
+| `students.read` | ACTIVE | GET /api/v1/schooling/summary<br>GET /api/v1/schooling/students<br>GET /api/v1/schooling/students/{student_id} | **PASS** | PG « liste des élèves = secondaire seulement », « fiche d'un élève du primaire / d'une autre école → 404 » |
 
-Bilan : N/A 12 · PASS 29
+Bilan : N/A 8 · PASS 35
 
 ## Rapprochement avec les « 108 attributions » de la mission
 
-Le registre canonique (source de vérité, statut CANONICAL) compte **117 attributions** pour ces trois rôles : les 108 de l'origine (migrations 0008 / 0009) + les variantes de format ajoutées par la décision du 23/10 (alias `*.export_pdf`, `*.export_xlsx`, `*.print`), **moins** les capacités `personnel.*` et `finance.*` retirées aux deux directeurs par la migration 0024 (point 9 : « secondary Directors are schooling-first »). Ces retraits ne figurent donc pas dans la matrice ; le serveur les refuse (PG « personnel refusé (403), conforme au registre canonique »). **Contradiction à trancher** : l'addendum `POINT3B_ADDENDUM_SECONDARY_LEADERSHIP.md` et la mission citent encore la consultation du personnel.
+Le registre canonique (source de vérité, statut CANONICAL) compte **121 attributions** pour ces trois rôles : les 108 de l'origine (migrations 0008 / 0009) + les variantes de format ajoutées par la décision du 23/10 (alias `*.export_pdf`, `*.export_xlsx`, `*.print`), **moins** les capacités `personnel.*` et `finance.*` retirées aux deux directeurs par la migration 0024 (point 9). **Décisions du propriétaire du 30/10** : le personnel est rendu aux deux directeurs **en lecture** (migration 0102, agents de leur section seulement) ; `documents.print` est retiré de tous les rôles (0103) ; `enrollments.export` est construit et activé (0104) ; l'historique du parcours est reporté à la version des points.
 
