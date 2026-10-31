@@ -6,9 +6,10 @@
 # dépôt) ; retour à la normale → commentaire de résolution et fermeture du ticket. Lecture seule, aucun secret.
 name: Uptime staging
 
+# 2026-10-31 (owner): no automatic schedule any more. Every 30 minutes it used about 1 440 of the 2 000 monthly minutes of
+# the free plan (private repository) and blocked the CI; the application already e-mails an incident after 5 minutes of
+# outage (État du service). Manual run only (Actions › Uptime staging › Run workflow).
 on:
-  schedule:
-    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
