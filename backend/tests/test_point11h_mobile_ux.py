@@ -10,7 +10,12 @@ def test_mobile_navigation_is_real_not_hidden_desktop_only():
     shell=(ROOT/'frontend/src/platform/shell.tsx').read_text(encoding='utf-8')
     assert 'es-bottom' in shell and 'aria-label="Navigation principale"' in shell and 'aria-label="Navigation rapide"' in shell
     assert 'es-drawer' in shell and 'aria-label="Menu EduSync"' in shell
-    assert "['home','students','finance','documents']" in APP
+    # 2026-10-31 (mobile-first pass, owner): the bar is no longer the same 4 entries for everyone — Accueil + the 3 modules
+    # where the member works most, read from the server projection (widgets and shortcuts, never a role name), ordered
+    # by importance; whoever collects gets « Encaisser »; « Plus » opens every module.
+    assert "const barRank=new Map(['home',...ranked]" in APP and 'primary:barRank.has(key)' in APP
+    assert "(me?.widgets??[]).filter(w=>w.module===key)" in APP and "a.id==='checkout.new'" in APP and "'Encaisser'" in APP
+    assert 'aria-label="Tous les modules"' in shell and '<small>Plus</small>' in shell and "sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))" in shell
 
 def test_mobile_preserves_rbac_and_all_school_modules():
     # 2026-10-23: the phone menu uses the same server navigation as the desktop (/access/me)
