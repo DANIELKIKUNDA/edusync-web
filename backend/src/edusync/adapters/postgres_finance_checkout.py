@@ -50,11 +50,15 @@ class PostgresFinanceCheckoutRepository:
  def charges(self,school_id:UUID,enrollment_id:UUID):
   rows=self.conn.execute(text('''SELECT id,label,currency,net_amount,paid_amount,periodicity,period_label,period_order,sequence_group,sequence_order FROM finance_charges WHERE school_id=:sid AND enrollment_id=:eid AND status='ACTIVE' ORDER BY currency,coalesce(period_order,0),due_date NULLS LAST,label'''),{'sid':str(school_id),'eid':str(enrollment_id)}).mappings().all()
   charges=self._cash_payable(school_id,rows); elig=sequential_eligibility(charges)
+  enrollment_exceptions=self._enrollment_month_exceptions(school_id,enrollment_id)
   from edusync.modules.finance_checkout.domain.models import predecessors
   preds=predecessors(charges)
   # Settled charges (paid, exempted or regularized outside cash) still order the sequential chain but are not offered.
   # 'requires': unsettled earlier periods that must be selected with this one (Desktop: consecutive periods, one receipt).
-  return [{**dict(r),'remaining':str(c.remaining),'eligible':elig[c.id][0],'lock_reason':elig[c.id][1],'requires':[str(x) for x in preds[c.id]]} for r,c in zip(rows,charges) if c.remaining>0]
+  return [{**dict(r),'remaining':str(c.remaining),'eligible':True if c.id in enrollment_exceptions else elig[c.id][0],
+           'lock_reason':None if c.id in enrollment_exceptions else elig[c.id][1],
+           'requires':[] if c.id in enrollment_exceptions else [str(x) for x in preds[c.id]]}
+          for r,c in zip(rows,charges) if c.remaining>0]
  def anticipation(self,school_id:UUID,enrollment_id:UUID,currency:str):
   # A plan is offered by the school; a parent does not need prior enrollment.
   # Membership is only the remembered decision for this child.
@@ -73,11 +77,20 @@ class PostgresFinanceCheckoutRepository:
  def _lock_idempotency_key(self,school_id:UUID,idempotency_key:str):
   # Serialises concurrent requests carrying the same key: the second one waits, then sees the committed payment.
   self.conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k,0))"),{'k':f'finance-payment:{school_id}:{idempotency_key}'})
- def _registration_bundle_first(self,school_id,enrollment_id,charges,charge_ids,amount):
+ def _enrollment_month_exceptions(self,school_id,enrollment_id,due=None):
+  """Only the configured tuition month required at enrollment may bypass older monthly charges.
+  The charge IDs come from registration_bundle_due, which matches both the fee code and exact month."""
+  from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
+  from edusync.shared.domain.fee_codes import is_tuition_code,canonical_fee_code
+  due=due if due is not None else PostgresFeeScheduleRepository(self.conn).registration_bundle_due(school_id,enrollment_id)
+  if not due['ready']:return set()
+  codes={canonical_fee_code(i['fee_code']) for i in due['bundle'] if i['month'] and is_tuition_code(i['fee_code'])}
+  return {UUID(i['charge_id']) for i in due['items'] if canonical_fee_code(i['fee_code']) in codes and Decimal(i['balance'])>0}
+ def _registration_bundle_first(self,school_id,enrollment_id,charges,charge_ids,amount,due=None):
   # Desktop finance_checkout (parity lot L4): while the registration bundle is due, no unrelated fee may leapfrog it; one
   # checkout may settle the whole bundle plus other fees in one shot.
   from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
-  due=PostgresFeeScheduleRepository(self.conn).registration_bundle_due(school_id,enrollment_id)
+  due=due if due is not None else PostgresFeeScheduleRepository(self.conn).registration_bundle_due(school_id,enrollment_id)
   outstanding=[i for i in due['items'] if Decimal(i['balance'])>0]
   if not due['ready'] or not outstanding:return
   bundle_ids={i['charge_id'] for i in due['items']}
@@ -88,7 +101,7 @@ class PostgresFinanceCheckoutRepository:
    alloc=min(left,c.remaining);covered[str(c.id)]=alloc;left-=alloc
   if any(covered.get(i['charge_id'],Decimal('0'))<Decimal(i['balance']) for i in outstanding):
    raise ValueError("Les obligations exigées à l'inscription doivent être soldées avant les autres frais")
- def _apply_payment_policy(self,school_id,rows,charges,charge_ids,amount,mode,use_anticipation):
+ def _apply_payment_policy(self,school_id,rows,charges,charge_ids,amount,mode,use_anticipation,enrollment_exceptions=()):
   # Desktop finance_checkout (parity lot L5): accepted modes, future months, partial payments and minimum deposit, advance.
   from edusync.adapters.postgres_settings import PostgresSettingsRepository
   from datetime import date
@@ -97,7 +110,7 @@ class PostgresFinanceCheckoutRepository:
   if mode not in set(policy['accepted_modes']):raise ValueError("Ce mode de paiement n'est pas autorisé par la configuration de l'école")
   if use_anticipation and not policy['advance_payments_enabled']:raise ValueError("Les paiements anticipés sont désactivés par la politique de l'école")
   due={str(r['id']):r.get('due_date') for r in rows};selected=set(charge_ids)
-  if not policy['future_charge_payments_enabled'] and not use_anticipation and any(due.get(str(i)) and due[str(i)]>date.today() for i in selected):
+  if not policy['future_charge_payments_enabled'] and not use_anticipation and any(due.get(str(i)) and due[str(i)]>date.today() for i in selected-set(enrollment_exceptions)):
    raise ValueError("Le paiement d'un mois futur est désactivé par la politique de l'école")
   if use_anticipation:return
   left=Decimal(str(amount));minimum=Decimal(str(policy['partial_min_amount'] or 0))
@@ -129,12 +142,15 @@ class PostgresFinanceCheckoutRepository:
   rows=self.conn.execute(text("SELECT * FROM finance_charges WHERE school_id=:sid AND enrollment_id=:eid AND status='ACTIVE' FOR UPDATE"),{'sid':str(school_id),'eid':str(enrollment_id)}).mappings().all()
   charges=self._cash_payable(school_id,rows); payable={str(c.id):c for c in charges}
   from edusync.modules.finance_checkout.domain.models import validate_selection,split_payment
-  expected=validate_selection(charges,charge_ids)
+  from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
+  registration_due=PostgresFeeScheduleRepository(self.conn).registration_bundle_due(school_id,enrollment_id)
+  enrollment_exceptions=self._enrollment_month_exceptions(school_id,enrollment_id,registration_due)
+  expected=validate_selection(charges,charge_ids,exempt_predecessors=enrollment_exceptions)
   selected_ids=set(charge_ids)
   # Only the selected charges must match: a student may owe CDF and USD fees, paid separately.
   if currency not in {'CDF','USD'} or any(c.currency!=currency for c in charges if c.id in selected_ids):raise ValueError('Devise incohérente')
-  self._registration_bundle_first(school_id,enrollment_id,charges,charge_ids,amount)
-  self._apply_payment_policy(school_id,rows,charges,charge_ids,amount,mode,use_anticipation)
+  self._registration_bundle_first(school_id,enrollment_id,charges,charge_ids,amount,registration_due)
+  self._apply_payment_policy(school_id,rows,charges,charge_ids,amount,mode,use_anticipation,enrollment_exceptions)
   plan=self.anticipation(school_id,enrollment_id,currency) if use_anticipation else None
   plan_available=bool(plan and plan.get('available'))
   normal,advance=split_payment(amount,expected,plan_available)

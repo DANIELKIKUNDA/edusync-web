@@ -62,7 +62,7 @@ def predecessors(charges:Iterable[DueCharge])->dict[UUID,list[UUID]]:
         for pos,c in enumerate(ordered):out[c.id]=[p.id for p in ordered[:pos] if not p.settled]
     return out
 
-def validate_selection(charges:Iterable[DueCharge],selected:Iterable[UUID])->Decimal:
+def validate_selection(charges:Iterable[DueCharge],selected:Iterable[UUID],*,exempt_predecessors:Iterable[UUID]=())->Decimal:
     """Desktop _validate_allocations: several consecutive periods may be settled on one receipt, but no later period while
     an earlier one stays open — every unsettled predecessor must be selected too (allocation runs in chain order, so a later
     period only receives money once the earlier ones are fully covered)."""
@@ -71,10 +71,10 @@ def validate_selection(charges:Iterable[DueCharge],selected:Iterable[UUID])->Dec
     if any(i not in by for i in ids):raise ValueError('Frais inconnu')
     currencies={by[i].currency for i in ids}
     if len(currencies)!=1:raise ValueError('CDF et USD restent séparés : aucune conversion implicite')
-    chosen=set(ids); preds=predecessors(rows)
+    chosen=set(ids); preds=predecessors(rows); exempt=set(exempt_predecessors)
     for i in ids:
         if by[i].settled:raise ValueError('Déjà soldé')
-        missing=[p for p in preds[i] if p not in chosen]
+        missing=[p for p in preds[i] if p not in chosen] if i not in exempt else []
         if missing:
             first=by[missing[0]];target=by[i];kind='La tranche' if (target.chain or '').startswith('TERM:') else 'La mensualité'
             raise ValueError(f"{kind} {target.period_label or target.label} ne peut pas être encaissée avant {first.period_label or first.label}. Réglez d'abord la période antérieure.")
