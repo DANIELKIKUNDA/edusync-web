@@ -1,4 +1,7 @@
 import {test,expect} from '@playwright/test';
+// The harness page (/browser-tests/harness.html) is served by the dev server only: on the compiled app it falls back to
+// the sign-in screen (2026-10-31: it was counted as a failure in build runs).
+test.skip(process.env.EDUSYNC_TEST_BUILD==='1','needs the dev server (harness page)');
 for(const width of [320,390,480,768,1440]){
   test(`shared MFA, breadcrumb and page geometry at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:850});

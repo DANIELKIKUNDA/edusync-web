@@ -49,8 +49,15 @@ for(const vp of [{name:'bureau',width:1280,height:850},{name:'mobile',width:375,
     }
     await expect.poll(()=>page.title()).toBe('Accès & rôles — EduSync');
     const trail=page.getByRole('navigation',{name:'Fil d’Ariane'});
-    await expect(trail).toBeVisible();
-    await trail.getByRole('button').first().click();
+    if(vp.width>=768){
+      await expect(trail).toBeVisible();
+      await trail.getByRole('button').first().click();
+    }else{
+      // Mobile-first pass (2026-10-31): one title per screen — the « ‹ Module » row of a top-level module is hidden on
+      // phones; the way back home is the « Accueil » destination of the bottom bar.
+      await expect(trail).toBeHidden();
+      await page.getByRole('navigation',{name:'Navigation rapide'}).getByRole('button',{name:'Accueil',exact:true}).click();
+    }
     await expect(page.getByText('1 sans rôle')).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
   });

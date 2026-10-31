@@ -19,7 +19,7 @@ test('platform session survives network loss, then revalidates and obeys revocat
   if(process.env.EDUSYNC_TEST_BUILD==='1'){
     // First-visit boot assets are cached after worker activation, not only on a second visit. Since 2026-10-31 every module
     // is precached: the API / health check targets the PATH START (a module may be named /assets/health-*.js).
-    await expect.poll(()=>page.evaluate(async()=>{const names=await caches.keys();const cache=await caches.open(names.find(n=>n.startsWith('edusync-shell'))!);const urls=performance.getEntriesByType('resource').map(r=>r.name).filter(raw=>new URL(raw).pathname.startsWith('/assets/'));return urls.length>0&&(await Promise.all(urls.map(u=>cache.match(u)))).every(Boolean);})).toBe(true);
+    await expect.poll(()=>page.evaluate(async()=>{const names=await caches.keys();const cache=await caches.open(names.find(n=>n.startsWith('edusync-shell'))!);const urls=performance.getEntriesByType('resource').map(r=>r.name).filter(raw=>new URL(raw).pathname.startsWith('/assets/'));return urls.length>0&&(await Promise.all(urls.map(u=>cache.match(u)))).every(Boolean);}),{timeout:20000}).toBe(true);   // the whole app is now copied in the background too
     expect(await page.evaluate(async()=>{for(const name of await caches.keys())for(const r of await(await caches.open(name)).keys())if(/^\/(api\/|health(?:-api)?$)/.test(new URL(r.url).pathname)||r.headers.has('Authorization'))return false;return true;})).toBe(true);
   }
   offline=true;await context.setOffline(true);

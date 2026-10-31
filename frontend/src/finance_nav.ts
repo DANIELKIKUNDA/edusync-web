@@ -9,3 +9,12 @@ export function setFinanceTarget(target:FinanceTarget){
 export function takeFinanceTarget():string{
   try{const v=sessionStorage.getItem(FINANCE_TARGET_KEY)||'';sessionStorage.removeItem(FINANCE_TARGET_KEY);return v}catch{return ''}
 }
+/** Reads the requested screen WITHOUT consuming it (2026-10-31): React may render a screen and discard that render (a
+ *  lazy part still loading); consuming during render made « Superviser les caisses » open Recouvrement instead of Caisse.
+ *  The page clears the request once it is really shown (clearFinanceTarget, in an effect). */
+export function peekFinanceTarget():string{
+  try{return sessionStorage.getItem(FINANCE_TARGET_KEY)||sessionStorage.getItem('edusync.finance.tab')||''}catch{return ''}
+}
+export function clearFinanceTarget(){
+  try{sessionStorage.removeItem(FINANCE_TARGET_KEY);sessionStorage.removeItem('edusync.finance.tab')}catch{/* optional browser storage */}
+}
