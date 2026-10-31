@@ -60,6 +60,8 @@ WIDGETS: list[dict] = [
      "breakdowns": (("section", "headcounts.by_section.read"), ("class", "headcounts.by_class.read"), ("option", "headcounts.by_option.read"))},
     {"id": "headcounts.movements", "title": "Mouvements récents", "module": "headcounts", "priority": 31, "all": ("headcounts.movements.read",)},
     {"id": "personnel.summary", "title": "Personnel", "module": "personnel", "priority": 32, "all": ("personnel.summary.read",)},
+    # 2026-10-31: the Secrétariat's daily work — active pupils whose file is under 80 % complete (whole visible scope).
+    {"id": "students.files", "title": "Dossiers élèves à compléter", "module": "students", "priority": 33, "all": ("students.profile.complete", "students.read")},
     {"id": "finance.recovery", "title": "Évolution du recouvrement", "module": "finance", "priority": 40, "all": ("finance.recovery.monthly.read",)},
     {"id": "finance.by_fee", "title": "Situation par familles de frais", "module": "finance", "priority": 41, "all": ("finance.analysis.by_fee.read",)},
     {"id": "finance.decisions", "title": "Décisions financières actives", "module": "finance", "priority": 42, "all": ("finance.decisions.read",)},

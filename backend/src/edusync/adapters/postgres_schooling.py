@@ -372,6 +372,7 @@ class PostgresSchoolingRepository:
         where,params=_student_scope_where(scopes)
         stmt=_bind_scope(text(f"""WITH visible AS (SELECT s.* FROM students s WHERE s.school_id=:sid AND {where})
           SELECT count(*) total_students,count(*) FILTER(WHERE status='ACTIVE') active_students,
+            count(*) FILTER(WHERE status='ACTIVE' AND profile_completeness<80) profiles_to_complete,
             count(*) FILTER(WHERE status='ABANDON') abandoned,count(*) FILTER(WHERE status='TRANSFERRED') transferred,
             (SELECT count(DISTINCT e.student_id) FROM enrollments e JOIN visible v ON v.id=e.student_id WHERE e.enrollment_kind='NEW' AND e.status<>'CANCELLED') new_enrollments,
             (SELECT count(DISTINCT e.student_id) FROM enrollments e JOIN visible v ON v.id=e.student_id WHERE e.enrollment_kind='REENROLLMENT' AND e.status<>'CANCELLED') reenrollments,

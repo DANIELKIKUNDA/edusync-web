@@ -47,7 +47,7 @@ function Async<T>({s,children,lines=2}:{s:Loaded<T>;children:(d:T)=>React.ReactN
 const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent','sync.devices']);
 const ICON:Record<string,string>={'access.members':'users','access.requests':'shield','settings.academic_year':'calendar','settings.structure':'layers','audit.recent':'clock',
   'sync.devices':'sync','cash.today':'finance','cash.supervision':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','personnel.summary':'users','finance.recovery':'finance',
-  'finance.by_fee':'tag','finance.decisions':'shield','reports.latest':'doc','documents.recent':'folder','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart'};
+  'finance.by_fee':'tag','finance.decisions':'shield','reports.latest':'doc','documents.recent':'folder','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart','students.files':'doc'};
 
 function AdminCard({w,d,index,go}:{w:AccessWidget;d:Loaded<Record<string,any>>;index:number;go:()=>void}){
   const x=d.data?.[w.id];const loading=d.loading&&!d.data;
@@ -99,6 +99,7 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
     case 'documents.recent':return <RecentDocuments common={common} token={token}/>;
     case 'inventory.stock':return <Stock common={common} token={token}/>;
     case 'inventory.counts':return <Counts common={common} token={token}/>;
+    case 'students.files':return <StudentFiles common={common} token={token}/>;
     default:return null;
   }
 }
@@ -163,6 +164,10 @@ function RecentDocuments({common,token}:{common:Common;token:string}){const s=us
 function Stock({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipDashboard(token),[token]);
   return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const low=d?.low_stock??[];return low.length?<><p className="ui-card-value">{n(low.length)}<small>article(s) sous le seuil</small></p><ul className="ui-list">{low.slice(0,3).map((x:any)=><li key={x.id}><b>{x.label}</b><small>{x.quantity} {x.unit}</small></li>)}</ul></>
     :<p className="ui-card-hint">Aucun stock sous son seuil d’alerte.</p>}}</Async></Card>}
+function StudentFiles({common,token}:{common:Common;token:string}){const s=useData(()=>getSchoolingSummary(token),[token]);
+  return <Card level="info" {...common}><Async s={s}>{(d:any)=>{const k=Number(d?.profiles_to_complete??0),a=Number(d?.active_students??0);const pct=a?Math.round((a-k)*100/a):100;
+    return k?<><p className="ui-card-value">{n(k)}<small>dossier{k>1?'s':''} à compléter</small></p><p className="ui-card-hint">{pct} % des dossiers des élèves actifs sont suffisamment complets (naissance, adresse, responsable…).</p></>
+      :<p className="ui-card-hint">Tous les dossiers des élèves actifs sont suffisamment complets.</p>}}</Async></Card>}
 function Counts({common,token}:{common:Common;token:string}){const s=useData(()=>stewardshipCounts(token),[token]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=>{const open=(d?.items??[]).filter((x:any)=>x.status!=='VALIDATED');return open.length?<p className="ui-card-hint"><b>{open.length} inventaire(s) en cours</b> à terminer.</p>:<p className="ui-card-hint">Aucun inventaire en cours.</p>}}</Async></Card>}
 

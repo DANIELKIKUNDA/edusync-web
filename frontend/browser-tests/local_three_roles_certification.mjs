@@ -13,10 +13,14 @@ const ROLES = [
   {folder: 'intendant', label: 'Intendant', short: 'intendant', forbidden: COMMON, module: 'Intendance'},
   {folder: 'directeur_etudes', label: 'Directeur des études', short: 'dir_etudes', forbidden: [...COMMON, ...STEWARD], module: 'Élèves & inscriptions'},
   {folder: 'directeur_discipline', label: 'Directeur de discipline', short: 'dir_discipline', forbidden: [...COMMON, ...STEWARD], module: 'Élèves & inscriptions'},
+  // 2026-10-31: the Secrétariat creates and updates staff records, completes pupil files, imports pupils and prepares
+  // message templates — it never collects, enrols, sends a message or suspends an agent.
+  {folder: 'secretariat', label: 'Secrétariat', short: 'secretariat', forbidden: [...COMMON.filter(re => re.source !== 'Nouvel agent'), ...STEWARD, /^Envoyer$/, /Suspendre/], module: 'Élèves & inscriptions'},
 ];
+const ONLY = process.argv[2] ? process.argv[2].split(',') : null;
 let failures = 0; const results = [];
 const b = await chromium.launch({channel: 'msedge'});
-for (const R of ROLES) {
+for (const R of ROLES.filter(r => !ONLY || ONLY.includes(r.folder))) {
   const acc = JSON.parse(fs.readFileSync(`../.local/${R.folder}/.account.json`, 'utf8'));
   const ctx = await b.newContext({viewport: {width: 1440, height: 900}, acceptDownloads: true}); const p = await ctx.newPage();
   ctx.on('page', np => { if (np !== p) setTimeout(() => np.close().catch(() => {}), 1500); });
@@ -63,6 +67,22 @@ for (const R of ROLES) {
       const xl = p.getByRole('button', {name: /^Exporter l’inventaire .* en Excel$/}).first();
       if (await xl.count()) { const d2 = p.waitForEvent('download', {timeout: 20000}); await xl.click(); await d2; }
       else console.log('      (aucun inventaire enregistré : export non exercé)'); }, '04_intendance');
+  } else if (R.folder === 'secretariat') {
+    await step('04 Élèves : annuaire exportable, ni inscription ni registre', async () => {
+      await nav().getByRole('button', {name: 'Élèves & inscriptions', exact: true}).click(); await p.waitForTimeout(2000);
+      if (await p.getByRole('tab', {name: /Inscription \/ Réinscription/}).count()) throw new Error('onglet « Inscription / Réinscription » affiché sans droit');
+      await p.getByRole('tab', {name: /Annuaire élèves/}).click(); await p.waitForTimeout(1500);
+      if (await p.getByRole('button', {name: /Registre des inscriptions/}).count()) throw new Error('registre des inscriptions affiché sans droit');
+      const dl = p.waitForEvent('download', {timeout: 20000}).catch(() => null); await p.locator('.kp-exports button', {hasText: 'Excel'}).first().click(); await p.waitForTimeout(2500); await dl;
+      await p.keyboard.press('Escape'); await p.waitForTimeout(500); }, '04_eleves');
+    await step('05 Personnel : création d’agent proposée, suspension absente', async () => {
+      await nav().getByRole('button', {name: 'Personnel', exact: true}).click(); await p.waitForTimeout(2000);
+      if (!await p.getByRole('button', {name: /Nouvel agent/}).count()) throw new Error('« Nouvel agent » absent alors que le droit est accordé');
+      if (await p.getByRole('button', {name: /Suspendre/}).count()) throw new Error('« Suspendre » affiché sans droit'); }, '05_personnel');
+    await step('06 Communication : modèles oui, écriture de message non', async () => {
+      await nav().getByRole('button', {name: 'Communication', exact: true}).click(); await p.waitForTimeout(2000);
+      if (await p.getByRole('tab', {name: /Écrire un message/}).count()) throw new Error('« Écrire un message » affiché sans droit d’envoi');
+      if (!await p.getByRole('tab', {name: /Modèles/}).count()) throw new Error('onglet des modèles absent'); }, '06_communication');
   } else {
     await step('04 Élèves : registre des inscriptions (PDF et Excel) dans le périmètre', async () => {
       await nav().getByRole('button', {name: 'Élèves & inscriptions', exact: true}).click(); await p.waitForTimeout(2000);

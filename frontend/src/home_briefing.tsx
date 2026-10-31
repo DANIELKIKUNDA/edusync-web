@@ -3,7 +3,7 @@
 // not the metric name), computed from the SAME read models as the cards below — no new data, no guess. Each finding is
 // a clickable line that opens its detail. Only the widgets granted by the server projection are used, never a role name.
 import React,{useEffect,useState} from 'react';
-import {cashDaySummary,financeDecisions,getEffectifsCounts,getEffectifsMovements,getPersonnelSummary,recoveryMonthly,stewardshipCounts,stewardshipDashboard,type AccessWidget} from './api';
+import {cashDaySummary,financeDecisions,getEffectifsCounts,getEffectifsMovements,getPersonnelSummary,getSchoolingSummary,recoveryMonthly,stewardshipCounts,stewardshipDashboard,type AccessWidget} from './api';
 import {NavGlyph} from './platform/nav_icons';
 
 type Tone='ok'|'warn'|'bad'|'info';
@@ -79,6 +79,11 @@ async function movementsFinding(token:string,yearId?:string):Promise<Finding>{
   return {widget:'headcounts.movements',tone:ab||tr?'warn':'info',icon:'students',title:ab?`${n(ab)} abandon${ab>1?'s':''} sur les 30 derniers jours`:`${n(recent.length)} mouvement${recent.length>1?'s':''} d’élèves ce mois-ci`,
     text:`${parts.join(' · ')}. Le dernier : ${recent[0].student_name} (${recent[0].class_label}).`};
 }
+async function filesFinding(token:string):Promise<Finding>{
+  const s=await getSchoolingSummary(token);const k=num(s.profiles_to_complete),a=num(s.active_students);const pct=a?Math.round((a-k)*100/a):100;
+  return k?{widget:'students.files',tone:pct<50?'warn':'info',icon:'doc',title:`${n(k)} dossier${k>1?'s':''} d’élève à compléter`,text:`${pct} % des dossiers sont complets. Il manque surtout la naissance, l’adresse ou le responsable : à compléter à l’accueil des parents.`}
+    :{widget:'students.files',tone:'ok',icon:'doc',title:'Dossiers des élèves complets',text:`Les ${n(a)} élèves actifs ont un dossier suffisamment rempli.`};
+}
 async function personnelFinding(token:string):Promise<Finding>{
   const p=await getPersonnelSummary(token);
   return {widget:'personnel.summary',tone:num(p.suspended)?'warn':'info',icon:'users',title:`${n(p.active)} agent${num(p.active)>1?'s':''} en service`,
@@ -96,6 +101,7 @@ export function DailyBriefing({token,yearId,widgets,open}:{token:string;yearId?:
     if(has('finance.decisions'))jobs.push(decisionsFinding(token));
     if(has('headcounts.movements'))jobs.push(movementsFinding(token,yearId));
     if(has('personnel.summary'))jobs.push(personnelFinding(token));
+    if(has('students.files'))jobs.push(filesFinding(token));
     if(has('inventory.stock'))jobs.push(stockFindings(token));
     if(has('inventory.counts'))jobs.push(countsFinding(token));
     // one unavailable read model never hides the others
