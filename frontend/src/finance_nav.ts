@@ -3,6 +3,8 @@ export type FinanceTarget='checkout'|'recovery'|'cash'|'followup'|'reports'|'fee
 
 export function setFinanceTarget(target:FinanceTarget){
   try{sessionStorage.setItem(FINANCE_TARGET_KEY,target)}catch{/* optional browser storage */}
+  // The finance page may already be open (phone bar « Encaisser » while on « Caisse »): it switches tab at once.
+  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent('edusync:finance-target',{detail:target}));
 }
 export function takeFinanceTarget():string{
   try{const v=sessionStorage.getItem(FINANCE_TARGET_KEY)||'';sessionStorage.removeItem(FINANCE_TARGET_KEY);return v}catch{return ''}

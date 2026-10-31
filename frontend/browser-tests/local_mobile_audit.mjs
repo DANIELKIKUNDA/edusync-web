@@ -3,14 +3,23 @@
 //   overflow (page wider than the phone), cut tables, hidden tabs, touch targets < 44 px, the page title repeated,
 //   the bottom navigation bar (destinations offered to the role), the height of the page before the first content.
 // Usage: node browser-tests/local_mobile_audit.mjs [folder,folder] — accounts in ../.local/<folder>/.account.json
-// (« admin » = the administrator of the fixtures). Read only: it opens screens, never submits anything.
+// (« admin » = the administrator of the fixtures, « platform » = the local Manager Système with its test second factor). Read only: it opens screens, never submits anything.
 import {chromium} from '@playwright/test';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 const OUT = '../.local/mobile_audit'; fs.mkdirSync(OUT, {recursive: true});
 const FX = JSON.parse(fs.readFileSync('../.local/claude-fixtures-edusync_claude_fresh.json', 'utf8'));
-const ALL = ['admin', 'gestionnaire', 'caissier', 'secretariat', 'intendant', 'prefet', 'directeur_etudes', 'directeur_discipline', 'directeur_primaire', 'directrice_maternelle', 'responsable_finance', 'promoteur'];
+const ALL = ['platform', 'admin', 'gestionnaire', 'caissier', 'secretariat', 'intendant', 'prefet', 'directeur_etudes', 'directeur_discipline', 'directeur_primaire', 'directrice_maternelle', 'responsable_finance', 'promoteur'];
 const accounts = (process.argv[2] ? process.argv[2].split(',') : ALL);
 const account = f => f === 'admin' ? {email: FX.C.users.ADMIN.email, password: FX.C.users.ADMIN.password} : JSON.parse(fs.readFileSync(`../.local/${f}/.account.json`, 'utf8'));
+function totp(secret) {   // RFC 6238, the local test account's key (never printed)
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = '';
+  for (const ch of secret.replace(/[\s=]/g, '').toUpperCase()) bits += alphabet.indexOf(ch).toString(2).padStart(5, '0');
+  const key = Buffer.from(bits.match(/.{8}/g).map(x => parseInt(x, 2)));
+  const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  const h = crypto.createHmac('sha1', key).update(counter).digest(); const o = h[h.length - 1] & 15;
+  return String(((h.readUInt32BE(o) & 0x7fffffff) % 1e6)).padStart(6, '0');
+}
 const report = fs.existsSync(`${OUT}/audit.json`) ? JSON.parse(fs.readFileSync(`${OUT}/audit.json`, 'utf8')) : {};
 const b = await chromium.launch({channel: 'msedge'});
 const measure = p => p.evaluate(() => {
@@ -35,7 +44,11 @@ for (const f of accounts) {
   const p = await ctx.newPage(); report[f] = {};
   try {
     await p.goto('http://localhost:5180/'); await p.getByLabel('Adresse e-mail').fill(acc.email); await p.getByLabel('Mot de passe', {exact: true}).fill(acc.password);
-    await p.getByRole('button', {name: 'Se connecter'}).click(); await p.locator('.es-shell').waitFor({timeout: 40000}); await p.waitForTimeout(3500);
+    await p.getByRole('button', {name: 'Se connecter'}).click();
+    if (acc.totp) { await p.getByLabel('Code à 6 chiffres').first().waitFor({timeout: 20000}); await p.getByLabel('Code à 6 chiffres').first().fill(totp(acc.totp));
+      const go = p.getByRole('button', {name: /Valider|Continuer|Se connecter|Vérifier/}).first(); if (await go.isVisible().catch(() => false)) await go.click(); }
+    await p.locator('.es-shell').waitFor({timeout: 40000}); await p.waitForTimeout(3500);
+    const space = p.getByRole('button', {name: /Plateforme EduSync|Atelier/}).first(); if (f === 'platform' && await space.isVisible().catch(() => false) && !(await p.locator('.es-bottom').count())) await space.click();
     await p.getByRole('button', {name: 'Tous les modules'}).click(); await p.waitForTimeout(600);
     const modules = (await p.getByRole('dialog', {name: 'Menu EduSync'}).locator('nav button, .es-drawer-nav button').allInnerTexts()).map(x => x.trim()).filter(x => x && !/^[A-Z]{2}(\s|$)/.test(x));
     await p.keyboard.press('Escape'); await p.waitForTimeout(400); if (await p.getByRole('dialog', {name: 'Menu EduSync'}).isVisible().catch(() => false)) await p.mouse.click(380, 400);

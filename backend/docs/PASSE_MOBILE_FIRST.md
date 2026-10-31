@@ -42,6 +42,18 @@ Effectifs, Documents. Règle : les modules où le membre travaille le plus, lus 
 Fichiers : `frontend/src/platform/mobile.css` (règles mobiles), `frontend/src/platform/mobile_enhance.ts` (tableaux en
 cartes, onglet centré), `frontend/src/App.tsx` (choix de la barre), `frontend/src/platform/shell.tsx` (barre et « Plus »).
 
+## Extension du 31/10 : plateforme et « Encaisser »
+
+- **Plateforme EduSync** (Manager Système), même passe pour un système homogène : audit des 8 modules (robot étendu,
+  connexion avec le second facteur de test local) — titre répété 0 (avant : 7 modules sur 8), cibles tactiles trop petites
+  0 (avant : 25 sur Écoles) ; barre du bas Pilotage · Écoles · Accès · Équipe · Plus (avant : « Tableau », « Utilisateurs »
+  tronqués, 3 destinations) ; même feuille « Plus ».
+- **« Encaisser »** : pour qui encaisse (raccourci « Nouvel encaissement » accordé par le serveur), l'entrée finance de la
+  barre s'appelle « Encaisser » et ouvre directement l'encaissement, même si le Centre financier est déjà ouvert sur un
+  autre onglet. Caissier : Accueil · Encaisser · Élèves · Effectifs · Plus.
+- **Indicateur actif** : une ancienne règle globale (`nav button>span`) écrasait la pastille de l'onglet actif dans les deux
+  espaces ; corrigé. L'icône « Plus » devient « ••• » (elle ressemblait à celle du tableau de bord de la plateforme).
+
 ## Non-régression
 
 | Recette | Résultat |

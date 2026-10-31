@@ -245,7 +245,7 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
         <span className="es-bnav-ind" aria-hidden="true"><NavGlyph g={n.icon} size={22}/></span><small>{n.shortLabel || n.label}</small>
       </button>)}
       <button className={!primary.some(n => n.active) ? 'es-active' : ''} onClick={() => setDrawer(true)} aria-label="Tous les modules" aria-haspopup="dialog">
-        <span className="es-bnav-ind" aria-hidden="true"><NavGlyph g="grid" size={22}/></span><small>Plus</small></button>
+        <span className="es-bnav-ind" aria-hidden="true"><NavGlyph g="more" size={22}/></span><small>Plus</small></button>
     </nav>
     {drawer && <div className="es-drawer-backdrop">
       <aside className="es-drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-label="Menu EduSync">

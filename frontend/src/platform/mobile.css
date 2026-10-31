@@ -13,10 +13,11 @@
     -webkit-backdrop-filter:saturate(1.6) blur(16px);backdrop-filter:saturate(1.6) blur(16px);border-top:1px solid rgba(15,23,42,.07);box-shadow:0 -8px 28px rgba(15,23,42,.07)}
   .es-shell .es-bottom button{gap:4px;min-height:60px;padding:4px 2px;color:#5b6474;font-size:11.5px;font-weight:600;-webkit-tap-highlight-color:transparent}
   .es-shell .es-bottom small{font-size:11.5px;letter-spacing:.01em}
-  .es-bnav-ind{display:grid;place-items:center;width:58px;height:32px;border-radius:999px;transition:background-color .2s ease,transform .12s ease}
-  .es-shell .es-bottom button:active .es-bnav-ind{transform:scale(.9)}
+  /* (a historical global rule « nav button>span » forced 20 px boxes and erased the active pill: higher specificity here) */
+  .es-shell .es-bottom button>span.es-bnav-ind{display:grid;place-items:center;width:60px;height:32px;border-radius:999px;transition:background-color .2s ease,transform .12s ease}
+  .es-shell .es-bottom button:active>span.es-bnav-ind{transform:scale(.9)}
   .es-shell .es-bottom button.es-active{color:var(--es-ink,#101828)}
-  .es-shell .es-bottom button.es-active .es-bnav-ind{background:var(--es-brand-soft,#e8efff);color:var(--es-brand,#1d4ed8)}
+  .es-shell .es-bottom button.es-active>span.es-bnav-ind{background:var(--es-brand-soft,#e8efff);color:var(--es-brand,#1d4ed8)}
   .es-shell .es-bottom button.es-active small{font-weight:800}
 
   /* « Plus »: every module as a bottom sheet of tiles (instead of a side drawer). */
@@ -43,6 +44,11 @@
   :is(.docHeroIcon,.commHeroIcon,.syncHeroIcon,.personnelHeroAccent,.personnelHeroTrust){display:none!important}
   :is(.heroActions,.fxActions){display:flex!important;flex-wrap:wrap;gap:8px;width:100%}
   :is(.heroActions,.fxActions)>*{flex:1 1 calc(50% - 4px);min-height:44px;justify-content:center}
+
+  /* Platform pages: the same single title (top bar); the page head keeps its actions (search, add, more). */
+  .sc-head>:is(h1,h2):first-child,.sc-head>div:first-child>:is(h1,h2){display:none}
+  .sc-head{justify-content:flex-end!important}
+  .es-content :is(.sc-icon-btn,.sc-btn-icon){min-width:44px!important;min-height:44px!important}
 
   /* Home header: one primary action, the others as a pair of secondary buttons. */
   .ui-page-actions{display:flex!important;flex-wrap:wrap;gap:8px}
