@@ -7,14 +7,18 @@ import {configureOutbox, savePack, subscribeOutbox, syncOutbox, type OutboxState
 import {DeviceOutbox} from './device_outbox';
 
 const PACK_EVERY_MS = 10 * 60_000;
+const SPEAKING_KINDS = new Set(['ENROLLMENT', 'PAYMENT', 'SALE', 'EXPENSE', 'CASH_OPEN', 'CASH_CLOSE', 'DEPOSIT']);
 export function useSchoolOffline(session: {token: string; school: {id: string}; user: {id: string}; permissions: string[]}) {
   const tokenRef = useRef(session.token); tokenRef.current = session.token;
   useEffect(() => {
     configureOutbox(`${session.school.id}:${session.user.id}`, () => tokenRef.current);
     const sent = (e: Event) => { const d = (e as CustomEvent).detail; toast.success(`Synchronisé : ${d.label}${d.receipt ? ` · reçu ${d.receipt}` : ''}`); };
     const synced = (e: Event) => { const d = (e as CustomEvent).detail; if (d.refused) toast.error(`${d.refused} opération(s) refusée(s) par le serveur à la synchronisation : touchez « à vérifier » en haut de l’écran pour voir la raison.`, {duration: 15000}); };
-    window.addEventListener('edusync:outbox-sent', sent); window.addEventListener('edusync:outbox-synced', synced);
-    return () => { window.removeEventListener('edusync:outbox-sent', sent); window.removeEventListener('edusync:outbox-synced', synced); };
+    // Screens that already speak offline (cash desk, enrollment, checkout, deposits) keep their own message; the others —
+    // every school role since 2026-10-31 — get this one, so nobody believes an offline change is already on the server.
+    const queued = (e: Event) => { const d = (e as CustomEvent).detail; if (!SPEAKING_KINDS.has(d?.kind)) toast.info(`Hors connexion : « ${d?.label ?? 'opération'} » enregistrée sur cet appareil`, {description: 'Elle sera envoyée automatiquement au retour du réseau.'}); };
+    window.addEventListener('edusync:outbox-sent', sent); window.addEventListener('edusync:outbox-synced', synced); window.addEventListener('edusync:outbox-queued', queued);
+    return () => { window.removeEventListener('edusync:outbox-sent', sent); window.removeEventListener('edusync:outbox-synced', synced); window.removeEventListener('edusync:outbox-queued', queued); };
   }, [session.school.id, session.user.id]);
   // Offline pack: downloaded in the background when online, refreshed every 10 minutes and after each synchronisation.
   useEffect(() => {
@@ -30,18 +34,29 @@ export function useSchoolOffline(session: {token: string; school: {id: string}; 
   }, [session.school.id, session.user.id, session.permissions.join(',')]);
 }
 
-// Reference data an offline enrollment needs (offline proof on a phone, 2026-10-31): the enrollment wizard reads the
+// Reference data offline work needs (offline proof on a phone, 2026-10-31): the enrollment wizard reads the
 // classes, the school years and the options. They were kept on the device only if « Élèves » had been opened online, so
 // a phone that went offline first showed an empty class choice. They are now read in the background while the network
 // is there, through the resilient fetch that keeps the school's read-only copy (same URLs as the screens).
-const ENROLLMENT_REFERENCE=['/api/v1/settings/classes/selector','/api/v1/settings/academic-years/selector','/api/v1/settings/options/selector'];
+// 2026-10-31 (every school role works offline): the same for the lists each role needs to work — the stock for the
+// Intendant, the staff directory and assignment choices for whoever manages staff. Same URLs as the screens (defaults).
+const OFFLINE_REFERENCE:[(p:string[])=>boolean,string[]][]=[
+  [p=>p.includes('enrollments.create')||p.includes('enrollments.reenroll'),['/api/v1/settings/classes/selector','/api/v1/settings/academic-years/selector','/api/v1/settings/options/selector']],
+  [p=>p.includes('inventory.stock.read'),['/api/v1/stewardship/dashboard','/api/v1/stewardship/stock','/api/v1/stewardship/sale-stock']],
+  [p=>p.includes('inventory.stock.movements.read'),['/api/v1/stewardship/stock/movements']],
+  [p=>p.includes('inventory.assets.read'),['/api/v1/stewardship/assets','/api/v1/stewardship/locations']],
+  [p=>p.includes('inventory.counts.read'),['/api/v1/stewardship/counts']],
+  [p=>p.includes('personnel.read'),['/api/v1/personnel?limit=200&offset=0']],
+  [p=>p.includes('personnel.create')||p.includes('personnel.update'),['/api/v1/personnel/scope-options']],
+];
 export function useEnrollmentReference(session: {token: string; school: {id: string}; user: {id: string}; permissions: string[]}) {
   const tokenRef = useRef(session.token); tokenRef.current = session.token;
-  const enrols = session.permissions.includes('enrollments.create') || session.permissions.includes('enrollments.reenroll');
+  const urls = OFFLINE_REFERENCE.filter(([allowed]) => allowed(session.permissions)).flatMap(([, list]) => list);
+  const enrols = urls.join('|');
   useEffect(() => {
     if (!enrols) return; let stop = false;
     const warm = () => { if (stop || navigator.onLine === false) return;
-      ENROLLMENT_REFERENCE.forEach(url => { void fetch(url, {headers: {Authorization: `Bearer ${tokenRef.current}`}}).catch(() => undefined); }); };
+      enrols.split('|').forEach(url => { void fetch(url, {headers: {Authorization: `Bearer ${tokenRef.current}`}}).catch(() => undefined); }); };
     const first = setTimeout(warm, 1500); const t = setInterval(warm, PACK_EVERY_MS); window.addEventListener('online', warm);
     return () => { stop = true; clearTimeout(first); clearInterval(t); window.removeEventListener('online', warm); };
   }, [session.school.id, session.user.id, enrols]);

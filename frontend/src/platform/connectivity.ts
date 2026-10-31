@@ -46,10 +46,13 @@ export async function resilientFetch(input:RequestInfo|URL,init?:RequestInit):Pr
   const replay=new Headers(init?.headers).get('X-EduSync-Replay')==='outbox';
   // School space (owner decision 2026-10-25): enrollment, re-enrollment and payments do not depend on the network —
   // the write is kept in the device outbox with its Idempotency-Key and replayed later. The platform stays read-only.
-  const queueable=school && !read && !replay && !!offlineWriteKind(url.pathname);
+  const headers=new Headers(init?.headers);const hasKey=!!headers.get('Idempotency-Key');
+  // Only a JSON operation carrying its Idempotency-Key is kept: the replay must be recognised by the server (a file upload
+  // or an operation without key cannot be replayed safely).
+  const queueable=school && !read && !replay && !!offlineWriteKind(url.pathname) && hasKey && (init?.body==null || typeof init.body==='string');
   if(offline && queueable)return queueWrite(url,method,init);
   if(offline && !['GET','HEAD','OPTIONS'].includes(method) && !/\/auth\/(refresh|logout)$/.test(url.pathname))
-    throw new UserFacingError(school?'Hors connexion : cette action-là demande le réseau. Les inscriptions, les encaissements et les dépenses, eux, continuent sans connexion.':'Hors connexion — lecture seule. Cette action nécessite une connexion au serveur.','OFFLINE_READ_ONLY');
+    throw new UserFacingError(school?'Hors connexion : cette action demande le réseau (comptes et accès, imports, annulations et clôture de la journée de caisse). Le reste de votre travail continue sans connexion.':'Hors connexion — lecture seule. Cette action nécessite une connexion au serveur.','OFFLINE_READ_ONLY');
   if(offline && read && !/\/auth\//.test(url.pathname)){
     const local=school?await packRead(url):null;if(local)return local;
     const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
@@ -69,7 +72,8 @@ export async function resilientFetch(input:RequestInfo|URL,init?:RequestInit):Pr
 async function queueWrite(url:URL,method:string,init?:RequestInit):Promise<Response>{
   const body=typeof init?.body==='string'?init.body:'{}';
   const key=new Headers(init?.headers).get('Idempotency-Key')||crypto.randomUUID();
-  const op=await enqueueWrite(url.pathname,method,body,key);
+  const op=await enqueueWrite(url.pathname,method,body,key,new Headers(init?.headers).get('If-Match'));
+  window.dispatchEvent(new CustomEvent('edusync:outbox-queued',{detail:{label:op.label,kind:op.kind}}));
   try{const b=JSON.parse(body);
     if(/\/finance\/checkout\/collect$/.test(url.pathname))await applyLocalPayment(b.enrollment_id,b.charge_ids??[],b.amount);
     if(/\/finance\/checkout\/family-collect$/.test(url.pathname))for(const l of b.lines??[])await applyLocalPayment(l.enrollment_id,l.charge_ids??[],l.amount);

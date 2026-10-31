@@ -36,3 +36,31 @@ it('the pending payment reads FC on the device, never the internal code CDF', as
   const [row] = await outbox.listOutbox();
   expect(row.label).toBe('Encaissement · 1000 FC');
 });
+
+// 2026-10-31 (owner: « au niveau école tout le monde peut travailler offline »)
+it('every role: a staff record edit is kept with its version (If-Match) and replayed with it', async () => {
+  const {outbox, resilientFetch} = await setup();
+  const S = '33333333-3333-3333-3333-333333333333';
+  const r = await resilientFetch(`/api/v1/personnel/${S}`, {method: 'PUT', headers: {'Idempotency-Key': 'k-staff', 'If-Match': '7', 'Content-Type': 'application/json'}, body: JSON.stringify({employee_no: 'A1', last_name: 'KABEYA', category: 'AUTRE'})});
+  expect(r.status).toBe(202);
+  const [row] = await outbox.listOutbox();
+  expect(row).toMatchObject({label: 'Fiche agent', ifMatch: '7', idempotencyKey: 'k-staff'});
+  const sent: any[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => { sent.push(Object.fromEntries(new Headers(init.headers).entries())); return new Response('{}', {status: 200}); }));
+  Object.defineProperty(navigator, 'onLine', {configurable: true, get: () => true});
+  await outbox.syncOutbox();
+  expect(sent[0]).toMatchObject({'if-match': '7', 'idempotency-key': 'k-staff', 'x-edusync-replay': 'outbox'});
+  expect(await outbox.listOutbox()).toHaveLength(0);
+});
+
+it('an operation without Idempotency-Key is never kept (it could not be replayed safely)', async () => {
+  const {outbox, resilientFetch} = await setup();
+  await expect(resilientFetch('/api/v1/stewardship/stock/movements', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})).rejects.toThrow(/demande le réseau/);
+  expect(await outbox.listOutbox()).toHaveLength(0);
+});
+
+it('accounts and access stay online, with a message that says so', async () => {
+  const {outbox, resilientFetch} = await setup();
+  await expect(resilientFetch('/api/v1/access/members', {method: 'POST', headers: {'Idempotency-Key': 'k-m', 'Content-Type': 'application/json'}, body: '{}'})).rejects.toThrow(/comptes et accès/);
+  expect(await outbox.listOutbox()).toHaveLength(0);
+});

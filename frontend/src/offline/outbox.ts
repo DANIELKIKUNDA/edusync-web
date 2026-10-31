@@ -9,6 +9,7 @@ export type OutboxStatus = 'PENDING' | 'CONFLICT';
 export type OutboxRequest = {
   id: string; scope: string; method: string; path: string; body: string; idempotencyKey: string;
   kind: string; label: string; createdAt: string; enqueueOrder?: number; attempts: number; status: OutboxStatus; lastError?: string; syncedReceipt?: string;
+  ifMatch?: string;   // the version the user edited: replayed as is, the server answers the first result (same key) or a real conflict
 };
 export type OfflinePack = {scope: string; generatedAt: string; people: any[]; balances: Record<string, any[]>};
 
@@ -46,6 +47,26 @@ const OFFLINE_WRITES: Array<[RegExp, string, string]> = [
   [/^\/api\/v1\/finance\/cash\/open$/, 'CASH_OPEN', 'Ouverture de caisse'],
   [/^\/api\/v1\/finance\/cash\/close$/, 'CASH_CLOSE', 'Clôture de caisse'],
   [/^\/api\/v1\/effectifs\/deposits$/, 'DEPOSIT', 'Dépôt matériel'],
+  [/^\/api\/v1\/finance\/checkout\/(collect-with-fund|advance-funds)$/, 'PAYMENT', 'Fonds d’avance'],
+  // 2026-10-31 (owner: « au niveau école tout le monde peut travailler offline »): every school role. Only operations the
+  // server replays safely with their Idempotency-Key (tools/ci/offline_replay_postgres_integration.py). Kept online on
+  // purpose: accounts and access (/access), imports (/import), reversals, cash-day closing and financial decisions
+  // (cash integrity), document generation and devices — the screen says the network is needed.
+  [/^\/api\/v1\/schooling\/students\/[0-9a-f-]{36}$/, 'STUDENT', 'Fiche élève'],
+  [/^\/api\/v1\/schooling\/students\/[0-9a-f-]{36}\/(abandon|suspend|transfer|reintegrate|class-change)$/, 'STUDENT', 'Mouvement d’élève'],
+  [/^\/api\/v1\/schooling\/families\/[0-9a-f-]{36}(\/guardians(\/[0-9a-f-]{36})?)?$/, 'FAMILY', 'Famille et responsables'],
+  [/^\/api\/v1\/personnel$/, 'STAFF', 'Nouvel agent'],
+  [/^\/api\/v1\/personnel\/[0-9a-f-]{36}$/, 'STAFF', 'Fiche agent'],
+  [/^\/api\/v1\/personnel\/[0-9a-f-]{36}\/(status|exit|reactivate)$/, 'STAFF', 'Statut d’agent'],
+  [/^\/api\/v1\/personnel\/(catalog\/functions(\/[0-9a-f-]{36})?|assignments(\/[0-9a-f-]{36}\/end)?)$/, 'STAFF', 'Fonctions et affectations'],
+  [/^\/api\/v1\/personnel\/([0-9a-f-]{36}\/children(\/[0-9a-f-]{36}\/payroll-deductions)?|children\/[0-9a-f-]{36}\/finance-mode|payroll-deductions\/[0-9a-f-]{36}\/cancel)$/, 'STAFF', 'Enfants du personnel'],
+  [/^\/api\/v1\/stewardship\/items(\/[0-9a-f-]{36})?$/, 'STOCK', 'Article de stock'],
+  [/^\/api\/v1\/stewardship\/stock\/movements$/, 'STOCK', 'Mouvement de stock'],
+  [/^\/api\/v1\/stewardship\/assets(\/[0-9a-f-]{36}(\/(status|repairs))?)?$/, 'ASSET', 'Patrimoine'],
+  [/^\/api\/v1\/stewardship\/counts(\/[0-9a-f-]{36}\/(lines|validate))?$/, 'COUNT', 'Inventaire physique'],
+  [/^\/api\/v1\/communications\/send$/, 'MESSAGE', 'Message aux familles'],
+  [/^\/api\/v1\/communications\/templates$/, 'MESSAGE', 'Modèle de message'],
+  [/^\/api\/v1\/settings\/(?!backups|branding)[a-z-]+(\/[^/]+){0,3}$/, 'SETTINGS', 'Paramétrage'],
 ];
 export function offlineWriteKind(path: string): [string, string] | null { const m = OFFLINE_WRITES.find(([re]) => re.test(path)); return m ? [m[1], m[2]] : null; }
 
@@ -71,11 +92,11 @@ export async function listOutbox(): Promise<OutboxRequest[]> {
     || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 }
 /** Stores a write that could not reach the server; the caller receives a synthetic « queued » answer. */
-export async function enqueueWrite(path: string, method: string, body: string, idempotencyKey: string): Promise<OutboxRequest> {
+export async function enqueueWrite(path: string, method: string, body: string, idempotencyKey: string, ifMatch?: string | null): Promise<OutboxRequest> {
   const k = offlineWriteKind(path); if (!k || !scope) throw new Error('Opération non disponible hors connexion');
   const currentScope = scope;
   const req: OutboxRequest = {id: crypto.randomUUID(), scope: currentScope, method, path, body, idempotencyKey, kind: k[0], label: describe(k[1], path, body),
-    createdAt: new Date().toISOString(), attempts: 0, status: 'PENDING'};
+    createdAt: new Date().toISOString(), attempts: 0, status: 'PENDING', ...(ifMatch ? {ifMatch} : {})};
   // The read and the write share one IndexedDB write transaction. Concurrent cashiers in
   // the same PWA therefore get a stable queue order, even within the same millisecond.
   const db = await openDb(); let saved = req;
@@ -118,7 +139,7 @@ export function syncOutbox(): Promise<void> {
     await notify({syncing: true}); let sent = 0, refused = 0, stopped = false;
     for (const r of queue) {
       let res: Response;
-      try { res = await fetch(r.path, {method: r.method, headers: {'Authorization': `Bearer ${tokenOf()}`, 'Content-Type': 'application/json', 'Idempotency-Key': r.idempotencyKey, 'X-EduSync-Replay': 'outbox'}, body: r.body}); }
+      try { res = await fetch(r.path, {method: r.method, headers: {'Authorization': `Bearer ${tokenOf()}`, 'Content-Type': 'application/json', 'Idempotency-Key': r.idempotencyKey, 'X-EduSync-Replay': 'outbox', ...(r.ifMatch ? {'If-Match': r.ifMatch} : {})}, body: r.body}); }
       catch { stopped = true; break; }                                               // still no network: keep the order, retry later
       if (res.status === 401 || res.status >= 500 || res.status === 429) { stopped = true; break; }
       if (res.ok) { let receipt = ''; try { const j = await res.clone().json(); receipt = j?.receipt_number ?? j?.receipts?.[0]?.receipt_number ?? ''; } catch { /* no body */ }

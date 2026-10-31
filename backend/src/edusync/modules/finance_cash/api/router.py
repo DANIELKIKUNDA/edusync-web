@@ -8,6 +8,9 @@ from edusync.adapters.postgres_cash_integrity import PostgresCashIntegrityReposi
 from edusync.bootstrap.dependencies import require_school_actor,get_services
 from edusync.bootstrap.services import AppServices
 from edusync.shared.application.context import ActorContext
+from fastapi import Header as _HeaderE
+from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
+from edusync.shared.application.idempotency import IdempotencyConflict,IdempotencyInProgress,IdempotentExecutor
 router=APIRouter(tags=['Centre financier · Caisse'])
 def need(a,c):
  try:a.require(c)
@@ -116,14 +119,25 @@ class ExpenseBody(BaseModel):
  category:str=Field(min_length=1,max_length=80);amount:Decimal=Field(gt=0,max_digits=18,decimal_places=2);currency:str=Field(pattern='^(CDF|USD)$')
  reason:str=Field(min_length=3,max_length=500);reference:str|None=Field(default=None,max_length=80)
 @router.post('/expenses',status_code=201)
-def record_expense(b:ExpenseBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- """G-CAI-1 — Desktop record_expense (category, reason >= 3, refused on a closed day), in the cashier's open session."""
+def record_expense(b:ExpenseBody,idempotency_key:str|None=_HeaderE(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """G-CAI-1 — Desktop record_expense (category, reason >= 3, refused on a closed day), in the cashier's open session.
+ 2026-10-31: an expense is recorded offline and replayed by the device with its Idempotency-Key — a replay after a lost
+ answer returns the first expense instead of recording it twice (the cash would be wrong). Without a key: unchanged."""
  need(actor,'finance.cash.expense.create')
+ key=(idempotency_key or '').strip()
+ if len(key)>180:raise HTTPException(400,'Idempotency-Key trop longue')
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-   out=PostgresCashIntegrityRepository(c).record_expense(actor.school_id,user_id=actor.user_id,membership_id=actor.membership_id,category=b.category,amount=b.amount,currency=b.currency,reason=b.reason,reference=b.reference)
-   _audit(c,actor,'RECORD_EXPENSE','CashExpense',out['id'],None,out);return out
+   def run():
+    out=PostgresCashIntegrityRepository(c).record_expense(actor.school_id,user_id=actor.user_id,membership_id=actor.membership_id,category=b.category,amount=b.amount,currency=b.currency,reason=b.reason,reference=b.reference)
+    _audit(c,actor,'RECORD_EXPENSE','CashExpense',out['id'],None,out);return out
+   if not key:return run()
+   return IdempotentExecutor(PostgresIdempotencyRepository(c)).execute(scope_key=str(actor.school_id),idempotency_key=key,operation='FINANCE_CASH_EXPENSE',
+     payload=b.model_dump(mode='json'),school_id=str(actor.school_id),actor_user_id=str(actor.user_id),action=lambda:(201,_jsonable_out(run()))).body
+ except (IdempotencyConflict,IdempotencyInProgress) as e:raise HTTPException(409,str(e)) from e
  except ValueError as e:raise HTTPException(409,str(e)) from e
+def _jsonable_out(out:dict)->dict:
+ return {k:(v if isinstance(v,(int,float,str,bool)) or v is None else str(v)) for k,v in out.items()}
 
 class ReversalBody(BaseModel):
  reversal_type:str=Field(pattern='^(ANNULATION|REMBOURSEMENT)$');reason:str=Field(min_length=3,max_length=500)

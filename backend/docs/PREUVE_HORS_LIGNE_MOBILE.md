@@ -49,7 +49,47 @@ Le test « plateforme » vérifiait qu'aucune réponse du serveur n'est gardée 
 « /health » n'importe où dans l'adresse : le module `/assets/health-….js`, désormais pré-chargé, déclenchait une fausse
 alerte. La règle vise maintenant le début de l'adresse (`/api/…`, `/health`) ; la protection est inchangée.
 
-## 4. Ce qui reste à faire par le propriétaire
+## 4. Tous les rôles école travaillent hors ligne (décision du 31/10/2026)
+
+Décision du propriétaire : « au niveau école tout le monde peut travailler offline ». Jusqu'ici, seules les opérations du
+guichet (inscription, encaissement, vente, dépense, caisse, dépôt) étaient gardées sur l'appareil.
+
+**Règle appliquée** : une opération est gardée hors ligne si le serveur sait la rejouer sans danger avec sa clé
+d'idempotence (une réponse perdue ne crée jamais de doublon). La version de la fiche modifiée (`If-Match`) est gardée et
+renvoyée au rejeu — elle était perdue auparavant.
+
+| Désormais hors ligne | Rôles concernés |
+|---|---|
+| Fiche élève (compléter, corriger l'identité), abandon, suspension, transfert, réintégration, changement de classe, familles et responsables | Secrétariat, directeurs, préfet, direction de section, gestionnaire |
+| Personnel : nouvel agent, fiche, statut, fonctions et affectations, enfants du personnel | Secrétariat, gestionnaire |
+| Intendance : articles, entrées / sorties / corrections, patrimoine (fiche, état, réparation), inventaires (comptage, validation) | Intendant |
+| Envoi de messages et modèles | Directeurs, préfet, secrétariat |
+| Paramétrage de l'établissement | Administrateur |
+| Fonds d'avance | Caissier |
+
+**Volontairement réservé au réseau** (l'écran le dit) : comptes et accès (une désactivation doit être immédiate et
+vérifiée), imports de fichiers (analyse sur le serveur), annulation de paiement, clôture et réouverture de la journée de
+caisse, décisions financières (intégrité de la caisse), génération de documents, appareils de synchronisation.
+
+**Défaut grave trouvé et corrigé** : la **dépense de caisse**, déjà gardée hors ligne, n'était pas reconnue par le serveur
+au rejeu — après une réponse perdue, elle était **enregistrée deux fois** (caisse fausse). Six mises à jour de
+l'intendance n'étaient pas sûres non plus (fiche article et fiche d'un bien : refus « modifié entre-temps » ; réparation :
+intervention écrite deux fois ; validation d'inventaire : refus « déjà validé »). Toutes passent maintenant par le service
+d'idempotence (clé facultative : sans clé, comportement inchangé). Preuve : `tools/ci/offline_replay_postgres_integration.py`
+— **12/12** ; sur l'ancien code **5/12** (la dépense rejouée donnait 2 lignes).
+
+Interface : bandeau « Ce que vous enregistrez est gardé sur cet appareil… », notification « Hors connexion : « … »
+enregistrée sur cet appareil » sur les écrans qui ne le disaient pas, listes de travail de chaque rôle gardées à l'avance
+(stock, patrimoine, inventaires, annuaire du personnel, choix d'affectation).
+
+| Preuve | Commande | Résultat |
+|---|---|---|
+| Intendant (entrée de stock) et Secrétariat (nouvel agent), téléphone simulé, module jamais ouvert en ligne, réponse perdue | `cd frontend && node browser-tests/local_offline_roles_certification.mjs` | **6/6** — 1 mouvement, 1 dossier en base |
+| Rejeux sur PostgreSQL réel | `… env edusync_cert_secretariat -- … ../tools/ci/offline_replay_postgres_integration.py` | **12/12** |
+| Non-régression | backend complet ; trois rôles, caissier, secrétariat sur PostgreSQL réel ; caissier hors ligne | 1375 passed · 178/178 · PASS · 80/80 · 10/10 |
+| Tests frontend | `npx vitest run tests --maxWorkers=4` | **91/91** |
+
+## 5. Ce qui reste à faire par le propriétaire
 
 La preuve est faite sur un téléphone **simulé**. Un essai de 10 minutes sur un **vrai téléphone Android** de l'école est
 recommandé avant la mise en service : se connecter une fois avec le réseau, attendre une minute, passer en mode avion,
