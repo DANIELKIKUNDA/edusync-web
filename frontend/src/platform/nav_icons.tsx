@@ -24,6 +24,7 @@ const PATHS: Record<string, React.ReactNode> = {
   pulse: <><path d="M3 12h4l3-8 4 16 3-8h4"/></>,
   more: <><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></>,
   menu: <><path d="M4 6h16M4 12h16M4 18h16"/></>,
+  grid: <><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></>,
   close: <><path d="M6 6l12 12M18 6 6 18"/></>,
   chevronLeft: <><path d="m15 18-6-6 6-6"/></>,
   panelLeft: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></>,

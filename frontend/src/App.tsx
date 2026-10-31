@@ -382,8 +382,17 @@ function SchoolApp({session,onLogout,onSwitchSpace}:{session:SavedSchoolSession;
   const canOpenModule=(key:string)=>nav.some(x=>x.key===key);
   useEffect(()=>{if(me&&!canOpenModule(module))setModule('home')},[me]);
   const currentLabel=nav.find(x=>x.key===module)?.label||'EduSync';
-  const shortLabels:Record<string,string>={home:'Accueil',students:'Élèves',finance:'Finance',documents:'Documents'};
-  const shellNav:ShellNavItem[]=nav.map(({icon,label,key})=>({key,label,icon,active:module===key,onSelect:()=>goModule(key),primary:['home','students','finance','documents'].includes(key),shortLabel:shortLabels[key]}));
+  // Phone bottom bar (mobile-first pass, 2026-10-31 — Material 3 / Apple HIG: 3 to 5 destinations, the role's own work
+  // first): Accueil + the 3 modules where this member works most, read from what the server already projects for them
+  // (home widgets weigh 2, shortcuts 1 — never a role name), then « Plus ». It was the same 4 entries for everyone, so the
+  // Intendant or the administrator had no work module in it.
+  const shortLabels:Record<string,string>={home:'Accueil',students:'Élèves',finance:'Finance',documents:'Documents',stewardship:'Intendance',headcounts:'Effectifs',personnel:'Personnel',communications:'Messages',settings:'Réglages',access:'Accès',sync:'Synchro'};
+  const weight=(key:string)=>2*(me?.widgets??[]).filter(w=>w.module===key).length+(me?.actions??[]).filter(a=>a.module===key).length;
+  // Ordered by importance (the main work module right after Accueil); a module where the member has nothing on the home
+  // comes only to fill the bar, and the school settings last (read-only for most roles, always reachable from « Plus »).
+  const ranked=nav.filter(x=>x.key!=='home').map((x,i)=>({key:x.key,score:weight(x.key)-(x.key==='settings'||x.key==='sync'?0.5:0),i})).sort((a,b)=>b.score-a.score||a.i-b.i).slice(0,3).map(x=>x.key);
+  const barRank=new Map(['home',...ranked].map((k,i)=>[k,i]));
+  const shellNav:ShellNavItem[]=nav.map(({icon,label,key})=>({key,label,icon,active:module===key,onSelect:()=>goModule(key),primary:barRank.has(key),rank:barRank.get(key),shortLabel:shortLabels[key]}));
   const yearLabel=selectedYear?.label;
   const account:ShellAccount={name:session.user.full_name,email:session.user.email,context:`${session.school.name} · ${session.school.code}`,detail:yearLabel?(/^ann[ée]e/i.test(yearLabel)?yearLabel:`Année ${yearLabel}`):undefined,items:[
     ...(onSwitchSpace?[{key:'space',label:'Changer d’espace',icon:'layers',onSelect:onSwitchSpace}]:[]),

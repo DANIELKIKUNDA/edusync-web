@@ -8,7 +8,7 @@ import './shell.css';
 import './theme.css';
 import {announceIfJustUpdated, applyUpdate, shortBuild, useUpdateNotice} from './updates';
 
-export type ShellNavItem = {key: string; label: string; icon: string; active: boolean; onSelect: () => void; primary?: boolean; shortLabel?: string};
+export type ShellNavItem = {key: string; label: string; icon: string; active: boolean; onSelect: () => void; primary?: boolean; shortLabel?: string; rank?: number};
 export type ShellMenuItem = {key: string; label: string; icon: string; onSelect: () => void; danger?: boolean};
 export type ShellAccount = {name: string; email?: string; context?: string; detail?: string; role?: string; avatarUrl?: string; items: ShellMenuItem[]};
 
@@ -204,7 +204,7 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setTip({label, top: r.top + r.height / 2});
   };
-  const primary = nav.filter(n => n.primary).slice(0, 4);
+  const primary = nav.filter(n => n.primary).sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, 4);   // bar order = importance for this member
   const go = (n: ShellNavItem) => { n.onSelect(); setDrawer(false); };
   const collapseLabel = collapsed ? (peek ? 'Épingler le menu' : 'Déployer le menu') : 'Réduire le menu';
   return <div className={`es-shell ${collapsed ? 'es-collapsed' : ''} ${accountDock ? 'es-dock' : ''}`}>
@@ -238,11 +238,14 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
       <main className="es-content" id="es-content" tabIndex={-1}>{children}</main>
       {accountDock && <VerticalNavigation/>}
     </div>
+    {/* Phone navigation bar (2026-10-31, Material 3 / Apple HIG): the role's destinations with an active « pill » behind
+        the icon, labels always shown, safe-area aware; « Plus » opens every module as a bottom sheet of tiles. */}
     <nav className="es-bottom" aria-label="Navigation rapide">
       {primary.map(n => <button key={n.key} className={n.active ? 'es-active' : ''} aria-current={n.active ? 'page' : undefined} onClick={n.onSelect}>
-        <NavGlyph g={n.icon} size={21}/><small>{n.shortLabel || n.label}</small>
+        <span className="es-bnav-ind" aria-hidden="true"><NavGlyph g={n.icon} size={22}/></span><small>{n.shortLabel || n.label}</small>
       </button>)}
-      <button className={!primary.some(n => n.active) ? 'es-active' : ''} onClick={() => setDrawer(true)} aria-label="Tous les modules"><NavGlyph g="menu" size={21}/><small>Menu</small></button>
+      <button className={!primary.some(n => n.active) ? 'es-active' : ''} onClick={() => setDrawer(true)} aria-label="Tous les modules" aria-haspopup="dialog">
+        <span className="es-bnav-ind" aria-hidden="true"><NavGlyph g="grid" size={22}/></span><small>Plus</small></button>
     </nav>
     {drawer && <div className="es-drawer-backdrop">
       <aside className="es-drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-label="Menu EduSync">
@@ -252,9 +255,10 @@ export function AppShell({orgLabel, orgCode, nav, title, context, tools, drawerT
           <button aria-label="Fermer le menu" onClick={() => setDrawer(false)}><NavGlyph g="close" size={20}/></button>
         </div>
         <div className="es-drawer-status"><StatusChip/>{drawerTools}</div>
+        <span className="es-sheet-grip" aria-hidden="true"/>
         <nav className="es-drawer-nav">
           {nav.map(n => <button key={n.key} className={n.active ? 'es-active' : ''} aria-current={n.active ? 'page' : undefined} onClick={() => go(n)}>
-            <NavGlyph g={n.icon} size={20}/><span>{n.label}</span>
+            <span className="es-tile-ico" aria-hidden="true"><NavGlyph g={n.icon} size={20}/></span><span>{n.label}</span>
           </button>)}
         </nav>
         {accountDock ? <DrawerAccount account={account} onPick={item => { setDrawer(false); item.onSelect(); }}/> : <div className="es-drawer-account">

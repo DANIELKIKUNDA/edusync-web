@@ -40,7 +40,7 @@ export function windowTitle(label: string) {
 export function PageTrail({parents, current}: {parents: Crumb[]; current: string}) {
   const parent = parents.at(-1);
   if (!parent) return null;
-  return <nav className="pf-trail" aria-label="Fil d’Ariane" data-page-title={current}>
+  return <nav className="pf-trail" aria-label="Fil d’Ariane" data-page-title={current} data-depth={parents.length}>
     <div className="pf-trail-desktop">{parents.map((p, i) => <React.Fragment key={`${i}:${p.label}`}>
       <button type="button" onClick={p.onSelect} title={p.label}>{p.label}</button><span aria-hidden="true">›</span>
     </React.Fragment>)}<span aria-current="page" title={current}>{current}</span></div>

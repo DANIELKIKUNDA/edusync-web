@@ -69,7 +69,10 @@ for (const R of ROLES) {
         // Narrow screens use the bottom tab bar; the navigation must really happen (no silent fallback on the same page).
         const BOTTOM = {'Accueil': 'Accueil', 'Centre financier': 'Finance', 'Élèves & inscriptions': 'Élèves'};
         if (await nav().isVisible().catch(() => false)) await nav().getByRole('button', {name: m, exact: true}).click({timeout: 8000});
-        else await p.getByRole('button', {name: BOTTOM[m], exact: true}).last().click({timeout: 8000});
+        else {   // 2026-10-31: the bar holds the member's own work modules; the others are in « Plus »
+          const bar = p.getByRole('navigation', {name: 'Navigation rapide'}).getByRole('button', {name: BOTTOM[m], exact: true});
+          if (await bar.count()) await bar.click({timeout: 8000});
+          else { await p.getByRole('button', {name: 'Tous les modules'}).click({timeout: 8000}); await p.getByRole('dialog', {name: 'Menu EduSync'}).getByRole('button', {name: m, exact: true}).click({timeout: 8000}); } }
         await p.waitForTimeout(1100);
         const heading = (await p.locator('header h1, .es-topbar h1, h1').first().innerText().catch(() => '')).trim();
         if (!heading.startsWith(m === 'Élèves & inscriptions' ? 'Élèves' : m)) throw new Error(`${w}px : « ${m} » non ouvert (page « ${heading} »)`);

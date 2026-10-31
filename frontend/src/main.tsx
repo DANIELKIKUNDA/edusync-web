@@ -5,10 +5,13 @@ import {takeAccountLink} from './account_links';
 import './styles.css';
 import '@fontsource-variable/inter';
 import './platform/modern.css';
+import './platform/mobile.css';
+import {installMobileEnhancements} from './platform/mobile_enhance';
 import { Toaster } from 'sonner';
 import { installResilientFetch } from './platform/connectivity';
 import { ErrorBoundary } from './platform/ErrorBoundary';
 installResilientFetch();
+installMobileEnhancements();
 
 if ('serviceWorker' in navigator) window.addEventListener('load',()=>{
   void navigator.serviceWorker.register('/sw.js').then(()=>navigator.serviceWorker.ready).then(registration=>{
