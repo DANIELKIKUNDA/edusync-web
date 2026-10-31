@@ -8,7 +8,7 @@ const school={id:'sch-test',code:'EXC',name:'École Excellence'};
 const user={id:'school-user',full_name:'Secrétariat recette',email:'secr@example.test'};
 const KEY='edusync.school.readonly-context';
 
-test('école : fermée puis rouverte en mode avion, reste connectée en lecture seule, puis obéit à la révocation',async({context})=>{
+test('école : fermée puis rouverte en mode avion, reste connectée (bandeau : le travail continue, décision du 25/10), puis obéit à la révocation',async({context})=>{
   let offline=false,revoked=false,mutations=0,refreshes=0;
   await context.route('**/api/**',async route=>{
     if(offline)return route.abort('internetdisconnected');
@@ -49,7 +49,7 @@ test('école : fermée puis rouverte en mode avion, reste connectée en lecture 
   // 6-7. still in the school space, read-only banner, no sign-in screen
   await expect(reopened.locator('.es-shell')).toBeVisible();
   await expect(reopened.getByRole('heading',{name:'Connexion'})).toHaveCount(0);
-  await expect(reopened.getByText('Hors connexion — lecture seule.',{exact:true})).toBeVisible();
+  await expect(reopened.getByText('Hors connexion — vous pouvez continuer.',{exact:true})).toBeVisible();
   await expect(reopened.getByText(school.name).first()).toBeVisible();
 
   // 8. menus and pages already consulted come from the cache (with their date)
@@ -68,7 +68,7 @@ test('école : fermée puis rouverte en mode avion, reste connectée en lecture 
   const before=refreshes;
   offline=false;await context.setOffline(false);
   await expect.poll(()=>refreshes).toBeGreaterThan(before);
-  await expect(reopened.getByText('Hors connexion — lecture seule.',{exact:true})).toHaveCount(0);
+  await expect(reopened.getByText('Hors connexion — vous pouvez continuer.',{exact:true})).toHaveCount(0);
   await expect(reopened.locator('.es-shell')).toBeVisible();
 
   // 11. session really revoked server-side: cache erased, sign-in screen

@@ -21,6 +21,9 @@ if ('serviceWorker' in navigator) window.addEventListener('load',()=>{
       if(urls.length)registration.active?.postMessage({type:'CACHE_SHELL_ASSETS',urls});
     };
     cacheAssets(performance.getEntriesByType('resource'));
+    // Every module of this build, in the background (offline proof on a phone, 2026-10-31): a module never opened online
+    // must still open without network.
+    registration.active?.postMessage({type:'PRECACHE_ALL'});
     // A lazy module may have started before activation and finish afterwards.
     if('PerformanceObserver' in window){const observer=new PerformanceObserver(list=>cacheAssets(list.getEntries()));observer.observe({type:'resource',buffered:true});}
   }).catch(()=>{/* Offline shell unavailable on this device; the online app remains usable. */});

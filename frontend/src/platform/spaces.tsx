@@ -136,12 +136,14 @@ export function SpaceRecovery({spaces,onSwitched,onLogout}:{spaces:SpacesState;o
   </div></div>;
 }
 
-/** Platform administration is online-only: an explicit banner instead of buttons that fail one by one. */
-export function OfflineAdminBanner(){
+/** Platform administration is online-only: an explicit banner instead of buttons that fail one by one. The school space
+ *  keeps working offline (owner decision 2026-10-25): its banner says what continues and what waits for the network. */
+export function OfflineAdminBanner({school=false}:{school?:boolean}){
   const online=useOnline();
   const [auth,setAuth]=useState(getPlatformAuthState);
   const [readAt,setReadAt]=useState(platformLastRead);
   useEffect(()=>{const authChange=()=>setAuth(getPlatformAuthState());const cache=()=>setReadAt(platformLastRead());window.addEventListener('edusync:platform-auth',authChange);window.addEventListener('edusync:platform-cache',cache);return()=>{window.removeEventListener('edusync:platform-auth',authChange);window.removeEventListener('edusync:platform-cache',cache)}},[]);
   if(online&&auth!=='OFFLINE_AUTHENTICATED_CACHED')return null;
+  if(school)return <div className="es-alert es-alert-warn sp-offline" role="status"><NavGlyph g="wifiOff" size={16}/><span><b>Hors connexion — vous pouvez continuer.</b> Inscriptions, réinscriptions, encaissements, dépenses et dépôts sont enregistrés sur cet appareil et envoyés automatiquement au retour du réseau. Les autres informations affichées peuvent dater de la dernière connexion.{readAt&&<small>Dernière mise à jour : {new Date(readAt).toLocaleString('fr-FR')}.</small>}</span></div>;
   return <div className="es-alert es-alert-warn sp-offline" role="status"><NavGlyph g="wifiOff" size={16}/><span><b>Hors connexion — lecture seule.</b> Seules les données déjà consultées sont disponibles ; elles peuvent être anciennes. Aucune modification n’est mise en attente.{readAt&&<small>Dernière synchronisation de la donnée consultée : {new Date(readAt).toLocaleString('fr-FR')}.</small>}</span></div>;
 }

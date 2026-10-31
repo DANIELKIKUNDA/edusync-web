@@ -101,7 +101,7 @@ export async function enqueueWrite(path: string, method: string, body: string, i
 export async function retryConflict(id: string) { const r = (await listOutbox()).find(x => x.id === id); if (!r) return; await tx(REQ, 'readwrite', s => s.put({...r, status: 'PENDING', lastError: undefined})); await notify(); void syncOutbox(); }
 export async function dismissConflict(id: string) { await tx(REQ, 'readwrite', s => s.delete(id)); await notify(); }
 function describe(base: string, path: string, body: string) {
-  try { const b = JSON.parse(body); const amount = b.amount ? ` · ${b.amount} ${b.currency ?? ''}` : '';
+  try { const b = JSON.parse(body); const amount = b.amount ? ` · ${b.amount} ${b.currency === 'CDF' ? 'FC' : (b.currency ?? '')}` : '';   // the UI reads FC, never CDF
     const child = Array.isArray(b.children) && b.children[0] ? ` · ${[b.children[0].last_name, b.children[0].first_name].filter(Boolean).join(' ')}${b.children.length > 1 ? ` +${b.children.length - 1}` : ''}` : '';
     return `${base}${child}${amount}`.trim(); } catch { return base; }
 }

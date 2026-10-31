@@ -579,3 +579,18 @@ button.sj-row{cursor:pointer}
 .sj-diff th,.sj-diff td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--es-line,#e4e8f0);word-break:break-word}
 .sj-diff th{color:var(--es-ink-2,#3d4a63);font-weight:600}
 @media (max-width:640px){.sj-row{grid-template-columns:30px 1fr 14px;gap:10px}.sj-row .sj-when{grid-column:2;align-items:flex-start;flex-direction:row;gap:8px}.sj-icon{width:30px;height:30px}div.sj-row{grid-template-columns:30px 1fr}}
+/* Device outbox (2026-10-31): pending / refused offline operations, reachable by every school member from the top bar. */
+.ob-panel{display:grid;gap:10px;padding:16px 18px;border:1px solid #e4e9f2;border-radius:18px;background:#fff;margin-bottom:14px}
+.ob-panel>header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}.ob-panel h3{margin:0}.ob-panel p{margin:4px 0 0;color:#475467;font-size:13.5px}
+.ob-panel h4{margin:6px 0 0;font-size:14px}.ob-panel ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ob-panel li{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #eaecf0;border-radius:12px}.ob-panel li.bad{border-color:#fecdca;background:#fffbfa}
+.ob-panel li>div{display:grid;flex:1;min-width:0}.ob-panel li small{color:#667085;font-size:12.5px}
+.ob-dot{width:10px;height:10px;border-radius:50%;flex:none}.ob-dot.wait{background:#f79009}.ob-dot.bad{background:#f04438}
+.ob-actions{display:flex;gap:6px}
+.ob-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid #f5d48a;border-radius:999px;background:#fff8e6;color:#8a5a00;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.ob-chip.warn{border-color:#f3b4ae;background:#fff1f0;color:#b42318}.ob-chip.busy span{animation:obspin 1.2s linear infinite}.ob-chip em{font-style:normal;font-weight:600;color:#b42318}
+@keyframes obspin{to{transform:rotate(360deg)}}
+.ob-sheet{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:72px 16px 16px;background:rgba(15,23,42,.42)}
+.ob-sheet>div{width:min(560px,100%);max-height:calc(100vh - 96px);overflow:auto;border-radius:20px;background:#fff;box-shadow:0 24px 60px rgba(15,23,42,.25)}
+.ob-sheet .ob-close{float:right;margin:10px 10px 0 0;min-width:44px;min-height:44px;border:0;border-radius:12px;background:#f2f4f7;font-size:20px;cursor:pointer}
+@media (max-width:640px){.ob-chip{min-height:34px;padding:0 10px;font-size:12px}.ob-sheet{align-items:flex-end;padding:0}.ob-sheet>div{width:100%;max-height:85vh;border-radius:20px 20px 0 0}}

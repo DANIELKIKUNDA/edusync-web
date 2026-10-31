@@ -82,6 +82,13 @@ async function packRead(url:URL):Promise<Response|null>{
   const json=(v:unknown)=>new Response(JSON.stringify(v),{status:200,headers:{'Content-Type':'application/json','X-EduSync-Offline':'pack'}});
   if(url.pathname==='/api/v1/finance/checkout/search')return json({items:searchPack(pack,url.searchParams.get('q')||'')});
   const m=url.pathname.match(/^\/api\/v1\/finance\/checkout\/balance\/([0-9a-f-]{36})$/);if(m)return json({items:pack.balances[m[1]]??[]});
+  // « Action conseillée » offline (proof on a phone, 2026-10-31): same order as the server — the oldest charge that may be
+  // paid now (sequential eligibility kept in the pack). The admission bundle needs the server and is not guessed here; the
+  // server re-checks everything when the payment is replayed.
+  const rec=url.pathname.match(/^\/api\/v1\/finance\/checkout\/recommended\/([0-9a-f-]{36})$/);
+  if(rec){const due=(pack.balances[rec[1]]??[]).find((c:any)=>c.eligible&&Number(c.remaining)>0);
+    return json(due?{ready:true,kind:'ECHEANCE',label:due.label,currency:due.currency,allocations:[{charge_id:due.id,amount:String(due.remaining)}],total:String(due.remaining)}
+      :{ready:false,reason:'Aucun frais payable dans la copie de cet appareil.',allocations:[],total:'0'});}
   return null;
 }
 async function attempt(input:RequestInfo|URL,init:RequestInit|undefined,write:boolean):Promise<Response>{const max=retryable(input,init)?3:1;let last:unknown;for(let i=0;i<max;i++){if(i>0&&write)setActivity({retrying:true});try{const controller=new AbortController();const timeout=window.setTimeout(()=>controller.abort(),12_000+8_000*i);let r=await nativeFetch(input,{...init,credentials:init?.credentials??'include',signal:init?.signal??controller.signal});clearTimeout(timeout);const url=typeof input==='string'?input:input instanceof URL?input.toString():input.url;if(r.status===401&&!url.includes('/auth/login')&&!url.includes('/auth/refresh')){const token=await renewAccess();if(token){const h=new Headers(init?.headers||(input instanceof Request?input.headers:undefined));h.set('Authorization',`Bearer ${token}`);r=await nativeFetch(input,{...init,headers:h,credentials:'include'})}}r=await withStepUp(r,input,init);if(r.status===403&&r.headers.get('X-EduSync-Space')==='WITHDRAWN')window.dispatchEvent(new CustomEvent('edusync:space-check'));if(r.status>=500){failure();if(i<max-1){await sleep([1200,2600,5200][i]+Math.random()*500);continue}}else success();return r}catch(e){last=e;failure();if(i<max-1){await sleep([1200,2600,5200][i]+Math.random()*500);continue}}}throw last instanceof Error?last:new Error('network')}

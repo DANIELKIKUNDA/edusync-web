@@ -1,9 +1,13 @@
 const CACHE='edusync-shell-2026-10-24-activation';
 const SHELL=['/','/manifest.webmanifest','/boot-fallback.js'];
+// Filled at build time (vite.config.ts, edusync-offline-precache): every hashed module of this build, so that the whole
+// school app opens without network after one online visit. Empty in development.
+const PRECACHE=[];
 
 // On a first visit, boot assets may finish loading before this worker takes
 // control. The page supplies only the public, hashed asset URLs it has loaded.
 self.addEventListener('message',event=>{
+  if(event.data?.type==='PRECACHE_ALL'){event.waitUntil(precacheAll());return;}
   if(event.data?.type!=='CACHE_SHELL_ASSETS'||!Array.isArray(event.data.urls))return;
   const urls=event.data.urls.slice(0,100).filter(raw=>{
     try{const u=new URL(raw,self.location.origin);return u.origin===self.location.origin&&/^\/assets\/[^?#]+\.(js|css|woff2|svg|png)$/.test(u.pathname)&&!u.search;}catch{return false;}
@@ -16,6 +20,12 @@ self.addEventListener('message',event=>{
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
 });
+// The whole app is downloaded AFTER activation, when the page asks for it (PRECACHE_ALL): the worker takes control at
+// once with the shell (a network cut during the download must not leave the phone without an offline app), and one
+// module failing on a weak network never blocks the others — the next online visit completes the copy.
+function precacheAll(){
+  return caches.open(CACHE).then(cache=>Promise.all(PRECACHE.map(url=>cache.match(url).then(hit=>hit||fetch(url,{credentials:'omit'}).then(r=>r.ok?cache.put(url,r):undefined)).catch(()=>undefined))));
+}
 
 self.addEventListener('activate',event=>{
   event.waitUntil(Promise.all([
