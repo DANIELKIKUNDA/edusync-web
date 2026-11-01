@@ -45,14 +45,14 @@ proto-plus==1.29.0
 protobuf==7.36.2
 psycopg==3.3.5
 psycopg-binary==3.3.5
-pyasn1==0.6.4
+pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.0
 pydantic==2.13.5
 pydantic_core==2.46.5
 pydantic-settings==2.15.0
 PyJWT==2.15.0
-pypdf==6.21.2
+pypdf==6.21.4
 pytest==9.1.1
 python-dotenv==1.2.3
 PyYAML==6.0.3
