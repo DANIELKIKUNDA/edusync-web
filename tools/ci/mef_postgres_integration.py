@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from threading import Barrier
 from uuid import uuid4
@@ -43,8 +43,9 @@ def scope(conn, school_id):
 def add_policy(conn, policy_id, school_id, year_id, fee_id, version, status="DRAFT"):
     conn.execute(text("""INSERT INTO finance_exigibility_policies
       (id,school_id,academic_year_id,version,status,effective_from,approved_at)
-      VALUES(:id,:s,:y,:v,:status,'2026-09-01',CASE WHEN :status='ACTIVE' THEN now() END)"""),
-      {"id": policy_id, "s": school_id, "y": year_id, "v": version, "status": status})
+      VALUES(:id,:s,:y,:v,:status,'2026-09-01',:approved)"""),
+      {"id": policy_id, "s": school_id, "y": year_id, "v": version, "status": status,
+       "approved": datetime.now(timezone.utc) if status == "ACTIVE" else None})
     rule = uuid4()
     conn.execute(text("""INSERT INTO finance_exigibility_rules
       (id,school_id,policy_id,fee_type_id,prior_mode) VALUES(:id,:s,:p,:f,'NOT_APPLICABLE')"""),
