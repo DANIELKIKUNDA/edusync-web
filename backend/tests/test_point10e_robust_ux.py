@@ -5,7 +5,8 @@ def text(path): return (ROOT/path).read_text(encoding='utf-8')
 def test_connectivity_is_not_binary_or_single_failure():
     s=text('frontend/src/platform/connectivity.ts')
     for state in ['DEGRADED','SUSPECTED_OFFLINE','OFFLINE','RECOVERING']: assert state in s
-    assert 'failures>=4' in s and '20_000' in s and 'successes>=2' in s
+    # 2026-11-01: offline only after several failed probes over a grace period; recovery needs answers in a row.
+    assert 'OFFLINE_GRACE_MS=10_000' in s and 'OFFLINE_AFTER_FAILURES=3' in s and 'RECOVER_SUCCESSES=2' in s
 
 def test_retry_requires_safe_read_or_idempotency_key():
     s=text('frontend/src/platform/connectivity.ts')

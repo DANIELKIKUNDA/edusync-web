@@ -23,7 +23,10 @@ test('platform session survives network loss, then revalidates and obeys revocat
     expect(await page.evaluate(async()=>{for(const name of await caches.keys())for(const r of await(await caches.open(name)).keys())if(/^\/(api\/|health(?:-api)?$)/.test(new URL(r.url).pathname)||r.headers.has('Authorization'))return false;return true;})).toBe(true);
   }
   offline=true;await context.setOffline(true);
-  await expect(page.getByText('Hors connexion — lecture seule.',{exact:true})).toBeVisible();
+  // 2026-11-01: a drop is verified before the app says « Hors ligne » (several failed probes over 10 s), never at once.
+  await page.waitForTimeout(2_000);
+  await expect(page.getByText('Hors connexion — lecture seule.',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Hors connexion — lecture seule.',{exact:true})).toBeVisible({timeout:20_000});
   const result=await page.evaluate(async()=>{try{await fetch('/api/v1/platform/schools',{method:'POST',body:'{}'});return 'sent';}catch(e){return (e as {code?:string}).code;}});
   expect(result).toBe('OFFLINE_READ_ONLY');expect(mutations).toBe(0);
   if(process.env.EDUSYNC_TEST_BUILD==='1'){

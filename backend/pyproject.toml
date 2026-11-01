@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "edusync-web-backend"
-version = "0.52.0"
+version = "1.0.0rc1"
 description = "EduSync Web backend (FastAPI, PostgreSQL RLS, multi-school SaaS)"
 requires-python = ">=3.11"
 dependencies = [

@@ -16,6 +16,6 @@ def test_frontend_has_no_raw_technical_error_rendering_contract():
     assert 'window.alert(' not in text
 
 def test_release_versions_are_normalized():
-    assert '0.52.0-point17-environment-closure' in (ROOT/'frontend/package.json').read_text()
-    assert 'version = "0.52.0"' in (ROOT/'backend/pyproject.toml').read_text()
-    assert '0.52.0-point17-environment-closure' in (ROOT/'backend/src/edusync/bootstrap/app.py').read_text()
+    assert f'"version": "{(ROOT/"VERSION").read_text().strip()}"' in (ROOT/'frontend/package.json').read_text()
+    from edusync.version import APP_VERSION; assert APP_VERSION==(ROOT/'VERSION').read_text().strip()  # SemVer, test_release_version.py
+    assert 'version=APP_VERSION' in (ROOT/'backend/src/edusync/bootstrap/app.py').read_text()

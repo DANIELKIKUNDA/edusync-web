@@ -2,7 +2,8 @@ import React, {useEffect, useState} from 'react';
 import {getPlatformAuthState, knownContext} from './offline_session';
 import {getConnectivity} from './connectivity';
 
-function readOnly(){return !!knownContext() && (navigator.onLine===false || getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED' || getConnectivity().state==='OFFLINE');}
+// Confirmed loss only (connectivity.ts verifies before saying « Hors ligne »): a one-second drop does not grey the buttons.
+function readOnly(){return !!knownContext() && (getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED' || getConnectivity().state==='OFFLINE');}
 
 /** A disabled affordance as well as the API guard: never queue a sensitive action. */
 export function OnlineActionButton(props:React.ComponentProps<'button'>){

@@ -5,7 +5,7 @@ PKG=(ROOT/'frontend/package.json').read_text()
 DOC=(ROOT/'POINT11I_MOBILE_WORKFLOWS.md').read_text()
 
 def test_mobile_workflow_release():
-    assert '0.52.0-point17-environment-closure' in PKG
+    assert f'"version": "{(ROOT/"VERSION").read_text().strip()}"' in PKG
     assert 'POINT 11I' in CSS
 
 def test_cashier_mobile_action_is_reachable():

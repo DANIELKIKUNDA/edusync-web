@@ -32,14 +32,18 @@ test('caissier mobile : recherche, montant unique, paiement et confirmation sans
   await expect(search).toBeVisible();await search.fill('Daniel');
   await page.getByRole('button',{name:/KIKUNDA.*Daniel/}).click();
   await page.getByRole('button',{name:/Octobre.*Reste/}).click();
-  const mobile=page.getByRole('button',{name:/Voir \/ Encaisser/});
-  await expect(mobile).toBeVisible();await mobile.click();
+  // 2026-11-01: the dock keeps « Encaisser » in the thumb zone; the details sheet stays one tap away.
+  const dock=page.getByRole('region',{name:'Encaissement rapide'});
+  await expect(dock).toBeVisible();
+  await dock.getByRole('button',{name:/Détails/}).click();
   const transaction=page.getByRole('complementary',{name:'Transaction active'});
   await expect(transaction).toBeVisible();
   await expect(transaction.getByText('50 000 FC').first()).toBeVisible();
-  await transaction.getByRole('textbox',{name:'Montant remis par le parent'}).fill('50000');
-  await transaction.getByRole('button',{name:'Encaisser maintenant'}).click();
-  await expect(transaction.getByText(/Paiement enregistré · reçu REC-001/)).toBeVisible();
+  await page.getByRole('button',{name:'Fermer la transaction'}).first().click();
+  const pay=dock.getByRole('button',{name:/Encaisser 50\s000\sFC/});
+  const box=await pay.boundingBox();expect(box).not.toBeNull();expect(box!.y+box!.height).toBeLessThanOrEqual(812);
+  await pay.click();
+  await expect(dock.getByText(/Reçu REC-001/)).toBeVisible();
   expect(collections).toBe(1);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

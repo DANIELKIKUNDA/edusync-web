@@ -1,7 +1,7 @@
 {
   "name": "edusync-web-frontend",
   "private": true,
-  "version": "0.52.0-point17-environment-closure",
+  "version": "1.0.0-rc.1",
   "type": "module",
   "scripts": {
     "test": "vitest run tests",

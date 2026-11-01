@@ -24,4 +24,5 @@ def test_no_legacy_static_placeholder_component():
 def test_release_version_point17():
     import json
     package=json.loads((ROOT/'frontend/package.json').read_text())
-    assert package['version']=='0.52.0-point17-environment-closure'
+    # 2026-11-01: release versions follow Semantic Versioning, single value in VERSION (test_release_version.py).
+    assert package['version']==(ROOT/'VERSION').read_text().strip()

@@ -4,7 +4,7 @@ APP=(ROOT/'frontend/src/App.tsx').read_text()
 BACK=(ROOT/'frontend/src/platform/mobile_back.ts').read_text()
 PKG=(ROOT/'frontend/package.json').read_text()
 
-def test_release(): assert '0.52.0-point17-environment-closure' in PKG
+def test_release(): assert f'"version": "{(ROOT/"VERSION").read_text().strip()}"' in PKG
 
 def test_android_back_has_real_history_contract():
     assert "window.addEventListener('popstate'" in BACK

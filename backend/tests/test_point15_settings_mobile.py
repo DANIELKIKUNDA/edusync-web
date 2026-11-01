@@ -27,7 +27,7 @@ def test_mobile_platform_tables_become_cards_and_readiness_is_compact():
     assert '.readinessGrid{grid-template-columns:repeat(2' in CSS
 
 def test_release():
-    assert '0.52.0-point17-environment-closure' in (ROOT/'frontend/package.json').read_text()
+    assert f'"version": "{(ROOT/"VERSION").read_text().strip()}"' in (ROOT/'frontend/package.json').read_text()
 
 def test_settings_loading_is_permission_aware():
     assert "load('products',can('settings.products.read')" in APP  # partial reload, still permission-aware (2026-10-24)

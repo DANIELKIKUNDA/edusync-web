@@ -6,7 +6,7 @@ import {LogoutConfirm, logoutOrigin, restoreFocus} from './logout_confirm';
 import {connectivityLabel, getConnectivity, subscribeActivity, subscribeConnectivity, type ConnectivityState, type WriteActivity} from './connectivity';
 import './shell.css';
 import './theme.css';
-import {announceIfJustUpdated, applyUpdate, shortBuild, useUpdateNotice} from './updates';
+import {announceIfJustUpdated, applyUpdate, useUpdateNotice, versionLabel} from './updates';
 
 export type ShellNavItem = {key: string; label: string; icon: string; active: boolean; onSelect: () => void; primary?: boolean; shortLabel?: string; rank?: number};
 export type ShellMenuItem = {key: string; label: string; icon: string; onSelect: () => void; danger?: boolean};
@@ -96,7 +96,7 @@ export function UpdateChip({bar = false}: {bar?: boolean}) {
   return <div className={bar ? 'es-update es-update-bar' : 'es-update es-update-chip'} role="status" aria-live="polite">
     <span className="es-update-text"><NavGlyph g="sparkles" size={15}/><span>Nouvelle version disponible</span></span>
     <button type="button" className="es-update-btn" onClick={() => void applyUpdate()} disabled={u.updating}
-      title={u.build ? `Version ${shortBuild(u.build)}` : undefined} aria-label={u.updating ? 'Mise à jour en cours' : 'Mettre à jour EduSync vers la nouvelle version'}>
+      title={u.build ? `Version ${versionLabel(u.version, u.build)}` : undefined} aria-label={u.updating ? 'Mise à jour en cours' : 'Mettre à jour EduSync vers la nouvelle version'}>
       {u.updating ? <><i className="es-update-spin" aria-hidden="true"/>Mise à jour…</> : <><NavGlyph g="download" size={15}/><span className="es-update-label">Mettre à jour</span></>}
     </button>
   </div>;

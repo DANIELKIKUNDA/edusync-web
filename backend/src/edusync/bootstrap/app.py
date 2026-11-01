@@ -9,6 +9,7 @@ from edusync.shared.infrastructure.live_changes import LiveChangesMiddleware
 
 from edusync.bootstrap.services import AppServices
 from edusync.bootstrap.settings import Settings
+from edusync.version import APP_VERSION
 from edusync.modules.iam.api.router import router as auth_router
 from edusync.modules.platform.api.router import router as platform_router
 from edusync.modules.platform_team.api.router import router as platform_team_router
@@ -52,7 +53,7 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     _exact_decimal_json()
     cfg = settings or Settings()
     configure_logging()
-    app = FastAPI(title="EduSync Web API", version="0.52.0-point17-environment-closure")
+    app = FastAPI(title="EduSync Web API", version=APP_VERSION)
     app.state.services = services or AppServices.build(cfg)
     from edusync.modules.documents.application.object_store import configure_storage
     configure_storage(getattr(app.state.services, "object_storage", None))
