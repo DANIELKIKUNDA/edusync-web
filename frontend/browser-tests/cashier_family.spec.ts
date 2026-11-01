@@ -54,12 +54,12 @@ async function prepare(page:Page,ambiguous=false){
   await page.getByRole('button',{name:/Ajouter un enfant/}).click();
   await expect(page.getByRole('button',{name:/Dorcas.*3e primaire/})).toBeVisible();
   await page.getByRole('button',{name:/Octobre.*Reste/}).click();
-  if(await page.getByRole('button',{name:/Voir \/ Encaisser/}).isVisible())await page.getByRole('button',{name:/Voir \/ Encaisser/}).click();
+  if(await page.getByRole('region',{name:'Encaissement rapide'}).getByRole('button',{name:/Détails/}).isVisible())await page.getByRole('region',{name:'Encaissement rapide'}).getByRole('button',{name:/Détails/}).click();
   await page.getByRole('button',{name:'Ajouter au panier'}).click();
   if(await page.getByRole('button',{name:'Fermer la transaction'}).first().isVisible())await page.getByRole('button',{name:'Fermer la transaction'}).first().click();
   await page.getByRole('button',{name:/Dorcas.*3e primaire/}).click();
   await page.getByRole('button',{name:/Septembre.*Reste/}).click();
-  if(await page.getByRole('button',{name:/Voir \/ Encaisser/}).isVisible())await page.getByRole('button',{name:/Voir \/ Encaisser/}).click();
+  if(await page.getByRole('region',{name:'Encaissement rapide'}).getByRole('button',{name:/Détails/}).isVisible())await page.getByRole('region',{name:'Encaissement rapide'}).getByRole('button',{name:/Détails/}).click();
   await page.getByRole('button',{name:'Ajouter au panier'}).click();
   return {attempts:()=>attempts,keys};
 }
@@ -68,7 +68,7 @@ for(const vp of [{name:'desktop',width:1440,height:900},{name:'desktop-court',wi
   test(`famille caisse — ${vp.name}`,async({page},testInfo)=>{
     await page.setViewportSize({width:vp.width,height:vp.height});
     const result=await prepare(page);
-    if(vp.name==='mobile' && !await page.getByRole('complementary',{name:'Transaction active'}).isVisible())await page.getByRole('button',{name:/Voir \/ Encaisser/}).click();
+    if(vp.name==='mobile' && !await page.getByRole('complementary',{name:'Transaction active'}).isVisible())await page.getByRole('region',{name:'Encaissement rapide'}).getByRole('button',{name:/Détails/}).click();
     const aside=page.getByRole('complementary',{name:'Transaction active'});
     await expect(aside.getByText('Panier familial · 2 ligne(s)')).toBeVisible();
     await aside.getByRole('textbox',{name:'Référence de transaction du panier'}).fill('MM-1234');

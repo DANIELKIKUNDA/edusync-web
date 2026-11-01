@@ -500,7 +500,11 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     }
     // The browser's online/offline events are only hints (networks drop for a second or two): connectivity.ts verifies with
     // the server and publishes OFFLINE (→ offline mode) or ONLINE (→ the session is restored here) once confirmed.
-    const probe=(e:Event)=>{if((e as CustomEvent).detail?.state==='ONLINE'&&getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&knownContext())void restore()};
+    // Every time the server answers again after a doubt (even a short one), the session is revalidated: a revocation decided
+    // meanwhile is obeyed, and a session reopened from the device becomes online again.
+    let lastNet='ONLINE';
+    const probe=(e:Event)=>{const s=(e as CustomEvent).detail?.state;const back=s==='ONLINE'&&lastNet!=='ONLINE';lastNet=s||lastNet;
+      if(back&&knownContext())void restore()};
     window.addEventListener('edusync:connectivity',probe);
     void restore();
     return()=>{alive=false;window.removeEventListener('edusync:connectivity',probe)};
