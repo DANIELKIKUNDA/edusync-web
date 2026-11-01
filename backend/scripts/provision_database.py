@@ -229,6 +229,7 @@ def main() -> None:
             ("0103_documents_print_removed", "0103_documents_print_removed.sql"),
             ("0104_enrollments_export_active", "0104_enrollments_export_active.sql"),
             ("0105_finance_annual_exigibility", "0105_finance_annual_exigibility.sql"),
+            ("0106_mef_draft_bands_editable", "0106_mef_draft_bands_editable.sql"),
         ]
         # CI only (rbac-contract job): stop after a given migration to snapshot the state BEFORE a later one.
         until = os.environ.get("EDUSYNC_MIGRATE_UNTIL", "").strip()

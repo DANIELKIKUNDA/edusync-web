@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 
 from edusync.adapters.postgres_annual_policy_activation import activate_annual_policy
+from edusync.adapters.postgres_annual_policy_admin import PostgresAnnualPolicyAdminRepository
 from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
 
 
@@ -156,6 +157,23 @@ try:
           WHERE school_id=:s AND academic_year_id=:y AND status='ACTIVE'"""), {"s": school_a, "y": year_a}).scalars().all()
         assert len(active) == 1
         active_policy = active[0]
+
+    # 0106 (2026-11-01): the API saves a DRAFT rule as the tenant (bands replaced); an ACTIVE policy's bands stay immutable.
+    with tenant.begin() as c:
+        scope(c, school_a)
+        admin = PostgresAnnualPolicyAdminRepository(c)
+        draft = admin.create_draft(school_a, year_a, date(2026, 9, 1), actor)["id"]
+        admin.put_rule(school_a, draft, fee_a, "NOT_APPLICABLE", None, [{"first_day": 1, "last_day": 15, "percent": Decimal(100)},
+                       {"first_day": 16, "last_day": None, "percent": Decimal(0)}])
+        saved = admin.put_rule(school_a, draft, fee_a, "NOT_APPLICABLE", None, [{"first_day": 1, "last_day": None, "percent": Decimal(100)}])
+        bands = [b for r in saved["rules"] if str(r["fee_type_id"]) == str(fee_a) for b in r["bands"]]
+        assert len(bands) == 1 and Decimal(str(bands[0]["percent"])) == 100, bands
+        frozen = text("""SELECT count(*) FROM finance_exigibility_day_bands b JOIN finance_exigibility_rules r ON r.id=b.rule_id
+          WHERE r.policy_id=:p""")
+        before = c.execute(frozen, {"p": active_policy}).scalar_one()
+        gone = c.execute(text("""DELETE FROM finance_exigibility_day_bands WHERE rule_id IN
+          (SELECT id FROM finance_exigibility_rules WHERE policy_id=:p)"""), {"p": active_policy}).rowcount
+        assert gone == 0 and c.execute(frozen, {"p": active_policy}).scalar_one() == before > 0
 
     arrivals = {
         "SEP05": date(2026, 9, 5), "OCT20": date(2026, 10, 20), "NOV28": date(2026, 11, 28),
