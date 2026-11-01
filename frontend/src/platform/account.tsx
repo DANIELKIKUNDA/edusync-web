@@ -12,7 +12,7 @@ import {NavGlyph} from './nav_icons';
 import {initialsOf} from './shell';
 import {THEME_OPTIONS, type ThemePref} from './theme';
 import {DeviceNotificationPreference} from './device_preferences';
-import {CURRENT_BUILD, shortBuild} from './updates';
+import {CURRENT_BUILD, CURRENT_VERSION, shortBuild} from './updates';
 
 export function Modal({title, subtitle, onClose, children, wide}: {title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; wide?: boolean}) {
   const ref = useRef<HTMLDivElement>(null);
@@ -117,7 +117,7 @@ export function PreferencesDialog({theme, onTheme, reducedMotion, onReducedMotio
     </fieldset>
     {canPush ? <DeviceNotificationPreference token={token} scope={pushScope} platform={platform}/> : <p className="es-hint">Les notifications push ne sont pas disponibles avec les droits de ce compte.</p>}
     <p className="es-hint">L’affichage est conservé pour ce compte sur cet appareil. Langue : français.</p>
-    <p className="es-hint es-version">Version d’EduSync : <b>{shortBuild(CURRENT_BUILD)}</b></p>
+    <p className="es-hint es-version">Version d’EduSync : <b>{CURRENT_VERSION}</b> <small>(compilation {shortBuild(CURRENT_BUILD)})</small></p>
     <div className="es-modal-foot"><button type="button" className="es-btn es-btn-primary" onClick={onClose}>Terminé</button></div>
   </Modal>;
 }

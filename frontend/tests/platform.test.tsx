@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 
 vi.mock('../src/api', () => ({platformStepUp: vi.fn(() => new Promise(() => {})), MfaError: class extends Error {}}));
 vi.mock('../src/platform/shell', () => ({initialsOf: () => 'E'}));
-vi.mock('../src/platform/updates', () => ({CURRENT_BUILD: 'test', shortBuild: () => 'test'}));
+vi.mock('../src/platform/updates', () => ({CURRENT_BUILD: 'test', CURRENT_VERSION: '0.0.0-test', shortBuild: () => 'test'}));
 vi.mock('../src/messaging_api', () => ({pushConfig: vi.fn(), pushSubscribe: vi.fn(), pushRevoke: vi.fn()}));
 vi.mock('@firebase/app',()=>({getApps:()=>[],initializeApp:vi.fn(()=>({name:'test'}))}));
 vi.mock('@firebase/messaging',()=>({isSupported:async()=>true,getMessaging:()=>({}),getToken:vi.fn(async()=>'test-device-token-not-a-secret')}));

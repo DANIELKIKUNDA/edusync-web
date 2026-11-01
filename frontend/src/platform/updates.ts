@@ -10,11 +10,15 @@ import {hasUnsavedForms} from './mobile_back';
 
 export const CURRENT_BUILD: string = typeof __EDUSYNC_BUILD__ === 'string' ? __EDUSYNC_BUILD__ : 'dev';
 export const shortBuild = (b: string) => (/^[0-9a-f]{40}$/.test(b) ? b.slice(0, 7) : b);
+/** Release version users read (Semantic Versioning, e.g. 1.2.0); the build id stays the technical identity. */
+export const CURRENT_VERSION: string = typeof __EDUSYNC_VERSION__ === 'string' ? __EDUSYNC_VERSION__ : '0.0.0';
+/** « 1.2.0 » for people; the commit only as a discreet suffix for support. */
+export const versionLabel = (version?: string, build?: string) => version ? version : build ? shortBuild(build) : '';
 const POLL_MS = 5 * 60 * 1000;
 const MIN_GAP_MS = 45 * 1000;
 const JUST_UPDATED = 'edusync.just-updated';
 
-type UpdateState = {available: boolean; build?: string; updating: boolean};
+type UpdateState = {available: boolean; build?: string; version?: string; updating: boolean};
 let state: UpdateState = {available: false, updating: false};
 const listeners = new Set<(s: UpdateState) => void>();
 let lastCheck = 0;
@@ -29,8 +33,8 @@ export async function checkForUpdate(force = false): Promise<boolean> {
   try {
     const r = await fetch(`/version.json?t=${Date.now()}`, {cache: 'no-store', credentials: 'omit'});
     if (!r.ok) return state.available;
-    const v = await r.json() as {build?: string};
-    if (typeof v.build === 'string' && v.build && v.build !== CURRENT_BUILD) set({available: true, build: v.build});
+    const v = await r.json() as {build?: string; version?: string};
+    if (typeof v.build === 'string' && v.build && v.build !== CURRENT_BUILD) set({available: true, build: v.build, version: typeof v.version === 'string' ? v.version : undefined});
   } catch { /* offline or server restarting: try again later, never an error for the user */ }
   return state.available;
 }
@@ -89,5 +93,5 @@ export async function applyUpdate() {
 export function announceIfJustUpdated() {
   let flag: string | null = null;
   try { flag = sessionStorage.getItem(JUST_UPDATED); sessionStorage.removeItem(JUST_UPDATED); } catch { /* facultatif */ }
-  if (flag !== null) toast.success('EduSync est à jour', {description: `Version ${shortBuild(CURRENT_BUILD)} installée.`});
+  if (flag !== null) toast.success('EduSync est à jour', {description: `Version ${CURRENT_VERSION} installée.`});
 }

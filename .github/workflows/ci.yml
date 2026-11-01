@@ -215,6 +215,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Étiquette de version = fichier VERSION (SemVer)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          expected="v$(cat VERSION | tr -d '[:space:]')"
+          if [[ "${GITHUB_REF#refs/tags/}" != "$expected" ]]; then echo "::error::L'étiquette ${GITHUB_REF#refs/tags/} ne correspond pas au fichier VERSION ($expected)."; exit 1; fi
       - name: Noms d'images (minuscules) et étiquettes
         id: tags
         run: |

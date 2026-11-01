@@ -9,4 +9,4 @@ def test_cancel_is_fail_closed_and_audited():
  assert "@router.post('/batches/{kind}/{batch_id}/cancel')" in r
  assert "Un lot exécuté ne peut pas être annulé" in r
  assert 'IMPORT_BATCH_CANCELLED' in r and 'FOR UPDATE' in r
-def test_release_version(): assert '0.52.0-point17-environment-closure' in p
+def test_release_version(): assert f'"version": "{(ROOT/"VERSION").read_text().strip()}"' in p

@@ -7,14 +7,18 @@ import path from 'node:path';
    compares the two to know that a newer version has been deployed. */
 const env = (globalThis as {process?: {env: Record<string, string | undefined>}}).process?.env ?? {};
 const BUILD_ID = (env.EDUSYNC_BUILD_ID || '').trim() || `dev-${new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)}`;
+/* Release version (Semantic Versioning MAJOR.MINOR.PATCH, owner 2026-11-01): what users read (« Version 1.2.0 »). Single
+   value in package.json, kept equal to the repository VERSION file and the backend by a contract test; the build id
+   (commit) stays the technical identity used to detect a new deployment. */
+const VERSION = String(JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8')).version || '0.0.0');
 
 export default defineConfig({
-  define: {__EDUSYNC_BUILD__: JSON.stringify(BUILD_ID)},
+  define: {__EDUSYNC_BUILD__: JSON.stringify(BUILD_ID), __EDUSYNC_VERSION__: JSON.stringify(VERSION)},
   plugins: [{
     name: 'edusync-version',
     apply: 'build',
     generateBundle() {
-      this.emitFile({type: 'asset', fileName: 'version.json', source: JSON.stringify({build: BUILD_ID, built_at: new Date().toISOString()})});
+      this.emitFile({type: 'asset', fileName: 'version.json', source: JSON.stringify({version: VERSION, build: BUILD_ID, built_at: new Date().toISOString()})});
     },
   }, {
     /* Offline proof on a phone (2026-10-31): a module never opened online could not open without network — its code was
