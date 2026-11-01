@@ -113,6 +113,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/section_isolation_postgres_integration.py
+      - name: MEF — PostgreSQL réel, RLS, concurrence et créances annuelles
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/mef_postgres_integration.py
 
   frontend:
     name: Frontend — typecheck et build
@@ -260,3 +265,4 @@ jobs:
           labels: org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=backup
           cache-to: type=gha,mode=max,scope=backup
+
