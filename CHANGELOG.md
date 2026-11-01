@@ -23,6 +23,8 @@ Première version candidate.
 - Téléphone : barre d'encaissement fixe (« Encaisser 25 USD », puis « Imprimer »), panier familial depuis la même barre.
 - Ordinateur : l'encaissement tient dans la fenêtre (liste qui défile dans sa colonne, panneau « Encaisser » toujours
   visible) et se fait au clavier : recherche → Entrée → Entrée ; F9 encaisser, Échap effacer, F2 rechercher.
+- Famille : F4 charge les enfants ; Entrée met l'enfant au panier et ouvre le suivant avec son mois conseillé ;
+  au dernier, Entrée (ou F9) encaisse le panier. Même principe sur téléphone (« Au panier », puis « Encaisser le panier »).
 
 ### Modifié
 - Réseau : « Hors ligne » seulement après vérification (3 échecs sur 10 s) ; retour en ligne après 2 réponses
