@@ -228,6 +228,7 @@ def main() -> None:
             ("0102_directors_personnel_read", "0102_directors_personnel_read.sql"),
             ("0103_documents_print_removed", "0103_documents_print_removed.sql"),
             ("0104_enrollments_export_active", "0104_enrollments_export_active.sql"),
+            ("0105_finance_annual_exigibility", "0105_finance_annual_exigibility.sql"),
         ]
         # CI only (rbac-contract job): stop after a given migration to snapshot the state BEFORE a later one.
         until = os.environ.get("EDUSYNC_MIGRATE_UNTIL", "").strip()
@@ -377,3 +378,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

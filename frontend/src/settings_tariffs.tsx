@@ -7,6 +7,8 @@ import {toast} from 'sonner';
 import {
   AcademicYear, BillingPolicy, FeeSchedule, FeeType, ReferenceCatalog, SchoolClass, SchoolSection, Tariff, TariffScope, TariffStatus,
   applyTariffs, getBillingPolicy, listFeeSchedules, putBillingPolicy, putTariffRule,
+  AnnualExigibilityPolicy, activateAnnualExigibility, createAnnualExigibility, getAnnualExigibility,
+  listAnnualExigibility, putAnnualExigibilityRule,
 } from './api';
 import {confirmAction} from './platform/dialogs';
 import {friendlyError} from './platform/errors';
@@ -63,8 +65,26 @@ export function TariffsSettings({token, tariffs, years, fees, classes, sections,
       : <button type="button" className="softBtn addLine" onClick={() => setAdding(true)}>+ Nouvelle règle tarifaire <small>{year?.label}</small></button>)}
     {can('settings.tariffs.read') && <BillingMonths token={token} canEdit={can('settings.billing_months.manage')} onError={setError}/>}
     {year && <Schedules token={token} year={year} canApply={can('settings.tariffs.apply') && !locked} onError={setError} onDone={onDone}/>}
+    {year && <AnnualExigibility token={token} year={year} fees={fees} canManage={canManage} canActivate={can('settings.tariffs.apply')}/>} 
     <p className="policyHint">Exemple : si l’école augmente le montant à partir de février, créez une nouvelle règle datée de février. Les mensualités antérieures gardent leur montant.</p>
   </section>;
+}
+
+function AnnualExigibility({token,year,fees,canManage,canActivate}:{token:string;year:AcademicYear;fees:FeeType[];canManage:boolean;canActivate:boolean}){
+  const [items,setItems]=useState<AnnualExigibilityPolicy[]>([]); const [current,setCurrent]=useState<AnnualExigibilityPolicy|null>(null);
+  const [busy,setBusy]=useState(false); const [error,setError]=useState('');
+  const load=async()=>{try{setError('');const rows=await listAnnualExigibility(token,year.id);setItems(rows);const draft=rows.find(x=>x.status==='DRAFT');setCurrent(draft?await getAnnualExigibility(token,draft.id):null)}catch(e){setError(friendlyError(e))}};
+  useEffect(()=>{void load()},[token,year.id]);
+  const create=async(source?:string)=>{setBusy(true);try{const p=await createAnnualExigibility(token,{academic_year_id:year.id,effective_from:year.start_date,source_policy_id:source||null});setCurrent(p);await load()}catch(e){setError(friendlyError(e))}finally{setBusy(false)}};
+  const saveDefault=async(fee:FeeType)=>{if(!current)return;setBusy(true);try{const p=await putAnnualExigibilityRule(token,current.id,{fee_type_id:fee.id,prior_mode:'NOT_APPLICABLE',prior_percent:null,bands:[{first_day:1,last_day:15,percent:'100'},{first_day:16,last_day:24,percent:'50'},{first_day:25,last_day:null,percent:'0'}]});setCurrent(p)}catch(e){setError(friendlyError(e))}finally{setBusy(false)}};
+  const activate=async()=>{if(!current||!await confirmAction({title:'Activer cette politique ?',message:'Les nouvelles créances utiliseront cette version. Les paiements et créances historiques ne seront pas réécrits.',confirmLabel:'Activer'}))return;setBusy(true);try{await activateAnnualExigibility(token,current.id,year.id);toast.success('Politique financière activée');await load()}catch(e){setError(friendlyError(e))}finally{setBusy(false)}};
+  const active=items.find(x=>x.status==='ACTIVE');
+  return <div className="tariffGroup"><div className="panelHead"><div><h4>Exigibilité financière annuelle</h4><p>Règles d’arrivée tardive par type de frais, versionnées par année. Un montant nul reste « non exigible », jamais « payé ».</p></div><span className="pill">{active?`Active v${active.version}`:'Non configurée'}</span></div>
+    {error&&<div className="error" role="alert">{error}</div>}
+    {!current&&canManage&&<div className="tariffCtas"><button className="primaryBtn" disabled={busy} onClick={()=>void create()}>Créer le brouillon</button>{active&&<button className="softBtn" disabled={busy} onClick={()=>void create(active.id)}>Copier la version active</button>}</div>}
+    {current&&<><p><b>Brouillon v{current.version}</b> · effet au {formatDate(current.effective_from)}</p><ul className="moneyList">{fees.filter(f=>f.enabled&&f.periodicity==='MONTHLY').map(f=>{const rule=current.rules?.find(r=>r.fee_type_id===f.id);return <li key={f.id}><div><b>{f.label}</b><small>{rule?`${rule.prior_mode} · ${rule.bands.map(b=>`${b.first_day}-${b.last_day??'fin'}: ${b.percent}%`).join(' · ')}`:'Aucune règle'}</small></div>{canManage&&!rule&&<button className="softBtn" disabled={busy} onClick={()=>void saveDefault(f)}>Configurer 100/50/0</button>}</li>})}</ul>{canActivate&&<button className="primaryBtn" disabled={busy||!current.rules?.length} onClick={()=>void activate()}>Valider et activer</button>}</>}
+    {items.length>0&&<details><summary>Historique ({items.length})</summary><ul>{items.map(p=><li key={p.id}>Version {p.version} · {p.status} · {p.rule_count??p.rules?.length??0} règle(s)</li>)}</ul></details>}
+  </div>
 }
 
 function RuleForm({token, year, fees, classes, sections, refs, can, onCancel, onSaved}: {token: string; year: AcademicYear; fees: FeeType[]; classes: SchoolClass[];
@@ -152,3 +172,4 @@ function Schedules({token, year, canApply, onError, onDone}: {token: string; yea
     {canApply && <div className="formActions"><button type="button" className="primaryBtn" disabled={busy} onClick={() => void apply()}>{busy ? 'Application…' : 'Appliquer les barèmes aux classes ouvertes'}</button></div>}
   </div>;
 }
+

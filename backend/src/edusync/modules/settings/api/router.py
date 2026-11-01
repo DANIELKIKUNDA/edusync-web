@@ -15,6 +15,9 @@ from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
 from edusync.adapters.postgres_repositories import PostgresAuditRepository, PostgresOutboxRepository, PostgresSchoolRepository
 from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
 from edusync.adapters.postgres_anticipation import PostgresAnticipationRepository
+from edusync.adapters.postgres_annual_policy_admin import PostgresAnnualPolicyAdminRepository
+from edusync.adapters.postgres_annual_policy_activation import activate_annual_policy
+from edusync.adapters.postgres_annual_exigibility_preview import preview_enrollment_monthly_schedules
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
 from edusync.bootstrap.dependencies import get_services, require_school_actor
 from edusync.bootstrap.services import AppServices
@@ -558,6 +561,63 @@ def fee_schedules(year_id:UUID,actor:ActorContext=Depends(require_school_actor),
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return _jsonable(PostgresFeeScheduleRepository(conn).list_schedules(actor.school_id,year_id))
 
+class ExigibilityDraftCreate(BaseModel):
+    academic_year_id:UUID
+    effective_from:date
+    source_policy_id:UUID|None=None
+
+class ExigibilityBand(BaseModel):
+    first_day:int=Field(ge=1,le=31)
+    last_day:int|None=Field(default=None,ge=1,le=31)
+    percent:Decimal=Field(ge=0,le=100,max_digits=5,decimal_places=2)
+
+class ExigibilityRulePut(BaseModel):
+    fee_type_id:UUID
+    prior_mode:Literal['NOT_APPLICABLE','FULL','CUSTOM']
+    prior_percent:Decimal|None=Field(default=None,ge=0,le=100,max_digits=5,decimal_places=2)
+    bands:list[ExigibilityBand]=Field(min_length=1,max_length=31)
+
+@router.get('/annual-exigibility')
+def annual_exigibility_list(year_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.tariffs.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresAnnualPolicyAdminRepository(conn).list(actor.school_id,year_id))
+
+@router.get('/annual-exigibility/{policy_id}')
+def annual_exigibility_detail(policy_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.tariffs.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresAnnualPolicyAdminRepository(conn).detail(actor.school_id,policy_id))
+
+@router.post('/annual-exigibility',status_code=201)
+def annual_exigibility_create(body:ExigibilityDraftCreate,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.tariffs.manage')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresAnnualPolicyAdminRepository(conn).create_draft(
+            actor.school_id,body.academic_year_id,body.effective_from,actor.user_id,body.source_policy_id))
+
+@router.put('/annual-exigibility/{policy_id}/rules')
+def annual_exigibility_rule(policy_id:UUID,body:ExigibilityRulePut,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.tariffs.manage')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(PostgresAnnualPolicyAdminRepository(conn).put_rule(
+            actor.school_id,policy_id,body.fee_type_id,body.prior_mode,body.prior_percent,
+            body.model_dump(mode='python')['bands']))
+
+@router.post('/annual-exigibility/{policy_id}/activate')
+def annual_exigibility_activate(policy_id:UUID,year_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.tariffs.apply')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return activate_annual_policy(conn,school_id=actor.school_id,academic_year_id=year_id,policy_id=policy_id,actor_id=actor.user_id)
+
+@router.get('/annual-exigibility-preview/class')
+def annual_exigibility_preview(year_id:UUID,class_id:UUID,financial_entry_date:date,
+        actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,'settings.tariffs.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        return _jsonable(preview_enrollment_monthly_schedules(conn,school_id=actor.school_id,
+            academic_year_id=year_id,class_id=class_id,financial_entry_date=financial_entry_date))
+
 class BenefitPolicyPut(BaseModel):
     academic_year_id:UUID
     enabled:bool=False
@@ -1031,3 +1091,4 @@ def product_stock_move(product_id:UUID,body:ProductStockMove,actor:ActorContext=
                 correlation_id=actor.correlation_id,idempotency_key=None))
             return _jsonable(out)
     except Exception as exc:_error(exc)
+
