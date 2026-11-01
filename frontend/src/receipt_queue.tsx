@@ -3,6 +3,7 @@ import {receiptQueue,receiptQueuePdf,receiptQueueStatus,type ReceiptQueueData,ty
 import {friendlyError} from './platform/errors';
 import {formatDate,formatMoney} from './platform/format';
 import './checkout.css';
+import {useLive} from './platform/live';
 
 const EMPTY:ReceiptQueueData={counts:{PENDING:0,PRINTED:0,FAILED:0},items:[]};
 type Filter='PENDING'|'PRINTED'|'FAILED'|'ALL';
@@ -23,6 +24,7 @@ export default function ReceiptQueue({token,canPrint}:{token:string;canPrint:boo
  const [data,setData]=useState<ReceiptQueueData>(EMPTY),[selected,setSelected]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [preview,setPreview]=useState<{url:string;title:string}|null>(null);const frame=useRef<HTMLIFrameElement>(null);
+ useLive(['finance'],()=>load());   // live: what another member records here appears without reloading (2026-11-01)
  async function load(){try{setData(await receiptQueue(token,filter));setError('')}catch(e){setError(friendlyError(e))}}
  useEffect(()=>{void load();const update=()=>void load();window.addEventListener('edusync:receipt-created',update);window.addEventListener('focus',update);const timer=window.setInterval(update,60000);return()=>{window.removeEventListener('edusync:receipt-created',update);window.removeEventListener('focus',update);window.clearInterval(timer)}},[token,filter]);
  useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview.url)},[preview?.url]);

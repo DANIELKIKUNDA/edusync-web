@@ -10,6 +10,7 @@ import {cashDayPdf, cashExpense, closeSchoolCashDay, reopenSchoolCashDay, revers
 import {friendlyError} from './platform/errors';
 import {confirmAction, promptText} from './platform/dialogs';
 import {formatMoney} from './platform/format';
+import {useLive} from './platform/live';
 
 const money = (v: string | number, c: string) => formatMoney(String(v), c);
 
@@ -74,6 +75,7 @@ async function openPdf(token: string, kind: 'journal' | 'report', day: string) {
 
 export function SchoolDayPanel({token, can, day}: {token: string; can: (p: string) => boolean; day: string}) {
   const [d, setD] = useState<SchoolCashDay | null>(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  useLive(['finance'],()=>load());   // live: what another member records here appears without reloading (2026-11-01)
   async function load() { try { setD(await schoolCashDay(token, day)); setError(''); } catch (e) { setError(friendlyError(e)); } }
   useEffect(() => { void load(); }, [token, day]);
   const [askReversal, reversalDialog] = useReversal(token, load);   // hooks before any early return

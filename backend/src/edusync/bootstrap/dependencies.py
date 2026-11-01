@@ -143,6 +143,7 @@ def require_recent_mfa(services: AppServices, actor: ActorContext, capability: s
 
 
 def require_school_actor(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     services: AppServices = Depends(get_services),
 ) -> ActorContext:
@@ -181,6 +182,7 @@ def require_school_actor(
         permissions = memberships.permissions(membership.id)
         capability_scopes = PostgresAuthorizationRepository(conn).effective_capability_grants(user_id, school_id)
 
+    request.state.live_school_id = school_id   # live changes (2026-11-01): the school whose screens must refresh
     return ActorContext(
         user_id=user_id,
         school_id=school_id,

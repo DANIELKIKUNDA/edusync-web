@@ -13,6 +13,7 @@ import {friendlyError} from './platform/errors';
 import {formatMoney} from './platform/format';
 import {NavGlyph} from './platform/nav_icons';
 import './cash_desk.css';
+import {useLive} from './platform/live';
 
 type Cur = 'CDF' | 'USD';
 const money = (v: string | number | null | undefined, c: Cur) => formatMoney(String(v ?? 0), c);
@@ -39,6 +40,7 @@ export function CashDeskPro({token, can, schoolName}: {token: string; can: (p: s
   const [journal, setJournal] = useState<Awaited<ReturnType<typeof cashJournal>> | null>(null);
   const [dialog, setDialog] = useState<'open' | 'expense' | 'close' | null>(null);
   const [err, setErr] = useState('');
+  useLive(['finance'],()=>refresh());   // live: what another member records here appears without reloading (2026-11-01)
   async function refresh() {
     // Offline (2026-10-25): the cash desk keeps working — operations waiting in the device outbox are merged into what
     // the server last said (opening / closing / payments / expenses recorded here), marked « en attente ».

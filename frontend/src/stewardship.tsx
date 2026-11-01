@@ -3,6 +3,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {toast} from 'sonner';
 import {stewardshipAssets,stewardshipCountDetail,stewardshipCounts,stewardshipDashboard,stewardshipLocations,stewardshipMovements,stewardshipSaleStock,stewardshipStock} from './api';
 import './stewardship.css';
+import {useLive} from './platform/live';
 
 /* Intendance — consumables, durable assets, premises, physical inventories.
    Stock only ever moves through traced movements (receipt / issue / justified correction / count variance). */
@@ -41,6 +42,7 @@ export default function StewardshipPage({token,permissions}:Props){
   const canStockXlsx=has(permissions,'inventory.stock.export_xlsx'),canStockSheet=has(permissions,'inventory.stock.sheet.print'),canCountExport=has(permissions,'inventory.counts.export');
   const canDashboard=canStock||canAssets||canCounts||has(permissions,'inventory.stock.low_alerts.read');
   const can={RECEIPT:has(permissions,'inventory.stock.receive'),ISSUE:has(permissions,'inventory.stock.issue'),ADJUSTMENT:has(permissions,'inventory.stock.adjust')};
+  useLive(['stock'],()=>load());   // live: what another member records here appears without reloading (2026-11-01)
   async function load(){try{setError('');const d:any={};if(canDashboard)d.dashboard=await stewardshipDashboard(token);
     if(canStock){d.stock=await stewardshipStock(token);d.sales=await stewardshipSaleStock(token)}
     if(canMoves)d.movements=await stewardshipMovements(token)

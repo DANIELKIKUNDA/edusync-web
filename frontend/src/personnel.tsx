@@ -10,6 +10,7 @@ import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {FormField,formDefaults} from './platform/forms';
+import {useLive} from './platform/live';
 import {
   addStaffAssignment,changeStaffStatus,createStaff,createStaffFunction,endStaffAssignment,exitStaff,getPersonnelScopeOptions,getPersonnelSummary,getStaffProfile,
   listPersonnel,listPersonnelHistory,listStaffFunctions,personnelRegisterPdf,personnelRegisterXlsx,reactivateStaff,updateStaff,
@@ -57,6 +58,7 @@ export default function PersonnelPage({token,permissions,schoolName}:Props){
   const [tab,setTab]=useState<Tab>(()=>permissions.includes('personnel.summary.read')?'overview':permissions.includes('personnel.read')?'directory':'functions');const [summary,setSummary]=useState<StaffSummary|null>(null);const [items,setItems]=useState<StaffMember[]>([]);const [total,setTotal]=useState(0);const [functions,setFunctions]=useState<StaffFunction[]>([]);const [history,setHistory]=useState<StaffHistoryEvent[]>([]);const [scopes,setScopes]=useState<PersonnelScopeOptions>({sections:[],classes:[]});
   const [q,setQ]=useState('');const [status,setStatus]=useState('');const [category,setCategory]=useState('');const [selected,setSelected]=useState<StaffMember|null>(null);const [createOpen,setCreateOpen]=useState(false);const [error,setError]=useState('');const [busy,setBusy]=useState(false);
   const can=(p:string)=>permissions.includes(p);
+  useLive(['personnel'],()=>refresh());   // live: what another member records here appears without reloading (2026-11-01)
   async function refresh(){setBusy(true);setError('');try{const jobs:Promise<unknown>[]=[];if(can('personnel.summary.read'))jobs.push(getPersonnelSummary(token).then(setSummary));if(can('personnel.read'))jobs.push(listPersonnel(token,{q,status,category,limit:200}).then(r=>{setItems(r.items);setTotal(r.total)}));if(can('personnel.functions.read'))jobs.push(listStaffFunctions(token).then(setFunctions));if(can('personnel.history.read'))jobs.push(listPersonnelHistory(token).then(setHistory));if(can('personnel.assignments.read')||can('personnel.assignments.add')||can('personnel.create'))jobs.push(getPersonnelScopeOptions(token).then(setScopes));await Promise.all(jobs)}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
   useEffect(()=>{void refresh()},[token,q,status,category]);
   async function openProfile(id:string){try{setSelected(await getStaffProfile(token,id))}catch(e){setError(friendlyError(e))}}

@@ -13,6 +13,7 @@ import {
 import {disablePush, enablePush, pushSupport, rememberedSubscription} from './push_client';
 import {NavGlyph} from './platform/nav_icons';
 import './communications.css';
+import {useLive} from './platform/live';
 
 type Props = {token: string; permissions: string[]; schoolId: string; schoolName: string; onNavigate?: (module: string) => void};
 type Tab = 'templates' | 'compose' | 'history' | 'settings';
@@ -39,6 +40,7 @@ export default function CommunicationsPage({token, permissions, schoolId, school
   const [ready, setReady] = useState<Readiness | null>(null);
   const [error, setError] = useState('');
   const reload = () => readiness(token).then(setReady).catch(e => setError(friendlyError(e)));
+  useLive(['communications'], () => reload());   // live: SMS balance and channels follow the school (2026-11-01)
   useEffect(() => { void reload(); }, [token]);
   return <section className="commPage">
     <header className="commHero"><span className="commHeroIcon" aria-hidden="true"><NavGlyph g="message" size={26}/></span><div><div className="eyebrow">COMMUNICATION</div><h2>Centre de communication</h2>
@@ -156,6 +158,7 @@ function History({token, can}: {token: string; can: (p: string) => boolean}) {
   const [items, setItems] = useState<HistoryItem[] | null>(null); const [open, setOpen] = useState<string | null>(null); const [rows, setRows] = useState<any[]>([]);
   const [error, setError] = useState('');
   const load = () => history(token).then(r => setItems(r.items)).catch(e => setError(friendlyError(e)));
+  useLive(['communications'], () => load());
   useEffect(() => { void load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [token]);
   async function expand(id: string) {
     if (open === id) { setOpen(null); return; }

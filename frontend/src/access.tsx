@@ -5,6 +5,7 @@ import {friendlyError} from './platform/errors';
 import {confirmAction} from './platform/dialogs';
 import {SchoolJournal} from './school_journal';
 import './access.css';
+import {useLive} from './platform/live';
 
 /* Accès & rôles — each school sets its own access policy (owner decisions 2026-10-02 and 2026-10-23).
    A standard role is ADJUSTED for the school (GRANT / REVOKE) instead of being copied: it keeps its identity.
@@ -112,6 +113,7 @@ export default function AccessPage({token,permissions,userName}:Props){
   const [openId,setOpenId]=useState<string|null>(null),[adding,setAdding]=useState(false),[secret,setSecret]=useState<{title:string;name:string;email:string;password:string}|null>(null);
   const [status,setStatus]=useState<'all'|'active'|'inactive'>('active'),[limit,setLimit]=useState(30);
 
+  useLive(['access'],()=>load());   // live: what another member records here appears without reloading (2026-11-01)
   async function load(){
     try{setError('');setLoading(true);
       const jobs:Promise<void>[]=[];

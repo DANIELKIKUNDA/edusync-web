@@ -14,6 +14,7 @@ import {useFieldArray,useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {FormField,formDefaults} from './platform/forms';
+import {useLive} from './platform/live';
 import {
   EnrollmentBatchInput,HouseholdCandidate,SchoolClass,SchoolFamily,SchoolingStudent,SchoolingSummary,
   enrollFamily,listYearSelector,familyDirectoryPdf,familyDirectoryXlsx,getSchoolingSummary,getStudent,listClassSelector,listFamilies,listStudents,
@@ -42,6 +43,7 @@ export default function SchoolingPage({token,permissions,schoolName,onNavigate}:
   const can=(p:string)=>permissions.includes(p);
   // Each read stands alone (offline proof, 2026-10-31): without network, a directory page that was never consulted used to
   // reject the whole refresh — and with it the classes the enrollment wizard needs. What is available is shown.
+  useLive(['students','headcounts'],()=>refresh());   // live: what another member records here appears without reloading (2026-11-01)
   async function refresh(){setLoading(true);setError('');try{const [sum,stu,fam,cls]=await Promise.allSettled([getSchoolingSummary(token),listStudents(token,{...filters,limit:PAGE_SIZE,offset:studentPage*PAGE_SIZE}),listFamilies(token,q,{limit:PAGE_SIZE,offset:familyPage*PAGE_SIZE}),listClassSelector(token)]);
     if(sum.status==='fulfilled')setSummary(sum.value);if(stu.status==='fulfilled'){setStudents(stu.value.items);setStudentMore(Boolean(stu.value.has_more))}
     if(fam.status==='fulfilled'){setFamilies(fam.value.items);setFamilyMore(Boolean(fam.value.has_more))}if(cls.status==='fulfilled')setClasses(cls.value.filter(x=>x.enabled));

@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from edusync.shared.application.context import CapabilityDenied
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from edusync.shared.infrastructure.live_changes import LiveChangesMiddleware
 
 from edusync.bootstrap.services import AppServices
 from edusync.bootstrap.settings import Settings
@@ -77,6 +78,8 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     async def capability_denied_handler(request, exc):
         return JSONResponse(status_code=403, content={"detail": str(exc)})
 
+    # Live changes (2026-11-01): after a successful school write, the school's screens are told which domains changed.
+    app.add_middleware(LiveChangesMiddleware, redis_url=cfg.redis_url)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(ApiGuardMiddleware, max_body_bytes=cfg.api_max_body_bytes, max_query_bytes=cfg.api_max_query_bytes)
     app.add_middleware(CorrelationLoggingMiddleware)

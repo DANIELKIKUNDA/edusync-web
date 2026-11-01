@@ -10,6 +10,7 @@ import {
 } from './api';
 import './schooling_kit.css';
 import './effectifs.css';
+import {useLive} from './platform/live';
 
 /* Effectifs & dépôts — industrialised 2026-10-25 (owner request). The certified desktop F/G/T table, scopes and tabs are
    unchanged; around them: clickable indicators, a single-hue distribution of active pupils, a row filter, live searches,
@@ -52,6 +53,7 @@ export default function EffectifsPage({token,permissions,schoolName,yearId}:Prop
  const [movementType,setMovementType]=useState('');
  const [showDeposit,setShowDeposit]=useState(false);
  const dq=useDebounced(q);
+ useLive(['headcounts','students'],()=>refresh());   // live: what another member records here appears without reloading (2026-11-01)
  async function refresh(){
    setBusy(true);setError('');
    try{

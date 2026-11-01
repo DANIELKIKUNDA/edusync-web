@@ -35,7 +35,7 @@ from edusync.shared.domain.concurrency import IdempotencyConflict, IdempotencyIn
 from edusync.bootstrap.settings import is_protected_env
 from edusync.modules.communications.application.messaging import Recipient, request_message
 from edusync.shared.messaging.sealing import PUSH_TOKEN, cipher, token_hash
-from edusync.shared.infrastructure.realtime import inbox_events, publish_inbox_changed
+from edusync.shared.infrastructure.realtime import inbox_events, publish_inbox_changed, school_events
 
 router = APIRouter(tags=["Notifications"])
 LINK_RE = re.compile(r"^/[A-Za-z0-9/_?=&.-]*$")
@@ -578,6 +578,14 @@ _SSE_HEADERS = {"Cache-Control": "no-store", "X-Accel-Buffering": "no", "Connect
 async def platform_inbox_stream(request: Request, actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     """Server-Sent Events: "your inbox changed" signals for this platform account (no content)."""
     return StreamingResponse(inbox_events(services.settings.redis_url, actor.user_id, None, request.is_disconnected),
+                             media_type="text/event-stream", headers=_SSE_HEADERS)
+
+
+@router.get("/live/stream")
+async def school_live_stream(request: Request, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Server-Sent Events (2026-11-01): « domains changed in your school » signals for every member — no data at all; each
+    screen re-reads through the normal API with the member's own rights (see shared/infrastructure/realtime.py)."""
+    return StreamingResponse(school_events(services.settings.redis_url, actor.school_id, request.is_disconnected),
                              media_type="text/event-stream", headers=_SSE_HEADERS)
 
 

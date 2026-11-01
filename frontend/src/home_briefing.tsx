@@ -5,6 +5,7 @@
 import React,{useEffect,useState} from 'react';
 import {cashDaySummary,financeDecisions,getEffectifsCounts,getEffectifsMovements,getPersonnelSummary,getSchoolingSummary,recoveryMonthly,stewardshipCounts,stewardshipDashboard,type AccessWidget} from './api';
 import {NavGlyph} from './platform/nav_icons';
+import {ALL_DOMAINS,useLive} from './platform/live';
 
 type Tone='ok'|'warn'|'bad'|'info';
 type Finding={widget:string;tone:Tone;icon:string;title:string;text:string};
@@ -93,7 +94,8 @@ async function personnelFinding(token:string):Promise<Finding>{
 export function DailyBriefing({token,yearId,widgets,open}:{token:string;yearId?:string;widgets:AccessWidget[];open:(w:AccessWidget)=>void}){
   const has=(id:string)=>widgets.find(w=>w.id===id);
   const [items,setItems]=useState<Finding[]|null>(null);
-  useEffect(()=>{let alive=true;setItems(null);
+  const [live,setLive]=useState(0);useLive(ALL_DOMAINS,()=>setLive(x=>x+1));   // the findings follow what happens in the school
+  useEffect(()=>{let alive=true;if(!live)setItems(null);
     const jobs:Array<Promise<Finding|Finding[]|null>>=[];
     if(has('finance.recovery'))jobs.push(recoveryFinding(token,yearId));
     if(has('cash.supervision'))jobs.push(cashFinding(token));
@@ -106,7 +108,7 @@ export function DailyBriefing({token,yearId,widgets,open}:{token:string;yearId?:
     if(has('inventory.counts'))jobs.push(countsFinding(token));
     // one unavailable read model never hides the others
     Promise.allSettled(jobs).then(r=>{if(alive)setItems(r.flatMap(x=>x.status==='fulfilled'&&x.value?(Array.isArray(x.value)?x.value:[x.value]):[]))});
-    return()=>{alive=false}},[token,yearId,widgets.map(w=>w.id).join()]);
+    return()=>{alive=false}},[token,yearId,widgets.map(w=>w.id).join(),live]);
   if(items&&items.length===0)return null;
   const worst=items?.find(i=>i.tone==='bad')??items?.find(i=>i.tone==='warn');
   return <section className="sh-brief" aria-labelledby="sh-brief-title" aria-busy={!items}>

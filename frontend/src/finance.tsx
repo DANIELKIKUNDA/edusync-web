@@ -21,6 +21,7 @@ import {formatMoney,formatDate} from './platform/format';
 import ReceiptQueue from './receipt_queue';
 import {loadCashierBasket,saveCashierBasket,loadCashierBasketRequest,saveCashierBasketRequest,type CashierBasketLine} from './platform/cashier_basket';
 import {clearFinanceTarget,peekFinanceTarget} from './finance_nav';
+import {useLive} from './platform/live';
 const revealOnMount=(el:HTMLElement|null)=>{el?.scrollIntoView({block:'nearest',behavior:'smooth'})};
 const money=(v:string|number,c:string)=>formatMoney(v,c);const frDate=(v?:string|null)=>{if(!v)return '—';const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(v);return m?`${m[3]}/${m[2]}/${m[1]}`:v};
 export default function FinancePage({token,permissions}:{token:string;permissions:string[]}){const can=(p:string)=>permissions.includes(p);
@@ -74,6 +75,8 @@ function QuickCheckout({token,can,onOpenCash}:{token:string;can:(p:string)=>bool
 
  const canBasket=can('finance.checkout.family.collect')&&can('finance.checkout.collect');
  useEffect(()=>{window.clearTimeout(timer.current);if(q.trim().length<1){setHits([]);return}timer.current=window.setTimeout(()=>checkoutSearch(token,q).then(x=>{setHits(x.items);setHitIndex(0)}).catch(e=>setMsg(friendlyError(e))),180);return()=>window.clearTimeout(timer.current)},[q,token]);
+ // live: another cashier paying the same pupil removes the settled charges here at once — no double collection (2026-11-01)
+ useLive(['finance'],()=>{if(active)void checkoutBalance(token,active.enrollment_id).then(x=>setCharges(x.items)).catch(()=>{})});
  async function choose(p:CheckoutPerson){setActive(p);setQ('');setHits([]);setSelected([]);setAmount('');setMsg('');try{setCharges((await checkoutBalance(token,p.enrollment_id)).items);const required=await checkoutRegistrationBundle(token,p.enrollment_id).catch(()=>null);if(required)setRequiredByEnrollment(rows=>({...rows,[p.enrollment_id]:required}));if(can('finance.old_debt.read'))setOldDebts((await checkoutOldDebts(token,p.student_id)).items)}catch(e){setMsg(friendlyError(e))}}
  async function addFamily(){if(!active)return;try{const x=await checkoutFamily(token,active.family_id);setCart(old=>[...old,...x.items.filter(n=>!old.some(o=>o.student_id===n.student_id))]);const pairs=await Promise.all(x.items.map(async child=>[child.enrollment_id,await checkoutRegistrationBundle(token,child.enrollment_id).catch(()=>null)] as const));setRequiredByEnrollment(rows=>({...rows,...Object.fromEntries(pairs.filter((pair):pair is readonly [string,RegistrationBundleDue]=>pair[1]!==null))}))}catch(e){setMsg(friendlyError(e))}}
  const [payOptions,setPayOptions]=useState<PaymentOptions|null>(null);const [payMode,setPayMode]=useState('CASH');const [payRef,setPayRef]=useState('');

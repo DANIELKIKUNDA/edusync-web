@@ -3,6 +3,7 @@ import {NavGlyph} from './platform/nav_icons';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {RecoveryChart} from './platform/recovery_chart';
 import {DailyBriefing} from './home_briefing';
+import {ALL_DOMAINS,useLive} from './platform/live';
 import {setFinanceTarget,type FinanceTarget} from './finance_nav';
 import {auditActionLabel} from './platform/labels';
 import {displayTitle} from './platform/format';
@@ -32,9 +33,12 @@ export function readinessSteps(o:SettingsOverview,open:(section:string)=>void):J
     onClick:READINESS_SECTION[i.code]?()=>open(READINESS_SECTION[i.code]):undefined,actionLabel:i.state==='READY'?'Voir':'Compléter'}));
 }
 
+// Live (2026-11-01): a home card re-reads its figures when something changes elsewhere in the school, silently — the
+// figures already shown stay on screen while the new ones load (no skeleton flash).
 function useData<T>(load:()=>Promise<T>,deps:unknown[]){
   const [state,setState]=useState<{data?:T;error?:unknown;loading:boolean}>({loading:true});const [attempt,setAttempt]=useState(0);
-  useEffect(()=>{let alive=true;setState(s=>({...s,loading:true,error:undefined}));load().then(data=>alive&&setState({data,loading:false})).catch(error=>alive&&setState({error,loading:false}));return()=>{alive=false}},[...deps,attempt]);
+  const [live,setLive]=useState(0);useLive(ALL_DOMAINS,()=>setLive(x=>x+1));
+  useEffect(()=>{let alive=true;setState(s=>({...s,loading:s.data===undefined,error:undefined}));load().then(data=>alive&&setState({data,loading:false})).catch(error=>alive&&setState({error,loading:false}));return()=>{alive=false}},[...deps,attempt,live]);
   return {...state,retry:()=>setAttempt(a=>a+1)};
 }
 type Loaded<T>=ReturnType<typeof useData<T>>;
