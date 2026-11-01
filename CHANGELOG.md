@@ -15,6 +15,15 @@ seulement comme « compilation » pour le support.
 
 ## [1.0.0-rc.2] — 2026-11-01
 
+### Ajouté — moteur d'exigibilité financière annuelle (PR #33)
+- Par école et par année scolaire, une **politique d'exigibilité** décide, frais par frais, ce qui est réellement dû
+  quand un élève arrive en cours d'année : mois antérieurs à l'inscription non exigibles, dus en entier, ou dus à un
+  pourcentage choisi ; et pour le mois d'arrivée, un pourcentage selon le jour d'inscription (tranches de jours).
+- La politique se prépare en brouillon (Paramètres › Tarifs), s'essaie par un **aperçu par classe**, puis s'active
+  (droit `settings.tariffs.apply`) ; elle s'applique à la génération des frais, et le recouvrement distingue « non
+  exigible » d'une exonération. Migration `0105_finance_annual_exigibility`.
+- Certifié sur PostgreSQL réel dans la CI (`tools/ci/mef_postgres_integration.py`).
+
 ### Corrigé — mise à jour de l'application (audit)
 - La nouvelle version se télécharge en arrière-plan pendant que l'on travaille ; l'avis « Nouvelle version disponible »
   n'apparaît qu'une fois ce téléchargement terminé.
@@ -30,6 +39,16 @@ seulement comme « compilation » pour le support.
 Première version candidate.
 
 ### Ajouté
+- **Temps réel pour tous les rôles de l'école** : ce qu'un membre enregistre (encaissement, inscription, stock,
+  personnel…) apparaît chez les autres en une à deux secondes, sans recharger — accueil et « Le point du jour »,
+  caisses, reçus, recouvrement, panier d'encaissement (un autre caissier encaisse le même élève : les frais réglés
+  disparaissent aussitôt), élèves, effectifs, intendance, personnel, communication, accès, documents. Le signal ne
+  contient que le domaine changé ; chaque écran relit ses données avec les droits du membre.
+- **Travail hors ligne pour tous les rôles de l'école** (et non plus seulement la caisse), opérations rejouées sans
+  doublon au retour du réseau ; comptes et accès, imports, annulations et clôture de journée restent en ligne.
+- **Passe « mobile d'abord »** sur l'école et la plateforme : barre du bas propre à chaque rôle (dont « Encaisser »
+  pour qui encaisse), un seul titre par écran, petites cartes en blocs 2 × 2, tableaux en cartes, fenêtres en feuilles.
+- Rôles créés par l'école à partir d'un rôle standard (ex. « Assistant du promoteur » depuis le Promoteur).
 - Numéro de version standard affiché dans l'application (« Version 1.0.0-rc.1 ») et dans l'avis de mise à jour.
 - Encaissement en mode caisse : action conseillée présélectionnée au choix de l'élève.
 - Téléphone : barre d'encaissement fixe (« Encaisser 25 USD », puis « Imprimer »), panier familial depuis la même barre.
@@ -45,3 +64,7 @@ Première version candidate.
 
 ### Corrigé
 - L'application installée ne se recharge plus quand on glisse l'écran vers le bas, y compris téléphone tourné.
+- **Sécurité** : pypdf 6.21.2 → 6.21.4 et pyasn1 0.6.4 → 0.6.5 (11 failles publiées, détectées par l'audit de la CI).
+- Une dépense de caisse rejouée après une réponse perdue n'est plus enregistrée deux fois (idempotence côté serveur).
+- La mensualité exigée à l'inscription peut être encaissée avant les mois précédents ; seule elle échappe à l'ordre (PR #29).
+- « Superviser les caisses » ouvre bien la Caisse (et non le Recouvrement).
