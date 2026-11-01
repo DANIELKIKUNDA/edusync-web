@@ -20,10 +20,12 @@ export function classifyScreenError(error:unknown):{kind:ScreenErrorKind;title:s
   if(status===403||/permission|autorisation|accès refusé|refusé/i.test(msg))return {kind:'permission',title:'Accès non autorisé',text:'Vos droits actuels ne permettent pas d’afficher cette page. Demandez-les au gestionnaire des accès de votre école.',retry:false};
   if(status===404||/introuvable/i.test(msg))return {kind:'not_found',title:'Élément introuvable',text:'Cet élément n’existe plus ou a été déplacé.',retry:false};
   if(status>=500||/momentanément une difficulté/i.test(msg))return {kind:'server',title:'Service momentanément indisponible',text:'Le serveur n’a pas pu répondre. Vos données ne sont pas perdues : réessayez dans un instant.',retry:true};
+  // Checked BEFORE the network case: Chrome reports a missing module of an old build as « TypeError: Failed to fetch
+  // dynamically imported module », which is a deployment, not a lost connection (audit 2026-11-01).
+  if(e?.name==='ChunkLoadError'||/dynamically imported module|Importing a module script failed|Loading chunk/i.test(msg))
+    return {kind:'unavailable',title:'Nouvelle version disponible',text:'Cette partie de l’application a été mise à jour. Rechargez pour l’obtenir.',retry:true};
   if(e?.name==='TypeError'&&/fetch|network|réseau/i.test(msg)||/network|réseau|connexion/i.test(msg))
     return {kind:'network',title:'Connexion impossible',text:'Le serveur ne répond pas. Vérifiez la connexion puis réessayez.',retry:true};
-  if(e?.name==='ChunkLoadError'||/dynamically imported module|Loading chunk/i.test(msg))
-    return {kind:'unavailable',title:'Nouvelle version disponible',text:'Cette partie de l’application a été mise à jour. Rechargez pour l’obtenir.',retry:true};
   return {kind:'render',title:'Cette partie n’a pas pu s’afficher',text:'Le reste d’EduSync reste disponible. Réessayez ; si le problème persiste, signalez-le avec l’heure.',retry:true};
 }
 
@@ -32,7 +34,7 @@ export function ScreenError({error,onRetry,compact=false}:{error:unknown;onRetry
   return <div className={`screenError ${compact?'compact':''} screenError-${c.kind}`} role="alert">
     <NavGlyph g={c.kind==='offline'||c.kind==='network'?'wifiOff':c.kind==='permission'?'lock':'alert'} size={compact?18:24}/>
     <div><b>{c.title}</b><p>{c.text}</p></div>
-    {c.retry&&onRetry&&<button type="button" className="softBtn" onClick={onRetry}>{c.kind==='unavailable'?'Recharger':'Réessayer'}</button>}
+    {c.retry&&onRetry&&<button type="button" className="softBtn" onClick={c.kind==='unavailable'?()=>window.location.reload():onRetry}>{c.kind==='unavailable'?'Recharger':'Réessayer'}</button>}
   </div>;
 }
 

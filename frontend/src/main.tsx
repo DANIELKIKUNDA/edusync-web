@@ -9,8 +9,10 @@ import './platform/mobile.css';
 import {installMobileEnhancements} from './platform/mobile_enhance';
 import { Toaster } from 'sonner';
 import { installResilientFetch } from './platform/connectivity';
+import { installChunkRecovery } from './platform/lazy_page';
 import { ErrorBoundary } from './platform/ErrorBoundary';
 installResilientFetch();
+installChunkRecovery();
 installMobileEnhancements();
 
 if ('serviceWorker' in navigator) window.addEventListener('load',()=>{

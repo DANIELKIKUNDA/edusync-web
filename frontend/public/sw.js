@@ -1,5 +1,5 @@
 const CACHE='edusync-shell-2026-10-24-activation';
-const SHELL=['/','/manifest.webmanifest','/boot-fallback.js'];
+const SHELL=['/','/manifest.webmanifest','/boot-fallback.js','/icons/edusync-mark.svg','/icons/icon-192.png'];
 // Filled at build time (vite.config.ts, edusync-offline-precache): every hashed module of this build, so that the whole
 // school app opens without network after one online visit. Empty in development.
 const PRECACHE=[];
@@ -17,15 +17,27 @@ self.addEventListener('message',event=>{
   }))));
 });
 
+/* Update flow (audit 2026-11-01, standard « prompt for update » of installable apps — web.dev, Workbox):
+   1. a new version installs IN THE BACKGROUND and downloads its whole app here, while the current version keeps working;
+   2. it then WAITS: the open app is not swapped under the user's feet, the previous copy (and its offline modules) stays;
+   3. the page shows « Nouvelle version disponible » only once this download is done; « Mettre à jour » sends
+      EDUSYNC_SKIP_WAITING, the worker activates and the page reloads from this cache — instant, even on a weak network.
+   First install (no previous worker): nothing to replace, it takes control at once as before. */
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
+  event.waitUntil((async()=>{
+    const cache=await caches.open(CACHE);
+    await cache.addAll(SHELL);
+    await precacheInto(cache);
+    if(!self.registration.active)await self.skipWaiting();
+  })());
 });
-// The whole app is downloaded AFTER activation, when the page asks for it (PRECACHE_ALL): the worker takes control at
-// once with the shell (a network cut during the download must not leave the phone without an offline app), and one
-// module failing on a weak network never blocks the others — the next online visit completes the copy.
-function precacheAll(){
-  return caches.open(CACHE).then(cache=>Promise.all(PRECACHE.map(url=>cache.match(url).then(hit=>hit||fetch(url,{credentials:'omit'}).then(r=>r.ok?cache.put(url,r):undefined)).catch(()=>undefined))));
+// One module failing on a weak network never blocks the others (two tries each); the next online visit completes the copy
+// (PRECACHE_ALL, sent by the page at every start).
+function precacheInto(cache){
+  const one=url=>cache.match(url).then(hit=>hit||fetch(url,{credentials:'omit'}).then(r=>{if(!r.ok)throw new Error(String(r.status));return cache.put(url,r)}));
+  return Promise.all(PRECACHE.map(url=>one(url).catch(()=>one(url)).catch(()=>undefined)));
 }
+function precacheAll(){return caches.open(CACHE).then(precacheInto);}
 
 self.addEventListener('activate',event=>{
   event.waitUntil(Promise.all([
@@ -44,7 +56,10 @@ self.addEventListener('fetch',event=>{
   if(url.origin!==self.location.origin || url.pathname.startsWith('/api/') || ['/version.json','/health-api','/health'].includes(url.pathname) || request.cache==='no-store' || request.headers.has('Authorization')) return;
 
   if(request.mode==='navigate'){
-    event.respondWith(fetch(request).catch(()=>caches.match('/')));
+    // App shell (audit 2026-11-01): the page of THIS version opens from the device at once — no wait on a weak network,
+    // at start as after « Mettre à jour ». Freshness comes from the update flow above (sw.js is always revalidated and a
+    // new version announces itself once downloaded). Network only if this copy has no shell yet.
+    event.respondWith(caches.open(CACHE).then(cache=>cache.match('/')).then(hit=>hit||fetch(request)).catch(()=>fetch(request)));
     return;
   }
 
