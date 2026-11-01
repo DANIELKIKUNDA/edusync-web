@@ -80,12 +80,13 @@ def analyze_row(conn,sid,year,row,period=None):
  else:n['gender']=(n['gender'] or '').upper() or None
  try:n['birth_date']=parse_date(row.get('Date naissance')).isoformat() if row.get('Date naissance') else None
  except ValueError as e:n['birth_date']=None;issues.append({'level':'ERROR','code':'DATE','field':'birth_date','message':str(e)})
- # Contract 1.1: the real enrollment date (owner, 2026-11-01), never the import day when it is known.
+ # Contract 1.1: the real enrollment date (owner, 2026-11-01), never the import day when it is known. Checked against the
+ # year's enrollment period (pupils enrol before the school year starts), or the year's dates when no period is set.
  try:enrolled=parse_date(row.get('Date inscription')) if row.get('Date inscription') else None
  except ValueError:enrolled=None;issues.append({'level':'ERROR','code':'ENROLLMENT_DATE','field':'enrolled_on','message':"Date d'inscription invalide (JJ/MM/AAAA)"})
  n['enrolled_on']=enrolled.isoformat() if enrolled else None
  if enrolled and enrolled>date.today():issues.append({'level':'ERROR','code':'ENROLLMENT_DATE','field':'enrolled_on','message':"Date d'inscription dans le futur"})
- elif enrolled and period and not (period[0]<=enrolled<=period[1]):issues.append({'level':'WARNING','code':'ENROLLMENT_DATE_OUTSIDE_YEAR','field':'enrolled_on','message':f"Date d'inscription hors des dates de l'année scolaire ({period[0]:%d/%m/%Y} → {period[1]:%d/%m/%Y})"})
+ elif enrolled and period and not (period[0]<=enrolled<=period[1]):issues.append({'level':'WARNING','code':'ENROLLMENT_DATE_OUTSIDE_YEAR','field':'enrolled_on','message':f"Date d'inscription hors de la période d'inscription de l'année ({period[0]:%d/%m/%Y} → {period[1]:%d/%m/%Y})"})
  cl=None
  if n['class_label']:
   cl=conn.execute(text("SELECT id,code,label FROM school_classes WHERE school_id=:sid AND academic_year_id=:y AND enabled AND (lower(code)=:q OR lower(label)=:q OR lower(coalesce(reference_code,''))=:q) ORDER BY CASE WHEN lower(code)=:q THEN 0 ELSE 1 END LIMIT 2"),{'sid':sid,'y':year,'q':norm(n['class_label'])}).all()
@@ -107,7 +108,7 @@ async def analyze_students(request:Request, filename:str=Query(...,min_length=1,
  if len(parsed)>MAX_IMPORT_ROWS:raise HTTPException(413,'Maximum 5 000 lignes par lot')
  bid=uuid4()
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-  yr=conn.execute(text('SELECT id,start_date,end_date FROM academic_years WHERE school_id=:sid AND id=:y'),{'sid':actor.school_id,'y':academic_year_id}).first()
+  yr=conn.execute(text('SELECT id,COALESCE(enrollment_start,start_date),COALESCE(enrollment_end,end_date) FROM academic_years WHERE school_id=:sid AND id=:y'),{'sid':actor.school_id,'y':academic_year_id}).first()
   if not yr:raise HTTPException(404,'Année scolaire introuvable')
   counts={'VALID':0,'WARNING':0,'ERROR':0}; previews=[]
   conn.execute(text("INSERT INTO student_import_batches(id,school_id,academic_year_id,filename,source_format,created_by) VALUES(:id,:sid,:y,:f,:fmt,:u)"),{'id':bid,'sid':actor.school_id,'y':academic_year_id,'f':filename,'fmt':ext.upper(),'u':actor.user_id})

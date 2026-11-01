@@ -188,6 +188,12 @@ def student_import(A: dict) -> None:
     check("import exécuté : 2 élèves créés", ex.status_code == 200 and after == before + 2, f"{ex.status_code} {ex.text[:150]} {before}→{after}")
     days = {r[0]: r[1] for r in H.sql("SELECT s.last_name,e.enrolled_on FROM students s JOIN enrollments e ON e.student_id=s.id WHERE s.school_id=:s AND s.middle_name='IMPORT'", s=A["id"]).all()}
     check("date d'inscription réelle conservée ; vide = jour de l'import", days.get("KALENGA") == real_day and days.get("ILUNGA") == date.today(), str(days))
+    H.sql("UPDATE academic_years SET enrollment_start=:d WHERE id=:y", d=date(2026, 7, 1), y=A["year"])
+    july = io.BytesIO(); ws.cell(hrow + 1, 1, "KALENGA2"); ws.cell(hrow + 2, 1, "ILUNGA2"); ws.cell(hrow + 1, 15, "15/07/2026"); ws.cell(hrow + 2, 15, "15/06/2026"); wb.save(july)
+    jl = c.post(f"/api/v1/import/students/analyze?filename=eleves.xlsx&academic_year_id={A['year']}", content=july.getvalue()).json()
+    codes = {p["row_number"]: [i["code"] for i in p["issues"]] for p in jl.get("preview", [])}
+    check("inscription de juillet dans la période d'inscription : aucun avertissement ; avant la période : avertissement",
+          codes.get(hrow + 1) == [] and codes.get(hrow + 2) == ["ENROLLMENT_DATE_OUTSIDE_YEAR"], str(codes))
     again = c.post(f"/api/v1/import/students/batches/{bid}/execute", json={"accept_warnings": True, "confirm_separate_households": True}, headers={"Idempotency-Key": f"sec-imp-{uuid.uuid4().hex}"})
     check("rejeu du même lot : aucun doublon", again.status_code == 200 and one("SELECT count(*) FROM students WHERE school_id=:s", s=A["id"])[0] == after, again.text[:150])
     noexec = as_(actor_for(ROLE, A["id"], drop={"migration.students.execute"}))
