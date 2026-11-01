@@ -498,12 +498,12 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
         else if(alive&&cached?.kind==='SCHOOL'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setSchoolSession(s=>s||{token:OFFLINE_SCHOOL_TOKEN,...cached.session});}
       }finally{clearTimeout(timer);running=false;if(alive)setRestoring(false);}
     }
-    const online=()=>{void restore()};
-    const offline=()=>{if(knownContext())setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED')};
-    const probe=(e:Event)=>{if((e as CustomEvent).detail?.state==='ONLINE'&&getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&knownContext()&&navigator.onLine)void restore()};
-    window.addEventListener('online',online);window.addEventListener('offline',offline);window.addEventListener('edusync:connectivity',probe);
+    // The browser's online/offline events are only hints (networks drop for a second or two): connectivity.ts verifies with
+    // the server and publishes OFFLINE (→ offline mode) or ONLINE (→ the session is restored here) once confirmed.
+    const probe=(e:Event)=>{if((e as CustomEvent).detail?.state==='ONLINE'&&getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&knownContext())void restore()};
+    window.addEventListener('edusync:connectivity',probe);
     void restore();
-    return()=>{alive=false;window.removeEventListener('online',online);window.removeEventListener('offline',offline);window.removeEventListener('edusync:connectivity',probe)};
+    return()=>{alive=false;window.removeEventListener('edusync:connectivity',probe)};
   },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
   function clear(){clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}

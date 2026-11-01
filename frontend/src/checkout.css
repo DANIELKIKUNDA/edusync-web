@@ -143,7 +143,7 @@
 .posAdvanced{border:1px solid #dfe8f4;border-radius:10px;background:#fff}
 .posAdvanced>summary{padding:10px;cursor:pointer;font-weight:700;font-size:13px;color:#0b3f9c}
 .posAdvanced .planPanel,.posAdvanced .fundsPanel{margin:8px}
-.posMobileBar,.posMobileHead,.posSheetBackdrop{display:none}
+.posMobileHead,.posSheetBackdrop{display:none}
 @media(max-width:899px){
   .posGrid{display:block}
   .posWorkspace{padding:10px}
@@ -155,8 +155,6 @@
   .posSheetBackdrop{display:block;position:fixed;inset:0;z-index:101;border:0;background:rgba(9,24,47,.52)}
   .posMobileHead{display:flex;align-items:center;justify-content:space-between}
   .posMobileHead button{min-width:44px;min-height:44px;border:0;background:transparent;font-size:22px}
-  .posMobileBar{display:flex;position:fixed;left:8px;right:8px;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:60;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:9px 14px;border:0;border-radius:14px;background:#0f4fbf;color:#fff;box-shadow:0 8px 28px rgba(11,63,156,.3);text-align:left;font-weight:700}
-  .posMobileBar b{white-space:nowrap}
   .posRight .checkoutPay{bottom:0}
   .posWorkspace{padding-bottom:74px}
 }
@@ -177,4 +175,52 @@
 @media(min-width:900px){
  .posRight:has(.basketPanel){padding-bottom:min(34dvh,260px)}
  .posRight .basketFoot{position:fixed;right:16px;bottom:12px;z-index:55;width:min(390px,calc(100vw - 32px));max-height:48dvh;overflow:auto;padding:12px;border:1px solid #9cb7df;border-radius:14px;background:#f7faff;box-shadow:0 8px 32px rgba(13,41,83,.22)}
+}
+
+/* ── Desk mode (owner, 2026-11-01): the cash desk is the operation repeated many times a day — on a phone as on a computer,
+   the cashier must reach « Encaisser » without scrolling. Pattern of retail POS apps: a compact header, search at the top,
+   the list in the middle, and the primary action docked in the thumb zone (phone) or in the sticky right panel (computer). */
+.posDock{display:none}
+.financePage.deskMode .financeHero{margin-bottom:8px}
+.financePage.deskMode .financeHero .eyebrow,.financePage.deskMode .financeHero p{display:none}
+.financePage.deskMode .financeHero h2{font-size:20px;margin:0}
+.financePage.deskMode .financeTabs,.financePage.deskMode .checkoutSubtabs{margin-bottom:8px}
+.financePage.deskMode .posWorkspace{padding:14px}
+.financePage.deskMode .posWorkspace .speedHint{display:none}
+@media(max-width:899px){
+  .financePage.deskMode{gap:6px!important}
+  .financePage.deskMode .financeHero{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;padding:0!important;margin:0!important;background:transparent!important;border:0!important;box-shadow:none!important}
+  .financePage.deskMode .financeHero>div:first-child{display:none}
+  .financePage.deskMode .cashLive{padding:5px 10px;font-size:12.5px;border-radius:999px}
+  .financePage.deskMode .financeTabs,.financePage.deskMode .checkoutSubtabs{margin:0!important;gap:2px!important}
+  .financePage.deskMode .financeTabs button,.financePage.deskMode .checkoutSubtabs button{min-height:38px!important;padding:6px 10px!important;font-size:14px!important}
+  .financePage.deskMode .posWorkspace{padding:10px!important;border-radius:16px!important;margin-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  .financePage.deskMode .checkoutSearch>label{display:none}
+  .financePage.deskMode .checkoutSearchBox input{min-height:46px}
+  .financePage.deskMode .checkoutSearchBox kbd{display:none}
+  /* One line per pupil: who, class, family; the two actions side by side under it. */
+  .financePage.deskMode .payerStrip{grid-template-columns:38px minmax(0,1fr) auto!important;align-items:center!important;gap:6px 10px!important;padding:8px 10px!important;margin:8px 0 4px!important}
+  .financePage.deskMode .payerStrip .payerAvatar{width:38px;height:38px;font-size:14px;border-radius:10px}
+  .financePage.deskMode .payerStrip>div:nth-child(2){grid-column:2/-1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left}
+  .financePage.deskMode .payerStrip>div:nth-child(2) b{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}
+  .financePage.deskMode .payerStrip>div:nth-child(2) span,.financePage.deskMode .payerStrip>div:nth-child(2) small{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .financePage.deskMode .payerStrip>button{min-height:36px!important;padding:4px 10px!important;font-size:13px!important}
+  .financePage.deskMode .payerStrip>button:nth-of-type(1){grid-column:1/3}
+  .financePage.deskMode .payerStrip>button:nth-of-type(2){grid-column:3}
+  .financePage.deskMode .chargeToolbar{flex-wrap:nowrap!important;padding:6px 2px!important}
+  .financePage.deskMode .chargeToolbar button{min-height:36px!important;padding:4px 10px!important;font-size:13px!important;white-space:nowrap}
+  .financePage.deskMode .posChargeGroup h3,.financePage.deskMode .posChargeGroup summary{font-size:14px}
+  .financePage.deskMode .posLeft .chargeRow{padding:8px 10px!important;min-height:50px}
+  /* The dock: always visible above the bottom bar; the left part opens the details sheet, the right part pays in one tap. */
+  .financePage.deskMode .posDock{display:flex;position:fixed;left:8px;right:8px;bottom:calc(66px + env(safe-area-inset-bottom,0px));z-index:60;align-items:stretch;gap:8px;padding:8px;border-radius:16px;background:#0b1f3f;box-shadow:0 10px 30px rgba(8,24,52,.35)}
+  .posDockInfo{flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:4px 6px;border:0;background:transparent;color:#fff;text-align:left;cursor:pointer}
+  .posDockInfo small{grid-column:1;font-size:11.5px;color:#9fb6d9;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+  .posDockInfo span{grid-column:1;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .posDockInfo em{grid-column:2;grid-row:1/3;font-style:normal;font-size:12.5px;font-weight:700;color:#cfe0ff;text-decoration:underline}
+  .posDock.done .posDockInfo small{color:#7ee2a8}
+  .posDockPrimary{flex:0 0 auto;max-width:62%;min-height:52px;padding:0 16px;border:0;border-radius:12px;background:#22c55e;color:#06210f;font-size:16px;font-weight:850;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;touch-action:manipulation;cursor:pointer}
+  .posDockPrimary.print{background:#fff;color:#0b1f3f}
+  .posDockPrimary:disabled{background:#3b4f70;color:#a9b8d0}
+  .posDockSecondary{flex:0 0 52px;min-height:52px;border:0;border-radius:12px;background:#1f3a66;color:#fff;display:grid;place-items:center;touch-action:manipulation}
+  .posDockSecondary:disabled{opacity:.45}
 }

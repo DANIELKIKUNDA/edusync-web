@@ -57,6 +57,12 @@
    ───────────────────────────────────────────────────────────────────────────── */
 :root{--surface:#fff;--surface-soft:#f7f9fc;--line:#e3e8f0;--line-strong:#d4dce8;--ink:#17233b;--muted:#6d7b91;--brand:#1457bd;--brand-soft:#edf4ff;--radius:10px;--shadow:0 4px 16px rgba(24,43,75,.045)}
 body{background:#f4f6f9;color:var(--ink)}
+/* Installed app (owner, 2026-11-01): a swipe down must never reload EduSync like a web page. Pull-to-refresh and the bounce
+   are driven by the ROOT scroller, so the rule sits on html (body alone is ignored by recent Chrome) and applies at every
+   width — it used to be inside @media(max-width:800px), so a phone turned sideways (wider than 800 px) reloaded again.
+   Inner lists keep their own scrolling (overscroll-behavior:contain on each). Same pattern as native-feeling PWAs
+   (web.dev « Take control of your scroll »). */
+html,body{overscroll-behavior-y:none}
 .app{grid-template-columns:220px minmax(0,1fr)}
 aside{padding:18px 12px;border-right-color:var(--line);box-shadow:1px 0 0 rgba(20,45,80,.015)}
 .brand{font-size:23px;letter-spacing:-.55px}.sub{margin-bottom:18px}
