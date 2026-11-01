@@ -24,6 +24,9 @@ from sqlalchemy.engine import Connection
 
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
 from edusync.shared.domain.fee_codes import canonical_fee_code, is_tuition_code, same_fee
+from edusync.adapters.postgres_annual_exigibility import PostgresAnnualExigibilityRepository
+from edusync.modules.finance_fee_tracking.domain.annual_charge_application import plan_charge_application
+from edusync.modules.finance_fee_tracking.domain.annual_exigibility import Obligation, ObligationStatus
 
 MONTH_LABELS = {"01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril", "05": "Mai", "06": "Juin", "07": "Juillet",
                 "08": "Août", "09": "Septembre", "10": "Octobre", "11": "Novembre", "12": "Décembre"}
@@ -141,7 +144,11 @@ class PostgresFeeScheduleRepository:
 
     def generate_charges_for_enrollment(self, school_id: UUID, enrollment_id: UUID, *, only_schedule_id: UUID | None = None,
                                         replace: bool = False) -> tuple[int, int]:
-        e = self.connection.execute(text("SELECT id,student_id,academic_year_id,class_id,status FROM enrollments WHERE school_id=:sid AND id=:id"),
+        e = self.connection.execute(text("""SELECT e.id,e.student_id,e.academic_year_id,e.class_id,e.status,
+                   COALESCE(fd.financial_entry_date,e.enrolled_on) AS financial_entry_date
+              FROM enrollments e LEFT JOIN finance_enrollment_entry_dates fd
+                ON fd.enrollment_id=e.id AND fd.school_id=e.school_id
+             WHERE e.school_id=:sid AND e.id=:id"""),
                                     {"sid": school_id, "id": enrollment_id}).first()
         if e is None or e._mapping["status"] != "VALIDATED" or e._mapping["class_id"] is None:
             return 0, 0
@@ -153,16 +160,42 @@ class PostgresFeeScheduleRepository:
                AND (CAST(:only AS uuid) IS NULL OR s.id=:only)"""),
             {"sid": school_id, "y": enrollment["academic_year_id"], "c": enrollment["class_id"], "only": only_schedule_id}).all()
         created = updated = 0
+        annual = PostgresAnnualExigibilityRepository(self.connection)
         for row in rows:
             s = dict(row._mapping)
-            gross, pct, discount, net = apply_discount(s["amount"], self.benefit_percent(school_id, enrollment, s["fee_code"]))
+            assessment = None
+            assessed_gross = _money(s["amount"])
+            if s["periodicity"] == "MONTHLY":
+                assessment = annual.preview_month(
+                    school_id=school_id, academic_year_id=enrollment["academic_year_id"], fee_type_id=s["fee_type_id"],
+                    financial_entry_date=enrollment["financial_entry_date"], period_year=s["due_date"].year,
+                    period_month=s["due_date"].month, tariff=assessed_gross,
+                )
+                assessed_gross = assessment["exigible"]
+            gross, pct, discount, net = apply_discount(assessed_gross, self.benefit_percent(school_id, enrollment, s["fee_code"]))
             label = f"{s['fee_label']} — {s['period_label']}" if s["period_label"] else s["fee_label"]
             periodicity = {"MONTHLY": "MONTHLY", "PERIODIC": "PERIODIC"}.get(s["periodicity"], "ONE_OFF")
             # N3-E / G-FIN-1 — Desktop: only the monthly tuition (SCOLARITE family, Web code MINERVAL) and the tranches are sequential.
             scolarite = is_tuition_code(s["fee_code"])
             group = {"MONTHLY": "MONTHLY:SCOLARITE" if scolarite else "NONE", "PERIODIC": f"TERM:{s['fee_code']}"}.get(s["periodicity"])
-            existing = self.connection.execute(text("""SELECT id,paid_amount FROM finance_charges WHERE school_id=:sid AND enrollment_id=:e
+            existing = self.connection.execute(text("""SELECT id,paid_amount,net_amount FROM finance_charges WHERE school_id=:sid AND enrollment_id=:e
                 AND schedule_id=:s FOR UPDATE"""), {"sid": school_id, "e": enrollment_id, "s": s["id"]}).first()
+            if assessment is not None:
+                self.connection.execute(text("""INSERT INTO finance_exigibility_assessments
+                    (school_id,enrollment_id,schedule_id,policy_id,status,tariff_amount,exigible_amount)
+                    VALUES (:sid,:e,:s,:p,:status,:tariff,:amount)
+                    ON CONFLICT (school_id,enrollment_id,schedule_id,policy_id) DO NOTHING"""),
+                    {"sid": school_id, "e": enrollment_id, "s": s["id"], "p": assessment["policy_id"],
+                     "status": assessment["status"], "tariff": assessment["tariff"], "amount": assessment["exigible"]})
+                planned = plan_charge_application(
+                    Obligation(ObligationStatus(assessment["status"]), assessment["tariff"], net, assessment["percent"]),
+                    existing_charge=existing is not None,
+                    paid_amount=existing._mapping["paid_amount"] if existing else Decimal("0"),
+                    existing_net_amount=existing._mapping["net_amount"] if existing else None,
+                )
+                if planned.action in ("SKIP", "REVIEW_REQUIRED"):
+                    # Policy changes never rewrite historical obligations; differences require explicit regularisation.
+                    continue
             values = {"label": label[:180], "cur": s["currency"], "net": net, "gross": gross, "pct": pct, "disc": discount, "due": s["due_date"],
                       "pl": s["period_label"], "po": s["period_order"], "sg": group, "so": s["period_order"], "t": s["tariff_id"]}
             if existing is not None and replace:
@@ -249,3 +282,4 @@ class PostgresFeeScheduleRepository:
              WHERE s.school_id=:sid AND s.academic_year_id=:y AND s.active
              ORDER BY c.label,f.label,coalesce(s.period_order,0)"""), {"sid": school_id, "y": academic_year_id}).all()
         return [{**dict(r._mapping), "amount": str(r._mapping["amount"])} for r in rows]
+
