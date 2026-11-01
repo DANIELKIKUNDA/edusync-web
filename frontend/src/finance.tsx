@@ -239,7 +239,7 @@ function QuickCheckout({token,can,onOpenCash}:{token:string;can:(p:string)=>bool
   {active&&(()=>{
     const basketCur=Object.keys(basketTotals);const basketLabel=basketCur.length===1?money(Object.values(basketTotals)[0],basketCur[0]):basketCur.map(c=>money(basketTotals[c],c)).join(' + ');
     const needsSheet=payMode!=='CASH'&&!payRef.trim();
-    const summary=selected.length?chosen.map(c=>c.period_label||c.label).join(' · '):basket.length?`Panier · ${basket.length} enfant(s)`:basketDone?`Panier encaissé · ${basketDone.lines.length} reçu(s)`:lastPay?`Reçu ${lastPay.receipt}`:msg?msg:'Touchez un frais à encaisser';
+    const summary=selected.length?chosen.map(c=>c.period_label||c.label).join(' · '):basket.length?`Panier · ${basket.length} enfant(s)`:basketDone?`${basketDone.lines.length} reçu(s) du panier`:lastPay?`Reçu ${lastPay.receipt}`:msg?msg:'Touchez un frais à encaisser';
     const done=!selected.length&&!basket.length&&(!!basketDone||!!lastPay);
     let primary:React.ReactNode=null;
     if(selected.length){

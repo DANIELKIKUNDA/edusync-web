@@ -34,7 +34,7 @@ it('searches by keyboard and resolves a registration prerequisite without losing
   expect(within(transaction).getByText('70 000 FC')).toBeTruthy();
   // Phone dock: the selection is paid in one tap, details stay one tap away.
   const dock=screen.getByRole('region',{name:'Encaissement rapide'});
-  expect(within(dock).getByRole('button',{name:/Encaisser 70 000 FC/})).toBeTruthy();
+  expect(within(dock).getByRole('button',{name:/Encaisser 70\s000\sFC/})).toBeTruthy();
   expect(within(dock).getByRole('button',{name:/Détails/})).toBeTruthy();
 });
 
