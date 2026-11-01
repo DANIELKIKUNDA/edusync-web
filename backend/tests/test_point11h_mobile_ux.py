@@ -37,4 +37,4 @@ def test_mobile_keeps_academic_year_context():
     assert 'drawerTools' in APP
 
 def test_mobile_release_version():
-    assert '0.52.0-point17-environment-closure' in PKG
+    assert f'"version": "{(ROOT/"VERSION").read_text().strip()}"' in PKG
