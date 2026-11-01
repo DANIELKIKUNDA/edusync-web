@@ -1,7 +1,12 @@
-/* Update notice (lot 2026-10). A deployed build publishes /version.json; every open tab compares it with the build
-   it is running (__EDUSYNC_BUILD__) at start, every 5 minutes, when the tab comes back to the foreground and when
-   the network returns. A newer build is announced in the top bar; "Mettre à jour" reloads on the new version only
-   after checking that nothing is being sent and that no form holds unsaved input (the user then decides). */
+/* Update notice (lot 2026-10, audit 2026-11-01). A deployed build publishes /version.json; every open tab compares it
+   with the build it is running (__EDUSYNC_BUILD__) at start, every 5 minutes, when the tab comes back to the foreground
+   and when the network returns. Standard « prompt for update » flow of installable apps:
+   - a newer build makes the browser fetch the new service worker, which downloads the whole new version in the
+     background (sw.js install) while the current one keeps working;
+   - the top bar says « Nouvelle version disponible » only when that download is finished (registration.waiting);
+   - « Mettre à jour » checks that nothing is being sent and that no form holds unsaved input, then activates the
+     waiting version and reloads ONCE, from the device: no blank wait on a weak network.
+   Without a service worker (first visit, unsupported browser) the notice falls back to a plain reload. */
 import {useEffect, useState} from 'react';
 import {toast} from 'sonner';
 import {subscribeActivity, type WriteActivity} from './connectivity';
@@ -19,6 +24,10 @@ const MIN_GAP_MS = 45 * 1000;
 const JUST_UPDATED = 'edusync.just-updated';
 
 type UpdateState = {available: boolean; build?: string; version?: string; updating: boolean};
+/** Without a ready service worker after this delay, the notice is shown anyway (plain reload). */
+const READY_FALLBACK_MS = 2 * 60 * 1000;
+let pendingSince = 0;
+let reloading = false;
 let state: UpdateState = {available: false, updating: false};
 const listeners = new Set<(s: UpdateState) => void>();
 let lastCheck = 0;
@@ -34,7 +43,17 @@ export async function checkForUpdate(force = false): Promise<boolean> {
     const r = await fetch(`/version.json?t=${Date.now()}`, {cache: 'no-store', credentials: 'omit'});
     if (!r.ok) return state.available;
     const v = await r.json() as {build?: string; version?: string};
-    if (typeof v.build === 'string' && v.build && v.build !== CURRENT_BUILD) set({available: true, build: v.build, version: typeof v.version === 'string' ? v.version : undefined});
+    if (typeof v.build === 'string' && v.build && v.build !== CURRENT_BUILD) {
+      const version = typeof v.version === 'string' ? v.version : undefined;
+      const reg = navigator.serviceWorker?.controller ? await navigator.serviceWorker.getRegistration().catch(() => undefined) : undefined;
+      if (!reg) { set({available: true, build: v.build, version}); return true; }        // no worker: plain reload later
+      set({build: v.build, version});
+      if (reg.waiting) { set({available: true}); return true; }                          // already downloaded
+      pendingSince ||= Date.now();
+      await reg.update().catch(() => undefined);                                         // download in the background
+      if (reg.waiting) set({available: true});
+      else if (Date.now() - pendingSince > READY_FALLBACK_MS) set({available: true});    // never stay silent
+    }
   } catch { /* offline or server restarting: try again later, never an error for the user */ }
   return state.available;
 }
@@ -47,12 +66,17 @@ function start() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkForUpdate(); });
   window.addEventListener('online', () => void checkForUpdate(true));
   window.addEventListener('focus', () => void checkForUpdate());
-  // A new service worker waiting is another signal that a new version has been deployed.
+  // The notice appears when the new version is DOWNLOADED (a worker waiting), not merely deployed.
   navigator.serviceWorker?.getRegistration().then(reg => {
     if (!reg) return;
-    if (reg.waiting) void checkForUpdate(true);
-    reg.addEventListener('updatefound', () => void checkForUpdate(true));
+    if (reg.waiting && navigator.serviceWorker.controller) set({available: true});
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) set({available: true}); });
+    });
   }).catch(() => undefined);
+  // Another tab applied the update: this one is now served by the new version — offer the reload (never forced).
+  navigator.serviceWorker?.addEventListener('controllerchange', () => { if (!reloading) set({available: true, updating: false}); });
 }
 
 export function useUpdateNotice(): UpdateState {
@@ -74,16 +98,15 @@ export async function applyUpdate() {
     if (!ok) return;
   }
   set({updating: true});
-  try { sessionStorage.setItem(JUST_UPDATED, state.build || ''); } catch { /* facultatif */ }
+  try { sessionStorage.setItem(JUST_UPDATED, state.version || state.build || ''); } catch { /* facultatif */ }
+  reloading = true;
   try {
+    // No network call here: the new version is already on the device (downloaded before the notice appeared).
     const reg = await navigator.serviceWorker?.getRegistration();
-    if (reg) {
-      await reg.update().catch(() => undefined);
-      if (reg.waiting) {
-        const switched = new Promise<void>(resolve => { navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), {once: true}); window.setTimeout(resolve, 3000); });
-        reg.waiting.postMessage({type: 'EDUSYNC_SKIP_WAITING'});
-        await switched;
-      }
+    if (reg?.waiting) {
+      const switched = new Promise<void>(resolve => { navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), {once: true}); window.setTimeout(resolve, 4000); });
+      reg.waiting.postMessage({type: 'EDUSYNC_SKIP_WAITING'});
+      await switched;
     }
   } catch { /* the reload below still loads the new version: the HTML shell is always revalidated */ }
   window.location.reload();

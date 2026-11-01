@@ -4,6 +4,13 @@
 // replaced by an explicit message with « Réessayer ». Never a token or a URL in the logs.
 (function () {
   var BOOT_LIMIT_MS = 15000;
+  // Reload asked by « Mettre à jour » (platform/updates.ts): say so on the boot screen instead of a silent dark screen.
+  try {
+    if (sessionStorage.getItem('edusync.just-updated') !== null) {
+      var line = document.querySelector('#edusync-boot .staticBootLine');
+      if (line) { var p = document.createElement('span'); p.textContent = 'Installation de la mise à jour…'; p.setAttribute('style', 'font-size:13.5px;color:rgba(255,255,255,.78)'); line.parentNode.appendChild(p); }
+    }
+  } catch (e) { /* sessionStorage unavailable */ }
   function stillBooting() {
     var el = document.getElementById('edusync-boot');
     return el && !el.classList.contains('out') ? el : null;

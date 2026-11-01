@@ -13,6 +13,18 @@ journal, fusionner, puis créer l'étiquette Git `vX.Y.Z` sur `main` — la CI r
 et publie les images Docker sous ce nom. Les utilisateurs voient « Version X.Y.Z » ; le code du commit reste visible
 seulement comme « compilation » pour le support.
 
+## [1.0.0-rc.2] — 2026-11-01
+
+### Corrigé — mise à jour de l'application (audit)
+- La nouvelle version se télécharge en arrière-plan pendant que l'on travaille ; l'avis « Nouvelle version disponible »
+  n'apparaît qu'une fois ce téléchargement terminé.
+- La version en cours n'est plus remplacée sous les doigts de l'utilisateur (ses modules hors ligne restent jusqu'au clic).
+- « Mettre à jour » redémarre depuis l'appareil : mesuré sur réseau lent, 2,9 s au lieu de 13,8 s, avec le message
+  « Installation de la mise à jour… » au lieu d'un écran sombre muet.
+- L'application s'ouvre depuis l'appareil à chaque démarrage (plus d'attente du réseau pour la page).
+- Un écran d'une ancienne version qui n'existe plus sur le serveur se recharge une seule fois sur la nouvelle, au lieu
+  d'afficher « Connexion impossible ».
+
 ## [1.0.0-rc.1] — 2026-11-01
 
 Première version candidate.
