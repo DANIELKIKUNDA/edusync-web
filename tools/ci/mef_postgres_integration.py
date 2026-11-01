@@ -92,12 +92,14 @@ try:
             c.execute(text("""INSERT INTO fee_types(id,school_id,code,label,periodicity,default_currency)
               VALUES(:id,:s,:code,:code,'MONTHLY',:currency)"""),
               {"id": fid, "s": sid, "code": code, "currency": currency})
-        c.execute(text("""INSERT INTO tariffs(id,school_id,academic_year_id,fee_type_id,class_id,currency,amount)
-          VALUES(:id,:s,:y,:f,:c,'CDF',100000)"""),
-          {"id": tariff_a, "s": school_a, "y": year_a, "f": fee_a, "c": class_a})
-        c.execute(text("""INSERT INTO tariffs(id,school_id,academic_year_id,fee_type_id,class_id,currency,amount)
-          VALUES(:id,:s,:y,:f,:c,'USD',20)"""),
-          {"id": tariff_usd, "s": school_a, "y": year_a, "f": fee_usd, "c": class_a})
+        c.execute(text("""INSERT INTO tariffs(id,school_id,academic_year_id,fee_type_id,class_id,currency,amount,
+          scope_type,scope_ref,effective_from,status)
+          VALUES(:id,:s,:y,:f,:c,'CDF',100000,'CLASS',:scope,'2026-09-01','ACTIVE')"""),
+          {"id": tariff_a, "s": school_a, "y": year_a, "f": fee_a, "c": class_a, "scope": str(class_a)})
+        c.execute(text("""INSERT INTO tariffs(id,school_id,academic_year_id,fee_type_id,class_id,currency,amount,
+          scope_type,scope_ref,effective_from,status)
+          VALUES(:id,:s,:y,:f,:c,'USD',20,'CLASS',:scope,'2026-09-01','ACTIVE')"""),
+          {"id": tariff_usd, "s": school_a, "y": year_a, "f": fee_usd, "c": class_a, "scope": str(class_a)})
         # September through February, crossing the civil year.
         months = ((2026, 9), (2026, 10), (2026, 11), (2026, 12), (2027, 1), (2027, 2))
         for order, (yy, mm) in enumerate(months, 1):
