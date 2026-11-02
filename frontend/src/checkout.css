@@ -229,13 +229,18 @@
 .posKeys{display:none}
 @media(min-width:900px){
   .financePage.deskMode .financeHero{align-items:center;margin-bottom:4px}
-  /* The cash-desk badge and the receipts queue share the tabs row (grid column on the right) instead of floating over it:
-     a floating block hid the last tab and trapped the receipts drawer under the page (fix 2026-11-02). The tabs keep all
-     the width that is left and wrap onto a second line on a narrow screen: every tab stays visible. */
-  .financePage.deskMode{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:16px;align-items:center}
-  .financePage.deskMode>*{grid-column:1/-1;min-width:0}
-  .financePage.deskMode>.financeHero{grid-column:2;grid-row:1;margin:0;justify-content:flex-end;gap:10px}
-  .financePage.deskMode>.financeTabs{grid-column:1;grid-row:1;flex-wrap:wrap;row-gap:2px}
+  /* The cash-desk badge and the receipts queue sit at the right of the breadcrumb row (« Accueil > Centre financier »),
+     which is empty there: the tabs keep the WHOLE width and stay on one line (owner, 2026-11-02 — « Décisions
+     financières » had dropped to a second line). Plain grid flow, no absolute position, no z-index: nothing can be
+     covered and the receipts drawer is never trapped. The negative margin lifts the row onto the breadcrumb row (38 px
+     + the page gap). On a narrow window the tabs may still wrap, never hide. */
+  .financePage.deskMode{display:grid;grid-template-columns:minmax(0,1fr);align-items:center}
+  .financePage.deskMode>*{min-width:0}
+  .financePage.deskMode>.financeHero{justify-self:end;align-items:center;gap:10px;margin:calc(-1 * var(--pf-trail-lift,60px)) 0 0;min-height:0}
+  .financePage.deskMode>.financeHero .cashLive{padding:5px 12px;font-size:13px}
+  .financePage.deskMode>.financeHero .receiptQueueBadge{min-height:34px;padding:4px 12px}
+  .financePage.deskMode>.financeTabs{flex-wrap:wrap;row-gap:2px}
+  .financePage.deskMode>.financeTabs button{padding-left:12px;padding-right:12px}
   .financePage.deskMode .financeHero>div:first-child{display:none}
   .financePage.deskMode .cashLive{padding:6px 12px;font-size:13px}
   .financePage.deskMode .financeTabs button,.financePage.deskMode .checkoutSubtabs button{min-height:38px;padding-top:6px;padding-bottom:6px}

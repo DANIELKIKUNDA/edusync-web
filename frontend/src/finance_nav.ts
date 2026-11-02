@@ -1,5 +1,6 @@
 export const FINANCE_TARGET_KEY='edusync.finance.open';
-export type FinanceTarget='checkout'|'recovery'|'cash'|'followup'|'reports'|'fees'|'import'|'controls';
+// 'products': the « Autres encaissements » (articles for sale) part of the cash desk — home card « Articles à surveiller ».
+export type FinanceTarget='checkout'|'products'|'recovery'|'cash'|'followup'|'reports'|'fees'|'import'|'controls';
 
 export function setFinanceTarget(target:FinanceTarget){
   try{sessionStorage.setItem(FINANCE_TARGET_KEY,target)}catch{/* optional browser storage */}
