@@ -217,7 +217,9 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const executive=figures.some(w=>w.id==='cash.supervision');
   const journal=me.widgets.find(w=>w.id==='audit.recent');
   let index=0;
-  const financeTarget=(id:string):FinanceTarget|undefined=>id==='cash.today'||id==='cash.supervision'?'cash':id==='checkout.quick'?'checkout':id==='finance.recovery'?'recovery':id==='finance.by_fee'?'fees':id==='finance.decisions'?'controls':id==='reports.latest'?'reports':undefined;
+  // Every finance card opens ITS screen (owner, 2026-11-02: « Encaissements du jour » and « Articles à surveiller » used to
+  // fall back to the quick checkout): today's receipts → the cash desk journal, articles → « Autres encaissements ».
+  const financeTarget=(id:string):FinanceTarget|undefined=>id==='cash.today'||id==='cash.supervision'||id==='cash.receipts'?'cash':id==='products.watch'?'products':id==='checkout.quick'?'checkout':id==='finance.recovery'?'recovery':id==='finance.by_fee'?'fees':id==='finance.decisions'?'controls':id==='reports.latest'?'reports':undefined;
   const openWidget=(w:AccessWidget)=>{const target=financeTarget(w.id);if(target)setFinanceTarget(target);onNavigate(w.module)};
   const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)setFinanceTarget(target);onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
