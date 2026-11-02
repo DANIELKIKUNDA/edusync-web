@@ -229,9 +229,13 @@
 .posKeys{display:none}
 @media(min-width:900px){
   .financePage.deskMode .financeHero{align-items:center;margin-bottom:4px}
-  /* The cash-desk badge (and receipts queue) sits at the right of the tabs row instead of taking a row of its own. */
-  .financePage.deskMode{position:relative}
-  .financePage.deskMode .financeHero{position:absolute;top:0;right:0;z-index:4;margin:0;justify-content:flex-end}
+  /* The cash-desk badge and the receipts queue share the tabs row (grid column on the right) instead of floating over it:
+     a floating block hid the last tab and trapped the receipts drawer under the page (fix 2026-11-02). The tabs keep all
+     the width that is left and wrap onto a second line on a narrow screen: every tab stays visible. */
+  .financePage.deskMode{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:16px;align-items:center}
+  .financePage.deskMode>*{grid-column:1/-1;min-width:0}
+  .financePage.deskMode>.financeHero{grid-column:2;grid-row:1;margin:0;justify-content:flex-end;gap:10px}
+  .financePage.deskMode>.financeTabs{grid-column:1;grid-row:1;flex-wrap:wrap;row-gap:2px}
   .financePage.deskMode .financeHero>div:first-child{display:none}
   .financePage.deskMode .cashLive{padding:6px 12px;font-size:13px}
   .financePage.deskMode .financeTabs button,.financePage.deskMode .checkoutSubtabs button{min-height:38px;padding-top:6px;padding-bottom:6px}
