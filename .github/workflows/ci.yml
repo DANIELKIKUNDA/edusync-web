@@ -21,7 +21,7 @@ concurrency:
 jobs:
   backend:
     name: Backend — tests et compilation
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,7 +48,7 @@ jobs:
 
   rbac-contract:
     name: RBAC — registre canonique, migration additive, droits identiques
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     services:
       postgres:
         image: postgres:16
@@ -121,7 +121,7 @@ jobs:
 
   frontend:
     name: Frontend — typecheck et build
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -165,7 +165,7 @@ jobs:
 
   security:
     name: Sécurité — dépendances, licences, secrets
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -196,7 +196,7 @@ jobs:
 
   cd-privileged:
     name: CD privilégiée — installation Linux réelle (sshd, sudo, shebang, refus, verrou)
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -207,7 +207,7 @@ jobs:
     name: Images Docker (amd64 + arm64) → GHCR
     needs: [backend, rbac-contract, frontend, security]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     permissions:
       contents: read
       packages: write
