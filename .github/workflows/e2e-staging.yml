@@ -21,7 +21,7 @@ jobs:
   e2e:
     name: Parcours plateforme (connexion, écrans, changement d'espace, session)
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    runs-on: [self-hosted, linux, x64, volcano-ci]
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: staging
     steps:
