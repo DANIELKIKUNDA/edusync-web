@@ -49,17 +49,9 @@ jobs:
   rbac-contract:
     name: RBAC — registre canonique, migration additive, droits identiques
     runs-on: [self-hosted, linux, x64, volcano-ci]
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: edusync_owner
-          POSTGRES_PASSWORD: ci-owner-only
-          POSTGRES_DB: edusync
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U edusync_owner" --health-interval 5s --health-timeout 5s --health-retries 20
     env:
+      DOCKER_CONFIG: ${{ runner.temp }}/edusync-docker-ci
+      PG_CONTAINER: edusync-postgres-${{ github.run_id }}
       PYTHONPATH: src
       PYTHONUTF8: "1"
       EDUSYNC_OWNER_DATABASE_URL: postgresql+psycopg://edusync_owner:ci-owner-only@127.0.0.1:5432/edusync
@@ -67,6 +59,23 @@ jobs:
       EDUSYNC_PLATFORM_DATABASE_URL: postgresql+psycopg://edusync_platform:ci-platform-only@127.0.0.1:5432/edusync
     steps:
       - uses: actions/checkout@v4
+      - name: PostgreSQL 16 isolé pour WSL
+        run: |
+          mkdir -p "$DOCKER_CONFIG"
+          printf '{"auths":{}}\n' > "$DOCKER_CONFIG/config.json"
+          docker rm -f "$PG_CONTAINER" 2>/dev/null || true
+          docker pull postgres:16
+          docker run -d --name "$PG_CONTAINER" \
+            -e POSTGRES_USER=edusync_owner \
+            -e POSTGRES_PASSWORD=ci-owner-only \
+            -e POSTGRES_DB=edusync \
+            -p 5432:5432 postgres:16
+          for i in {1..30}; do
+            docker exec "$PG_CONTAINER" pg_isready -U edusync_owner && exit 0
+            sleep 2
+          done
+          docker logs "$PG_CONTAINER"
+          exit 1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -118,6 +127,9 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/mef_postgres_integration.py
+      - name: Arrêt PostgreSQL isolé
+        if: always()
+        run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true
 
   frontend:
     name: Frontend — typecheck et build
@@ -140,7 +152,7 @@ jobs:
         run: npm test
       - name: Navigateur de certification
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Parcours plateforme dans Chromium (réponses serveur de test)
         working-directory: frontend
         run: npm run test:browser
@@ -185,6 +197,10 @@ jobs:
       - name: Vulnérabilités npm (exécution)
         working-directory: frontend
         run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm config set fetch-timeout 300000
           npm ci --ignore-scripts
           npm audit --omit=dev
       - name: Licences et SBOM
