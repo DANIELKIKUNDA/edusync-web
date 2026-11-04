@@ -31,7 +31,7 @@ concurrency:
 jobs:
   gates:
     name: Contrôles avant production (aucun changement)
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     env:
       SHA: ${{ inputs.sha }}
       CONFIRM: ${{ inputs.confirm }}
@@ -58,7 +58,7 @@ jobs:
   deploy:
     name: Production — deploy <SHA> (relecteur obligatoire)
     needs: gates
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     environment: production
     env:
       SHA: ${{ inputs.sha }}
