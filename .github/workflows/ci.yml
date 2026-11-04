@@ -196,7 +196,9 @@ jobs:
 
   cd-privileged:
     name: CD privilégiée — installation Linux réelle (sshd, sudo, shebang, refus, verrou)
-    runs-on: [self-hosted, linux, x64, volcano-ci]
+    # Ce harnais modifie sshd/sudo et exige une VM jetable. Jamais sur le WSL personnel.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
