@@ -64,7 +64,13 @@ jobs:
           mkdir -p "$DOCKER_CONFIG"
           printf '{"auths":{}}\n' > "$DOCKER_CONFIG/config.json"
           docker rm -f "$PG_CONTAINER" 2>/dev/null || true
-          docker pull postgres:16
+          pulled=false
+          for attempt in 1 2 3 4 5; do
+            if docker pull postgres:16; then pulled=true; break; fi
+            echo "::warning::Téléchargement PostgreSQL interrompu (tentative $attempt/5)"
+            sleep $((attempt * 10))
+          done
+          [ "$pulled" = true ] || { echo "::error::Image PostgreSQL indisponible après 5 tentatives"; exit 1; }
           docker run -d --name "$PG_CONTAINER" \
             -e POSTGRES_USER=edusync_owner \
             -e POSTGRES_PASSWORD=ci-owner-only \
@@ -191,9 +197,18 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Vulnérabilités Python (pip-audit sur requirements.lock)
+        env:
+          PIP_DEFAULT_TIMEOUT: "120"
+          PIP_RETRIES: "5"
         run: |
           pip install pip-audit==2.10.1
-          pip-audit -r backend/requirements.lock --progress-spinner off
+          audited=false
+          for attempt in 1 2 3; do
+            if pip-audit -r backend/requirements.lock --progress-spinner off; then audited=true; break; fi
+            echo "::warning::Audit PyPI interrompu (tentative $attempt/3)"
+            sleep $((attempt * 20))
+          done
+          [ "$audited" = true ] || { echo "::error::Audit PyPI indisponible après 3 tentatives"; exit 1; }
       - name: Vulnérabilités npm (exécution)
         working-directory: frontend
         run: |
