@@ -50,8 +50,8 @@ jobs:
     name: RBAC — registre canonique, migration additive, droits identiques
     runs-on: [self-hosted, linux, x64, volcano-ci]
     env:
-      DOCKER_CONFIG: ${{ runner.temp }}/edusync-docker-ci
-      PG_CONTAINER: edusync-postgres-${{ github.run_id }}
+      DOCKER_CONFIG: /tmp/edusync-docker-ci
+      PG_CONTAINER: edusync-postgres-ci
       PYTHONPATH: src
       PYTHONUTF8: "1"
       EDUSYNC_OWNER_DATABASE_URL: postgresql+psycopg://edusync_owner:ci-owner-only@127.0.0.1:5432/edusync
