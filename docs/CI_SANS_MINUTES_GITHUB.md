@@ -100,3 +100,16 @@ runs-on: ubuntu-24.04
 2. Lancer manuellement un workflow léger avec `Run workflow`.
 3. Confirmer dans le résumé du job que le runner porte les labels `self-hosted`, `Linux`, `X64` et `volcano-ci`.
 4. Vérifier les tests avant de fusionner la branche de contrôle des coûts.
+
+
+## Validation réelle du 4 novembre 2026
+
+- runner : `volcano-wsl-edusync`
+- environnement : Ubuntu 22.04 sous WSL 2, Linux x64
+- labels vérifiés : `self-hosted`, `Linux`, `X64`, `volcano-ci`
+- Docker : contrôle réussi
+- smoke test : [run 41899727852](https://github.com/DANIELKIKUNDA/edusync-web/actions/runs/41899727852), conclusion `success`
+- durée du job : 21 secondes
+- staging : non sollicité par ce smoke test
+
+Cette preuve valide le routage et l'accès Docker, pas encore la suite fonctionnelle complète.
