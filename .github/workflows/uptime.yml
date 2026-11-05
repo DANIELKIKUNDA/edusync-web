@@ -23,7 +23,7 @@ concurrency:
 jobs:
   probe:
     name: Disponibilité externe de staging
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, volcano-ci]
     timeout-minutes: 5
     env:
       URL: ${{ vars.STAGING_PUBLIC_URL || 'https://staging.myeducsync.com' }}
