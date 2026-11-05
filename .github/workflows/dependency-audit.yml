@@ -16,11 +16,11 @@ permissions:
 
 concurrency:
   group: dependency-audit
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   audit:
-    name: pip-audit + npm audit (quotidien)
+    name: pip-audit + npm audit (hebdomadaire)
     runs-on: [self-hosted, linux, x64, volcano-ci]
     timeout-minutes: 15
     env:
