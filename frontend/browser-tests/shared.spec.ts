@@ -15,6 +15,10 @@ for(const width of [320,390,480,768,1440]){
     await page.keyboard.type('56');await expect(page.getByRole('dialog')).toHaveCount(0);expect(requests).toBe(1);
     await expect.poll(()=>page.title()).toBe('Push — EduSync');
     await page.screenshot({path:`${process.env.EDUSYNC_TEST_OUTPUT||'test-results'}/trail-${width}.png`});
+    // Breadcrumb navigation starts with the hover/focus sidebar dismissed.
+    // At tablet width its peek overlay can otherwise intercept a real click.
+    await page.mouse.move(width-1,849);await page.keyboard.press('Escape');
+    await expect(page.locator('.es-side')).not.toHaveClass(/\bes-peek\b/);
     const back=width<768?page.getByRole('button',{name:'Retour : Messagerie'}):page.getByRole('button',{name:'Messagerie',exact:true});
     await back.click();await expect.poll(()=>page.title()).toBe('Messagerie — EduSync');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
