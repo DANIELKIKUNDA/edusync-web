@@ -16,12 +16,15 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Une nouvelle révision rend les contrôles de l'ancienne révision obsolètes.
+  # Les tags ont chacun une ref distincte et ne s'annulent donc jamais entre eux.
+  cancel-in-progress: true
 
 jobs:
   backend:
     name: Backend — tests et compilation
     runs-on: [self-hosted, linux, x64, volcano-ci]
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -49,6 +52,7 @@ jobs:
   rbac-contract:
     name: RBAC — registre canonique, migration additive, droits identiques
     runs-on: [self-hosted, linux, x64, volcano-ci]
+    timeout-minutes: 45
     env:
       DOCKER_CONFIG: /tmp/edusync-docker-ci
       PG_CONTAINER: edusync-postgres-ci
@@ -140,6 +144,7 @@ jobs:
   frontend:
     name: Frontend — typecheck et build
     runs-on: [self-hosted, linux, x64, volcano-ci]
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -156,7 +161,14 @@ jobs:
       - name: Régressions plateforme (MFA, push, réseau, navigation)
         working-directory: frontend
         run: npm test
+      - name: Cache Chromium Playwright
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
       - name: Navigateur de certification
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
         run: npx playwright install chromium
       - name: Parcours plateforme dans Chromium (réponses serveur de test)
@@ -184,6 +196,7 @@ jobs:
   security:
     name: Sécurité — dépendances, licences, secrets
     runs-on: [self-hosted, linux, x64, volcano-ci]
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -241,6 +254,7 @@ jobs:
     needs: [backend, rbac-contract, frontend, security]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     runs-on: [self-hosted, linux, x64, volcano-ci]
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: write
