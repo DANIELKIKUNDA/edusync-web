@@ -1,79 +1,26 @@
-# EduSync — sonde de disponibilité EXTERNE (lot 2026-10). Elle tourne chez GitHub, hors du VPS : si le serveur, Caddy,
-# l'API ou PostgreSQL tombent, l'écran « État du service » tombe avec eux ; cette sonde, elle, le voit.
-# Toutes les 30 minutes (dépôt privé : minutes GitHub Actions facturées ; les e-mails de l'application couvrent
-# déjà les pannes de plus de 5 min) : page d'accueil (Caddy + front), /health-api (API), /api/v1/setup/status (API + PostgreSQL).
-# Deux échecs consécutifs (≈ 30 à 60 min) → ouverture d'un ticket « [Disponibilité] » (e-mail GitHub au propriétaire du
-# dépôt) ; retour à la normale → commentaire de résolution et fermeture du ticket. Lecture seule, aucun secret.
-name: Uptime staging
-
-# 2026-10-31 (owner): no automatic schedule any more. Every 30 minutes it used about 1 440 of the 2 000 monthly minutes of
-# the free plan (private repository) and blocked the CI; the application already e-mails an incident after 5 minutes of
-# outage (État du service). Manual run only (Actions › Uptime staging › Run workflow).
+name: PR41 queue cancellation probe
 on:
   workflow_dispatch:
-
-permissions:
-  contents: read
-  issues: write
-
+    inputs:
+      hold_seconds:
+        type: choice
+        options: ['90', '0']
+        default: '90'
+permissions: {}
 concurrency:
-  group: uptime-staging
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   probe:
-    name: Disponibilité externe de staging
     runs-on: [self-hosted, linux, x64, volcano-ci]
-    timeout-minutes: 5
-    env:
-      URL: ${{ vars.STAGING_PUBLIC_URL || 'https://staging.myeducsync.com' }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      LABEL: disponibilite
+    timeout-minutes: 3
     steps:
-      - name: Mesure (3 points de contrôle, 2 essais chacun)
-        id: probe
+      - name: Controlled cancellation probe
+        env:
+          HOLD_SECONDS: ${{ inputs.hold_seconds }}
         run: |
-          fail=""
-          report=""
-          check() { # name path expected-substring
-            for attempt in 1 2; do
-              start=$(date +%s%3N)
-              body=$(curl -sS -m 20 -w '\n%{http_code}' "$URL$2" 2>/dev/null || true)
-              code=$(printf '%s' "$body" | tail -n1); ms=$(( $(date +%s%3N) - start ))
-              if [[ "$code" == "200" ]] && printf '%s' "$body" | grep -q "$3"; then
-                report+="| $1 | 200 | ${ms} ms | OK |"$'\n'; return 0
-              fi
-              sleep 10
-            done
-            report+="| $1 | ${code:-aucune réponse} | ${ms} ms | **ÉCHEC** |"$'\n'; fail+="$1, "
-          }
-          check "Application (Caddy + interface)" "/" "<"
-          check "API" "/health-api" "ok"
-          check "API + base de données" "/api/v1/setup/status" "setup_required"
-          {
-            echo "### Disponibilité de $URL — $(date -u +'%d/%m/%Y %H:%M') UTC"
-            echo "| Contrôle | Code | Durée | Résultat |"; echo "|---|---|---|---|"; printf '%s' "$report"
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "failed=${fail%, }" >> "$GITHUB_OUTPUT"
-          printf '%s' "$report" > report.md
-      - name: Ticket d'incident (ouverture après 2 échecs consécutifs, fermeture au retour)
-        run: |
-          repo="${{ github.repository }}"
-          open=$(gh issue list -R "$repo" --label "$LABEL" --state open --json number --jq '.[0].number // empty')
-          if [[ -n "${{ steps.probe.outputs.failed }}" ]]; then
-            prev=$(gh run list -R "$repo" --workflow uptime.yml --limit 2 --json conclusion --jq '.[1].conclusion // ""')
-            if [[ -z "$open" && "$prev" == "failure" ]]; then
-              gh label create "$LABEL" -R "$repo" --color B60205 --description "Incident de disponibilité (sonde externe)" 2>/dev/null || true
-              { echo "La sonde externe ne parvient plus à joindre **$URL** (2 mesures consécutives)."; echo
-                echo "En échec : ${{ steps.probe.outputs.failed }}"; echo; echo "| Contrôle | Code | Durée | Résultat |"; echo "|---|---|---|---|"; cat report.md; echo
-                echo "Runbook : docs/architecture/RUNBOOK_INCIDENT.md. Ce ticket se fermera tout seul au retour à la normale."; } > body.md
-              gh issue create -R "$repo" --title "[Disponibilité] Staging injoignable — ${{ steps.probe.outputs.failed }}" --label "$LABEL" \
-                --assignee "${{ github.repository_owner }}" --body-file body.md
-            elif [[ -n "$open" ]]; then
-              echo "Incident déjà ouvert (#$open)."
-            fi
-            exit 1
-          elif [[ -n "$open" ]]; then
-            gh issue comment "$open" -R "$repo" --body "Résolu : $URL répond de nouveau ($(date -u +'%d/%m/%Y %H:%M') UTC)."
-            gh issue close "$open" -R "$repo"
-          fi
+          set -euo pipefail
+          case "$HOLD_SECONDS" in 0|90) ;; *) exit 2 ;; esac
+          echo "Controlled queue probe started"
+          sleep "$HOLD_SECONDS"
+          echo "Controlled queue probe completed"
