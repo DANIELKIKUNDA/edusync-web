@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: security-scan-staging
+  cancel-in-progress: true
+
 jobs:
   zap:
     name: OWASP ZAP baseline (passif)
