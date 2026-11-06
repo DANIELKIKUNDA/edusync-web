@@ -215,7 +215,7 @@ def test_benefit_policies_copy_the_desktop():
     router = (ROOT / "backend/src/edusync/modules/settings/api/router.py").read_text(encoding="utf-8")
     assert "_need(actor,'settings.benefits.manage')" in router
     wizard = (ROOT / "frontend/src/schooling.tsx").read_text(encoding="utf-8")
-    assert "large_family_beneficiary" in wizard and "staff_beneficiary" in wizard and "enrollmentBenefits(token)" in wizard
+    assert "large_family_beneficiary" in wizard and "staff_beneficiary" in wizard and "enrollmentBenefits(token,family?.id)" in wizard
 
 
 def test_admission_conditions_copy_the_desktop():

@@ -63,14 +63,15 @@ def run(A: dict) -> None:
     print("\n== Avantages selon la politique de l'école (famille nombreuse : 1 enfant gratuit dès 5, tous les frais mensuels)")
     fees(A)
     cls = A["classes"]["PRIMAIRE"]
-    admin = as_(actor_for("ADMIN_SYSTEME_ECOLE", A["id"]))
+    admin_actor, cashier_actor = actor_for("ADMIN_SYSTEME_ECOLE", A["id"]), actor_for("CAISSIER", A["id"])
+    admin = as_(admin_actor)
     r = admin.put("/api/v1/settings/benefit-policies/LARGE_FAMILY", headers=key(), json={
         "academic_year_id": str(A["year"]), "enabled": True, "min_children": 5, "free_beneficiaries": 1,
         "applies_to_fee_codes": ["SCOLARITE", "TRANSPORT"]})
     check("paramètres : politique Famille nombreuse enregistrée (5 enfants, 1 gratuit, frais mensuels)", r.status_code in (200, 201), r.text[:200])
     version = (r.json() or {}).get("version") if r.status_code in (200, 201) else None
 
-    cashier = as_(actor_for("CAISSIER", A["id"]))
+    cashier = as_(cashier_actor)
     b = cashier.get("/api/v1/schooling/enrollment-benefits").json()
     lf = b.get("large_family") or {}
     check("formulaire : la règle de l'école est transmise en mots (libellés des frais, seuil, limite)",
@@ -114,9 +115,11 @@ def run(A: dict) -> None:
                      json={"family_id": fam, "household_confidence": "CERTAIN", "children": [child("Sixieme", cls, free=True)]})
     check("6e enfant du même foyer marqué gratuit → refusé (limite de 1 déjà utilisée)", r.status_code == 409, f"{r.status_code} {r.text[:160]}")
 
-    admin.put("/api/v1/settings/benefit-policies/LARGE_FAMILY", headers=key(), json={
+    r = as_(admin_actor).put("/api/v1/settings/benefit-policies/LARGE_FAMILY", headers=key(), json={
         "academic_year_id": str(A["year"]), "enabled": False, "min_children": 5, "free_beneficiaries": 1,
         "applies_to_fee_codes": ["SCOLARITE", "TRANSPORT"], "expected_version": version})
+    check("paramètres : l'école désactive la politique Famille nombreuse", r.status_code in (200, 201), f"{r.status_code} {r.text[:160]}")
+    as_(cashier_actor)
     b = cashier.get("/api/v1/schooling/enrollment-benefits").json()
     check("politique désactivée par l'école → le formulaire n'affiche plus rien", b.get("large_family") is None, b)
     r = enroll([child("V1", cls), child("V2", cls), child("V3", cls), child("V4", cls), child("V5", cls, free=True)])
