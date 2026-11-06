@@ -230,3 +230,134 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .enrollWindow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:2px}
 .enrollWindowEdit{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin-top:6px}
 .enrollWindowEdit label{display:grid;gap:2px;font-size:12px;color:#5b6475}.enrollWindowEdit input{min-height:36px}
+
+/* Tarifs & barèmes in four tabs (owner, 2026-11-02: one very long page, the annual exigibility hidden at the bottom).
+   Each tab shows its state (✓ configured / ⚠ to do), so nothing important is left unseen. */
+.tariffsPage .panelHead h3 small{font-weight:600;color:#64748b;font-size:.8em}
+.tariffTabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:6px 0 14px}
+.tariffTab{display:flex;align-items:flex-start;gap:10px;min-height:58px;padding:10px 12px;border:1px solid #dde4ee;border-radius:12px;background:#fff;color:#1e293b;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.tariffTab b{display:block;font-size:14px}.tariffTab small{display:block;margin-top:2px;font-size:12px;color:#64748b;line-height:1.3}
+.tariffTab.warn small{color:#a15c07;font-weight:650}.tariffTab.ok small{color:#16794c}
+.tariffTabNum{flex:0 0 24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#eef2f7;color:#475569;font-size:12px;font-weight:800}
+.tariffTab.warn .tariffTabNum{background:#fff4e0;color:#a15c07}
+.tariffTab[aria-selected=true]{border-color:#1457bd;box-shadow:0 0 0 2px #1457bd22;background:#f6f9ff}.tariffTab[aria-selected=true] .tariffTabNum{background:#1457bd;color:#fff}
+.tariffPanel{min-width:0}
+.tariffFee{border:1px solid #e5e9f1;border-radius:12px;padding:0 12px;margin-top:10px;background:#fff}
+.tariffFee>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;cursor:pointer;list-style:none;font-size:14px}
+.tariffFee>summary::-webkit-details-marker{display:none}
+.tariffFee>summary::after{content:'▾';color:#64748b;transition:transform .15s}.tariffFee[open]>summary::after{transform:rotate(180deg)}
+.tariffFeeMeta{margin-left:auto;color:#64748b;font-size:12.5px;white-space:nowrap}
+.tariffFee .moneyList{margin:0 0 10px}
+.exigibility .panelHead p{max-width:820px}
+.pill.ok{background:#e8f6ee;color:#16794c;border-color:#bfe5cf}.pill.warn{background:#fff4e0;color:#a15c07;border-color:#f3d6a4}
+.exigibilityList>li{flex-wrap:wrap}
+.exigibilityList>li>div:first-child small{white-space:normal;line-height:1.45}
+.exigibilityActions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.exigibilityEditor{flex-basis:100%;display:grid;gap:8px;margin:8px 0 4px;padding:12px;border:1px solid #dde4ee;border-radius:12px;background:#f8fafc}
+.bandRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}.bandRow input{width:76px}
+.exigibilityHistory{margin-top:12px;font-size:13px;color:#475569}
+@media(max-width:900px){.tariffTabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.tariffTabs{grid-template-columns:1fr}.tariffTab{min-height:50px}.tariffFeeMeta{white-space:normal;text-align:right}}
+.exigibility .pill,.tariffsPage .pill{white-space:nowrap}
+@media(max-width:900px){
+  .tariffsPage .tariffTabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;overflow:visible!important;flex-wrap:initial!important;gap:6px!important}
+  .tariffsPage .tariffTab{min-width:0!important;padding:8px 9px;gap:7px;white-space:normal!important;flex:initial!important}.tariffsPage .tariffTab>span{min-width:0}.tariffsPage .tariffTab b{font-size:13px}.tariffsPage .tariffTab small{font-size:11.5px;white-space:normal}
+  .tariffsPage .tariffTabNum{flex-basis:20px;height:20px;font-size:11px}
+}
+.tariffTabMark{width:13px;height:13px;margin-right:4px;vertical-align:-2px;flex:none}
+.tariffFee>summary h4{margin:0;font-size:14px;font-weight:750}
+
+/* Structure & classes (owner, 2026-11-06): browse by section and level, compact class tiles, sections & options apart. */
+.structurePage .panelHead{align-items:flex-start;gap:12px}
+.structurePage .panelHead h3 small{font-weight:600;color:#64748b;font-size:.8em}
+.structStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:4px 0 12px}
+.structStats>div{border:1px solid #e5e9f1;border-radius:12px;padding:10px 12px;background:#fbfcfe;display:grid;gap:1px}
+.structStats b{font-size:20px;font-weight:800;color:#15213b;line-height:1.15}.structStats span{font-size:12.5px;color:#64748b}
+.structTabs{display:inline-flex;gap:4px;padding:4px;border-radius:12px;background:#eef2f7;margin:0 0 12px}
+.structTabs button{border:0;background:transparent;border-radius:9px;padding:8px 14px;font-weight:700;color:#475569;cursor:pointer;white-space:nowrap}
+.structTabs button small{font-weight:700;color:#64748b;margin-left:4px}
+.structTabs button.on{background:#fff;color:#0f4fbf;box-shadow:0 1px 3px #15213b1f}.structTabs button.on small{color:#0f4fbf}
+.structNotice{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid #cfe0fb;border-radius:12px;background:#f3f8ff}
+.structNotice b{display:block;font-size:14px}.structNotice small{color:#475569;font-size:12.5px}
+.structToolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.structChips{display:flex;gap:6px;flex-wrap:wrap}
+.structChips button{border:1px solid #dde4ee;background:#fff;border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px;color:#334155;cursor:pointer;white-space:nowrap}
+.structChips button small{color:#64748b;font-weight:700;margin-left:3px}
+.structChips button.on{background:#0f4fbf;border-color:#0f4fbf;color:#fff}.structChips button.on small{color:#dbe7ff}
+.structFind{display:flex;gap:8px;flex:1 1 260px;justify-content:flex-end}
+.structFind input{flex:1 1 220px;max-width:320px;min-height:38px;border:1px solid #ced6e3;border-radius:10px;padding:0 12px;background:#fff}
+.structFind select{min-height:38px;border:1px solid #ced6e3;border-radius:10px;padding:0 10px;background:#fff}
+.structEmpty{color:#64748b;font-size:14px;padding:16px 0}
+.structSection{margin-top:6px}
+.structSection>header{display:flex;align-items:baseline;gap:10px;margin:14px 0 6px;padding-bottom:6px;border-bottom:1px solid #eef2f7}
+.structSection>header h4{margin:0;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#334155}.structSection>header small{color:#64748b;font-size:12.5px}
+.structLevel{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:start;padding:8px 0;border-bottom:1px dashed #edf1f6}
+.structLevel:last-child{border-bottom:0}.structLevel.flat{grid-template-columns:1fr}
+.structLevelHead{display:grid;gap:1px;padding-top:8px}.structLevelHead b{font-size:14px;color:#15213b}.structLevelHead small{font-size:12px;color:#64748b}
+.structTiles{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.structTile{position:relative;display:flex;align-items:center;gap:6px;min-height:50px;padding:7px 6px 7px 12px;border:1px solid #e5e9f1;border-radius:10px;background:#fff}
+.structTile.off{background:#f6f7f9;border-style:dashed}.structTile.off b{color:#64748b}
+.structTileMain{min-width:0;flex:1;display:grid;gap:1px}
+.structTileMain b{font-size:14px;font-weight:750;color:#15213b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.structTileMain small{font-size:12px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.structMenuBtn{flex:none;width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:#64748b;cursor:pointer}
+.structMenuBtn:hover,.structMenuBtn[aria-expanded=true]{background:#eef2f7;color:#15213b}
+.structMenu{position:absolute;z-index:30;top:calc(100% + 4px);right:4px;min-width:170px;padding:5px;border:1px solid #dde4ee;border-radius:10px;background:#fff;box-shadow:0 10px 28px #15213b26;display:grid}
+.structMenu button{border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:7px;font-weight:650;color:#1e293b;cursor:pointer}
+.structMenu button:hover{background:#f1f5f9}.structMenu .dangerText{color:#b42318}
+.structSigles{margin-top:14px;padding:12px;border:1px solid #e5e9f1;border-radius:12px;background:#fbfcfe}
+.structSigles>b{display:block;font-size:14px}.structSigles>small{display:block;color:#64748b;font-size:12.5px;margin:2px 0 8px}
+.structSigles dl{margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+.structSigles dl>div{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:#fff;border:1px solid #eef2f7}
+.structSigles dt{min-width:64px;font-weight:800;color:#0f4fbf;font-size:13px}.structSigles dd{margin:0;color:#334155;font-size:13px}
+@media(max-width:900px){
+  .structStats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .structLevel{grid-template-columns:1fr;gap:4px}.structLevelHead{display:flex;align-items:baseline;gap:8px;padding-top:2px}
+  .structurePage .structTabs{display:flex!important;width:100%;overflow:visible!important}.structurePage .structTabs button{flex:1;min-width:0!important}
+  .structFind{flex-basis:100%}.structFind input{max-width:none}
+  .structTiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .structurePage .panelHead{flex-wrap:wrap}
+}
+
+/* Avantages (owner, 2026-11-06): summary cards like Tarifs, the form opens only when editing. */
+.benefitsPage .panelHead h3 small{font-weight:600;color:#64748b;font-size:.8em}
+.benefitTiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:4px}
+.benefitTile{border:1px solid #e5e9f1;border-radius:14px;background:#fff;padding:14px;display:grid;gap:10px;align-content:start}
+.benefitTile.on{border-color:#bfe5cf;background:linear-gradient(180deg,#f4fbf7,#fff 60%)}
+.benefitTile.editing{grid-column:1/-1;border-color:#1457bd;box-shadow:0 0 0 2px #1457bd1f}
+.benefitTileHead{display:flex;align-items:flex-start;gap:12px}
+.benefitIcon{flex:none;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:#eef4ff;color:#0f4fbf}
+.benefitTile.on .benefitIcon{background:#e3f5ea;color:#16794c}
+.benefitTileHead>div{flex:1;min-width:0}.benefitTileHead b{display:block;font-size:15px}.benefitTileHead small{display:block;color:#64748b;font-size:12.5px;margin-top:1px}
+.benefitFacts{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.benefitFacts li{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:7px 0;border-top:1px solid #f0f3f7}
+.benefitFacts li span{color:#64748b}.benefitFacts li b{text-align:right;font-weight:700;color:#15213b}
+.benefitTileActions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.benefitTile form.benefitCard{border:0;padding:0;margin:0;background:transparent;box-shadow:none}
+.benefitTile form.benefitCard fieldset{border:0;padding:0;margin:0;min-width:0}
+.benefitTile form.benefitCard legend{display:none}
+.benefitNote{display:flex;align-items:flex-start;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid #e5e9f1;border-radius:14px;background:#fbfcfe}
+.benefitNote>div{flex:1;min-width:0}.benefitNote b{display:block;font-size:14px}.benefitNote p{margin:2px 0 0;font-size:13px;color:#475569;line-height:1.45}
+@media(max-width:900px){.benefitTiles{grid-template-columns:1fr}.benefitNote{flex-wrap:wrap}}
+.structurePage .suggestions button{display:inline-flex;align-items:center;gap:6px}.structurePage .suggestions button:disabled{opacity:1;color:#16794c;background:#eef8f2;border-color:#bfe5cf;cursor:default}
+@media(max-width:600px){.structStats{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.structStats>div{padding:7px 6px;text-align:center}.structStats b{font-size:16px}.structStats span{font-size:10.5px;line-height:1.2}
+  .structurePage .structChips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:0 2px}.structurePage .structChips::-webkit-scrollbar{display:none}.structurePage .structChips button{flex:none;min-height:36px;padding:5px 11px}}
+.productGrid{align-items:start}.productCard{align-content:start}.productStock small{font-size:11.5px;color:#64748b;margin-top:-2px}.productActions button.primaryAction{background:#1457bd;border-color:#1457bd;color:#fff}.productActions button.primaryAction.on{background:#0f4fbf;color:#fff}
+
+/* Settings audit 2026-11-06 */
+.feeRowActions{justify-content:flex-end;flex-wrap:nowrap!important}
+.cardsList .feeRowActions .linkBtn,.feeRowActions .linkBtn{width:auto;min-height:34px;padding:0 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;color:#1e293b;font:inherit;font-size:13px;font-weight:650;cursor:pointer;box-shadow:none}
+.feeRowActions .linkBtn:hover{border-color:#84adff;color:#1557d6}
+.productsPanel .panelHead .primaryBtn,.contributionsPage .panelHead .primaryBtn{white-space:nowrap;flex:none}
+.contribSummary{margin:4px 0 8px;color:#64748b;font-size:13px}
+.contribList{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.contribRow{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 12px;border:1px solid #e5e9f1;border-radius:12px;background:#fff}
+.contribRow.off{background:#f6f7f9;border-style:dashed}.contribRow.off .contribText b{color:#64748b}
+.contribIcon{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:#eef4ff;color:#0f4fbf}
+.contribText{flex:1;min-width:140px;display:grid;gap:1px}.contribText b{font-size:14px}.contribText small{font-size:12.5px;color:#64748b}
+.contribActions{display:flex;gap:6px}.contribActions .ghost{min-height:34px;padding:0 12px;font-size:13px}
+.contribError{flex-basis:100%}
+.contribEditor{margin:6px 0 12px;padding:12px;border:1px solid #dde4ee;border-radius:12px;background:#f8fafc}.contribEditor fieldset{border:0;padding:0;margin:0;min-width:0}
+.contribInline{flex-basis:100%;margin:4px 0 0}
+.contribGrid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}
+@media(max-width:700px){.contribGrid{grid-template-columns:1fr}.contribActions{margin-left:46px}.contributionsPage .panelHead{flex-wrap:wrap}}

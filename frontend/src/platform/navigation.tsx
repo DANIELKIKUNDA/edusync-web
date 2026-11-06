@@ -81,10 +81,14 @@ export function VerticalNavigation() {
     update();
     return () => {observer.disconnect(); cancelAnimationFrame(frame); clearTimeout(timer.current); window.removeEventListener('scroll', interact); window.removeEventListener('resize', update); window.removeEventListener('touchstart', interact); window.removeEventListener('keydown', interact);};
   }, []);
-  const visible = position.long && position.started && active && !obstructed;
-  return <button ref={button} type="button" className={`pf-vertical ${position.bottom ? 'pf-up' : ''}`} data-visible={visible}
+  // One tap = one action (owner, 2026-11-02): the control used to disappear after 3.5 s of reading, so the first tap only
+  // woke it up on a phone and a mouse click never did. Standard « back to top » pattern: on a long page, once scrolled,
+  // it stays in place and clickable; at rest it is only dimmed (data-idle) so it does not distract from the content.
+  const visible = position.long && position.started && !obstructed;
+  return <button ref={button} type="button" className={`pf-vertical ${position.bottom ? 'pf-up' : ''}`} data-visible={visible} data-idle={!active}
     aria-label={position.bottom ? 'Revenir en haut de la page' : 'Aller en bas de la page'} aria-hidden={!visible} tabIndex={visible ? 0 : -1}
     onFocus={() => {setActive(true); clearTimeout(timer.current);}}
+    onPointerEnter={() => {setActive(true); clearTimeout(timer.current);}}
     onBlur={() => {timer.current = setTimeout(() => setActive(false), 3500);}}
     onClick={() => window.scrollTo({top: position.bottom ? 0 : document.documentElement.scrollHeight, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'})}>
     <NavGlyph g="chevronDown" size={22}/>

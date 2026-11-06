@@ -44,7 +44,7 @@ await step('08 assistant terminé',async()=>{await p.getByRole('dialog',{name:'A
 await step('10 école et identité : enregistrer',async()=>{await openTab('École & identité');await p.getByLabel(/Téléphone/).first().fill('+243 970 000 222');await p.getByRole('button',{name:'Enregistrer'}).last().click();
   await p.getByText('Identité de l’école enregistrée').waitFor({timeout:10000})});
 await step('11 années scolaires',async()=>{await openTab('Années scolaires');await p.getByText(/2026|2027|2025/).first().waitFor()});
-await step('12 structure et classes',async()=>{await openTab('Structure & classes');await p.getByText(/Pas d’options en Primaire/).waitFor()});
+await step('12 structure et classes',async()=>{await openTab('Structure & classes');await p.getByRole('tab',{name:/Sections & options/}).click();await p.getByText(/Pas d’options en Primaire/).waitFor();await p.getByRole('tab',{name:/^Classes/}).click()});
 await step('13 structure : ajouter une parallèle C',async()=>{await p.getByRole('button',{name:'Ouvrir des classes'}).click();const d=p.getByRole('dialog',{name:/Ouvrir des classes/});
   await d.getByRole('button',{name:'Primaire'}).click();for(const r of await d.locator('.sw-field').nth(1).getByRole('button').all()){if((await r.getAttribute('aria-pressed'))==='true')await r.click()}
   await d.getByRole('button',{name:'1re primaire'}).click();await d.getByRole('button',{name:/3 \(A, B, C\)/}).click();await d.getByText('1re primaire C').waitFor();
@@ -56,7 +56,7 @@ await step('16 inscriptions',async()=>{await openTab('Inscriptions')});
 await step('17 avantages',async()=>{await openTab('Avantages')});
 await step('18 encaissement',async()=>{await openTab('Encaissement')});
 await step('19 plans anticipés',async()=>{await openTab('Plans anticipés')});
-await step('20 contributions : modèle savon',async()=>{await openTab('Contributions en nature');await p.getByRole('button',{name:'+ Savon'}).click();await p.getByRole('button',{name:'Ajouter'}).click();await p.getByText('Contribution créée').waitFor({timeout:10000})});
+await step('20 contributions : modèle savon',async()=>{await openTab('Contributions en nature');await p.getByRole('button',{name:'+ Savon'}).click();await p.getByRole('button',{name:'Ajouter'}).click();await p.getByText('Savon ajouté').waitFor({timeout:10000})});
 await step('21 articles : pull scolaire',async()=>{await openTab('Articles scolaires');await p.getByRole('button',{name:'+ Pull scolaire'}).click();await p.getByLabel('Prix').fill('15000');await p.getByRole('button',{name:'Ajouter'}).click();await p.getByText('Article créé').waitFor({timeout:10000})});
 await step('22 mise en service après parcours',async()=>{await openTab('Mise en service')});
 // mobile

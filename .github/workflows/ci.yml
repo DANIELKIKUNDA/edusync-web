@@ -21,9 +21,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Machine d'exécution : runners GitHub (gratuits, dépôt public) par défaut. Pour revenir au PC (WSL) :
+  # variable de dépôt CI_RUNS_ON = ["self-hosted","linux","x64","volcano-ci"] (docs/CI_SANS_MINUTES_GITHUB.md).
   backend:
     name: Backend — tests et compilation
-    runs-on: [self-hosted, linux, x64, volcano-ci]
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +53,7 @@ jobs:
 
   rbac-contract:
     name: RBAC — registre canonique, migration additive, droits identiques
-    runs-on: [self-hosted, linux, x64, volcano-ci]
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 45
     env:
       DOCKER_CONFIG: /tmp/edusync-docker-ci
@@ -143,7 +145,7 @@ jobs:
 
   frontend:
     name: Frontend — typecheck et build
-    runs-on: [self-hosted, linux, x64, volcano-ci]
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -170,7 +172,7 @@ jobs:
       - name: Navigateur de certification
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
-        run: npx playwright install chromium
+        run: npx playwright install ${{ vars.CI_RUNS_ON == '' && '--with-deps' || '' }} chromium
       - name: Parcours plateforme dans Chromium (réponses serveur de test)
         working-directory: frontend
         run: npm run test:browser
@@ -195,7 +197,7 @@ jobs:
 
   security:
     name: Sécurité — dépendances, licences, secrets
-    runs-on: [self-hosted, linux, x64, volcano-ci]
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -253,7 +255,7 @@ jobs:
     name: Images Docker (amd64 + arm64) → GHCR
     needs: [backend, rbac-contract, frontend, security]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-    runs-on: [self-hosted, linux, x64, volcano-ci]
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 90
     permissions:
       contents: read

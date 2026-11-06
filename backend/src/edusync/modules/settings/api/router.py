@@ -17,6 +17,7 @@ from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepositor
 from edusync.adapters.postgres_anticipation import PostgresAnticipationRepository
 from edusync.adapters.postgres_annual_policy_admin import PostgresAnnualPolicyAdminRepository
 from edusync.adapters.postgres_annual_policy_activation import activate_annual_policy
+from edusync.modules.finance_fee_tracking.domain.annual_policy_validation import french_policy_error, validate_policy_rules
 from edusync.adapters.postgres_annual_exigibility_preview import preview_enrollment_monthly_schedules
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
 from edusync.bootstrap.dependencies import get_services, require_school_actor
@@ -599,16 +600,20 @@ def annual_exigibility_create(body:ExigibilityDraftCreate,actor:ActorContext=Dep
 @router.put('/annual-exigibility/{policy_id}/rules')
 def annual_exigibility_rule(policy_id:UUID,body:ExigibilityRulePut,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'settings.tariffs.manage')
+    bands=body.model_dump(mode='python')['bands']
+    # Checked BEFORE saving (2026-11-02): an incoherent rule is refused at once, in French, instead of at activation.
+    try:validate_policy_rules([{'fee_type_id':body.fee_type_id,'prior_mode':body.prior_mode,'prior_percent':body.prior_percent,'bands':bands}])
+    except ValueError as exc:raise french_policy_error(exc) from exc
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return _jsonable(PostgresAnnualPolicyAdminRepository(conn).put_rule(
-            actor.school_id,policy_id,body.fee_type_id,body.prior_mode,body.prior_percent,
-            body.model_dump(mode='python')['bands']))
+            actor.school_id,policy_id,body.fee_type_id,body.prior_mode,body.prior_percent,bands))
 
 @router.post('/annual-exigibility/{policy_id}/activate')
 def annual_exigibility_activate(policy_id:UUID,year_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'settings.tariffs.apply')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return activate_annual_policy(conn,school_id=actor.school_id,academic_year_id=year_id,policy_id=policy_id,actor_id=actor.user_id)
+        try:return activate_annual_policy(conn,school_id=actor.school_id,academic_year_id=year_id,policy_id=policy_id,actor_id=actor.user_id)
+        except ValueError as exc:raise french_policy_error(exc) from exc
 
 @router.get('/annual-exigibility-preview/class')
 def annual_exigibility_preview(year_id:UUID,class_id:UUID,financial_entry_date:date,
@@ -1076,8 +1081,11 @@ class ProductStockMove(BaseModel):
 @router.post('/products/{product_id}/stock',status_code=201)
 def product_stock_move(product_id:UUID,body:ProductStockMove,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """Stock of a school article: receipt (delivery) or counted correction, always traced. Same capabilities as the
-    Intendance stock (inventory.stock.receive / inventory.stock.adjust); a sale is recorded by the cash desk only."""
-    _need(actor,'inventory.stock.receive' if body.movement_type=='RECEIPT' else 'inventory.stock.adjust')
+    Intendance stock (inventory.stock.receive / inventory.stock.adjust); a sale is recorded by the cash desk only.
+    Owner request 2026-11-06: a school without intendant must still be able to count its articles, so the administrator
+    who manages the catalogue (settings.products.manage) may record them too — always traced and audited the same way."""
+    stock_capability='inventory.stock.receive' if body.movement_type=='RECEIPT' else 'inventory.stock.adjust'
+    if 'settings.products.manage' not in actor.permissions:_need(actor,stock_capability)
     if body.movement_type=='ADJUSTMENT' and body.adjustment_direction is None:
         raise HTTPException(status_code=422,detail='Précisez le sens de la correction de stock')
     delta=body.quantity if body.movement_type=='RECEIPT' or body.adjustment_direction=='INCREASE' else -body.quantity
