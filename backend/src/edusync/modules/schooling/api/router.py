@@ -265,26 +265,42 @@ def family_profile(family_id:UUID,actor:ActorContext=Depends(require_school_acto
         return _jsonable(item)
 
 @router.get('/enrollment-benefits')
-def enrollment_benefits(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def enrollment_benefits(family_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """Desktop preview_family_enrollment: which benefit policies are enabled this year (rate, threshold, limits) and, when
-    the staff-child policy is on, the active staff members a child can be linked to. The beneficiary stays a manual choice."""
+    the staff-child policy is on, the active staff members a child can be linked to. The beneficiary stays a manual choice.
+
+    Owner request 2026-11-06: the form adapts to each school's policy. With ``family_id`` the answer also gives the
+    family's enrolled children and its current large-family beneficiaries, and each agent's current beneficiaries, so
+    the screen offers a benefit only when the school's rule allows it (the server still refuses anything else)."""
     if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll')):
         raise HTTPException(status_code=403,detail="Permission refusée")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresSchoolingRepository(conn);year=repo.active_year(actor.school_id)
         if not year: return {"large_family":None,"staff_child":None,"staff":[]}
+        from edusync.shared.domain.fee_codes import same_fee
+        fee_types=[(r._mapping['code'],r._mapping['label']) for r in conn.execute(text("SELECT code,label FROM fee_types WHERE school_id=:s ORDER BY code"),{"s":actor.school_id}).all()]
+        label_of=lambda c:next((l for code,l in fee_types if code==c),None) or next((l for code,l in fee_types if same_fee(c,code)),c)
         def view(p):
             if not p: return None
             free,most=int(p.get('free_beneficiaries') or 0),int(p.get('max_beneficiaries') or 0)
             # Desktop: large family limit = free or max beneficiaries; staff child limit = max or free beneficiaries.
             limit=(free or most) if p['benefit_type']=='LARGE_FAMILY' else (most or free)
+            codes=[c for c in (p.get('applies_to_fee_codes') or [p.get('applies_to_fee_code')]) if c]
             return {"min_children":int(p.get('min_children') or 0),"beneficiary_limit":limit,
                     "discount_percent":"100" if free>0 else str(p.get('discount_percent') or 0),"fee_code":p.get('applies_to_fee_code') or 'SCOLARITE',
-                    "fee_codes":list(p.get('applies_to_fee_codes') or [p.get('applies_to_fee_code') or 'SCOLARITE'])}
+                    "fee_codes":codes or ['SCOLARITE'],
+                    # Words for the screen: the school's own fee labels; no code at all means every fee.
+                    "fee_labels":list(dict.fromkeys(label_of(c) for c in codes)) if codes else [],"all_fees":not codes}
         large=repo.benefit_policy(actor.school_id,year['id'],'LARGE_FAMILY');staff=repo.benefit_policy(actor.school_id,year['id'],'STAFF_CHILD')
-        members=[] if not staff else [dict(r._mapping) for r in conn.execute(text("""SELECT id,trim(concat_ws(' ',last_name,middle_name,first_name)) AS full_name,employee_no
-            FROM staff_members WHERE school_id=:s AND status='ACTIVE' ORDER BY last_name,first_name"""),{"s":actor.school_id}).all()]
-        return _jsonable({"large_family":view(large),"staff_child":view(staff),"staff":members})
+        large_view=view(large)
+        if large_view is not None:
+            large_view["family_enrolled_children"]=repo.count_family_enrolled_children(actor.school_id,family_id,year['id']) if family_id else 0
+            large_view["family_beneficiaries"]=repo.count_benefits(actor.school_id,year['id'],'LARGE_FAMILY',family_id=family_id) if family_id else 0
+        members=[] if not staff else [dict(r._mapping) for r in conn.execute(text("""SELECT m.id,trim(concat_ws(' ',m.last_name,m.middle_name,m.first_name)) AS full_name,m.employee_no,
+              (SELECT count(*) FROM student_benefits b WHERE b.school_id=m.school_id AND b.academic_year_id=:y AND b.kind='STAFF_CHILD'
+                AND b.active AND b.source_reference=m.id::text) AS beneficiaries
+            FROM staff_members m WHERE m.school_id=:s AND m.status='ACTIVE' ORDER BY m.last_name,m.first_name"""),{"s":actor.school_id,"y":year['id']}).all()]
+        return _jsonable({"large_family":large_view,"staff_child":view(staff),"staff":members})
 
 @router.post('/enrollments/family',status_code=201)
 def enroll_family(body:FamilyEnrollmentBody,response:Response,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
