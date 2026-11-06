@@ -28,7 +28,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -64,7 +64,7 @@ jobs:
       EDUSYNC_TENANT_DATABASE_URL: postgresql+psycopg://edusync_tenant:ci-tenant-only@127.0.0.1:5432/edusync
       EDUSYNC_PLATFORM_DATABASE_URL: postgresql+psycopg://edusync_platform:ci-platform-only@127.0.0.1:5432/edusync
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: PostgreSQL 16 isolé pour WSL
         run: |
           mkdir -p "$DOCKER_CONFIG"
@@ -148,7 +148,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -200,7 +200,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -247,7 +247,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Harnais Linux jetable (tools/ci/cd_linux/privileged_checks.sh)
         run: bash tools/ci/cd_linux/privileged_checks.sh
 
@@ -261,7 +261,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Client Docker Linux isolé
         # Le helper desktop.exe du profil Windows échoue depuis le runner WSL.
         # La connexion GHCR utilise ensuite ce dossier temporaire propre au job.
