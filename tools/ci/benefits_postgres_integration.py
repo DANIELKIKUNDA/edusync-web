@@ -126,9 +126,38 @@ def run(A: dict) -> None:
     check("politique désactivée → gratuité refusée par le serveur aussi", r.status_code == 409, f"{r.status_code} {r.text[:160]}")
 
 
+def run_per_group(C: dict) -> None:
+    print("\n== Famille nombreuse « par tranche » : 1 enfant gratuit pour chaque groupe de 5 (10 enfants → 2)")
+    fees(C)
+    cls = C["classes"]["PRIMAIRE"]
+    r = as_(actor_for("ADMIN_SYSTEME_ECOLE", C["id"])).put("/api/v1/settings/benefit-policies/LARGE_FAMILY", headers=key(), json={
+        "academic_year_id": str(C["year"]), "enabled": True, "min_children": 5, "free_beneficiaries": 1, "per_group": True,
+        "applies_to_fee_codes": ["SCOLARITE", "TRANSPORT"]})
+    check("paramètres : politique « par tranche » enregistrée", r.status_code in (200, 201) and r.json().get("per_group") is True, r.text[:200])
+    cashier = as_(actor_for("CAISSIER", C["id"]))
+    guardian = {"full_name": "MUKENDI Ilunga", "role": "PERE", "phone": "+243 97 000 0002"}
+    enroll = lambda kids: cashier.post("/api/v1/schooling/enrollments/family", headers=key(),
+                                       json={"household_confidence": "NONE", "primary_guardian": guardian, "children": kids})
+    names = [f"T{i}" for i in range(1, 11)]
+    r = enroll([child(n, cls, free=i in (0, 1)) for i, n in enumerate(names[:8])])
+    check("8 enfants avec deux gratuits → refusé (une seule tranche de 5)", r.status_code == 409 and "par tranche" in r.text, f"{r.status_code} {r.text[:200]}")
+    r = enroll([child(n, cls, free=i in (0, 1, 2)) for i, n in enumerate(names)])
+    check("10 enfants avec trois gratuits → refusé (deux tranches = 2 bénéficiaires)", r.status_code == 409, f"{r.status_code} {r.text[:160]}")
+    r = enroll([child(n, cls, free=i in (3, 7)) for i, n in enumerate(names)])
+    check("10 enfants avec deux gratuits → inscription réussie", r.status_code == 201, f"{r.status_code} {r.text[:200]}")
+    if r.status_code == 201:
+        fam = r.json()["family_id"]
+        free_months = [c for n in ("T4", "T8") for c in charges(n, fam) if c[0] == "MONTHLY"]
+        check("les deux bénéficiaires ont tous leurs mois à 0", len(free_months) == 12 and all(Decimal(c[1]) == 0 for c in free_months), free_months)
+        paying = [c for c in charges("T1", fam) if c[0] == "MONTHLY"]
+        check("les huit autres paient normalement", paying and all(Decimal(c[1]) > 0 for c in paying), paying)
+
+
 def main() -> int:
     A = school("B")
     run(A)
+    C = school("C")
+    run_per_group(C)
     H.CLIENT.__exit__(None, None, None)
     fails = [r for r in H.RESULTS if r[0] == "FAIL"]
     print(f"\n{len(H.RESULTS) - len(fails)}/{len(H.RESULTS)} PASS · {len(fails)} FAIL")

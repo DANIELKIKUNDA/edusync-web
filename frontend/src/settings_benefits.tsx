@@ -10,10 +10,10 @@ import {friendlyError} from './platform/errors';
 import {FormField} from './platform/forms';
 import {NavGlyph} from './platform/nav_icons';
 
-type Draft = {enabled: boolean; min_children: string; max_beneficiaries: string; discount_percent: string; free_beneficiaries: string; fee_codes: string[]};
+type Draft = {enabled: boolean; min_children: string; max_beneficiaries: string; discount_percent: string; free_beneficiaries: string; fee_codes: string[]; per_group: boolean};
 const DESKTOP_DEFAULTS: Record<'LARGE_FAMILY' | 'STAFF_CHILD', Draft> = {
-  LARGE_FAMILY: {enabled: false, min_children: '5', max_beneficiaries: '0', discount_percent: '0', free_beneficiaries: '1', fee_codes: ['SCOLARITE']},
-  STAFF_CHILD: {enabled: false, min_children: '0', max_beneficiaries: '2', discount_percent: '50', free_beneficiaries: '0', fee_codes: ['SCOLARITE']},
+  LARGE_FAMILY: {enabled: false, min_children: '5', max_beneficiaries: '0', discount_percent: '0', free_beneficiaries: '1', fee_codes: ['SCOLARITE'], per_group: true},
+  STAFF_CHILD: {enabled: false, min_children: '0', max_beneficiaries: '2', discount_percent: '50', free_beneficiaries: '0', fee_codes: ['SCOLARITE'], per_group: false},
 };
 
 const TITLE = {LARGE_FAMILY: 'Famille nombreuse', STAFF_CHILD: 'Enfants du personnel'} as const;
@@ -26,8 +26,9 @@ function defaultFeeCodes(fees: FeeType[]): string[] {
 }
 
 /** One sentence that says what the policy grants (shown on the summary card). */
-export function benefitRule(type: 'LARGE_FAMILY' | 'STAFF_CHILD', p: {min_children: number; max_beneficiaries: number; discount_percent: string | number; free_beneficiaries: number}): string {
+export function benefitRule(type: 'LARGE_FAMILY' | 'STAFF_CHILD', p: {min_children: number; max_beneficiaries: number; discount_percent: string | number; free_beneficiaries: number; per_group?: boolean}): string {
   const pct = Number(p.discount_percent); const free = Number(p.free_beneficiaries);
+  if (type === 'LARGE_FAMILY' && p.per_group) { const n = free || 1; return `${free > 0 ? `${n} enfant${n > 1 ? 's' : ''} gratuit${n > 1 ? 's' : ''}` : `${pct} % de réduction pour ${n} enfant${n > 1 ? 's' : ''}`} par tranche de ${p.min_children} enfants inscrits (${2 * p.min_children} enfants → ${2 * n})`; }
   if (type === 'LARGE_FAMILY') return free > 0 ? `${free} enfant${free > 1 ? 's' : ''} gratuit${free > 1 ? 's' : ''} par famille dès ${p.min_children} enfants inscrits` : `${pct} % de réduction dès ${p.min_children} enfants inscrits`;
   const cap = p.max_beneficiaries > 0 ? ` · ${p.max_beneficiaries} enfant${p.max_beneficiaries > 1 ? 's' : ''} max. par agent` : '';
   return free > 0 ? `${free} enfant${free > 1 ? 's' : ''} gratuit${free > 1 ? 's' : ''} par agent${cap}` : `${pct} % de réduction${cap}`;
@@ -71,7 +72,7 @@ function PolicyCard({type, token, year, fees, editable, current, onSaved, onErro
   editable: boolean; current: BenefitPolicy | null; onSaved: () => Promise<void>; onError: (m: string) => void; onCancel: () => void}) {
   const initial: Draft = current ? {enabled: current.enabled, min_children: String(current.min_children), max_beneficiaries: String(current.max_beneficiaries),
     discount_percent: String(Number(current.discount_percent)), free_beneficiaries: String(current.free_beneficiaries),
-    fee_codes: current.applies_to_fee_codes?.length ? current.applies_to_fee_codes : current.applies_to_fee_code ? [current.applies_to_fee_code] : []} : {...DESKTOP_DEFAULTS[type], fee_codes: defaultFeeCodes(fees)};
+    fee_codes: current.applies_to_fee_codes?.length ? current.applies_to_fee_codes : current.applies_to_fee_code ? [current.applies_to_fee_code] : [], per_group: !!current.per_group} : {...DESKTOP_DEFAULTS[type], fee_codes: defaultFeeCodes(fees)};
   const [d, setD] = useState<Draft>(initial); const [busy, setBusy] = useState(false);
   useEffect(() => setD(initial), [current?.version, current?.id]);
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setD(x => ({...x, [k]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value}));
@@ -85,7 +86,7 @@ function PolicyCard({type, token, year, fees, editable, current, onSaved, onErro
     try {
       setBusy(true);
       await putBenefitPolicy(token, type, {academic_year_id: year.id, enabled: d.enabled, min_children: Number(d.min_children), max_beneficiaries: Number(d.max_beneficiaries),
-        discount_percent: d.discount_percent.replace(',', '.'), free_beneficiaries: Number(d.free_beneficiaries), applies_to_fee_code: d.fee_codes[0] ?? null, applies_to_fee_codes: d.fee_codes, expected_version: current?.version ?? null});
+        discount_percent: d.discount_percent.replace(',', '.'), free_beneficiaries: Number(d.free_beneficiaries), applies_to_fee_code: d.fee_codes[0] ?? null, applies_to_fee_codes: d.fee_codes, per_group: type === 'LARGE_FAMILY' && d.per_group, expected_version: current?.version ?? null});
       toast.success(type === 'LARGE_FAMILY' ? 'Politique Famille nombreuse enregistrée' : 'Politique Enfants du personnel enregistrée'); onError(''); await onSaved();
     } catch (err) { onError(friendlyError(err)); } finally { setBusy(false); }
   }
@@ -98,9 +99,10 @@ function PolicyCard({type, token, year, fees, editable, current, onSaved, onErro
         {type === 'LARGE_FAMILY'
           ? <FormField label="Éligible à partir de (enfants inscrits)"><input inputMode="numeric" value={d.min_children} onChange={set('min_children')}/></FormField>
           : <FormField label="Nombre max. de bénéficiaires par agent"><input inputMode="numeric" value={d.max_beneficiaries} onChange={set('max_beneficiaries')}/></FormField>}
-        <FormField label={type === 'LARGE_FAMILY' ? 'Bénéficiaires gratuits par famille' : 'Bénéficiaires gratuits'}><input inputMode="numeric" value={d.free_beneficiaries} onChange={set('free_beneficiaries')}/></FormField>
+        <FormField label={type === 'LARGE_FAMILY' ? (d.per_group ? 'Bénéficiaires gratuits par tranche' : 'Bénéficiaires gratuits par famille') : 'Bénéficiaires gratuits'}><input inputMode="numeric" value={d.free_beneficiaries} onChange={set('free_beneficiaries')}/></FormField>
         <FormField label={type === 'LARGE_FAMILY' ? 'Réduction alternative (%)' : 'Réduction (%)'} hint={free ? 'Bénéficiaire gratuit : la réduction appliquée est de 100 %.' : undefined}><input inputMode="decimal" value={d.discount_percent} onChange={set('discount_percent')}/></FormField>
       </div>
+      {type === 'LARGE_FAMILY' && <label className="switchRow"><span>Par tranche d’enfants<small>{d.per_group ? `${Number(d.free_beneficiaries) || 1} bénéficiaire(s) pour chaque groupe de ${d.min_children || '5'} enfants : ${Number(d.min_children) * 2 || 10} enfants inscrits → ${(Number(d.free_beneficiaries) || 1) * 2} bénéficiaires.` : `Limite fixe : ${Number(d.free_beneficiaries) || 1} bénéficiaire(s) par famille, quel que soit le nombre d’enfants.`}</small></span><input type="checkbox" role="switch" checked={d.per_group} onChange={set('per_group')}/></label>}
       <div className="feeChecks" role="group" aria-label="Frais couverts par l’avantage">
         <span>Frais couverts <small>({d.fee_codes.length} choisi{d.fee_codes.length > 1 ? 's' : ''})</small></span>
         <div className="feeCheckGrid">

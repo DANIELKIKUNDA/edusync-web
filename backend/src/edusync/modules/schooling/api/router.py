@@ -286,7 +286,7 @@ def enrollment_benefits(family_id:UUID|None=None,actor:ActorContext=Depends(requ
             # Desktop: large family limit = free or max beneficiaries; staff child limit = max or free beneficiaries.
             limit=(free or most) if p['benefit_type']=='LARGE_FAMILY' else (most or free)
             codes=[c for c in (p.get('applies_to_fee_codes') or [p.get('applies_to_fee_code')]) if c]
-            return {"min_children":int(p.get('min_children') or 0),"beneficiary_limit":limit,
+            return {"min_children":int(p.get('min_children') or 0),"beneficiary_limit":limit,"per_group":bool(p.get('per_group')),
                     "discount_percent":"100" if free>0 else str(p.get('discount_percent') or 0),"fee_code":p.get('applies_to_fee_code') or 'SCOLARITE',
                     "fee_codes":codes or ['SCOLARITE'],
                     # Words for the screen: the school's own fee labels; no code at all means every fee.

@@ -81,7 +81,8 @@ class SchoolingService:
                 raise ValueError("La politique Famille nombreuse n'est pas activée")
             limit = int(large_policy.get("free_beneficiaries") or large_policy.get("max_beneficiaries") or 0)
             existing_large = self.repo.count_benefits(self.school_id, UUID(str(year["id"])), "LARGE_FAMILY", family_id=family_id) if family_id else 0
-            if limit > 0 and existing_large + large_selected > limit:
+            # « Par tranche » (2026-11-06): the limit depends on the family size, checked once the batch is enrolled.
+            if not large_policy.get("per_group") and limit > 0 and existing_large + large_selected > limit:
                 raise ValueError(f"Cette famille ne peut avoir que {limit} bénéficiaire(s) Famille nombreuse pour cette année")
         if staff_selected:
             if staff_policy is None:
@@ -223,6 +224,14 @@ class SchoolingService:
             eligible = self.repo.count_family_enrolled_children(self.school_id, family_id, UUID(str(year["id"]))) >= minimum
             if large_selected and not eligible:
                 raise ValueError(f"Bénéficiaire famille nombreuse impossible : le foyer n’atteint pas le seuil de {minimum} enfant(s) inscrits")
+            if large_selected and large_policy.get("per_group") and minimum > 0:
+                enrolled = self.repo.count_family_enrolled_children(self.school_id, family_id, UUID(str(year["id"])))
+                per = int(large_policy.get("free_beneficiaries") or large_policy.get("max_beneficiaries") or 1)
+                allowed = (enrolled // minimum) * per
+                already = self.repo.count_benefits(self.school_id, UUID(str(year["id"])), "LARGE_FAMILY", family_id=family_id)
+                if already + large_selected > allowed:
+                    raise ValueError(f"Avec {enrolled} enfants inscrits, cette famille peut avoir {allowed} bénéficiaire(s) Famille nombreuse "
+                                     f"({per} par tranche de {minimum} enfants) ; {already} déjà accordé(s) cette année")
         for item, sid in zip(normalized, student_ids):
             if item.get("large_family_beneficiary"):
                 self.repo.add_benefit(StudentBenefit(
