@@ -342,3 +342,22 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .structurePage .suggestions button{display:inline-flex;align-items:center;gap:6px}.structurePage .suggestions button:disabled{opacity:1;color:#16794c;background:#eef8f2;border-color:#bfe5cf;cursor:default}
 @media(max-width:600px){.structStats{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.structStats>div{padding:7px 6px;text-align:center}.structStats b{font-size:16px}.structStats span{font-size:10.5px;line-height:1.2}
   .structurePage .structChips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:0 2px}.structurePage .structChips::-webkit-scrollbar{display:none}.structurePage .structChips button{flex:none;min-height:36px;padding:5px 11px}}
+.productGrid{align-items:start}.productCard{align-content:start}.productStock small{font-size:11.5px;color:#64748b;margin-top:-2px}.productActions button.primaryAction{background:#1457bd;border-color:#1457bd;color:#fff}.productActions button.primaryAction.on{background:#0f4fbf;color:#fff}
+
+/* Settings audit 2026-11-06 */
+.feeRowActions{justify-content:flex-end;flex-wrap:nowrap!important}
+.cardsList .feeRowActions .linkBtn,.feeRowActions .linkBtn{width:auto;min-height:34px;padding:0 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;color:#1e293b;font:inherit;font-size:13px;font-weight:650;cursor:pointer;box-shadow:none}
+.feeRowActions .linkBtn:hover{border-color:#84adff;color:#1557d6}
+.productsPanel .panelHead .primaryBtn,.contributionsPage .panelHead .primaryBtn{white-space:nowrap;flex:none}
+.contribSummary{margin:4px 0 8px;color:#64748b;font-size:13px}
+.contribList{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.contribRow{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 12px;border:1px solid #e5e9f1;border-radius:12px;background:#fff}
+.contribRow.off{background:#f6f7f9;border-style:dashed}.contribRow.off .contribText b{color:#64748b}
+.contribIcon{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:#eef4ff;color:#0f4fbf}
+.contribText{flex:1;min-width:140px;display:grid;gap:1px}.contribText b{font-size:14px}.contribText small{font-size:12.5px;color:#64748b}
+.contribActions{display:flex;gap:6px}.contribActions .ghost{min-height:34px;padding:0 12px;font-size:13px}
+.contribError{flex-basis:100%}
+.contribEditor{margin:6px 0 12px;padding:12px;border:1px solid #dde4ee;border-radius:12px;background:#f8fafc}.contribEditor fieldset{border:0;padding:0;margin:0;min-width:0}
+.contribInline{flex-basis:100%;margin:4px 0 0}
+.contribGrid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}
+@media(max-width:700px){.contribGrid{grid-template-columns:1fr}.contribActions{margin-left:46px}.contributionsPage .panelHead{flex-wrap:wrap}}

@@ -1081,8 +1081,11 @@ class ProductStockMove(BaseModel):
 @router.post('/products/{product_id}/stock',status_code=201)
 def product_stock_move(product_id:UUID,body:ProductStockMove,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """Stock of a school article: receipt (delivery) or counted correction, always traced. Same capabilities as the
-    Intendance stock (inventory.stock.receive / inventory.stock.adjust); a sale is recorded by the cash desk only."""
-    _need(actor,'inventory.stock.receive' if body.movement_type=='RECEIPT' else 'inventory.stock.adjust')
+    Intendance stock (inventory.stock.receive / inventory.stock.adjust); a sale is recorded by the cash desk only.
+    Owner request 2026-11-06: a school without intendant must still be able to count its articles, so the administrator
+    who manages the catalogue (settings.products.manage) may record them too — always traced and audited the same way."""
+    stock_capability='inventory.stock.receive' if body.movement_type=='RECEIPT' else 'inventory.stock.adjust'
+    if 'settings.products.manage' not in actor.permissions:_need(actor,stock_capability)
     if body.movement_type=='ADJUSTMENT' and body.adjustment_direction is None:
         raise HTTPException(status_code=422,detail='Précisez le sens de la correction de stock')
     delta=body.quantity if body.movement_type=='RECEIPT' or body.adjustment_direction=='INCREASE' else -body.quantity
