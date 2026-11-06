@@ -6,6 +6,8 @@ import React, {useEffect, useState} from 'react';
 import {friendlyError} from './platform/errors';
 import {formatMoney} from './platform/format';
 import {DateInput} from './platform/date_input';
+import {NavGlyph} from './platform/nav_icons';
+import './schooling.css';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const auth = (token: string) => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
@@ -41,25 +43,68 @@ export function HistoricalArrears({token, studentId}: {token: string; studentId:
     <ul>{items.map((a, i) => <li key={i}>{a.year_label} · <b>{money(a.balance, a.currency)}</b></li>)}</ul></div>;
 }
 
-/** Desktop family_contact_diagnostics + family_overview_summary + family_kpi_details. */
+/** Desktop family_contact_diagnostics + family_overview_summary + family_kpi_details.
+ *  Owner report 2026-11-06: professional, clickable indicator cards; the detail opens as a list below the card chosen;
+ *  contact quality reads as a checklist (green when nothing is missing). */
+type FamilyMetric = 'LARGE_ELIGIBLE' | 'BENEFICIARIES' | 'STAFF_CHILDREN';
+const BENEFIT_KIND: Record<string, string> = {LARGE_FAMILY: 'Famille nombreuse', STAFF_CHILD: 'Enfant du personnel'};
+const FINANCE_MODE: Record<string, string> = {FAMILY: 'Payé par la famille', PAYROLL: 'Retenue sur salaire', SCHOOL: 'Pris en charge par l’école', THIRD_PARTY: 'Payé par un tiers'};
+const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+const pupil = (r: any) => [r.last_name, r.middle_name, r.first_name].filter(Boolean).join(' ');
+
 export function FamilyInsights({token}: {token: string}) {
   const [diag, setDiag] = useState<Record<string, number> | null>(null); const [ov, setOv] = useState<Record<string, number> | null>(null);
-  const [metric, setMetric] = useState(''); const [rows, setRows] = useState<any[]>([]); const [error, setError] = useState('');
+  const [metric, setMetric] = useState<FamilyMetric | ''>(''); const [rows, setRows] = useState<any[] | null>(null); const [error, setError] = useState('');
   useEffect(() => { getJson<Record<string, number>>(token, '/schooling/families/diagnostics').then(setDiag).catch(e => setError(friendlyError(e)));
     getJson<Record<string, number>>(token, '/schooling/families/overview').then(setOv).catch(() => undefined); }, [token]);
-  async function open(m: string) { setMetric(m); try { setRows((await getJson<{items: any[]}>(token, `/schooling/families/kpi/${m}`)).items); } catch (e) { setError(friendlyError(e)); } }
-  return <div className="familyInsights">
+  async function open(m: FamilyMetric) {
+    if (metric === m) { setMetric(''); setRows(null); return; }
+    setMetric(m); setRows(null);
+    try { setRows((await getJson<{items: any[]}>(token, `/schooling/families/kpi/${m}`)).items); } catch (e) { setError(friendlyError(e)); setRows([]); }
+  }
+  function showDirectory() { setMetric(''); setRows(null); const dir = document.querySelector<HTMLElement>('[data-family-directory]'); dir?.scrollIntoView({behavior: 'smooth', block: 'start'}); dir?.querySelector<HTMLInputElement>('input')?.focus({preventScroll: true}); }
+  const cards: {key: FamilyMetric | 'ALL'; icon: 'users' | 'star' | 'school' | 'home'; value: number; label: string; hint: string}[] = ov ? [
+    {key: 'ALL', icon: 'home', value: ov.families ?? 0, label: 'Familles inscrites', hint: 'Voir l’annuaire des familles'},
+    {key: 'LARGE_ELIGIBLE', icon: 'users', value: ov.large_eligible ?? 0, label: 'Familles nombreuses', hint: `${ov.large_family_min_children ?? 5} enfants inscrits ou plus`},
+    {key: 'BENEFICIARIES', icon: 'star', value: ov.beneficiaries ?? 0, label: 'Bénéficiaires d’avantages', hint: 'Gratuités et remises accordées'},
+    {key: 'STAFF_CHILDREN', icon: 'school', value: ov.staff_children ?? 0, label: 'Enfants du personnel', hint: 'Enfants rattachés à un agent'},
+  ] : [];
+  const checks = diag ? [
+    {n: diag.without_responsible ?? 0, ok: 'Chaque famille a un responsable', ko: (n: number) => `${plural(n, 'famille', 'familles')} sans responsable`},
+    {n: diag.multiple_primary ?? 0, ok: 'Un seul responsable principal par famille', ko: (n: number) => `${plural(n, 'famille', 'familles')} avec plusieurs responsables principaux`},
+    {n: diag.responsible_without_phone ?? 0, ok: 'Tous les responsables ont un téléphone', ko: (n: number) => `${plural(n, 'responsable', 'responsables')} sans téléphone`},
+    {n: diag.shared_phones ?? 0, ok: 'Aucun téléphone partagé entre familles', ko: (n: number) => `${plural(n, 'téléphone partagé', 'téléphones partagés')} entre familles`},
+  ] : [];
+  const issues = checks.filter(c => c.n > 0).length;
+  const title = cards.find(c => c.key === metric)?.label ?? '';
+  return <section className="fi" aria-label="Indicateurs des familles">
     {error && <div className="error" role="alert">{error}</div>}
-    {ov && <div className="familyKpis">
-      <span><b>{ov.families}</b><small>Familles inscrites</small></span>
-      <button onClick={() => void open('LARGE_ELIGIBLE')}><b>{ov.large_eligible}</b><small>Familles nombreuses ({ov.large_family_min_children}+ enfants)</small></button>
-      <button onClick={() => void open('BENEFICIARIES')}><b>{ov.beneficiaries}</b><small>Bénéficiaires d’avantages</small></button>
-      <button onClick={() => void open('STAFF_CHILDREN')}><b>{ov.staff_children}</b><small>Enfants du personnel</small></button></div>}
-    {diag && <div className="familyDiag"><b>Qualité des contacts</b>
-      <small>{diag.without_responsible} famille(s) sans responsable · {diag.multiple_primary} avec plusieurs responsables principaux · {diag.responsible_without_phone} responsable(s) sans téléphone · {diag.shared_phones} téléphone(s) partagé(s) entre familles</small></div>}
-    {metric && <ul className="dayDetails">{rows.map((r, i) => <li key={i}><span>{r.family_name ?? [r.last_name, r.first_name].filter(Boolean).join(' ')}{r.matricule ? ` · ${r.matricule}` : ''}{r.children ? ` · ${r.children}` : ''}{r.staff_name ? ` · agent ${r.staff_name}` : ''}{r.benefit_type ? ` · ${r.benefit_type}` : ''}</span>
-      <b>{r.enrolled_children ?? r.class_label ?? ''}</b></li>)}{rows.length === 0 && <li><span>Aucune ligne.</span></li>}</ul>}
-  </div>;
+    {ov && <div className="fi-cards">{cards.map(c => { const on = metric === c.key;
+      return <button key={c.key} type="button" className={`fi-card ${on ? 'on' : ''} ${c.value === 0 && c.key !== 'ALL' ? 'zero' : ''}`} aria-pressed={c.key === 'ALL' ? undefined : on}
+        onClick={() => c.key === 'ALL' ? showDirectory() : void open(c.key)}>
+        <span className="fi-icon" aria-hidden="true"><NavGlyph g={c.icon} size={20}/></span>
+        <span className="fi-text"><b>{c.value}</b><span>{c.label}</span><small>{c.hint}</small></span>
+        <NavGlyph g={on ? 'chevronDown' : 'chevronRight'} size={16}/>
+      </button>; })}</div>}
+    {metric && <div className="fi-detail" role="region" aria-label={title}>
+      <header><b>{title}</b><small>{rows === null ? 'Chargement…' : plural(rows.length, 'ligne', 'lignes')}</small>
+        <button type="button" className="fi-close" aria-label="Fermer la liste" onClick={() => { setMetric(''); setRows(null); }}><NavGlyph g="close" size={16}/></button></header>
+      {rows && rows.length === 0 && <p className="fi-empty">{metric === 'LARGE_ELIGIBLE' ? 'Aucune famille n’atteint encore le nombre d’enfants requis.' : metric === 'BENEFICIARIES' ? 'Aucun élève ne bénéficie encore d’une gratuité ou d’une remise.' : 'Aucun enfant n’est encore rattaché à un agent de l’école.'}</p>}
+      {rows && rows.length > 0 && <ul className="fi-rows">{rows.map((r, i) => metric === 'LARGE_ELIGIBLE'
+        ? <li key={i}><span className="fi-main"><b>{r.family_name}</b><small>{[r.family_code, r.primary_responsible, r.primary_responsible_phone ?? r.phone].filter(Boolean).join(' · ')}</small></span>
+            <em>{plural(Number(r.enrolled_children ?? 0), 'enfant', 'enfants')}</em></li>
+        : metric === 'BENEFICIARIES'
+        ? <li key={i}><span className="fi-main"><b>{pupil(r)}</b><small>{[r.matricule, r.class_label, r.family_name].filter(Boolean).join(' · ')}</small></span>
+            <em>{BENEFIT_KIND[r.benefit_type] ?? 'Avantage'}{r.configured_percent != null ? ` · ${Number(r.configured_percent) >= 100 ? 'gratuit' : `${Number(r.configured_percent)} %`}` : ''}</em></li>
+        : <li key={i}><span className="fi-main"><b>{pupil(r)}</b><small>{[r.matricule, r.class_label, r.staff_name ? `agent ${r.staff_name}` : ''].filter(Boolean).join(' · ')}</small></span>
+            <em>{FINANCE_MODE[r.finance_mode] ?? 'Payé par la famille'}</em></li>)}</ul>}
+    </div>}
+    {diag && <div className={`fi-quality ${issues ? 'warn' : 'ok'}`}>
+      <header><span className="fi-icon" aria-hidden="true"><NavGlyph g={issues ? 'alert' : 'checkCircle'} size={18}/></span>
+        <span><b>Qualité des contacts</b><small>{issues ? `${plural(issues, 'point à corriger', 'points à corriger')} pour joindre les parents sans erreur` : 'Tous les contacts des familles sont exploitables'}</small></span></header>
+      <ul>{checks.map((c, i) => <li key={i} className={c.n ? 'ko' : 'okItem'}><NavGlyph g={c.n ? 'alert' : 'check'} size={15}/>{c.n ? c.ko(c.n) : c.ok}</li>)}</ul>
+    </div>}
+  </section>;
 }
 
 /** Desktop contribution_register: required / delivered / remaining per pupil and item. */
