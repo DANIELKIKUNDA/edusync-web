@@ -21,7 +21,7 @@ concurrency:
 jobs:
   audit:
     name: pip-audit + npm audit (hebdomadaire)
-    runs-on: [self-hosted, linux, x64, volcano-ci]
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 15
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

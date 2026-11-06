@@ -1,5 +1,13 @@
 # CI sans minutes GitHub — runner local WSL
 
+> **Mise à jour 2026-11-06 — dépôt public.** Le dépôt est public : les runners GitHub standard sont gratuits et ne consomment
+> aucune minute. Par défaut, la CI et les contrôles planifiés tournent donc sur `ubuntu-24.04` (GitHub), et plus sur le PC.
+> Un runner installé chez soi ne doit jamais servir un dépôt public (une PR d'inconnu exécuterait son code sur le PC).
+>
+> **Revenir au PC (dépôt redevenu privé)** : `Settings > Secrets and variables > Actions > Variables`, créer la variable
+> `CI_RUNS_ON` avec la valeur `["self-hosted","linux","x64","volcano-ci"]`, puis démarrer le runner (ci-dessous).
+> Supprimer la variable pour revenir aux runners GitHub. Aucun changement de code n'est nécessaire.
+
 ## Objectif
 
 Exécuter les workflows privés sur le PC Windows via WSL Ubuntu, sans consommer les minutes des runners hébergés par GitHub. Le VPS de staging n'héberge aucun runner.
