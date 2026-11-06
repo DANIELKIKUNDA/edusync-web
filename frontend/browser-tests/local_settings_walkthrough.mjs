@@ -44,7 +44,7 @@ await step('08 assistant terminé',async()=>{await p.getByRole('dialog',{name:'A
 await step('10 école et identité : enregistrer',async()=>{await openTab('École & identité');await p.getByLabel(/Téléphone/).first().fill('+243 970 000 222');await p.getByRole('button',{name:'Enregistrer'}).last().click();
   await p.getByText('Identité de l’école enregistrée').waitFor({timeout:10000})});
 await step('11 années scolaires',async()=>{await openTab('Années scolaires');await p.getByText(/2026|2027|2025/).first().waitFor()});
-await step('12 structure et classes',async()=>{await openTab('Structure & classes');await p.getByText(/Pas d’options en Primaire/).waitFor()});
+await step('12 structure et classes',async()=>{await openTab('Structure & classes');await p.getByRole('tab',{name:/Sections & options/}).click();await p.getByText(/Pas d’options en Primaire/).waitFor();await p.getByRole('tab',{name:/^Classes/}).click()});
 await step('13 structure : ajouter une parallèle C',async()=>{await p.getByRole('button',{name:'Ouvrir des classes'}).click();const d=p.getByRole('dialog',{name:/Ouvrir des classes/});
   await d.getByRole('button',{name:'Primaire'}).click();for(const r of await d.locator('.sw-field').nth(1).getByRole('button').all()){if((await r.getAttribute('aria-pressed'))==='true')await r.click()}
   await d.getByRole('button',{name:'1re primaire'}).click();await d.getByRole('button',{name:/3 \(A, B, C\)/}).click();await d.getByText('1re primaire C').waitFor();

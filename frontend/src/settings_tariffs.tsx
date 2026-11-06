@@ -86,7 +86,7 @@ export function TariffsSettings({token, tariffs, years, fees, classes, sections,
           const amounts = list.filter(t => t.amount !== null).map(t => Number(t.amount)); const cur = list[0].currency;
           const range = amounts.length ? (Math.min(...amounts) === Math.max(...amounts) ? formatMoney(String(amounts[0]), cur) : `${formatMoney(String(Math.min(...amounts)), cur)} → ${formatMoney(String(Math.max(...amounts)), cur)}`) : 'À fixer';
           return <details className="tariffGroup tariffFee" key={feeId} open={byFee.length <= 2 || i === 0}>
-            <summary><b>{list[0].fee_label ?? 'Frais'}</b><span className="tariffFeeMeta">{list.length} règle(s) · {range}{list.some(t => t.status !== 'ACTIVE') ? ' · en attente' : ''}</span></summary>
+            <summary><h4>{list[0].fee_label ?? 'Frais'}</h4><span className="tariffFeeMeta">{list.length} règle(s) · {range}{list.some(t => t.status !== 'ACTIVE') ? ' · en attente' : ''}</span></summary>
             <ul className="moneyList">{list.map(t => <li key={t.id} className={t.status === 'ACTIVE' ? '' : 'pending'}>
               <div><b>{scopeName(t)}</b><small>{SCOPES.find(s => s[0] === t.scope_type)?.[1]}{scopeCode(t)} · dès le {formatDate(t.effective_from)}{t.source_reference ? ` · ${t.source_reference}` : ''}</small></div>
               <div className="tariffAmount">{t.amount === null ? <em className="pill">À fixer</em> : <strong className="amount">{formatMoney(t.amount, t.currency)}</strong>}{t.status !== 'ACTIVE' && <small>{STATUS_LABEL[t.status]}</small>}</div>
