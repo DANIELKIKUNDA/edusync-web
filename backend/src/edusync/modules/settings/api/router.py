@@ -633,6 +633,8 @@ class BenefitPolicyPut(BaseModel):
     applies_to_fee_code:str|None=Field(default='SCOLARITE',max_length=48)
     # Several fees (2026-10-24): when given, the list wins over the single code; an empty list means every fee.
     applies_to_fee_codes:list[str]|None=Field(default=None,max_length=30)
+    # Large family « par tranche » (2026-11-06): the free beneficiaries are granted per group of min_children children.
+    per_group:bool=False
     notes:str|None=Field(default=None,max_length=600)
     expected_version:int|None=Field(default=None,ge=1)
 

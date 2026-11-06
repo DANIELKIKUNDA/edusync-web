@@ -413,14 +413,14 @@ class PostgresSettingsRepository:
 
     def list_benefit_policies(self, school_id: UUID, year_id: UUID) -> list[dict[str,Any]]:
         rows=self.connection.execute(text("""SELECT id,academic_year_id,benefit_type,enabled,min_children,max_beneficiaries,discount_percent,
-                   free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,selection_mode,notes,version
+                   free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,selection_mode,notes,per_group,version
               FROM school_benefit_policies WHERE school_id=:sid AND academic_year_id=:y ORDER BY benefit_type"""),{"sid":school_id,"y":year_id}).all()
         return [_benefit_out(dict(_m(r))) for r in rows]
 
     def save_benefit_policy(self, school_id: UUID, *, academic_year_id:UUID, benefit_type:str, enabled:bool, min_children:int=0,
                             max_beneficiaries:int=0, discount_percent:Decimal=Decimal('0'), free_beneficiaries:int=0,
                             applies_to_fee_code:str|None='SCOLARITE', applies_to_fee_codes:list[str]|None=None, notes:str|None=None,
-                            expected_version:int|None=None) -> tuple[dict[str,Any],dict[str,Any]|None]:
+                            expected_version:int|None=None, per_group:bool=False) -> tuple[dict[str,Any],dict[str,Any]|None]:
         benefit_type=benefit_type.strip().upper()
         if benefit_type not in self.BENEFIT_TYPES: raise ValueError("Type d'avantage invalide")
         if not (Decimal('0') <= Decimal(str(discount_percent)) <= Decimal('100')): raise ValueError("Le pourcentage doit être compris entre 0 et 100")
@@ -431,19 +431,19 @@ class PostgresSettingsRepository:
         codes=fee_code_list(applies_to_fee_codes if applies_to_fee_codes is not None else [applies_to_fee_code] if applies_to_fee_code else [])
         values={"sid":school_id,"y":academic_year_id,"t":benefit_type,"en":bool(enabled),"minc":max(0,int(min_children)),"maxb":max(0,int(max_beneficiaries)),
                 "pct":Decimal(str(discount_percent)),"free":max(0,int(free_beneficiaries)),"fee":codes[0] if codes else None,"fees":codes or None,
-                "notes":(notes or '').strip() or None}
-        cols="id,academic_year_id,benefit_type,enabled,min_children,max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,selection_mode,notes,version"
+                "notes":(notes or '').strip() or None,"pg":bool(per_group) and benefit_type=='LARGE_FAMILY'}
+        cols="id,academic_year_id,benefit_type,enabled,min_children,max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,selection_mode,notes,per_group,version"
         if old is None:
             row=self.connection.execute(text(f"""INSERT INTO school_benefit_policies(school_id,academic_year_id,benefit_type,enabled,min_children,
-                max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,notes)
-                VALUES (:sid,:y,:t,:en,:minc,:maxb,:pct,:free,:fee,:fees,:notes) RETURNING {cols}"""),values).first()
+                max_beneficiaries,discount_percent,free_beneficiaries,applies_to_fee_code,applies_to_fee_codes,notes,per_group)
+                VALUES (:sid,:y,:t,:en,:minc,:maxb,:pct,:free,:fee,:fees,:notes,:pg) RETURNING {cols}"""),values).first()
             previous=None
         else:
             previous=dict(_m(old))
             if expected_version is not None and int(previous['version'])!=expected_version:
                 raise OptimisticConcurrencyError("Politique d'avantage modifiée par une autre session; rechargez")
             row=self.connection.execute(text(f"""UPDATE school_benefit_policies SET enabled=:en,min_children=:minc,max_beneficiaries=:maxb,
-                discount_percent=:pct,free_beneficiaries=:free,applies_to_fee_code=:fee,applies_to_fee_codes=:fees,notes=:notes WHERE id=:id RETURNING {cols}"""),
+                discount_percent=:pct,free_beneficiaries=:free,applies_to_fee_code=:fee,applies_to_fee_codes=:fees,notes=:notes,per_group=:pg WHERE id=:id RETURNING {cols}"""),
                 {**values,"id":previous['id']}).first()
         return _benefit_out(dict(_m(row))),previous
 

@@ -48,3 +48,12 @@ it('offers the large-family benefit only from the school threshold and within it
   expect(largeFamilyState({...v, family_enrolled_children: 6, family_beneficiaries: 1}, 1, 0).visible).toBe(false); // limit used
   expect(largeFamilyState(null, 9, 0).visible).toBe(false);         // school without the policy
 });
+
+it('grants the large-family benefit per group of children when the school chose « par tranche »', () => {
+  const v = {min_children: 5, beneficiary_limit: 1, per_group: true, discount_percent: '100', fee_code: 'SCOLARITE', family_enrolled_children: 0, family_beneficiaries: 0};
+  expect(largeFamilyState(v, 4, 0).visible).toBe(false);
+  expect(largeFamilyState(v, 8, 0).remaining).toBe(1);             // 8 children → 1 group of 5
+  expect(largeFamilyState(v, 10, 0).remaining).toBe(2);            // 10 children → 2
+  expect(largeFamilyState(v, 10, 2).canAdd).toBe(false);
+  expect(largeFamilyState({...v, family_enrolled_children: 9, family_beneficiaries: 1}, 1, 0).remaining).toBe(1); // 10th child unlocks the 2nd
+});
