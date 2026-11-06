@@ -85,10 +85,12 @@ def test_frontend_offers_member_management_and_first_sign_in_screen():
 
 def test_settings_centre_confirms_year_transitions_and_uploads_a_verified_logo():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    years = app[app.index("function Years("):app.index("function Structure(")]
+    years = app[app.index("function Years("):app.index("function Fees(")]
     assert "await confirmAction(confirmText[action](y))" in years and "Préparer une nouvelle année" in years
     assert "URL du logo" not in app and "<LogoField token={token}" in app and "uploadSchoolLogo(token,f)" in app
-    assert "async function changeStatus(c:SchoolClass" in app and "await confirmAction(ask)" in app  # state changes are confirmed
+    structure = (ROOT / "frontend/src/settings_structure.tsx").read_text(encoding="utf-8")  # Structure moved there (2026-11-06)
+    assert "import {Structure} from './settings_structure'" in app
+    assert "async function changeStatus(c: SchoolClass" in structure and "await confirmAction(ask)" in structure  # state changes are confirmed
     assert "PageTrail parents={shown==='overview'" in app and "edusyncSettingsDetail" in app  # 2026-10-24: back = breadcrumb  # phone: list of sections → section screen
 
 
@@ -131,8 +133,11 @@ def test_section_options_are_managed_without_deletion():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
     api = (ROOT / "frontend/src/api.ts").read_text(encoding="utf-8")
     assert "export async function putOption(" in api and "settings/options/${encodeURIComponent(input.code)}" in api
-    assert "can('settings.options.manage')" in app and "expected_version:o.version" in app
-    assert "Désactiver l’option" in app and "option_id:optionId||null" in app
+    structure = (ROOT / "frontend/src/settings_structure.tsx").read_text(encoding="utf-8")  # Structure moved there (2026-11-06)
+    wizards = (ROOT / "frontend/src/settings_wizards.tsx").read_text(encoding="utf-8")
+    assert "canManage={can('settings.options.manage')}" in structure and "expected_version:o.version" in wizards
+    assert "enabled:!o.enabled" in wizards and "option_id:p.option?.id??null" in wizards  # closed, never deleted
+    assert "deleteOption" not in api and "deleteOption" not in wizards
 
 
 def test_first_school_admin_created_by_the_platform_must_choose_his_password():
