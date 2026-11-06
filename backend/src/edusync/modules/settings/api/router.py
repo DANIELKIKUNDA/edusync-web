@@ -17,6 +17,7 @@ from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepositor
 from edusync.adapters.postgres_anticipation import PostgresAnticipationRepository
 from edusync.adapters.postgres_annual_policy_admin import PostgresAnnualPolicyAdminRepository
 from edusync.adapters.postgres_annual_policy_activation import activate_annual_policy
+from edusync.modules.finance_fee_tracking.domain.annual_policy_validation import french_policy_error, validate_policy_rules
 from edusync.adapters.postgres_annual_exigibility_preview import preview_enrollment_monthly_schedules
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
 from edusync.bootstrap.dependencies import get_services, require_school_actor
@@ -599,16 +600,20 @@ def annual_exigibility_create(body:ExigibilityDraftCreate,actor:ActorContext=Dep
 @router.put('/annual-exigibility/{policy_id}/rules')
 def annual_exigibility_rule(policy_id:UUID,body:ExigibilityRulePut,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'settings.tariffs.manage')
+    bands=body.model_dump(mode='python')['bands']
+    # Checked BEFORE saving (2026-11-02): an incoherent rule is refused at once, in French, instead of at activation.
+    try:validate_policy_rules([{'fee_type_id':body.fee_type_id,'prior_mode':body.prior_mode,'prior_percent':body.prior_percent,'bands':bands}])
+    except ValueError as exc:raise french_policy_error(exc) from exc
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         return _jsonable(PostgresAnnualPolicyAdminRepository(conn).put_rule(
-            actor.school_id,policy_id,body.fee_type_id,body.prior_mode,body.prior_percent,
-            body.model_dump(mode='python')['bands']))
+            actor.school_id,policy_id,body.fee_type_id,body.prior_mode,body.prior_percent,bands))
 
 @router.post('/annual-exigibility/{policy_id}/activate')
 def annual_exigibility_activate(policy_id:UUID,year_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'settings.tariffs.apply')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return activate_annual_policy(conn,school_id=actor.school_id,academic_year_id=year_id,policy_id=policy_id,actor_id=actor.user_id)
+        try:return activate_annual_policy(conn,school_id=actor.school_id,academic_year_id=year_id,policy_id=policy_id,actor_id=actor.user_id)
+        except ValueError as exc:raise french_policy_error(exc) from exc
 
 @router.get('/annual-exigibility-preview/class')
 def annual_exigibility_preview(year_id:UUID,class_id:UUID,financial_entry_date:date,

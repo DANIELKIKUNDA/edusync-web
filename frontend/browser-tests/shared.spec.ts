@@ -36,6 +36,8 @@ test('single scroll control, inactivity, safe-area collision, rotation and reduc
   await page.evaluate(()=>{const b=document.createElement('button');b.id='business';b.textContent='Action métier';b.style.cssText='position:fixed;bottom:80px;left:calc(50% - 22px);width:44px;height:44px';document.body.append(b);dispatchEvent(new Event('resize'));});
   await expect(down).toBeHidden();await page.locator('#business').evaluate(e=>e.remove());
   await page.evaluate(()=>dispatchEvent(new Event('touchstart')));await expect(down).toBeVisible();
-  await page.waitForTimeout(3800);await expect(down).toBeHidden();
+  // At rest (no scroll for 3.5 s) the control is dimmed, never gone: ONE tap acts (owner, 2026-11-02).
+  await page.waitForTimeout(3800);await expect(down).toBeVisible();await expect(page.locator('.pf-vertical')).toHaveAttribute('data-idle','true');
+  await down.click();await expect(page.getByRole('button',{name:'Revenir en haut de la page'})).toBeVisible();await page.evaluate(()=>scrollTo(0,1000));
   await page.keyboard.press('PageDown');await expect(page.locator('.pf-vertical')).toBeVisible();
 });
