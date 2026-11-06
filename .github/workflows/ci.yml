@@ -139,6 +139,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/mef_postgres_integration.py
+      - name: Avantages — politique de l'école de bout en bout (famille nombreuse, gratuité des mois, caisse)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/benefits_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true
