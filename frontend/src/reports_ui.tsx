@@ -7,6 +7,7 @@ import {toast} from 'sonner';
 import {ProductSalesReport} from './schooling_parity_ui';
 import {friendlyError} from './platform/errors';
 import {formatMoney,formatDate} from './platform/format';
+import {DateInput} from './platform/date_input';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const auth = (token: string) => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
@@ -70,8 +71,8 @@ export function PeriodicReports({token, can}: {token: string; can: (p: string) =
     <div className="reportControls">
       <label>Rapport<select value={profile} onChange={e => setProfile(e.target.value)}>{profiles.map(p => <option key={p.code} value={p.code}>{p.label}</option>)}</select></label>
       <label>Période<select value={type} onChange={e => setType(e.target.value)}><option value="JOURNALIER">Journalier</option><option value="HEBDOMADAIRE">Hebdomadaire</option><option value="MENSUEL">Mensuel</option><option value="PERSONNALISE">Personnalisée</option></select></label>
-      {type === 'PERSONNALISE' ? <><label>Du<input type="date" aria-label="Du" value={start} onChange={e => setStart(e.target.value)}/></label><label>Au<input type="date" aria-label="Au" value={end} onChange={e => setEnd(e.target.value)}/></label></>
-        : <label>Date de référence<input type="date" aria-label="Date de référence" value={ref} onChange={e => setRef(e.target.value)}/></label>}
+      {type === 'PERSONNALISE' ? <><label>Du<DateInput aria-label="Du" value={start} onChange={e => setStart(e.target.value)}/></label><label>Au<DateInput aria-label="Au" value={end} onChange={e => setEnd(e.target.value)}/></label></>
+        : <label>Date de référence<DateInput aria-label="Date de référence" value={ref} onChange={e => setRef(e.target.value)}/></label>}
       <button className="collectBtn" onClick={() => void run()}>Aperçu</button>
     </div>
     {error && <div className="error" role="alert">{error}</div>}

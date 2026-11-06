@@ -6,6 +6,7 @@ import {confirmAction} from './platform/dialogs';
 import {SchoolJournal} from './school_journal';
 import './access.css';
 import {useLive} from './platform/live';
+import {DateInput} from './platform/date_input';
 
 /* Accès & rôles — each school sets its own access policy (owner decisions 2026-10-02 and 2026-10-23).
    A standard role is ADJUSTED for the school (GRANT / REVOKE) instead of being copied: it keeps its identity.
@@ -370,7 +371,7 @@ function AssignDialog({token,member,roles,scopes,canScope,onClose,onSaved}:{toke
     </div>{scopeType!=='SCHOOL'&&<select value={scopeValue} onChange={e=>setScopeValue(e.target.value)} aria-label="Choisir le périmètre"><option value="">Choisir…</option>{options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>}</div>
     <div className="fieldGroup"><span>Durée</span><div className="segmented wrap" role="radiogroup">
       {DURATIONS.map(d=><button key={d.k} type="button" role="radio" aria-checked={duration===d.k} className={duration===d.k?'on':''} onClick={()=>setDuration(d.k)}>{d.l}</button>)}
-    </div>{duration==='date'&&<input type="date" value={until} min={new Date(Date.now()+864e5).toISOString().slice(0,10)} onChange={e=>setUntil(e.target.value)} aria-label="Date de fin"/>}
+    </div>{duration==='date'&&<DateInput value={until} min={new Date(Date.now()+864e5).toISOString().slice(0,10)} onChange={e=>setUntil(e.target.value)} aria-label="Date de fin"/>}
       {validUntil&&<small className="fieldHint"><Icon name="clock" size={12}/> Expire automatiquement le {dateFr(validUntil)}</small>}</div>
     <label>Motif *<textarea rows={2} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Ex. Remplacement du gestionnaire pendant son congé"/></label>
     <div className="modalActions"><button className="ghost" onClick={onClose}>Annuler</button><button disabled={busy||!ready} onClick={()=>void save()}>{busy?'Attribution…':'Attribuer'}</button></div>

@@ -21,6 +21,7 @@ import {
 } from './messaging_api';
 import './schools.css';
 import './messaging.css';
+import {DateInput} from './date_input';
 
 const STATE: Record<ProviderState, {label: string; cls: string; icon: string}> = {
   OPERATIONAL: {label: 'Opérationnel', cls: 'ms-ok', icon: 'checkCircle'}, CONFIGURED: {label: 'Configuré', cls: 'ms-info', icon: 'info'},
@@ -253,8 +254,8 @@ function DeliveriesPage({token, initial, onBack, onOpen, onFilters}: {token: str
     <label className="ms-f"><span>Origine</span><select value={f.scope || ''} onChange={e => set('scope', e.target.value)}><option value="">Toutes</option><option value="PLATFORM">Plateforme et comptes</option><option value="SCHOOL">Écoles</option></select></label>
     <label className="ms-f"><span>Événement</span><select value={f.event || ''} onChange={e => set('event', e.target.value)}><option value="">Tous</option>
       {['ACCOUNT_INVITATION', 'ACCOUNT_PASSWORD_RESET', 'ACCOUNT_SECURITY_ALERT', 'PLATFORM_ALERT', 'PLATFORM', 'SCHOOL_MESSAGE'].map(k => <option key={k} value={k}>{EVENT_LABEL[k]}</option>)}</select></label>
-    <label className="ms-f"><span>Du</span><input type="date" value={f.date_from || ''} onChange={e => set('date_from', e.target.value)}/></label>
-    <label className="ms-f"><span>Au</span><input type="date" value={f.date_to || ''} onChange={e => set('date_to', e.target.value)}/></label>
+    <label className="ms-f"><span>Du</span><DateInput value={f.date_from || ''} onChange={e => set('date_from', e.target.value)}/></label>
+    <label className="ms-f"><span>Au</span><DateInput value={f.date_to || ''} onChange={e => set('date_to', e.target.value)}/></label>
   </>;
   return <div className="sc ms">
     <PageTrail parents={[{label: 'Messagerie', onSelect: onBack}]} current={'Envois'}/>
@@ -440,7 +441,7 @@ function WalletForm({token, id, mode, onDone, onCancel}: {token: string; id: str
       <F id="w-qty" label="Quantité (unités SMS) *" error={errors.qty}><input id="w-qty" inputMode="numeric" value={qty} onChange={e => setQty(e.target.value.replace(/\D/g, ''))}/></F>
       <F id="w-ref" label={mode === 'credit' ? 'Référence du paiement *' : 'Référence (facultatif)'} error={errors.ref}><input id="w-ref" value={ref} onChange={e => setRef(e.target.value)} maxLength={120}/></F>
       {mode === 'credit' && <>
-        <F id="w-date" label="Date du paiement *" error={errors.paidOn}><input id="w-date" type="date" max={today} value={paidOn} onChange={e => setPaidOn(e.target.value)}/></F>
+        <F id="w-date" label="Date du paiement *" error={errors.paidOn}><DateInput id="w-date" max={today} value={paidOn} onChange={e => setPaidOn(e.target.value)}/></F>
         <F id="w-amt" label="Montant payé *" error={errors.amount}><input id="w-amt" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}/></F>
         <F id="w-cur" label="Devise *"><select id="w-cur" value={cur} onChange={e => setCur(e.target.value)}><option>USD</option><option value="CDF">FC</option></select></F></>}
       <F id="w-reason" label={mode === 'credit' ? 'Motif (journalisé) *' : 'Justification (journalisée) *'} error={errors.reason}><input id="w-reason" value={reason} onChange={e => setReason(e.target.value)} maxLength={500}/></F>

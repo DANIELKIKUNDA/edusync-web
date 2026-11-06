@@ -14,6 +14,7 @@ import {fetchSchools} from './schools_api';
 import {fetchMembers} from './team_api';
 import './schools.css';
 import './campaigns.css';
+import {DateInput} from './date_input';
 
 /* Notifications système (Plateforme EduSync), lot 2026-10. Internal in-app notifications only: read in the bell of
    each recipient; no SMS, WhatsApp or e-mail is sent. History (server-side search, filters, keyset pagination), read-only
@@ -100,8 +101,8 @@ function History({token, reload, onOpen, onNew}: {token: string; reload: number;
       <option value="">Toutes</option>{TARGETS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
     <label className="sc-select"><span>Auteur</span><select value={f.author} onChange={e => set({author: e.target.value})}>
       <option value="">Tous</option>{authors.map(a => <option key={a.id} value={a.id}>{a.full_name}</option>)}</select></label>
-    <label className="sc-select cp-date"><span>Du</span><input type="date" value={f.from} onChange={e => set({from: e.target.value})} aria-label="Envoyées à partir du"/></label>
-    <label className="sc-select cp-date"><span>Au</span><input type="date" value={f.to} onChange={e => set({to: e.target.value})} aria-label="Envoyées jusqu’au"/></label>
+    <label className="sc-select cp-date"><span>Du</span><DateInput value={f.from} onChange={e => set({from: e.target.value})} aria-label="Envoyées à partir du"/></label>
+    <label className="sc-select cp-date"><span>Au</span><DateInput value={f.to} onChange={e => set({to: e.target.value})} aria-label="Envoyées jusqu’au"/></label>
   </>;
   return <div className="sc cp">
     <header className="sc-head">

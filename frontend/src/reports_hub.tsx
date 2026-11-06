@@ -12,6 +12,7 @@ import {FinanceAnalyses, PeriodicReports, getJson} from './reports_ui';
 import {ProductSalesReport} from './schooling_parity_ui';
 import {generatedReports, type GeneratedReport} from './api';
 import './reports_hub.css';
+import {DateInput} from './platform/date_input';
 
 type Key = 'daily' | 'periodic' | 'sales' | 'analyses' | 'templates' | 'history';
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -52,7 +53,7 @@ function DailyReport({token}: {token: string}) {
       toast.success(preview?'Aperçu préparé':'Rapport officiel généré et archivé dans Documents'); }
     catch (e) { toast.error(friendlyError(e)); } finally { setBusy(''); } }
   return <article className="rh-card"><div><h4>Rapport financier journalier</h4><p>L’aperçu ne crée aucun document officiel. « Générer le rapport officiel » archive une version figée dans Documents.</p></div>
-    <div className="rh-row"><label className="rh-field"><span>Journée</span><input type="date" value={day} max={iso(new Date())} onChange={e => setDay(e.target.value)}/></label>
+    <div className="rh-row"><label className="rh-field"><span>Journée</span><DateInput value={day} max={iso(new Date())} onChange={e => setDay(e.target.value)}/></label>
       <button type="button" className="rh-btn" disabled={!!busy || !day} onClick={() => void open(true)}><NavGlyph g="eye" size={17}/>{busy==='preview'?'Préparation…':'Aperçu'}</button>
       <button type="button" className="rh-btn primary" disabled={!!busy || !day} onClick={() => void open(false)}><NavGlyph g="doc" size={17}/>{busy==='official'?'Génération…':'Générer le rapport officiel'}</button></div></article>;
 }

@@ -10,6 +10,7 @@ import {FormField} from './platform/forms';
 import {confirmAction} from './platform/dialogs';
 import {formatDate} from './platform/format';
 import {TARIFF_GROUPS} from './settings_tariffs';
+import {DateInput} from './platform/date_input';
 
 export const SCHOOL_MONTHS: [string, string][] = [['09', 'Septembre'], ['10', 'Octobre'], ['11', 'Novembre'], ['12', 'Décembre'], ['01', 'Janvier'], ['02', 'Février'],
   ['03', 'Mars'], ['04', 'Avril'], ['05', 'Mai'], ['06', 'Juin'], ['07', 'Juillet'], ['08', 'Août']];
@@ -102,7 +103,7 @@ function PlanForm({token, year, fees, sections, yearClasses, refs, current, onCa
         <FormField label="Portée *"><select value={scope} disabled={locked} onChange={e => { setScope(e.target.value as AnticipationPlan['scope_type']); setPicked([]); }}>{SCOPES.map(([s, l]) => <option key={s} value={s}>{l}</option>)}</select></FormField>
         <FormField label="Participation"><select value={mode} onChange={e => setMode(e.target.value as 'OPTIONAL' | 'MANDATORY')}>
           <option value="OPTIONAL">Facultative : le parent choisit</option><option value="MANDATORY">Obligatoire : adhésion au premier paiement selon le plan</option></select></FormField>
-        <FormField label="Date d’effet"><input type="date" value={effective} min={year.start_date} max={year.end_date} onChange={e => setEffective(e.target.value)}/></FormField>
+        <FormField label="Date d’effet"><DateInput value={effective} min={year.start_date} max={year.end_date} onChange={e => setEffective(e.target.value)}/></FormField>
       </div>
     </fieldset>
     {scope !== 'SCHOOL' && <fieldset disabled={busy || locked} className="planTargets"><legend>Cibles du plan <small>({picked.length} choisie{picked.length > 1 ? 's' : ''} sur {choices.length})</small></legend>

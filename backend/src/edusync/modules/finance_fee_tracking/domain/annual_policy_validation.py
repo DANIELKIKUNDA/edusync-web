@@ -24,22 +24,8 @@ def validate_policy_rules(rules):
     return len(seen)
 
 
-# Messages shown to a school administrator (the domain keeps stable English messages for its tests and logs).
-_FRENCH = {
-    "No fee rules": "Configurez au moins un frais avant d’activer la politique.",
-    "Duplicate fee type": "Ce frais a déjà une règle dans cette politique.",
-    "Custom prior-period policy requires percentage": "Indiquez le pourcentage dû pour les mois antérieurs à l’arrivée.",
-    "Prior-period percentage requires CUSTOM mode": "Un pourcentage des mois antérieurs n’est possible qu’en mode « pourcentage ».",
-    "Missing entry bands": "Ajoutez au moins une tranche de jours.",
-    "Invalid band day": "Jour de tranche invalide : utilisez des jours de 1 à 31.",
-    "Overlapping bands": "Les tranches de jours se chevauchent : chaque jour ne doit appartenir qu’à une seule tranche.",
-    "Bands must cover every day of every month": "Les tranches doivent couvrir tout le mois, du 1er au dernier jour (la dernière tranche va « jusqu’à la fin du mois »).",
-    "Invalid percentage": "Pourcentage invalide : entre 0 et 100.",
-    "Draft policy not found": "Brouillon introuvable : il a peut-être déjà été activé.",
-    "Academic year not found": "Année scolaire introuvable.",
-}
-
-
+# Messages shown to a school administrator: one French catalogue for the whole API (edusync.shared.user_messages).
 def french_policy_error(exc: Exception) -> ValueError:
     """The same error, worded for the school administrator."""
-    return ValueError(_FRENCH.get(str(exc), str(exc)))
+    from edusync.shared.user_messages import to_french
+    return ValueError(to_french(str(exc)))

@@ -5,6 +5,7 @@
 import React, {useEffect, useState} from 'react';
 import {friendlyError} from './platform/errors';
 import {formatMoney} from './platform/format';
+import {DateInput} from './platform/date_input';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const auth = (token: string) => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
@@ -78,7 +79,7 @@ export function ProductSalesReport({token}: {token: string}) {
   const [start, setStart] = useState(iso()); const [end, setEnd] = useState(iso()); const [data, setData] = useState<any>(null); const [error, setError] = useState('');
   async function run() { try { setError(''); setData(await getJson<any>(token, `/finance/reports/product-sales${qs({start, end})}`)); } catch (e) { setError(friendlyError(e)); } }
   return <div className="productSales"><h3>Ventes d’articles</h3>
-    <div className="reportControls dense"><label>Du<input type="date" aria-label="Ventes du" value={start} onChange={e => setStart(e.target.value)}/></label><label>Au<input type="date" aria-label="Ventes au" value={end} onChange={e => setEnd(e.target.value)}/></label><button className="softBtn" onClick={() => void run()}>Afficher les ventes</button></div>
+    <div className="reportControls dense"><label>Du<DateInput aria-label="Ventes du" value={start} onChange={e => setStart(e.target.value)}/></label><label>Au<DateInput aria-label="Ventes au" value={end} onChange={e => setEnd(e.target.value)}/></label><button className="softBtn" onClick={() => void run()}>Afficher les ventes</button></div>
     {error && <div className="error" role="alert">{error}</div>}
     {data && <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Date</th><th>Élève</th><th>Article</th><th>Quantité</th><th>Montant</th><th>Caissier</th></tr></thead>
       <tbody>{data.rows.map((r: any) => <tr key={r.id} className={r.reversed ? 'muted' : ''}><td>{String(r.sold_at).slice(0, 16).replace('T', ' ')}</td><td>{[r.last_name, r.first_name].filter(Boolean).join(' ') || '—'}</td><td>{r.product_label}</td><td>{Number(r.quantity)}</td>
