@@ -15,3 +15,56 @@
 .familyDiag{display:grid;gap:4px;padding:10px 14px;border-radius:12px;background:var(--surface-2,#f6f8fb)}
 .contributionRegister,.productSales{margin-top:14px;max-width:100%;overflow-x:auto}
 .productSales h3{margin:16px 0 8px}
+
+/* Families indicators (owner report 2026-11-06): clickable cards, detail list, contact-quality checklist. */
+.fi{display:grid;gap:14px;margin-bottom:16px}
+.fi-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.fi-card{display:flex;align-items:center;gap:12px;min-height:84px;padding:14px 14px 14px 16px;border:1px solid #e4e7ec;border-radius:16px;background:#fff;
+  font:inherit;text-align:left;color:#101828;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.04);transition:border-color .15s,box-shadow .15s,transform .15s}
+.fi-card:hover{border-color:#b2ccff;box-shadow:0 8px 22px rgba(21,87,214,.10);transform:translateY(-1px)}
+.fi-card:focus-visible{outline:none;box-shadow:0 0 0 4px rgba(21,87,214,.18)}
+.fi-card.on{border-color:#1557d6;background:#f5f8ff;box-shadow:0 0 0 3px rgba(21,87,214,.12)}
+.fi-card>svg{margin-left:auto;flex:0 0 auto;color:#98a2b3}
+.fi-card.on>svg{color:#1557d6}
+.fi-icon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 auto;border-radius:12px;background:#eef4ff;color:#1557d6}
+.fi-card.zero .fi-icon{background:#f2f4f7;color:#667085}
+.fi-text{display:flex;flex-direction:column;min-width:0;gap:1px}
+.fi-text>b{font-size:24px;line-height:1.1;font-weight:750;letter-spacing:-.02em}
+.fi-text>span{font-size:13.5px;font-weight:650;color:#344054}
+.fi-text>small{font-size:12px;line-height:1.35;color:#667085}
+.fi-detail{border:1px solid #d1e0ff;border-radius:16px;background:#fff;overflow:hidden;animation:fiIn .16s ease-out}
+@keyframes fiIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.fi-detail>header{display:flex;justify-content:flex-start;align-items:center;gap:10px;padding:12px 14px 12px 16px;background:#f5f8ff;border-bottom:1px solid #e4ecff}
+.fi-detail>header b{font-size:14.5px}
+.fi-detail>header small{font-size:12.5px;color:#667085}
+.fi-close{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:9px;background:#fff;color:#344054;cursor:pointer}
+.fi-close:hover{background:#eef4ff}
+.fi-rows{list-style:none;margin:0;padding:4px 0;max-height:360px;overflow:auto}
+.fi-rows li{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #f2f4f7}
+.fi-rows li:last-child{border-bottom:0}
+.fi-main{display:flex;flex-direction:column;min-width:0;flex:1}
+.fi-main b{font-size:14px;font-weight:650;color:#101828}
+.fi-main small{font-size:12.5px;color:#667085;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fi-rows em{font-style:normal;font-size:12px;font-weight:700;color:#1149b8;background:#eef4ff;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.fi-empty{margin:0;padding:18px 16px;color:#667085;font-size:13.5px}
+.fi-quality{border:1px solid #e4e7ec;border-radius:16px;background:#fff;padding:14px 16px;display:grid;gap:10px}
+.fi-quality>header{display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:0;border:0;background:none;text-align:left}
+.fi-quality>header>span:last-child{display:flex;flex-direction:column}
+.fi-quality>header b{font-size:14.5px;color:#101828}
+.fi-quality>header small{font-size:12.5px;color:#667085}
+.fi-quality.ok .fi-icon{background:#ecfdf3;color:#067647}
+.fi-quality.warn .fi-icon{background:#fffaeb;color:#b54708}
+.fi-quality ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fi-quality li{display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 10px;border-radius:10px}
+.fi-quality li.okItem{background:#f6fef9;color:#067647}
+.fi-quality li.ko{background:#fffaeb;color:#93370d;font-weight:600}
+@media (max-width:1100px){.fi-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){
+  .fi-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .fi-card{flex-direction:column;align-items:flex-start;gap:8px;min-height:0;padding:12px}
+  .fi-card>svg{display:none}
+  .fi-text>small{white-space:normal}
+  .fi-quality ul{grid-template-columns:1fr}
+  .fi-rows li{flex-wrap:wrap;gap:6px}
+  .fi-main small{white-space:normal}
+}
