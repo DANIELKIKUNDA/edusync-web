@@ -1,0 +1,39 @@
+/* Enrollment form, modernised (owner report 2026-11-06): readable labels, 44 px fields, compact class choice,
+   sex in two buttons, benefits written in words. Scoped to the enrollment wizard. */
+.enrollmentWizard .wizardBody{gap:16px}
+.enrollmentWizard .callout b{font-size:13px}
+.enrollmentWizard .callout span{font-size:12.5px;line-height:1.45}
+.enrollmentWizard .childBlock{padding:16px 18px;border-radius:16px;border-color:#e4e7ec;background:#fff}
+.enrollmentWizard .childTitle b{font-size:15px}
+.enrollmentWizard .childTitle>span{width:28px;height:28px;font-size:12px}
+.enrollmentWizard .childTitle button{font-size:13px;font-weight:600}
+.enrollmentWizard .formGrid{gap:14px 14px}
+.enrollmentWizard .formGrid label,.enrollmentWizard .formGrid .formField{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#344054;min-width:0}
+.enrollmentWizard .formGrid .formField>small:not(.fieldError){font-size:12px;font-weight:400;color:#667085}
+.enrollmentWizard .formGrid input:not([type=checkbox]):not(.dateInputNative),.enrollmentWizard .formGrid select{min-height:44px;padding:9px 12px;font-size:14.5px;border-color:#d0d5dd;border-radius:10px;color:#101828}
+.enrollmentWizard .formGrid input:focus,.enrollmentWizard .formGrid select:focus{border-color:#1557d6;box-shadow:0 0 0 4px rgba(21,87,214,.12)}
+.enrollmentWizard .fieldError{font-size:12.5px;font-weight:500;color:#b42318}
+.enr-class{grid-column:span 2;min-width:0}
+.enr-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:3px;border:1px solid #d0d5dd;border-radius:10px;background:#f9fafb;min-height:44px}
+.enr-seg button{border:0;border-radius:8px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:#475467;cursor:pointer;min-height:36px}
+.enr-seg button:hover{background:#fff}
+.enr-seg button.on{background:#fff;color:#1149b8;box-shadow:0 1px 3px rgba(16,24,40,.12),inset 0 0 0 1.5px #1557d6}
+.enr-gender.invalid .enr-seg{border-color:#f04438}
+.enrollmentWizard .childBenefits{gap:10px;padding:12px 14px;border-radius:12px;margin-top:14px}
+.enrollmentWizard .childBenefits>b{font-size:11.5px}
+.enrollmentWizard .childBenefits label.checkField,.enrollmentWizard .childBenefits .formGrid label.checkField{display:flex;flex-direction:row;align-items:flex-start;gap:10px;font-size:14px;font-weight:400;color:#101828;cursor:pointer}
+.enrollmentWizard .childBenefits .checkField input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;accent-color:#1557d6}
+.enrollmentWizard .childBenefits .checkField>span{display:flex;flex-direction:column;gap:2px;color:#101828}
+.enrollmentWizard .childBenefits .checkField>span>span{display:block;color:#101828;font-weight:400}
+.enrollmentWizard .formGrid .formField>span{color:#344054;font-weight:600}
+.enrollmentWizard .formGrid .cs span{color:inherit}
+.enrollmentWizard .childBenefits .checkField small{font-size:12.5px;color:#667085}
+.enrollmentWizard .childBenefits .formGrid.two{align-items:center}
+.enrollmentWizard .reviewChildren b{font-size:13.5px}
+.enrollmentWizard .reviewChildren small{font-size:12px}
+.enrollmentWizard .wizardSteps i span{font-size:11.5px}
+@media (max-width:760px){
+  .enr-class{grid-column:1/-1}
+  .enrollmentWizard .childBlock{padding:14px}
+  .enrollmentWizard .formGrid input:not([type=checkbox]):not(.dateInputNative),.enrollmentWizard .formGrid select{font-size:16px}
+}

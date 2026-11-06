@@ -361,3 +361,8 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .contribInline{flex-basis:100%;margin:4px 0 0}
 .contribGrid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}
 @media(max-width:700px){.contribGrid{grid-template-columns:1fr}.contribActions{margin-left:46px}.contributionsPage .panelHead{flex-wrap:wrap}}
+/* Year creation form (2026-11-06): five fields in a 5-column grid squeezed the dates into a few pixels at 1366 px.
+   Fields now wrap in readable columns, the actions take their own row. */
+.gridForm.yearCreate{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px 14px;align-items:start}
+.gridForm.yearCreate>.formActions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
+.gridForm.yearCreate .formField small{line-height:1.35}

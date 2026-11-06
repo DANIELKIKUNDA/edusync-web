@@ -54,8 +54,8 @@ await step('20 inscription d’un élève (droit du secrétariat)', async () => 
   await w.getByRole('button', {name: 'Continuer'}).click();
   await w.getByLabel('Nom *', {exact: true}).fill(PUPIL); await w.getByLabel('Postnom *').fill('MBUYI'); await w.getByLabel('Prénom *').fill('Joseph');
   // Section first, then the classes of that section (2026-10-25).
-  await w.locator('.kp-sections button').first().click(); await w.locator('.kp-classes button').first().click(); await w.getByLabel('Sexe *').selectOption({index: 1});
-  await w.getByRole('button', {name: 'Continuer'}).click(); await w.waitFor({state: 'detached', timeout: 30000});
+  await w.locator('.cs-trigger').first().click(); await p.locator('.cs-option').first().click(); await w.getByRole('radio', {name: 'Masculin'}).first().click();
+  await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByRole('button', {name: /^Valider \d+ inscription/}).click(); await w.waitFor({state: 'detached', timeout: 30000});
   await p.getByText(PUPIL).first().waitFor({timeout: 15000}); });
 
 await step('30 encaissement : recherche et action conseillée', async () => { await module('Centre financier'); await finTab('Encaissement');

@@ -15,6 +15,7 @@ import {friendlyError} from './platform/errors';
 import {FormField} from './platform/forms';
 import {formatDate, formatMoney} from './platform/format';
 import {TariffAssistant} from './settings_tariff_assistant';
+import {DateInput} from './platform/date_input';
 
 export const TARIFF_GROUPS: [string, string][] = [['GENERAL', 'Humanités générales'], ['TECHNICAL', 'Humanités techniques'], ['OTHER', 'Autre groupe']];
 const SCOPES: [TariffScope, string][] = [['SCHOOL', 'Toute l’école'], ['SECTION', 'Section'], ['ACADEMIC_CLASS', 'Classe académique (niveau)'], ['OPTION_GROUP', 'Groupe d’Humanités'], ['CLASS', 'Classe ouverte']];
@@ -229,7 +230,7 @@ function RuleForm({token, year, fees, classes, sections, refs, can, onCancel, on
     <FormField label="Statut"><select value={status} onChange={e => setStatus(e.target.value as TariffStatus)}>{(Object.keys(STATUS_LABEL) as TariffStatus[]).map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</select></FormField>
     <FormField label={status === 'ACTIVE' ? 'Montant *' : 'Montant (si connu)'} error={errors.amount}><input inputMode="decimal" autoComplete="off" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0"/></FormField>
     <FormField label="Devise"><select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">FC</option><option>USD</option></select></FormField>
-    <FormField label="Applicable dès *" error={errors.effective}><input type="date" min={year.start_date} max={year.end_date} value={effective} onChange={e => setEffective(e.target.value)}/></FormField>
+    <FormField label="Applicable dès *" error={errors.effective}><DateInput min={year.start_date} max={year.end_date} value={effective} onChange={e => setEffective(e.target.value)}/></FormField>
     <FormField label="Référence officielle"><input value={source} maxLength={240} onChange={e => setSource(e.target.value)} placeholder="Ex. arrêté, circulaire"/></FormField>
     <div className="formActions"><button type="button" className="ghost" onClick={onCancel}>Annuler</button><button className="primaryBtn" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer la règle'}</button></div>
   </form>;

@@ -1,0 +1,66 @@
+/* Compact class choice (owner report 2026-11-06). Closed = a select; open = search + sections + classes by level. */
+.cs{position:relative;min-width:0;width:100%}
+.cs-trigger{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:6px 12px;border:1px solid #d0d5dd;border-radius:10px;
+  background:#fff;font:inherit;color:#101828;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.cs-trigger:hover{border-color:#98a2b3}
+.cs-trigger:focus-visible,.cs.open .cs-trigger{outline:none;border-color:#1557d6;box-shadow:0 0 0 4px rgba(21,87,214,.12)}
+.cs-trigger.invalid{border-color:#f04438;box-shadow:0 0 0 3px rgba(240,68,56,.1)}
+.cs-trigger>svg{margin-left:auto;flex:0 0 auto;color:#667085;transition:transform .15s}
+.cs.open .cs-trigger>svg{transform:rotate(180deg)}
+.cs-panel{font-family:inherit;color:#101828}
+.cs-value{display:flex;align-items:baseline;gap:8px;min-width:0}
+.cs-value b{font-size:14.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-value small{font-size:12.5px;color:#667085;white-space:nowrap}
+.cs-placeholder{font-size:14px;color:#98a2b3}
+.cs-backdrop{display:none}
+.cs-panel{position:fixed;z-index:400;display:flex;flex-direction:column;
+  background:#fff;border:1px solid #e4e7ec;border-radius:14px;box-shadow:0 18px 48px rgba(16,24,40,.18);overflow:hidden;animation:csIn .14s ease-out}
+@keyframes csIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.cs-sheetHead{display:none}
+.cs-sheetHead,.cs-search,.cs-sections{flex-shrink:0}
+.cs-search{display:flex;align-items:center;gap:8px;margin:10px 10px 6px;padding:0 10px;border:1px solid #e4e7ec;border-radius:10px;background:#f9fafb;color:#667085}
+.cs-search:focus-within{border-color:#1557d6;background:#fff;box-shadow:0 0 0 3px rgba(21,87,214,.1)}
+.cs-search input:focus,.cs-search input:focus-visible{outline:none!important;box-shadow:none!important}
+.cs-search input{flex:1;min-width:0;border:0!important;outline:none;background:transparent!important;padding:10px 0!important;font:inherit;font-size:14px;color:#101828;box-shadow:none!important}
+.cs-clear{border:0;background:#e4e7ec;color:#344054;width:22px;height:22px;border-radius:999px;cursor:pointer;line-height:1;padding:0}
+.cs-sections{display:flex;gap:6px;padding:2px 10px 8px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid #f2f4f7}
+.cs-sections::-webkit-scrollbar{display:none}
+.cs-sections button{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px;border:1px solid #e4e7ec;border-radius:999px;
+  background:#fff;font:inherit;font-size:13px;font-weight:600;color:#344054;cursor:pointer}
+.cs-sections button small{font-size:11px;font-weight:700;color:#667085;background:#f2f4f7;border-radius:999px;padding:1px 6px}
+.cs-sections button.on{background:#1557d6;border-color:#1557d6;color:#fff}
+.cs-sections button.on small{background:rgba(255,255,255,.22);color:#fff}
+.cs-list{overflow-y:auto;overscroll-behavior:contain;padding:4px 6px 8px}
+.cs-sectionTitle{position:sticky;top:0;z-index:2;padding:10px 8px 4px;background:#fff;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#1557d6}
+.cs-groupTitle{padding:8px 8px 2px;font-size:12px;font-weight:700;color:#667085}
+.cs-group:has(.cs-groupTitle)+.cs-group:not(:has(.cs-sectionTitle)){margin-top:2px}
+.cs-option{display:flex;align-items:center;gap:10px;min-height:40px;padding:6px 10px;border-radius:9px;cursor:pointer;color:#101828}
+.cs-option.active{background:#f2f6ff}
+.cs-option.chosen{background:#eef4ff;color:#1149b8}
+.cs-option.chosen svg{color:#1557d6}
+.cs-optLabel{flex:1;min-width:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.cs-optLabel em{font-style:normal;font-size:10.5px;font-weight:800;color:#05603a;background:#ecfdf3;padding:1px 7px;border-radius:999px}
+.cs-option small{font-size:12px;color:#667085;white-space:nowrap}
+.cs-empty{margin:14px 10px;color:#667085;font-size:13.5px}
+
+/* Phone: bottom sheet over the whole width, big touch targets. */
+@media (max-width:640px){
+  .cs-backdrop{display:block;position:fixed;inset:0;z-index:400;background:rgba(16,24,40,.45);animation:csFade .15s ease-out}
+  .cs-panel{position:fixed;left:0!important;right:0;bottom:0!important;top:auto!important;width:auto!important;z-index:401;max-height:82vh!important;border-radius:18px 18px 0 0;border:0;
+    padding-bottom:env(safe-area-inset-bottom);animation:csUp .2s cubic-bezier(.2,.8,.2,1)}
+  .cs-sheetHead{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 4px}
+  .cs-sheetHead b{font-size:16px}
+  .cs-sheetHead button{border:0;background:#f2f4f7;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer}
+  .cs-search:focus-within{border-color:#1557d6;background:#fff;box-shadow:0 0 0 3px rgba(21,87,214,.1)}
+.cs-search input:focus,.cs-search input:focus-visible{outline:none!important;box-shadow:none!important}
+.cs-search input{font-size:16px}
+  .cs-option{min-height:48px}
+  .cs-optLabel{font-size:15px}
+}
+@keyframes csUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes csFade{from{opacity:0}to{opacity:1}}
+/* Inside a form label the surrounding text styles must not grey the class names. */
+.cs .cs-value b,.cs-panel .cs-optLabel{color:#101828;opacity:1;text-transform:none;letter-spacing:normal}
+.cs-panel .cs-option.chosen .cs-optLabel{color:#1149b8}
+.cs .cs-value small,.cs-panel .cs-option small{color:#667085;font-weight:500}
+.cs-panel .cs-groupTitle{color:#667085}

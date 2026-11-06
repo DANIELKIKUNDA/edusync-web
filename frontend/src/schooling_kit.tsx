@@ -1,6 +1,6 @@
 // Élèves & inscriptions — industrialised pieces (owner request 2026-10-25), Desktop golden master parity
 // (app/ui/schooling_page.py: student filters year / section / class / status / sex, « Réinscription rapide »):
-//  * ClassPicker: section first, then the classes of that section grouped by level (never one endless list);
+//  * ClassSelect (class_select.tsx): one compact field with search, sections and levels (never one endless list);
 //  * StudentDirectoryPro: filters (section, class, Humanités option, sex, status, year or whole history), modern table,
 //    exports with the same filters;
 //  * ReenrollWizard: a re-enrollment is NOT a new enrollment — find a known pupil, see the last class, the arrears and
@@ -15,36 +15,12 @@ import {friendlyError} from './platform/errors';
 import {NavGlyph} from './platform/nav_icons';
 import {exportManaged, previewPdf} from './document_io';
 import './schooling_kit.css';
+import {ClassSelect} from './class_select';
 
 export const STATUS_FR: Record<string, string> = {ACTIVE: 'Actif', ABANDON: 'Abandon', TRANSFERRED: 'Transféré', SUSPENDED: 'Suspendu', GRADUATED: 'Diplômé'};
 const fullName = (s: Pick<SchoolingStudent, 'last_name' | 'middle_name' | 'first_name'>) => [s.last_name, s.middle_name, s.first_name].filter(Boolean).join(' ');
 const initials = (s: Pick<SchoolingStudent, 'last_name' | 'first_name'>) => `${s.last_name?.[0] ?? ''}${s.first_name?.[0] ?? ''}`;
 const sections = (classes: SchoolClass[]) => [...new Map(classes.map(c => [c.section_id, {id: c.section_id, label: c.section_label ?? 'Section', code: c.section_code ?? ''}])).values()];
-const levelOf = (c: SchoolClass) => (c.reference_code ?? c.label).toUpperCase();
-
-/** Section first, then the classes of that section grouped by level; a search narrows long lists. */
-export function ClassPicker({classes, value, onChange, invalid, suggested, levelLabels = {}}: {classes: SchoolClass[]; value: string; onChange: (id: string) => void; invalid?: boolean; suggested?: string; levelLabels?: Record<string, string>}) {
-  const secs = useMemo(() => sections(classes), [classes]);
-  const current = classes.find(c => c.id === value);
-  const [section, setSection] = useState(current?.section_id ?? (secs.length === 1 ? secs[0].id : ''));
-  const [q, setQ] = useState('');
-  useEffect(() => { if (current && current.section_id !== section) setSection(current.section_id); }, [value]);
-  const inSection = classes.filter(c => c.section_id === section && (!q.trim() || c.label.toLowerCase().includes(q.trim().toLowerCase())));
-  const levels = [...new Map(inSection.map(c => [levelOf(c), c])).keys()];
-  return <div className={`kp-picker ${invalid ? 'invalid' : ''}`}>
-    <div className="kp-sections" role="radiogroup" aria-label="Section">{secs.map(s => <button key={s.id} type="button" role="radio" aria-checked={section === s.id} className={section === s.id ? 'on' : ''}
-      onClick={() => { setSection(s.id); setQ(''); }}>{s.label}<small>{classes.filter(c => c.section_id === s.id).length}</small></button>)}</div>
-    {section ? <>
-      {classes.filter(c => c.section_id === section).length > 12 && <div className="kp-search"><NavGlyph g="search" size={15}/><input aria-label="Filtrer les classes" placeholder="Filtrer : 1re, Scientifique, B…" value={q} onChange={e => setQ(e.target.value)}/></div>}
-      <div className="kp-levels">{levels.map(l => <div key={l} className="kp-level"><span>{levelLabels[l] ?? l}</span>
-        <div className="kp-classes" role="radiogroup" aria-label={`Classes ${l}`}>{inSection.filter(c => levelOf(c) === l).map(c => <button key={c.id} type="button" role="radio" aria-checked={value === c.id}
-          className={`${value === c.id ? 'on' : ''} ${suggested === c.id ? 'suggested' : ''}`} onClick={() => onChange(c.id)} title={c.label}>
-          {c.label}{suggested === c.id && <em>proposée</em>}</button>)}</div></div>)}
-        {levels.length === 0 && <p className="kp-empty">Aucune classe ne correspond.</p>}</div>
-    </> : <p className="kp-empty">Choisissez d’abord la section ; ses classes apparaissent ensuite.</p>}
-    {current && <p className="kp-chosen"><NavGlyph g="checkCircle" size={15}/> {current.section_label} · <b>{current.label}</b></p>}
-  </div>;
-}
 
 /** Directory with Desktop filters (+ Humanités option), modern table, filtered exports. */
 export function StudentDirectoryPro({token, schoolName, classes, filters, setFilters, students, loading, can, onSelect, page, hasMore, onPage}: {
@@ -147,7 +123,7 @@ export function ReenrollWizard({token, classes, refOrder, levelLabels, onClose, 
           {pupil && pupil.status !== 'ACTIVE' && <div className="kp-note"><NavGlyph g="info" size={16}/> Statut actuel : {STATUS_FR[pupil.status] ?? pupil.status}. La réinscription le remet dans l’année en cours ; les dettes antérieures restent dues séparément.</div>}
         </section>
         {pupil && !already && <section><h4><span>2</span>Nouvelle classe {suggested && <small>la classe suivante est proposée</small>}</h4>
-          <ClassPicker classes={yearClasses} value={classId} onChange={setClassId} suggested={suggested} levelLabels={levelLabels}/></section>}
+          <ClassSelect classes={yearClasses} value={classId} onChange={setClassId} suggested={suggested} levelLabels={levelLabels} ariaLabel="Nouvelle classe"/></section>}
         {error && <div className="error" role="alert">{error}</div>}
       </div>
       <footer className="kp-dfoot"><span className="kp-summary">{pupil && classId ? <>{fullName(pupil)} → <b>{classes.find(c => c.id === classId)?.label}</b></> : 'Retrouvez l’élève, puis choisissez sa nouvelle classe'}</span>

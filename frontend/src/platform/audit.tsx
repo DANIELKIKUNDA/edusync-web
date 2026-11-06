@@ -8,6 +8,7 @@ import {NavGlyph} from './nav_icons';
 import {fetchSchools} from './schools_api';
 import './schools.css';
 import './audit.css';
+import {DateInput} from './date_input';
 
 /* Journal d'audit (Plateforme EduSync), lot 2026-10. Read only: the audit trail is append-only on the server (no edit,
    no delete, no correction anywhere). Server-side search (debounced) and filters (applied at once, kept in the URL and
@@ -129,8 +130,8 @@ export function AuditPanel({token, canExport, links}: {token: string; canExport:
       <option value="">Tous</option><option value="SUCCESS">Réussi</option><option value="REJECTED">Refusé</option><option value="FAILED">Échoué</option></select></label>
     <label className="sc-select au-actor"><span>Auteur</span><input type="search" value={actorInput} onChange={e => setActorInput(e.target.value)} placeholder="Nom ou e-mail" maxLength={120}/></label>
     <SchoolFilter token={token} value={f.school ? {id: f.school, name: f.schoolName} : null} onChange={s => set({school: s?.id || '', schoolName: s?.name || ''})}/>
-    <label className="sc-select au-date"><span>Du</span><input type="date" value={f.from} max={f.to || undefined} onChange={e => set({from: e.target.value})} aria-label="Date de début"/></label>
-    <label className="sc-select au-date"><span>Au</span><input type="date" value={f.to} min={f.from || undefined} onChange={e => set({to: e.target.value})} aria-label="Date de fin"/></label>
+    <label className="sc-select au-date"><span>Du</span><DateInput value={f.from} max={f.to || undefined} onChange={e => set({from: e.target.value})} aria-label="Date de début"/></label>
+    <label className="sc-select au-date"><span>Au</span><DateInput value={f.to} min={f.from || undefined} onChange={e => set({to: e.target.value})} aria-label="Date de fin"/></label>
     <label className="sc-select"><span>Tri</span><select value={f.sort} onChange={e => set({sort: e.target.value as AuditQuery['sort']})}>
       <option value="newest">Plus récents</option><option value="oldest">Plus anciens</option></select></label>
   </>;

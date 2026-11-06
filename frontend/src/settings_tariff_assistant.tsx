@@ -20,6 +20,7 @@ import {confirmAction} from './platform/dialogs';
 import {formatMoney} from './platform/format';
 import {Button} from './platform/ui';
 import './settings_wizards.css';
+import {DateInput} from './platform/date_input';
 
 export const SCOPE_PRIORITY: Record<TariffScope, number> = {CLASS: 600, ACADEMIC_CLASS: 500, OPTION_GROUP: 350, SECTION: 200, SCHOOL: 100};
 const SCOPE_LABEL: Record<TariffScope, string> = {SCHOOL: 'Toute l’école', SECTION: 'Section', ACADEMIC_CLASS: 'Niveau', OPTION_GROUP: 'Groupe d’Humanités', CLASS: 'Classe ouverte'};
@@ -159,7 +160,7 @@ function CommonFields({currency, setCurrency, effective, setEffective, source, s
   effective: string; setEffective: (d: string) => void; source: string; setSource: (s: string) => void; year: AcademicYear}) {
   return <div className="sw-grid">
     <label className="sw-input"><span>Devise</span><select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">FC</option><option>USD</option></select></label>
-    <label className="sw-input"><span>Applicable dès</span><input type="date" min={year.start_date} max={year.end_date} value={effective} onChange={e => setEffective(e.target.value)}/></label>
+    <label className="sw-input"><span>Applicable dès</span><DateInput min={year.start_date} max={year.end_date} value={effective} onChange={e => setEffective(e.target.value)}/></label>
     <label className="sw-input sw-wide-cell"><span>Référence officielle (facultatif)</span><input value={source} maxLength={240} placeholder="Ex. arrêté, circulaire, décision du comité de parents" onChange={e => setSource(e.target.value)}/></label>
   </div>;
 }
@@ -349,7 +350,7 @@ function RegulatoryMode({year, fees, classes, sections, refs, can, options, busy
         <span className="ta-unit">FC{code === 'ETAT_MINERVAL' ? ' / tranche' : ''}</span></div>)}
     </fieldset>)}</div>
     <div className="sw-grid">
-      <label className="sw-input"><span>Applicable dès</span><input type="date" min={year.start_date} max={year.end_date} value={effective} onChange={e => setEffective(e.target.value)}/></label>
+      <label className="sw-input"><span>Applicable dès</span><DateInput min={year.start_date} max={year.end_date} value={effective} onChange={e => setEffective(e.target.value)}/></label>
       <label className="sw-input"><span>Référence officielle</span><input value={source} maxLength={240} onChange={e => setSource(e.target.value)}/></label>
     </div>
     <div className="formActions"><span className="sw-count">{chosen.length} règle(s){applied ? ' · déjà appliquées, « Appliquer » remplace' : ''}</span>

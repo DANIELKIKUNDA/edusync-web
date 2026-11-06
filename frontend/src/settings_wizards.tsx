@@ -9,6 +9,7 @@ import {NavGlyph} from './platform/nav_icons';
 import {suggestNextYear} from './platform/format';
 import './settings_wizards.css';
 import {TariffAssistant} from './settings_tariff_assistant';
+import {DateInput} from './platform/date_input';
 
 /* Settings assistants (2026-10-24), ported from the desktop (configuration_wizard.py, settings_page.py):
    - the user never types an internal code: codes are generated from the label (autoCode) and kept unique;
@@ -267,8 +268,8 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
     {step===0&&<div className="sw-grid">{field('name','Nom officiel *')}{field('phone','Téléphone','tel')}{field('email','E-mail','email')}{field('address','Adresse')}{field('city','Ville')}{field('province','Province')}
       <div className="sw-wide-cell">{active?<p className="sw-ok"><NavGlyph g="checkCircle" size={16}/> Année {active.label} {active.status==='ACTIVE'?'en cours':'préparée'}.</p>:year&&<div className="sw-grid">
         <label className="sw-input"><span>Année scolaire</span><input value={year.label} onChange={e=>setYear({...year,label:e.target.value})}/></label>
-        <label className="sw-input"><span>Rentrée</span><input type="date" value={year.start} onChange={e=>setYear({...year,start:e.target.value})}/></label>
-        <label className="sw-input"><span>Fin d’année</span><input type="date" value={year.end} onChange={e=>setYear({...year,end:e.target.value})}/></label></div>}</div></div>}
+        <label className="sw-input"><span>Rentrée</span><DateInput value={year.start} onChange={e=>setYear({...year,start:e.target.value})}/></label>
+        <label className="sw-input"><span>Fin d’année</span><DateInput value={year.end} onChange={e=>setYear({...year,end:e.target.value})}/></label></div>}</div></div>}
     {step===1&&<div className="sw-field"><span>Sections organisées par l’école</span><div className="sw-chips">{refs.sections.map(r=>{const on=wantedSections.includes(r.code);return <button key={r.code} type="button" className={`sw-chip big ${on?'on':''}`} aria-pressed={on} onClick={()=>setWantedSections(p=>on?p.filter(x=>x!==r.code):[...p,r.code])}>{on?<NavGlyph g="check" size={15}/>:<NavGlyph g="plus" size={15}/>}{r.label}</button>})}</div>
       <small className="sw-hint">Une section décochée n’efface rien : ses classes existantes restent dans l’historique.</small></div>}
     {step===2&&(sec?<OptionCatalog token={token} section={sec} options={options} canManage={can('settings.options.manage')} onChanged={async()=>{await reload()}}/>

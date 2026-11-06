@@ -75,6 +75,27 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         return JSONResponse(status_code=503, headers={"Retry-After": "10"},
                             content={"detail": "Stockage des documents momentanément indisponible. Réessayez dans un instant."})
 
+    # Owner report 2026-11-06: every refusal reaches the school in French (« Positive due amount required… » was shown).
+    from fastapi.exception_handlers import http_exception_handler as _default_http_handler
+    from starlette.exceptions import HTTPException as _StarletteHTTPException
+    from edusync.shared.user_messages import to_french
+
+    @app.exception_handler(_StarletteHTTPException)
+    async def french_http_exception_handler(request, exc):
+        detail = exc.detail
+        if isinstance(detail, dict) and isinstance(detail.get("message"), str):
+            french = {**detail, "message": to_french(detail["message"])}
+        elif isinstance(detail, str):
+            french = to_french(detail)
+        else:
+            french = detail
+        if french != detail:
+            import json as _json, logging as _logging
+            _logging.getLogger("edusync").info(_json.dumps({"event": "user_message_translated", "path": request.url.path,
+                                                           "status": exc.status_code, "original": str(detail)[:300]}))
+            exc = _StarletteHTTPException(status_code=exc.status_code, detail=french, headers=getattr(exc, "headers", None))
+        return await _default_http_handler(request, exc)
+
     @app.exception_handler(CapabilityDenied)
     async def capability_denied_handler(request, exc):
         return JSONResponse(status_code=403, content={"detail": str(exc)})
