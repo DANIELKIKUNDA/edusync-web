@@ -47,7 +47,7 @@ type TeamPreset={openMember?:string;addExisting?:{id:string;full_name:string;ema
 const HealthPanel=lazyPage(()=>import('./platform/health').then(m=>({default:m.HealthPanel})));
 const AuditPanel=lazyPage(()=>import('./platform/audit').then(m=>({default:m.AuditPanel})));
 const CampaignsPanel=lazyPage(()=>import('./platform/campaigns').then(m=>({default:m.CampaignsPanel})));
-import {platformMe,platformAvatarBlob,uploadPlatformAvatar,deletePlatformAvatar,getAccessMe,type AccessMe,type PlatformMe} from './api';
+import {platformMe,platformAvatarBlob,uploadPlatformAvatar,schoolAvatarVersion,schoolAvatarBlob,uploadSchoolAvatar,deleteSchoolAvatar,deletePlatformAvatar,getAccessMe,type AccessMe,type PlatformMe} from './api';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {Card,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type Tone} from './platform/ui';
 import {readinessSteps,SETTINGS_TARGET_KEY} from './home';
@@ -385,7 +385,11 @@ function SchoolApp({session,onLogout,onSwitchSpace}:{session:SavedSchoolSession;
     onSelect:collects&&key==='finance'?()=>{setFinanceTarget('checkout');goModule('finance')}:()=>goModule(key),primary:barRank.has(key),rank:barRank.get(key),
     shortLabel:collects&&key==='finance'?'Encaisser':shortLabels[key]}));
   const yearLabel=selectedYear?.label;
-  const account:ShellAccount={name:session.user.full_name,email:session.user.email,context:`${session.school.name} · ${session.school.code}`,detail:yearLabel?(/^ann[ée]e/i.test(yearLabel)?yearLabel:`Année ${yearLabel}`):undefined,items:[
+  // Profile photo of the school account (owner request 2026-11-06), like the platform: private, object URL, initials as fallback.
+  const [schoolAvatar,setSchoolAvatar]=useState<string|undefined>();
+  async function loadSchoolAvatar(){try{const v=await schoolAvatarVersion(session.token);const b=v?await schoolAvatarBlob(session.token):null;setSchoolAvatar(prev=>{if(prev)URL.revokeObjectURL(prev);return b?URL.createObjectURL(b):undefined})}catch{setSchoolAvatar(undefined)}}
+  useEffect(()=>{void loadSchoolAvatar()},[session.token]);
+  const account:ShellAccount={name:session.user.full_name,email:session.user.email,avatarUrl:schoolAvatar,context:`${session.school.name} · ${session.school.code}`,detail:yearLabel?(/^ann[ée]e/i.test(yearLabel)?yearLabel:`Année ${yearLabel}`):undefined,items:[
     ...(onSwitchSpace?[{key:'space',label:'Changer d’espace',icon:'layers',onSelect:onSwitchSpace}]:[]),
     {key:'profile',label:'Mon profil',icon:'user',onSelect:()=>setDialog('profile')},
     ...(canOpenModule('settings')?[{key:'settings',label:'Paramètres de l’école',icon:'settings',onSelect:()=>goModule('settings')}]:[]),
@@ -400,7 +404,7 @@ function SchoolApp({session,onLogout,onSwitchSpace}:{session:SavedSchoolSession;
     <OfflineAdminBanner school/>
     {module!=='home'&&module!=='settings'&&<PageTrail parents={[{label:'Accueil',onSelect:()=>goModule('home')}]} current={currentLabel}/>}
     <ScreenBoundary resetKey={module} label={module}><Suspense fallback={<ModuleLoader/>}>{module==='settings'?<SettingsPage session={session} onHome={()=>goModule('home')} links={nav.filter(x=>['access','sync','documents'].includes(x.key))} onNavigate={goModule}/>:module==='personnel'?<PersonnelPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='students'?<SchoolingPage token={session.token} permissions={session.permissions} schoolName={session.school.name} onNavigate={goModule}/>:module==='headcounts'?<EffectifsPage token={session.token} permissions={session.permissions} schoolName={session.school.name} yearId={selectedYearId||undefined}/>:module==='finance'?<FinancePage token={session.token} permissions={session.permissions}/>:module==='documents'?<DocumentsPage token={session.token} permissions={session.permissions} schoolName={session.school.name}/>:module==='stewardship'?<StewardshipPage token={session.token} permissions={session.permissions}/>:module==='sync'?<SyncAdminPage token={session.token} permissions={session.permissions}/>:module==='access'?<AccessPage token={session.token} permissions={session.permissions} userName={session.user.full_name}/>:module==='communications'?<CommunicationsPage token={session.token} permissions={session.permissions} schoolId={session.school.id} schoolName={session.school.name} onNavigate={goModule}/>:module==='home'?(me?<HomePage token={session.token} me={me} schoolName={session.school.name} userName={session.user.full_name} onNavigate={goModule} yearId={selectedYearId||undefined} yearLabel={selectedYear?.label}/>:meError?<ScreenError error={meError} onRetry={()=>setMeAttempt(a=>a+1)}/>:<ModuleLoader/>):<Panel title="Module" subtitle="Ce module sera activé lorsqu’il disposera de ses contrats métier certifiés."><div/></Panel>}</Suspense></ScreenBoundary>
-    {dialog==='profile'&&<ProfileDialog name={session.user.full_name} email={session.user.email} context={`${session.school.name} · ${session.school.code}`} detail={yearLabel} onClose={()=>setDialog('')}/>}
+    {dialog==='profile'&&<ProfileDialog name={session.user.full_name} email={session.user.email} context={`${session.school.name} · ${session.school.code}`} detail={yearLabel} onClose={()=>setDialog('')} avatarUrl={schoolAvatar} onPhotoUpload={async f=>{await uploadSchoolAvatar(session.token,f);await loadSchoolAvatar()}} onPhotoRemove={async()=>{await deleteSchoolAvatar(session.token);setSchoolAvatar(undefined)}}/>}
     {dialog==='security'&&<SecurityDialog token={session.token} onClose={()=>setDialog('')} onPasswordChanged={onLogout}/>}
     {dialog==='preferences'&&<PreferencesDialog reducedMotion={reducedMotion} onReducedMotion={setReducedMotion} token={session.token} pushScope={session.school.id} platform={false} canPush={session.permissions.includes('notifications.internal.read')} onClose={()=>setDialog('')}/>}
   </AppShell>}

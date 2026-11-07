@@ -8,6 +8,7 @@ import {
   AcademicYear, AdmissionCondition, FeeType, ReferenceCatalog, SchoolClass, SchoolSection,
   getAdmissionConditions, putAdmissionCondition, reviewAdmissionConditions, setAdmissionConditionActive,
 } from './api';
+import {getPolicy, putPolicy} from './api';
 import {confirmAction} from './platform/dialogs';
 import {friendlyError} from './platform/errors';
 import {FormField} from './platform/forms';
@@ -46,6 +47,7 @@ export function AdmissionConditionsSettings({token, years, fees, sections, class
     {editing && <ConditionForm token={token} year={year} fees={fees} sections={sections} classes={classes} refs={refs} current={editing === 'new' ? null : editing}
       onCancel={() => setEditing(null)} onSaved={async () => { setEditing(null); await load(); }}/>}
     {!editing && can('settings.enrollment_policy.manage') && <button type="button" className="softBtn addLine" onClick={() => setEditing('new')}>+ Nouvelle condition</button>}
+    <ConditionExemptions token={token} canManage={can('settings.enrollment_policy.manage')}/>
     <div className="reviewRow"><span>{review?.reviewed_at ? `Rubrique validée le ${formatDate(review.reviewed_at)}` : 'Rubrique pas encore validée'}</span>
       {can('settings.enrollment_policy.review') && <button type="button" className="softBtn" onClick={() => void markReviewed()}>Valider les conditions d’inscription</button>}</div>
   </section>;
@@ -85,4 +87,32 @@ function ConditionForm({token, year, fees, sections, classes, refs, current, onC
     <label className="checkField"><input type="checkbox" checked={later} onChange={e => setLater(e.target.checked)}/> Paiement différé possible</label>
     <div className="formActions"><button type="button" className="ghost" onClick={onCancel}>Annuler</button><button className="primaryBtn" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer la condition'}</button></div>
   </form>;
+}
+
+// Exemptions of the enrollment conditions (owner decision 2026-11-06): school-wide categories that are enrolled without
+// paying the conditions now (the fees stay due later unless a benefit covers them). Individual cases: the direction
+// grants a waiver child by child at enrollment (reason, audit).
+const EXEMPTIONS: [string, string, string][] = [
+  ['conditions_exempt_staff_children', 'Enfants du personnel', 'L’enfant d’un agent de l’école est inscrit sans payer les conditions à l’inscription.'],
+  ['conditions_exempt_benefit_beneficiaries', 'Bénéficiaires d’avantages', 'Un enfant gratuit (famille nombreuse) ou bénéficiaire « enfant du personnel » est inscrit sans payer les conditions.'],
+];
+function ConditionExemptions({token, canManage}: {token: string; canManage: boolean}) {
+  const [policy, setPolicy] = useState<any>(undefined); const [busy, setBusy] = useState(''); const [error, setError] = useState('');
+  async function load() { try { setPolicy(await getPolicy(token, 'ENROLLMENT')); } catch (e) { setError(friendlyError(e)); } }
+  useEffect(() => { void load(); }, [token]);
+  const payload = (policy?.payload ?? {}) as Record<string, unknown>;
+  async function toggle(key: string) {
+    try { setBusy(key); setError('');
+      await putPolicy(token, 'ENROLLMENT', {payload: {...payload, [key]: !payload[key]}, status: 'ACTIVE', expected_version: policy?.version ?? null});
+      toast.success('Exemption des conditions d’inscription enregistrée'); await load();
+    } catch (e) { setError(friendlyError(e)); } finally { setBusy(''); }
+  }
+  if (policy === undefined && !error) return null;
+  return <div className="admExempt">
+    <b>Exemptions des conditions d’inscription</b>
+    <small>Ces enfants sont inscrits sans payer à l’inscription ; leurs frais restent dus plus tard, sauf s’ils sont couverts par un avantage. Pour un cas particulier, la direction accorde une dérogation à l’inscription, avec un motif.</small>
+    {error && <div className="error" role="alert">{error}</div>}
+    {EXEMPTIONS.map(([key, label, hint]) => <label key={key} className="switchRow"><span>{label}<small>{hint}</small></span>
+      <input type="checkbox" role="switch" checked={!!payload[key]} disabled={!canManage || !!busy} onChange={() => void toggle(key)}/></label>)}
+  </div>;
 }

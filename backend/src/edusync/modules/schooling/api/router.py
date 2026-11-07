@@ -133,6 +133,13 @@ class ChildInput(BaseModel):
     large_family_beneficiary:bool=False
     staff_member_id:UUID|None=None
     staff_beneficiary:bool=False
+    # Direction waiver of the enrollment conditions for this child (2026-11-06), reason required; finance.decisions.create.
+    condition_waiver:str|None=Field(default=None,min_length=5,max_length=300)
+
+class AdmissionPayment(BaseModel):
+    """Payment of the enrollment conditions, made in the same transaction as the enrollment (family basket)."""
+    mode:Literal['CASH','MOBILE_MONEY','BANQUE','AUTRE']='CASH'
+    reference:str|None=Field(default=None,max_length=80)
 
 class FamilyEnrollmentBody(BaseModel):
     family_id:UUID|None=None
@@ -142,6 +149,7 @@ class FamilyEnrollmentBody(BaseModel):
     additional_guardians:list[GuardianInput]=Field(default_factory=list,max_length=6)
     children:list[ChildInput]=Field(min_length=1,max_length=20)
     admission_notes:str|None=None
+    payment:AdmissionPayment|None=None
 
 class StudentPatch(BaseModel):
     last_name:str|None=Field(default=None,max_length=120)
@@ -302,18 +310,201 @@ def enrollment_benefits(family_id:UUID|None=None,actor:ActorContext=Depends(requ
             FROM staff_members m WHERE m.school_id=:s AND m.status='ACTIVE' ORDER BY m.last_name,m.first_name"""),{"s":actor.school_id,"y":year['id']}).all()]
         return _jsonable({"large_family":large_view,"staff_child":view(staff),"staff":members})
 
+class _PreviewRollback(Exception):
+    def __init__(self,result):super().__init__('preview');self.result=result
+
+def _enroll_and_settle(conn,request_actor,actor:ActorContext,body:FamilyEnrollmentBody,*,key:str,waivers:dict[int,dict]|None=None,settle:bool=True):
+    """Atomic enrollment (owner report 2026-11-06): pupils, charges AND payment of the enrollment conditions in one
+    transaction. Any refusal (unpaid conditions, validation, cash closed) rolls the whole family back."""
+    from edusync.modules.schooling.application.admission_settlement import ConditionsNotPaid,basket_lines,conditions_due,fmt_totals
+    from decimal import Decimal as _D
+    cap='enrollments.reenroll' if any(c.student_id for c in body.children) else 'enrollments.create'
+    repo=PostgresSchoolingRepository(conn);svc=SchoolingService(repo,school_id=actor.school_id,actor_user_id=actor.user_id,permitted_scopes=_scopes(actor,cap))
+    children=[x.model_dump(mode='python') for x in body.children]
+    waivers=dict(waivers or {})
+    for i,c in enumerate(children):
+        reason=(c.pop('condition_waiver',None) or '').strip()
+        if reason and i not in waivers:
+            if 'finance.decisions.create' not in actor.permissions:
+                raise PermissionError("La dérogation aux conditions d’inscription est accordée par la direction : enregistrez un dossier en attente pour qu’elle l’accorde.")
+            waivers[i]={'reason':reason,'by':str(actor.user_id),'at':datetime.utcnow().isoformat(timespec='seconds')+'Z'}
+    payload=svc.enroll_family_batch(family_id=body.family_id,household_query=body.household_query,household_confidence=body.household_confidence,primary_guardian=body.primary_guardian.model_dump(mode='python') if body.primary_guardian else None,additional_guardians=[x.model_dump(mode='python') for x in body.additional_guardians],children=children,admission_notes=body.admission_notes)
+    # Desktop generate_charges_for_enrollment: a validated enrollment receives the due charges of its class schedule.
+    fees=PostgresFeeScheduleRepository(conn)
+    payload['charges_created']=sum(fees.generate_charges_for_enrollment(actor.school_id,UUID(str(e)))[0] for e in payload.get('enrollment_ids',[]))
+    due=conditions_due(conn,actor.school_id,[{'index':i,'enrollment_id':e,'child':children[i]} for i,e in enumerate(payload.get('enrollment_ids',[]))],
+                       policy=repo.enrollment_policy(actor.school_id),waivers=waivers)
+    payload['conditions']=due;payload['waivers']=[{'index':i,**w} for i,w in sorted(waivers.items())]
+    if not settle:return payload
+    if due['requires_payment']:
+        totals={k:_D(v) for k,v in due['totals'].items()}
+        if body.payment is None:
+            raise ConditionsNotPaid(f"Conditions d’inscription à payer : {fmt_totals(totals)}. Aucun enfant n’a été inscrit : encaissez ces frais à l’étape « Paiement », ou enregistrez un dossier en attente de paiement.")
+        if 'finance.checkout.collect' not in actor.permissions:
+            raise PermissionError("Vous ne pouvez pas encaisser : enregistrez un dossier en attente, le caissier encaissera et inscrira en une seule opération.")
+        from edusync.adapters.postgres_finance_checkout import PostgresFinanceCheckoutRepository
+        basket=PostgresFinanceCheckoutRepository(conn).family_collect(actor.school_id,actor.user_id,actor.membership_id,UUID(payload['family_id']),basket_lines(due),
+                                                                      f'{key}:admission',body.payment.mode,body.payment.reference)
+        paid={}
+        for l in basket.get('lines',[]):paid[l['currency']]=paid.get(l['currency'],_D('0'))+_D(str(l['amount']))
+        if any(paid.get(c,_D('0'))<a for c,a in totals.items()):
+            raise ConditionsNotPaid("Paiement incomplet des conditions d’inscription : aucun enfant n’a été inscrit.")
+        payload['admission_payment']=basket
+    return payload
+
+@router.post('/enrollments/family/preview')
+def preview_family_enrollment(body:FamilyEnrollmentBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Dry run of the atomic enrollment: same validations, same charges, same conditions — then everything is rolled
+    back. The form shows, child by child with the class, what the school requires now and the family total."""
+    cap='enrollments.reenroll' if any(c.student_id for c in body.children) else 'enrollments.create';_need(actor,cap)
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            out=_enroll_and_settle(conn,actor,actor,body,key='preview',settle=False)
+            raise _PreviewRollback({'conditions':out['conditions'],'waivers':out['waivers'],'count':out.get('count'),
+                                    'can_collect':'finance.checkout.collect' in actor.permissions,'can_waive':'finance.decisions.create' in actor.permissions})
+    except _PreviewRollback as r:return _jsonable(r.result)
+    except Exception as exc:_error(exc)
+
 @router.post('/enrollments/family',status_code=201)
 def enroll_family(body:FamilyEnrollmentBody,response:Response,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     cap='enrollments.reenroll' if any(c.student_id for c in body.children) else 'enrollments.create';_need(actor,cap);key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
-            repo=PostgresSchoolingRepository(conn);svc=SchoolingService(repo,school_id=actor.school_id,actor_user_id=actor.user_id,permitted_scopes=_scopes(actor,cap))
-            payload=svc.enroll_family_batch(family_id=body.family_id,household_query=body.household_query,household_confidence=body.household_confidence,primary_guardian=body.primary_guardian.model_dump(mode='python') if body.primary_guardian else None,additional_guardians=[x.model_dump(mode='python') for x in body.additional_guardians],children=[x.model_dump(mode='python') for x in body.children],admission_notes=body.admission_notes)
-            # Desktop generate_charges_for_enrollment: a validated enrollment receives the due charges of its class schedule.
-            fees=PostgresFeeScheduleRepository(conn)
-            payload['charges_created']=sum(fees.generate_charges_for_enrollment(actor.school_id,UUID(str(e)))[0] for e in payload.get('enrollment_ids',[]))
+            payload=_enroll_and_settle(conn,request_actor,actor,body,key=key)
             fid=UUID(payload['family_id']);_audit_outbox(conn,request_actor,action='FAMILY_ENROLLMENT_COMPLETED',entity_type='Family',entity_id=fid,new=payload);return 201,payload
         result=_mutate(services=services,actor=actor,key=key,operation='SCHOOLING_FAMILY_ENROLLMENT',payload=body.model_dump(mode='json'),action=action);response.status_code=result.status_code;return result.body
+    except Exception as exc:_error(exc)
+
+# ---------------------------------------------------------------- dossiers « en attente de paiement » (2026-11-06)
+_DOSSIER_READERS=('enrollments.create','enrollments.reenroll','finance.checkout.collect','finance.decisions.create')
+
+def _dossier_label(body:FamilyEnrollmentBody)->str:
+    if body.primary_guardian:return f"Foyer de {body.primary_guardian.full_name}"[:200]
+    c=body.children[0];return (f"Foyer {c.last_name or ''} {c.middle_name or ''}".strip() if c.last_name else 'Réinscription')[:200]
+
+def _dossier(conn,school_id,dossier_id,*,lock=False):
+    sql=("SELECT * FROM enrollment_dossiers WHERE school_id=:s AND id=:i FOR UPDATE" if lock else "SELECT * FROM enrollment_dossiers WHERE school_id=:s AND id=:i")
+    r=conn.execute(text(sql),{"s":school_id,"i":dossier_id}).mappings().first()
+    if not r:raise LookupError("Dossier d’inscription introuvable")
+    return dict(r)
+
+def _dossier_out(d:dict)->dict:
+    return _jsonable({k:d[k] for k in ('id','status','label','children_count','totals','waivers','created_at','completed_at','family_id','cancel_reason','version')}|{'payload':d['payload']})
+
+@router.post('/enrollment-dossiers',status_code=201)
+def create_enrollment_dossier(body:FamilyEnrollmentBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """The form is kept without enrolling anybody; it is validated now (dry run) so the cashier only has to collect."""
+    cap='enrollments.reenroll' if any(c.student_id for c in body.children) else 'enrollments.create';_need(actor,cap)
+    data=body.model_dump(mode='json');data['payment']=None
+    requested=[{'index':i,'reason':c.get('condition_waiver'),'requested_by':str(actor.user_id)} for i,c in enumerate(data['children']) if c.get('condition_waiver')]
+    for c in data['children']:c['condition_waiver']=None
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            try:
+                _enroll_and_settle(conn,actor,actor,FamilyEnrollmentBody.model_validate(data),key='dossier',settle=False);raise _PreviewRollback(None)
+            except _PreviewRollback:pass
+    except Exception as exc:_error(exc)
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            year=PostgresSchoolingRepository(conn).active_year(actor.school_id)
+            if not year:raise ValueError("Aucune année scolaire active")
+            import json as _json
+            r=conn.execute(text("""INSERT INTO enrollment_dossiers(school_id,academic_year_id,label,children_count,payload,waivers,created_by)
+                VALUES(:s,:y,:l,:n,CAST(:p AS jsonb),CAST(:w AS jsonb),:u) RETURNING *"""),{"s":actor.school_id,"y":year['id'],"l":_dossier_label(body),"n":len(body.children),
+                "p":_json.dumps(data),"w":_json.dumps([{**w,'status':'REQUESTED'} for w in requested]),"u":actor.user_id}).mappings().first()
+            _audit_outbox(conn,replace(actor,correlation_id=uuid4()),action='ENROLLMENT_DOSSIER_CREATED',entity_type='EnrollmentDossier',entity_id=r['id'],new={'label':r['label'],'children':len(body.children)})
+            return _dossier_out(dict(r))
+    except Exception as exc:_error(exc)
+
+@router.get('/enrollment-dossiers')
+def list_enrollment_dossiers(status:Literal['PENDING','COMPLETED','CANCELLED']='PENDING',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    if not any(c in actor.permissions for c in _DOSSIER_READERS):raise HTTPException(status_code=403,detail="Permission refusée")
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        rows=conn.execute(text("SELECT * FROM enrollment_dossiers WHERE school_id=:s AND status=:st ORDER BY created_at DESC LIMIT 200"),{"s":actor.school_id,"st":status}).mappings().all()
+        return {"items":[_dossier_out(dict(r)) for r in rows]}
+
+def _approved_waivers(d:dict)->dict[int,dict]:
+    return {int(w['index']):w for w in (d.get('waivers') or []) if w.get('status')=='APPROVED'}
+
+@router.get('/enrollment-dossiers/{dossier_id}/preview')
+def preview_enrollment_dossier(dossier_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    if not any(c in actor.permissions for c in _DOSSIER_READERS):raise HTTPException(status_code=403,detail="Permission refusée")
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            d=_dossier(conn,actor.school_id,dossier_id)
+            body=FamilyEnrollmentBody.model_validate(d['payload'])
+            out=_enroll_and_settle(conn,actor,actor,body,key='preview',waivers=_approved_waivers(d),settle=False)
+            raise _PreviewRollback({'dossier':_dossier_out(d),'conditions':out['conditions'],'can_collect':'finance.checkout.collect' in actor.permissions,
+                                    'can_waive':'finance.decisions.create' in actor.permissions})
+    except _PreviewRollback as r:return _jsonable(r.result)
+    except Exception as exc:_error(exc)
+
+class DossierWaiver(BaseModel):
+    index:int=Field(ge=0,le=19)
+    reason:str|None=Field(default=None,min_length=5,max_length=300)   # None removes the waiver
+    expected_version:int=Field(ge=1)
+
+@router.post('/enrollment-dossiers/{dossier_id}/waivers')
+def set_dossier_waiver(dossier_id:UUID,body:DossierWaiver,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Direction waiver of the enrollment conditions for one child of a pending dossier (reason, author, date)."""
+    _need(actor,'finance.decisions.create')
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            d=_dossier(conn,actor.school_id,dossier_id,lock=True)
+            if d['status']!='PENDING':raise ValueError("Ce dossier n’est plus en attente")
+            if d['version']!=body.expected_version:raise OptimisticConcurrencyError("Dossier modifié par une autre session ; rechargez")
+            if body.index>=d['children_count']:raise ValueError("Enfant introuvable dans ce dossier")
+            waivers=[w for w in (d['waivers'] or []) if int(w['index'])!=body.index]
+            if body.reason:waivers.append({'index':body.index,'reason':body.reason.strip(),'status':'APPROVED','by':str(actor.user_id),'at':datetime.utcnow().isoformat(timespec='seconds')+'Z'})
+            import json as _json
+            r=conn.execute(text("UPDATE enrollment_dossiers SET waivers=CAST(:w AS jsonb),version=version+1,updated_at=now() WHERE id=:i RETURNING *"),
+                           {"w":_json.dumps(sorted(waivers,key=lambda w:int(w['index']))),"i":dossier_id}).mappings().first()
+            _audit_outbox(conn,replace(actor,correlation_id=uuid4()),action='ENROLLMENT_CONDITION_WAIVER' if body.reason else 'ENROLLMENT_CONDITION_WAIVER_REMOVED',entity_type='EnrollmentDossier',entity_id=dossier_id,
+                          new={'index':body.index,'reason':body.reason},reason=body.reason)
+            return _dossier_out(dict(r))
+    except Exception as exc:_error(exc)
+
+class DossierComplete(BaseModel):
+    payment:AdmissionPayment|None=None
+    expected_version:int=Field(ge=1)
+
+@router.post('/enrollment-dossiers/{dossier_id}/complete',status_code=201)
+def complete_enrollment_dossier(dossier_id:UUID,body:DossierComplete,response:Response,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Cashier: collect the conditions and enroll the dossier's children in ONE transaction (all or nothing)."""
+    key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            d=_dossier(conn,actor.school_id,dossier_id,lock=True)
+            if d['status']!='PENDING':raise ValueError("Ce dossier n’est plus en attente : il a déjà été inscrit ou annulé")
+            if d['version']!=body.expected_version:raise OptimisticConcurrencyError("Dossier modifié par une autre session ; rechargez")
+            enroll=FamilyEnrollmentBody.model_validate({**d['payload'],'payment':body.payment.model_dump() if body.payment else None})
+            _need(actor,'enrollments.reenroll' if any(c.student_id for c in enroll.children) else 'enrollments.create')
+            payload=_enroll_and_settle(conn,request_actor,actor,enroll,key=key,waivers=_approved_waivers(d))
+            conn.execute(text("""UPDATE enrollment_dossiers SET status='COMPLETED',completed_by=:u,completed_at=now(),family_id=:f,version=version+1,updated_at=now()
+                WHERE id=:i"""),{"u":actor.user_id,"f":payload['family_id'],"i":dossier_id})
+            payload['dossier_id']=str(dossier_id)
+            _audit_outbox(conn,request_actor,action='FAMILY_ENROLLMENT_COMPLETED',entity_type='Family',entity_id=UUID(payload['family_id']),new=payload)
+            return 201,payload
+        result=_mutate(services=services,actor=actor,key=key,operation='SCHOOLING_DOSSIER_COMPLETION',payload={'dossier':str(dossier_id),**body.model_dump(mode='json')},action=action)
+        response.status_code=result.status_code;return result.body
+    except Exception as exc:_error(exc)
+
+class DossierCancel(BaseModel):
+    reason:str=Field(min_length=3,max_length=300)
+    expected_version:int=Field(ge=1)
+
+@router.post('/enrollment-dossiers/{dossier_id}/cancel')
+def cancel_enrollment_dossier(dossier_id:UUID,body:DossierCancel,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    if not any(c in actor.permissions for c in ('enrollments.create','enrollments.reenroll','finance.checkout.collect')):raise HTTPException(status_code=403,detail="Permission refusée")
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            d=_dossier(conn,actor.school_id,dossier_id,lock=True)
+            if d['status']!='PENDING':raise ValueError("Ce dossier n’est plus en attente")
+            if d['version']!=body.expected_version:raise OptimisticConcurrencyError("Dossier modifié par une autre session ; rechargez")
+            r=conn.execute(text("""UPDATE enrollment_dossiers SET status='CANCELLED',cancelled_by=:u,cancelled_at=now(),cancel_reason=:r,version=version+1,updated_at=now()
+                WHERE id=:i RETURNING *"""),{"u":actor.user_id,"r":body.reason.strip(),"i":dossier_id}).mappings().first()
+            _audit_outbox(conn,replace(actor,correlation_id=uuid4()),action='ENROLLMENT_DOSSIER_CANCELLED',entity_type='EnrollmentDossier',entity_id=dossier_id,new={'reason':body.reason},reason=body.reason)
+            return _dossier_out(dict(r))
     except Exception as exc:_error(exc)
 
 @router.patch('/students/{student_id}')
