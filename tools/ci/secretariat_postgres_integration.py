@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 import sys
 import uuid
+from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -162,9 +163,16 @@ def student_import(A: dict) -> None:
         for cell in row:
             cell.value = None
     cls = one("SELECT code FROM school_classes WHERE id=:i", i=A["classes"]["SECONDAIRE"])[0]
+    # Contract 1.1 (owner, 2026-11-01): the real enrollment date is kept; an empty date means the day of the import.
+    real_day = date.today() - timedelta(days=20)
+    check("modèle 1.1 : colonne « Date inscription »", ws.cell(hrow, 15).value == "Date inscription" and meta.get("contract_version") == "1.1", str(ws.cell(hrow, 15).value))
     for i, (ln, fn) in enumerate((("KALENGA", "Divine"), ("ILUNGA", "Prince")), hrow + 1):
         for col, v in enumerate([ln, "IMPORT", fn, "F" if fn == "Divine" else "M", cls], 1):
             ws.cell(i, col, v)
+    ws.cell(hrow + 1, 15, real_day.strftime("%d/%m/%Y"))
+    future = io.BytesIO(); ws.cell(hrow + 2, 15, (date.today() + timedelta(days=3)).strftime("%d/%m/%Y")); wb.save(future); ws.cell(hrow + 2, 15).value = None
+    fut = c.post(f"/api/v1/import/students/analyze?filename=eleves.xlsx&academic_year_id={A['year']}", content=future.getvalue())
+    check("date d'inscription dans le futur → erreur, lot non exécutable", fut.status_code == 200 and fut.json()["error_rows"] == 1 and not fut.json()["can_execute"], fut.text[:200])
     buf = io.BytesIO(); wb.save(buf)
     before = one("SELECT count(*) FROM students WHERE school_id=:s", s=A["id"])[0]
     an = c.post(f"/api/v1/import/students/analyze?filename=eleves.xlsx&academic_year_id={A['year']}", content=buf.getvalue(),
@@ -178,6 +186,14 @@ def student_import(A: dict) -> None:
     ex = c.post(f"/api/v1/import/students/batches/{bid}/execute", json={"accept_warnings": True, "confirm_separate_households": True}, headers=k)
     after = one("SELECT count(*) FROM students WHERE school_id=:s", s=A["id"])[0]
     check("import exécuté : 2 élèves créés", ex.status_code == 200 and after == before + 2, f"{ex.status_code} {ex.text[:150]} {before}→{after}")
+    days = {r[0]: r[1] for r in H.sql("SELECT s.last_name,e.enrolled_on FROM students s JOIN enrollments e ON e.student_id=s.id WHERE s.school_id=:s AND s.middle_name='IMPORT'", s=A["id"]).all()}
+    check("date d'inscription réelle conservée ; vide = jour de l'import", days.get("KALENGA") == real_day and days.get("ILUNGA") == date.today(), str(days))
+    H.sql("UPDATE academic_years SET enrollment_start=:d WHERE id=:y", d=date(2026, 7, 1), y=A["year"])
+    july = io.BytesIO(); ws.cell(hrow + 1, 1, "KALENGA2"); ws.cell(hrow + 2, 1, "ILUNGA2"); ws.cell(hrow + 1, 15, "15/07/2026"); ws.cell(hrow + 2, 15, "15/06/2026"); wb.save(july)
+    jl = c.post(f"/api/v1/import/students/analyze?filename=eleves.xlsx&academic_year_id={A['year']}", content=july.getvalue()).json()
+    codes = {p["row_number"]: [i["code"] for i in p["issues"]] for p in jl.get("preview", [])}
+    check("inscription de juillet dans la période d'inscription : aucun avertissement ; avant la période : avertissement",
+          codes.get(hrow + 1) == [] and codes.get(hrow + 2) == ["ENROLLMENT_DATE_OUTSIDE_YEAR"], str(codes))
     again = c.post(f"/api/v1/import/students/batches/{bid}/execute", json={"accept_warnings": True, "confirm_separate_households": True}, headers={"Idempotency-Key": f"sec-imp-{uuid.uuid4().hex}"})
     check("rejeu du même lot : aucun doublon", again.status_code == 200 and one("SELECT count(*) FROM students WHERE school_id=:s", s=A["id"])[0] == after, again.text[:150])
     noexec = as_(actor_for(ROLE, A["id"], drop={"migration.students.execute"}))

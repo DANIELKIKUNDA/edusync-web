@@ -139,6 +139,7 @@ export function StudentImportPro({token, classes, schoolName, canExecute, onDone
       {label: 'Élève', width: 'minmax(200px,1.6fr)', render: r => <><b>{person(r.data)}</b>{r.data.matricule && <small>{r.data.matricule}</small>}</>},
       {label: 'Sexe', width: '60px', render: r => r.data.gender ?? '—'},
       {label: 'Classe', width: 'minmax(120px,1fr)', render: r => r.data.class_label_resolved ?? r.data.class_label ?? '—'},
+      {label: 'Inscrit le', width: '100px', render: r => r.data.enrolled_on ? r.data.enrolled_on.split('-').reverse().join('/') : <small>jour de l’import</small>},
     ],
   }), [token, years]);
   return <ImportStepper cfg={cfg} schoolName={schoolName} canExecute={canExecute} onDone={onDone}/>;
