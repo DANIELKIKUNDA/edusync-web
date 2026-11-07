@@ -848,6 +848,32 @@ def platform_avatar_delete(actor: ActorContext = Depends(require_platform_actor)
     return {"status": "removed" if row else "none"}
 
 
+# ---------------------------------------------------------------- profile photo of school accounts (owner request 2026-11-06)
+# « Au niveau école, il n'y a pas moyen d'ajouter la photo comme au niveau plateforme. » Same storage and processing as
+# the platform photo (one photo per person, whatever the space); a school account only ever reads or changes its own.
+
+@router.get("/school/avatar")
+def school_avatar(request: Request, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    return platform_avatar(request, actor=actor, services=services)
+
+
+@router.put("/school/avatar")
+async def school_avatar_upload(request: Request, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    return await platform_avatar_upload(request, actor=actor, services=services)
+
+
+@router.delete("/school/avatar")
+def school_avatar_delete(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    return platform_avatar_delete(actor=actor, services=services)
+
+
+@router.get("/school/avatar/version")
+def school_avatar_version(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    with services.platform_db.platform_transaction() as conn:
+        digest = conn.execute(text("SELECT sha256 FROM user_avatars WHERE user_id=:u"), {"u": str(actor.user_id)}).scalar()
+    return {"avatar_version": digest[:16] if digest else None}
+
+
 # ---------------------------------------------------------------- change of space without signing out (lot 2026-10)
 #
 # One identity, N memberships, N spaces, one persistent session. The persistent session (HttpOnly cookie, same origin)

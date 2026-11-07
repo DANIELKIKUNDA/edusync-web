@@ -366,3 +366,7 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .gridForm.yearCreate{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px 14px;align-items:start}
 .gridForm.yearCreate>.formActions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
 .gridForm.yearCreate .formField small{line-height:1.35}
+/* Exemptions of the enrollment conditions (2026-11-06). */
+.admExempt{display:grid;gap:8px;margin:14px 0 6px;padding:14px 16px;border:1px solid #e4e7ec;border-radius:14px;background:#fcfcfd}
+.admExempt>b{font-size:14px;color:#101828}
+.admExempt>small{font-size:12.5px;line-height:1.45;color:#667085}

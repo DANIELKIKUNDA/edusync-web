@@ -72,6 +72,8 @@ def run(A: dict) -> None:
     version = (r.json() or {}).get("version") if r.status_code in (200, 201) else None
 
     cashier = as_(cashier_actor)
+    o = cashier.post("/api/v1/finance/cash/open", json={"opening_cdf": "0", "opening_usd": "0"}, headers=key())
+    check("caisse ouverte (l'inscription encaisse les conditions dans la même opération)", o.status_code in (200, 201), o.text[:150])
     b = cashier.get("/api/v1/schooling/enrollment-benefits").json()
     lf = b.get("large_family") or {}
     check("formulaire : la règle de l'école est transmise en mots (libellés des frais, seuil, limite)",
@@ -79,7 +81,7 @@ def run(A: dict) -> None:
 
     guardian = {"full_name": "KASONGO Bwanga", "role": "PERE", "phone": "+243 97 000 0001"}
     enroll = lambda kids: cashier.post("/api/v1/schooling/enrollments/family", headers=key(),
-                                       json={"household_confidence": "NONE", "primary_guardian": guardian, "children": kids})
+                                       json={"household_confidence": "NONE", "primary_guardian": guardian, "children": kids, "payment": {"mode": "CASH"}})
     r = enroll([child("Un", cls), child("Deux", cls), child("Trois", cls, free=True)])
     check("3 enfants avec un gratuit → refusé : seuil de 5 non atteint, message en français",
           r.status_code == 409 and "seuil" in r.text and not any(w in r.text for w in ENGLISH), f"{r.status_code} {r.text[:160]}")
@@ -101,18 +103,19 @@ def run(A: dict) -> None:
           sum(Decimal(c[1]) for c in esther if c[0] == "MONTHLY") == Decimal(3 * 20000 + 3 * 5000), esther)
 
     enr_ruth = one("""SELECT e.id FROM enrollments e JOIN students s ON s.id=e.student_id WHERE s.first_name='Ruth' AND s.family_id=:f""", f=fam)[0]
+    paid = sql("""SELECT f.periodicity, fc.paid_amount FROM finance_charges fc JOIN fee_types f ON f.id=fc.fee_type_id WHERE fc.enrollment_id=:e""", e=enr_ruth).all()
+    check("caisse : Ruth a payé ses frais d'inscription dans la même opération, et rien sur ses mois gratuits",
+          any(p[0] != "MONTHLY" and Decimal(p[1]) == 15000 for p in paid) and all(Decimal(p[1]) == 0 for p in paid if p[0] == "MONTHLY"), paid)
     bundle = cashier.get(f"/api/v1/finance/checkout/registration-bundle/{enr_ruth}").json()
-    check("caisse : le lot d'inscription de Ruth ne réclame que les frais d'inscription (juin gratuit = 0)",
-          bundle.get("totals", {}).get("CDF") in ("15000", "15000.00"), bundle.get("totals"))
-    rec = cashier.get(f"/api/v1/finance/checkout/recommended/{enr_ruth}").json()
-    check("caisse : la recommandation ne propose aucun mois à payer pour Ruth",
-          rec.get("total") in ("15000", "15000.00") and all(a.get("amount") not in ("0", "0.00") for a in rec.get("allocations", [])), rec)
+    check("caisse : plus rien n'est réclamé à l'inscription pour Ruth", all(Decimal(v) == 0 for v in (bundle.get("totals") or {}).values()), bundle.get("totals"))
+    receipts = one("SELECT count(*), count(DISTINCT receipt_number) FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN students s ON s.id=e.student_id WHERE s.family_id=:f", f=fam)
+    check("paiement familial : un reçu individuel par enfant (5 reçus distincts)", tuple(receipts) == (5, 5), tuple(receipts))
 
     b = cashier.get(f"/api/v1/schooling/enrollment-benefits?family_id={fam}").json().get("large_family") or {}
     check("formulaire : le foyer compte 5 enfants et a déjà son bénéficiaire (la case ne sera plus proposée)",
           b.get("family_enrolled_children") == 5 and b.get("family_beneficiaries") == 1, b)
     r = cashier.post("/api/v1/schooling/enrollments/family", headers=key(),
-                     json={"family_id": fam, "household_confidence": "CERTAIN", "children": [child("Sixieme", cls, free=True)]})
+                     json={"family_id": fam, "household_confidence": "CERTAIN", "children": [child("Sixieme", cls, free=True)], "payment": {"mode": "CASH"}})
     check("6e enfant du même foyer marqué gratuit → refusé (limite de 1 déjà utilisée)", r.status_code == 409, f"{r.status_code} {r.text[:160]}")
 
     r = as_(admin_actor).put("/api/v1/settings/benefit-policies/LARGE_FAMILY", headers=key(), json={
@@ -135,9 +138,11 @@ def run_per_group(C: dict) -> None:
         "applies_to_fee_codes": ["SCOLARITE", "TRANSPORT"]})
     check("paramètres : politique « par tranche » enregistrée", r.status_code in (200, 201) and r.json().get("per_group") is True, r.text[:200])
     cashier = as_(actor_for("CAISSIER", C["id"]))
+    o = cashier.post("/api/v1/finance/cash/open", json={"opening_cdf": "0", "opening_usd": "0"}, headers=key())
+    check("caisse ouverte (école C)", o.status_code in (200, 201), o.text[:150])
     guardian = {"full_name": "MUKENDI Ilunga", "role": "PERE", "phone": "+243 97 000 0002"}
     enroll = lambda kids: cashier.post("/api/v1/schooling/enrollments/family", headers=key(),
-                                       json={"household_confidence": "NONE", "primary_guardian": guardian, "children": kids})
+                                       json={"household_confidence": "NONE", "primary_guardian": guardian, "children": kids, "payment": {"mode": "CASH"}})
     names = [f"T{i}" for i in range(1, 11)]
     r = enroll([child(n, cls, free=i in (0, 1)) for i, n in enumerate(names[:8])])
     check("8 enfants avec deux gratuits → refusé (une seule tranche de 5)", r.status_code == 409 and "par tranche" in r.text, f"{r.status_code} {r.text[:200]}")

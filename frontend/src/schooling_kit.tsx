@@ -9,13 +9,14 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 import {
   SchoolClass, SchoolOption, SchoolingStudent, StudentFilters, enrollFamily, listOptionSelector, listStudents, listYearSelector, studentDirectoryPdf, studentDirectoryXlsx, enrollmentRegister,
-  type AcademicYear,
+  type AcademicYear, type AdmissionPayment, type AdmissionPreview, type EnrollmentBatchInput, createEnrollmentDossier, previewFamilyEnrollment,
 } from './api';
 import {friendlyError} from './platform/errors';
 import {NavGlyph} from './platform/nav_icons';
 import {exportManaged, previewPdf} from './document_io';
 import './schooling_kit.css';
 import {ClassSelect} from './class_select';
+import {AdmissionSettlement, settlementAction} from './admission_settlement';
 
 export const STATUS_FR: Record<string, string> = {ACTIVE: 'Actif', ABANDON: 'Abandon', TRANSFERRED: 'Transféré', SUSPENDED: 'Suspendu', GRADUATED: 'Diplômé'};
 const fullName = (s: Pick<SchoolingStudent, 'last_name' | 'middle_name' | 'first_name'>) => [s.last_name, s.middle_name, s.first_name].filter(Boolean).join(' ');
@@ -94,14 +95,30 @@ export function ReenrollWizard({token, classes, refOrder, levelLabels, onClose, 
   const suggested = pupil ? proposeNextClass(pupil, yearClasses, refOrder) : '';
   const already = pupil && active && pupil.academic_year_id === active.id && pupil.enrollment_status !== 'CANCELLED';
   function choose(s: SchoolingStudent) { setPupil(s); setError(''); setClassId(proposeNextClass(s, yearClasses, refOrder)); }
+  // Atomic re-enrollment (owner report 2026-11-06): the conditions fixed by the school are paid in the same operation.
+  const [preview, setPreview] = useState<AdmissionPreview | null>(null); const [previewBusy, setPreviewBusy] = useState(false); const [previewError, setPreviewError] = useState('');
+  const [waivers, setWaivers] = useState<Record<number, string>>({}); const [payment, setPayment] = useState<AdmissionPayment>({mode: 'CASH', reference: ''});
+  const input = (withWaiver: boolean): EnrollmentBatchInput | null => !pupil || !classId || !pupil.gender || pupil.gender === 'X' ? null
+    : {family_id: pupil.family_id, household_confidence: 'CERTAIN', children: [{student_id: pupil.id, class_id: classId, gender: pupil.gender as 'M' | 'F', origin: 'REENROLLMENT',
+        condition_waiver: withWaiver && (waivers[0] ?? '').trim().length >= 5 ? waivers[0].trim() : null} as any]};
+  useEffect(() => {
+    const body = input(!!preview?.can_waive); if (!body || already) { setPreview(null); return; }
+    const t = window.setTimeout(async () => { setPreviewBusy(true); setPreviewError('');
+      try { setPreview(await previewFamilyEnrollment(token, body)); } catch (e) { setPreviewError(friendlyError(e)); setPreview(null); } finally { setPreviewBusy(false); } }, waivers[0] ? 450 : 150);
+    return () => window.clearTimeout(t);
+  }, [pupil?.id, classId, preview?.can_waive ? waivers[0] : '']);
+  const action = settlementAction(preview, 1);
   async function submit() {
     if (!pupil) return; if (!classId) { setError('Choisissez la nouvelle classe.'); return; }
     if (!pupil.gender || pupil.gender === 'X') { setError('Le sexe de l’élève est à compléter dans sa fiche avant la réinscription.'); return; }
+    if (!preview) return;
     try { setBusy(true); setError('');
-      const res = await enrollFamily(token, {family_id: pupil.family_id, household_confidence: 'CERTAIN', children: [{student_id: pupil.id, class_id: classId, gender: pupil.gender as 'M' | 'F', origin: 'REENROLLMENT'} as any]});
       const target = classes.find(c => c.id === classId)?.label ?? 'nouvelle classe';
+      if (action.kind === 'DOSSIER') { await createEnrollmentDossier(token, input(true)!); toast.success(`Dossier de réinscription de ${fullName(pupil)} enregistré en attente de paiement`, {description: 'Le caissier encaissera et la réinscription deviendra effective en une seule opération.'}); await onDone(); onClose(); return; }
+      const res = await enrollFamily(token, {...input(preview.can_waive)!, payment: action.kind === 'PAY' ? {mode: payment.mode, reference: (payment.reference ?? '').trim() || null} : null});
+      const receipts = (res?.admission_payment?.lines ?? []).map((l: any) => l.receipt_number).filter(Boolean);
       if (res?.offline_queued) toast.success(`Hors connexion : réinscription de ${fullName(pupil)} en ${target} enregistrée sur cet appareil`, {description: 'Envoyée automatiquement au retour de la connexion.'});
-      else toast.success(`${fullName(pupil)} est réinscrit(e) en ${target}`); await onDone(); onClose();
+      else toast.success(`${fullName(pupil)} est réinscrit(e) en ${target}`, receipts.length ? {description: `Conditions payées · reçu ${receipts.join(', ')}`} : undefined); await onDone(); onClose();
     } catch (e) { setError(friendlyError(e)); } finally { setBusy(false); }
   }
   return <div className="kp-backdrop" onClick={() => { if (!busy) onClose(); }}>
@@ -124,10 +141,12 @@ export function ReenrollWizard({token, classes, refOrder, levelLabels, onClose, 
         </section>
         {pupil && !already && <section><h4><span>2</span>Nouvelle classe {suggested && <small>la classe suivante est proposée</small>}</h4>
           <ClassSelect classes={yearClasses} value={classId} onChange={setClassId} suggested={suggested} levelLabels={levelLabels} ariaLabel="Nouvelle classe"/></section>}
+        {pupil && !already && classId && <section><h4><span>3</span>Conditions de réinscription</h4>
+          <AdmissionSettlement preview={preview} loading={previewBusy} error={previewError} waivers={waivers} onWaiver={(i, r) => setWaivers(w => { const n = {...w}; if (r === null) delete n[i]; else n[i] = r; return n; })} payment={payment} onPayment={setPayment}/></section>}
         {error && <div className="error" role="alert">{error}</div>}
       </div>
       <footer className="kp-dfoot"><span className="kp-summary">{pupil && classId ? <>{fullName(pupil)} → <b>{classes.find(c => c.id === classId)?.label}</b></> : 'Retrouvez l’élève, puis choisissez sa nouvelle classe'}</span>
         <button type="button" className="kp-btn ghost" onClick={onClose} disabled={busy}>Annuler</button>
-        <button type="button" className="kp-btn primary" disabled={busy || !pupil || !!already || !classId} onClick={() => void submit()}><NavGlyph g="sync" size={16}/>{busy ? 'Réinscription…' : 'Réinscrire'}</button></footer>
+        <button type="button" className="kp-btn primary" disabled={busy || !pupil || !!already || !classId || previewBusy || !preview} onClick={() => void submit()}><NavGlyph g="sync" size={16}/>{busy ? 'Réinscription…' : action.kind === 'ENROLL' ? 'Réinscrire' : action.label.replace('et inscrire', 'et réinscrire')}</button></footer>
     </div></div>;
 }
