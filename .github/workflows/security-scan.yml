@@ -52,7 +52,7 @@ jobs:
           PY
           if [[ -s zap/high.txt ]]; then echo "Alertes de risque élevé :"; cat zap/high.txt; exit 1; fi
           echo "Aucune alerte de risque élevé (code ZAP $code)."
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: zap-report
