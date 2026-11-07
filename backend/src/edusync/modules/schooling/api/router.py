@@ -398,11 +398,11 @@ def create_enrollment_dossier(body:FamilyEnrollmentBody,actor:ActorContext=Depen
     data=body.model_dump(mode='json');data['payment']=None
     requested=[{'index':i,'reason':c.get('condition_waiver'),'requested_by':str(actor.user_id)} for i,c in enumerate(data['children']) if c.get('condition_waiver')]
     for c in data['children']:c['condition_waiver']=None
+    # The rollback exception must leave the transaction block, otherwise the dry run would be committed (2026-11-07).
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-            try:
-                _enroll_and_settle(conn,actor,actor,FamilyEnrollmentBody.model_validate(data),key='dossier',settle=False);raise _PreviewRollback(None)
-            except _PreviewRollback:pass
+            _enroll_and_settle(conn,actor,actor,FamilyEnrollmentBody.model_validate(data),key='dossier',settle=False);raise _PreviewRollback(None)
+    except _PreviewRollback:pass
     except Exception as exc:_error(exc)
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
