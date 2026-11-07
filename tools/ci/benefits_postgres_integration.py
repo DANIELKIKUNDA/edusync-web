@@ -138,6 +138,8 @@ def run_per_group(C: dict) -> None:
         "applies_to_fee_codes": ["SCOLARITE", "TRANSPORT"]})
     check("paramètres : politique « par tranche » enregistrée", r.status_code in (200, 201) and r.json().get("per_group") is True, r.text[:200])
     cashier = as_(actor_for("CAISSIER", C["id"]))
+    o = cashier.post("/api/v1/finance/cash/open", json={"opening_cdf": "0", "opening_usd": "0"}, headers=key())
+    check("caisse ouverte (école C)", o.status_code in (200, 201), o.text[:150])
     guardian = {"full_name": "MUKENDI Ilunga", "role": "PERE", "phone": "+243 97 000 0002"}
     enroll = lambda kids: cashier.post("/api/v1/schooling/enrollments/family", headers=key(),
                                        json={"household_confidence": "NONE", "primary_guardian": guardian, "children": kids, "payment": {"mode": "CASH"}})
