@@ -67,9 +67,9 @@ def run(A: dict) -> None:
     check("compte sans droit d'encaisser qui tente d'inscrire → refusé, rien d'enregistré", r.status_code == 403 and students("Z%") == 0, f"{r.status_code} {r.text[:160]}")
 
     print("\n== Dossier en attente : saisi sans droit d'encaisser, dérogation de la direction, encaissé par le caissier")
-    r = H.CLIENT.post("/api/v1/schooling/enrollment-dossiers", json=body([child("D1", cls), child("D2", cls, ), child("D3", cls)], pay=False))
+    r = H.CLIENT.post("/api/v1/schooling/enrollment-dossiers", json=body([child("DQ1", cls), child("DQ2", cls), child("DQ3", cls)], pay=False))
     dos = r.json() if r.status_code == 201 else {}
-    check("dossier en attente créé, aucun élève inscrit", r.status_code == 201 and dos.get("status") == "PENDING" and students("D%") == 0, f"{r.status_code} {r.text[:200]}")
+    check("dossier en attente créé, aucun élève inscrit", r.status_code == 201 and dos.get("status") == "PENDING" and students("DQ%") == 0, f"{r.status_code} {r.text[:200]}")
     if r.status_code != 201:
         return
     as_(director_actor)
@@ -81,7 +81,7 @@ def run(A: dict) -> None:
           Decimal(pv["conditions"]["totals"]["CDF"]) == 70000 and pv["conditions"]["children"][2]["exemption"]["kind"] == "WAIVER", str(pv)[:300])
     c = H.CLIENT.post(f"/api/v1/schooling/enrollment-dossiers/{dos['id']}/complete", headers=key(), json={"payment": {"mode": "CASH"}, "expected_version": w.json()["version"]})
     check("le caissier encaisse et inscrit en une opération : 3 élèves inscrits, dossier terminé",
-          c.status_code == 201 and students("D%") == 3 and one("SELECT status FROM enrollment_dossiers WHERE id=:i", i=dos["id"])[0] == "COMPLETED", f"{c.status_code} {c.text[:200]}")
+          c.status_code == 201 and students("DQ%") == 3 and one("SELECT status FROM enrollment_dossiers WHERE id=:i", i=dos["id"])[0] == "COMPLETED", f"{c.status_code} {c.text[:200]}")
     if c.status_code == 201:
         fam = c.json()["family_id"]
         n = one("""SELECT count(*) FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN students s ON s.id=e.student_id WHERE s.family_id=:f""", f=fam)[0]
