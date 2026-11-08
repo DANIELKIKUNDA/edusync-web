@@ -57,7 +57,7 @@ def close_cash(b:CloseBody,actor:ActorContext=Depends(require_school_actor),serv
   # Automatic alert to the finance supervision (owner request 2026-11-08); never blocks the closure.
   from edusync.modules.alerts.application.school_alerts import cash_session_closed
   name=c.execute(text("SELECT coalesce(nullif(trim(full_name),''),email) FROM users WHERE id=:u"),{'u':str(actor.user_id)}).scalar() or 'Un caissier'
-  cash_session_closed(c,school_id=actor.school_id,session=out,cashier_name=name,actor_user_id=actor.user_id)
+  cash_session_closed(c,services=services,school_id=actor.school_id,session=out,cashier_name=name,actor_user_id=actor.user_id)
   return out
 @router.get('/history')
 def history(day:str|None=Query(None),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -158,7 +158,7 @@ def reverse_payment(payment_id:UUID,b:ReversalBody,actor:ActorContext=Depends(re
    old=out.pop('old');_audit(c,actor,f'PAYMENT_{b.reversal_type}','FinancePayment',payment_id,old,{'status':out['status'],'reversal_id':out['id'],'authority':out['authority']},reason=b.reason)
    from edusync.modules.alerts.application.school_alerts import payment_reversed
    name=c.execute(text("SELECT coalesce(nullif(trim(full_name),''),email) FROM users WHERE id=:u"),{'u':str(actor.user_id)}).scalar() or 'un membre'
-   payment_reversed(c,school_id=actor.school_id,receipt=out.get('receipt_number'),amount=out.get('amount'),currency=out.get('currency') or 'CDF',kind=b.reversal_type,reason=b.reason,actor_name=name,actor_user_id=actor.user_id,reversal_id=out['id'])
+   payment_reversed(c,services=services,school_id=actor.school_id,receipt=out.get('receipt_number'),amount=out.get('amount'),currency=out.get('currency') or 'CDF',kind=b.reversal_type,reason=b.reason,actor_name=name,actor_user_id=actor.user_id,reversal_id=out['id'])
    return out
  except SupervisorRequired as e:raise HTTPException(403,str(e)) from e
  except LookupError as e:raise HTTPException(404,str(e)) from e
@@ -182,7 +182,7 @@ def close_school_day(actor:ActorContext=Depends(require_school_actor),services:A
    if changed:
     _audit(c,actor,'CLOSE_CASH_DAY','CashDay',actor.school_id,None,{'day':r['day'],'totals':r['totals'],'sessions':r['sessions']})
     from edusync.modules.alerts.application.school_alerts import cash_day_closed
-    cash_day_closed(c,school_id=actor.school_id,report=r,actor_user_id=actor.user_id)
+    cash_day_closed(c,services=services,school_id=actor.school_id,report=r,actor_user_id=actor.user_id)
    return {k:v for k,v in r.items() if k!='operations'}
  except ValueError as e:raise HTTPException(409,str(e)) from e
 class ReopenBody(BaseModel):reason:str=Field(min_length=5,max_length=500)

@@ -42,23 +42,35 @@ def money_text(amount, currency: str) -> str:
 def recipients(conn, school_id: UUID, audience: str, *, section_code: str | None = None, exclude: tuple = ()) -> list[dict]:
     caps = list(AUDIENCES[audience])
     rows = conn.execute(text("""
-        SELECT DISTINCT a.user_id, u.email, trim(coalesce(u.full_name,'')) AS name
+        SELECT DISTINCT a.user_id
           FROM rbac_assignments a
           JOIN rbac_role_capabilities rc ON rc.role_id=a.role_id AND rc.capability_code = ANY(CAST(:caps AS text[]))
           JOIN school_memberships m ON m.id=a.membership_id AND m.school_id=a.school_id AND m.active
-          JOIN users u ON u.id=a.user_id AND u.active
          WHERE a.school_id=:s AND a.active AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())
            AND (CAST(:sec AS text) IS NULL
                 OR NOT EXISTS (SELECT 1 FROM rbac_assignment_scopes x WHERE x.assignment_id=a.id AND x.scope_type='SECTION')
                 OR EXISTS (SELECT 1 FROM rbac_assignment_scopes x WHERE x.assignment_id=a.id AND x.scope_type='SECTION' AND upper(x.scope_value)=upper(:sec)))
     """), {"caps": caps, "s": str(school_id), "sec": section_code}).mappings().all()
+    # users is readable by the tenant role only for the caller's own row: names / addresses come from the platform role.
     skip = {str(x) for x in exclude if x}
-    return [dict(r) for r in rows if str(r["user_id"]) not in skip]
+    return [{"user_id": r["user_id"], "email": None, "name": None} for r in rows if str(r["user_id"]) not in skip]
+
+
+def _identities(services, user_ids: list) -> dict[str, tuple[str | None, str | None]]:
+    if services is None or not user_ids:
+        return {}
+    try:
+        with services.platform_db.platform_transaction() as pc:
+            return {str(r[0]): (r[1], r[2]) for r in pc.execute(text("""SELECT id, email, nullif(trim(full_name),'') FROM users
+                WHERE id = ANY(CAST(:ids AS uuid[])) AND active"""), {"ids": [str(u) for u in user_ids]}).all()}
+    except Exception:
+        log.exception("alert recipients: identities unavailable")
+        return {}
 
 
 def school_alert(conn, *, school_id: UUID, audience: str, title: str, body: str, dedupe_key: str, link_path: str | None = None,
                  severity: str = "INFO", section_code: str | None = None, exclude_user_ids: tuple = (), email: bool = False,
-                 created_by: UUID | None = None) -> int:
+                 created_by: UUID | None = None, services=None) -> int:
     """Writes the alert for its audience; returns the number of people alerted (0 on any problem, never raises)."""
     if audience not in AUDIENCES or severity not in SEVERITIES:
         raise ValueError("Alerte inconnue")
@@ -79,6 +91,9 @@ def school_alert(conn, *, school_id: UUID, audience: str, title: str, body: str,
                                                          "t": title[:180], "b": body[:2000], "l": link_path})
                 fresh.append(p)
             if fresh:
+                ids = _identities(services, [p["user_id"] for p in fresh]) if email else {}
+                for p in fresh:
+                    p["email"], p["name"] = ids.get(str(p["user_id"]), (None, None))
                 from edusync.modules.communications.application.messaging import Recipient, request_message
                 request_message(conn, school_id=school_id, kind="ALERT", channels=["PUSH", "EMAIL"] if email else ["PUSH"],
                                 subject=title[:120], body=body[:240] if not email else body[:2000], link_path=link_path,
@@ -92,7 +107,7 @@ def school_alert(conn, *, school_id: UUID, audience: str, title: str, body: str,
 
 
 # ------------------------------------------------------------------------------------------- ready-made alerts
-def cash_session_closed(conn, *, school_id: UUID, session: dict, cashier_name: str, actor_user_id: UUID) -> int:
+def cash_session_closed(conn, *, services=None, school_id: UUID, session: dict, cashier_name: str, actor_user_id: UUID) -> int:
     lines, variance = [], []
     for cur, key in (("CDF", "cdf"), ("USD", "usd")):
         part = session.get(key) or {}
@@ -108,10 +123,10 @@ def cash_session_closed(conn, *, school_id: UUID, session: dict, cashier_name: s
         body += f" Écart au comptage : {', '.join(variance)}."
     return school_alert(conn, school_id=school_id, audience="FINANCE", severity="WARNING" if variance else "INFO",
                         title=("Écart à la clôture de caisse" if variance else "Caisse clôturée"), body=body, link_path="/finance",
-                        dedupe_key=f"cash-close:{session['id']}", exclude_user_ids=(actor_user_id,), email=bool(variance), created_by=actor_user_id)
+                        dedupe_key=f"cash-close:{session['id']}", exclude_user_ids=(actor_user_id,), email=bool(variance), created_by=actor_user_id, services=services)
 
 
-def cash_day_closed(conn, *, school_id: UUID, report: dict, actor_user_id: UUID) -> int:
+def cash_day_closed(conn, *, services=None, school_id: UUID, report: dict, actor_user_id: UUID) -> int:
     # day_report totals: [{currency, entries, outflows, net}]
     parts = [f"{money_text(t['entries'], t['currency'])} encaissés (net {money_text(t['net'], t['currency'])})"
              for t in (report.get("totals") or []) if Decimal(str(t.get("entries") or 0))]
@@ -122,19 +137,19 @@ def cash_day_closed(conn, *, school_id: UUID, report: dict, actor_user_id: UUID)
     if arrears:
         body += f" {arrears} élève{'s ont' if arrears > 1 else ' a'} au moins 3 mois de retard de paiement (voir Recouvrement)."
     return school_alert(conn, school_id=school_id, audience="FINANCE", title="Journée de caisse clôturée", body=body, link_path="/finance",
-                        dedupe_key=f"cash-day:{school_id}:{report.get('day')}", exclude_user_ids=(actor_user_id,), email=True, created_by=actor_user_id)
+                        dedupe_key=f"cash-day:{school_id}:{report.get('day')}", exclude_user_ids=(actor_user_id,), email=True, created_by=actor_user_id, services=services)
 
 
-def payment_reversed(conn, *, school_id: UUID, receipt: str | None, amount, currency: str, kind: str, reason: str,
+def payment_reversed(conn, *, services=None, school_id: UUID, receipt: str | None, amount, currency: str, kind: str, reason: str,
                      actor_name: str, actor_user_id: UUID, reversal_id) -> int:
     label = "annulé" if kind == "ANNULATION" else "remboursé"
     body = f"Reçu {receipt or '—'} ({money_text(amount, currency)}) {label} par {actor_name}. Motif : {reason}"
     return school_alert(conn, school_id=school_id, audience="FINANCE", severity="WARNING", title=f"Reçu {label}", body=body,
                         link_path="/finance", dedupe_key=f"reversal:{reversal_id}", exclude_user_ids=(actor_user_id,), email=True,
-                        created_by=actor_user_id)
+                        created_by=actor_user_id, services=services)
 
 
-def student_left(conn, *, school_id: UUID, student_id: UUID, event: str, reason: str | None, actor_user_id: UUID) -> int:
+def student_left(conn, *, services=None, school_id: UUID, student_id: UUID, event: str, reason: str | None, actor_user_id: UUID) -> int:
     s = conn.execute(text("""SELECT trim(concat_ws(' ',s.last_name,s.middle_name,s.first_name)) AS name, c.label AS class_label, sec.code AS section
           FROM students s LEFT JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id
           LEFT JOIN academic_years y ON y.id=e.academic_year_id AND y.status='ACTIVE'
@@ -151,7 +166,7 @@ def student_left(conn, *, school_id: UUID, student_id: UUID, event: str, reason:
                         exclude_user_ids=(actor_user_id,), created_by=actor_user_id)
 
 
-def waiver_requested(conn, *, school_id: UUID, dossier_label: str, child_names: list[str], dossier_id, actor_user_id: UUID) -> int:
+def waiver_requested(conn, *, services=None, school_id: UUID, dossier_label: str, child_names: list[str], dossier_id, actor_user_id: UUID) -> int:
     body = f"Dérogation aux conditions d’inscription demandée pour {', '.join(child_names)} ({dossier_label}). À accorder ou refuser dans Élèves → dossiers en attente."
     return school_alert(conn, school_id=school_id, audience="DECISIONS", severity="WARNING", title="Dérogation demandée", body=body,
                         link_path="/students", dedupe_key=f"waiver-request:{dossier_id}", exclude_user_ids=(actor_user_id,), created_by=actor_user_id)
