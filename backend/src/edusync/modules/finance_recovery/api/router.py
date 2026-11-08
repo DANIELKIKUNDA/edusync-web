@@ -30,7 +30,7 @@ def pdf(year_id:UUID|None=None,currency:str=Query('CDF',pattern='^(CDF|USD)$'),a
 def xlsx(year_id:UUID|None=None,currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     need(actor,'finance.recovery.monthly.read');need(actor,'finance.views.vf01.export');y,s,rows,total=load(actor,services,year_id,currency);data=monthly_xlsx(school=s,year_label=y['label'],currency=currency,rows=rows,total=total);archive_generated_tx(services,actor,data=data,fmt='XLSX',required_capability='finance.recovery.monthly.read',document_code=f'finance.recovery.monthly.{currency}',title=f'Suivi mensuel du recouvrement ({"FC" if currency=="CDF" else currency})',file_name=f'suivi_mensuel_recouvrement_{currency}.xlsx',academic_year_id=y['id']);return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="suivi_mensuel_recouvrement.xlsx"'})
 
-from edusync.modules.finance_recovery.application.documents import class_register_pdf,class_register_xlsx
+from edusync.modules.finance_recovery.application.documents import class_register_pdf,class_register_xlsx,class_register_bundle_pdf,class_register_bundle_xlsx
 @router.get('/classes')
 def recovery_classes(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     need(actor,'finance.recovery.monthly.read')
@@ -55,23 +55,52 @@ def class_register_pdf_route(class_id:UUID,year_id:UUID|None=None,currency:str=Q
 def class_register_xlsx_route(class_id:UUID,year_id:UUID|None=None,currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     need(actor,'finance.recovery.monthly.read');need(actor,'finance.views.vf01.export');y,s,d=_register_load(actor,services,year_id,class_id,currency);data=class_register_xlsx(school=s,year_label=y['label'],data=d);archive_generated_tx(services,actor,data=data,fmt='XLSX',required_capability='finance.recovery.monthly.read',document_code=f'finance.recovery.class_register.{class_id}.{currency}',title=f'Registre de classe ({currency})',file_name=f'registre_classe_{currency}.xlsx',academic_year_id=y['id']);return StreamingResponse(BytesIO(data),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="registre_classe.xlsx"'})
 
+@router.get('/class-register-bundle.{fmt}')
+def class_register_bundle(fmt:str,scope:str=Query('section',pattern='^(section|school)$'),section_id:UUID|None=None,year_id:UUID|None=None,currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    need(actor,'finance.recovery.monthly.read');need(actor,'finance.views.vf01.export')
+    if fmt not in ('pdf','xlsx'):raise HTTPException(404,'Format inconnu')
+    if scope=='section' and section_id is None:raise HTTPException(422,'Choisissez une section')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        repo=PostgresFinanceRecoveryRepository(conn);y=repo.year(actor.school_id,year_id)
+        if not y:raise HTTPException(409,'Année scolaire introuvable')
+        school=repo.school_identity(actor.school_id);classes=repo.classes(actor.school_id,y['id'])
+        if scope=='section':classes=[c for c in classes if c['section_id']==section_id]
+        registers=[repo.class_register(actor.school_id,y['id'],c['id'],currency) for c in classes]
+    registers=[r for r in registers if r]
+    if not registers:raise HTTPException(404,'Aucun registre disponible pour ce périmètre')
+    data=class_register_bundle_pdf(school=school,year_label=y['label'],registers=registers) if fmt=='pdf' else class_register_bundle_xlsx(school=school,year_label=y['label'],registers=registers)
+    title='Registres de la section' if scope=='section' else "Registres de l’école"
+    archive_generated_tx(services,actor,data=data,fmt=fmt.upper(),required_capability='finance.recovery.monthly.read',document_code=f'finance.recovery.class_register.{scope}.{currency}',title=f'{title} ({currency})',file_name=f'registres_{scope}_{currency}.{fmt}',academic_year_id=y['id'])
+    media='application/pdf' if fmt=='pdf' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    return StreamingResponse(BytesIO(data),media_type=media,headers={'Content-Disposition':f'{"inline" if fmt=="pdf" else "attachment"}; filename="registres_{scope}.{fmt}"'})
+
 from edusync.modules.finance_recovery.domain.summaries import total_row
 from edusync.modules.finance_recovery.application.documents import summary_pdf,summary_xlsx
 @router.get('/sections')
 def sections(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     need(actor,'finance.recovery.monthly.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        repo=PostgresFinanceRecoveryRepository(conn);y=repo.year(actor.school_id,year_id);return {'items':repo.section_list(actor.school_id,y['id'])}
+        repo=PostgresFinanceRecoveryRepository(conn);y=repo.year(actor.school_id,year_id)
+        if not y:raise HTTPException(409,'Année scolaire introuvable')
+        return {'items':repo.section_list(actor.school_id,y['id'])}
 
-def _summary_load(actor,services,kind,year_id,currency,class_id=None,section_id=None,period_order=None):
+@router.get('/fees')
+def fees(year_id:UUID|None=None,section_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    need(actor,'finance.recovery.monthly.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        repo=PostgresFinanceRecoveryRepository(conn);y=repo.year(actor.school_id,year_id)
+        if not y:raise HTTPException(409,'Année scolaire introuvable')
+        return {'items':repo.fees(actor.school_id,y['id'],section_id)}
+
+def _summary_load(actor,services,kind,year_id,currency,class_id=None,section_id=None,period_order=None,fee_type_id=None):
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresFinanceRecoveryRepository(conn);y=repo.year(actor.school_id,year_id);school=repo.school_identity(actor.school_id)
         if kind=='class':
             rows=repo.class_monthly(actor.school_id,y['id'],class_id,currency); rows=[{'label':r['month_label'],**r} for r in rows]; total=total_row(rows,sum_counts=False); title='SYNTHÈSE MENSUELLE PAR CLASSE'
         elif kind=='section':
-            rows=repo.scope_summary(actor.school_id,y['id'],currency,section_id,period_order);rows=[{'label':r['class_label'],**r} for r in rows];total=total_row(rows, sum_counts=True);title=('SYNTHÈSE MENSUELLE DE LA SECTION' if period_order is not None else 'SYNTHÈSE DE LA SECTION')
+            rows=repo.scope_summary(actor.school_id,y['id'],currency,section_id,period_order,fee_type_id);rows=[{'label':r['class_label'],**r} for r in rows];total=total_row(rows, sum_counts=True);title=('SYNTHÈSE CIBLÉE DE LA SECTION' if period_order is not None or fee_type_id else 'SYNTHÈSE DE LA SECTION')
         else:
-            raw=repo.scope_summary(actor.school_id,y['id'],currency,period_order=period_order); groups={}
+            raw=repo.scope_summary(actor.school_id,y['id'],currency,period_order=period_order,fee_type_id=fee_type_id); groups={}
             for r in raw:
                 g=groups.setdefault(str(r['section_id']),{'label':r['section_label'],'debtors':0,'in_order':0,'not_in_order':0,'expected':0,'cash_collected':0,'outside_cash':0,'regularized_total':0,'remaining':0})
                 for k in ('debtors','in_order','not_in_order','expected','cash_collected','outside_cash','regularized_total','remaining'):g[k]+=r[k] or 0
@@ -80,11 +109,13 @@ def _summary_load(actor,services,kind,year_id,currency,class_id=None,section_id=
             total=total_row(rows, sum_counts=True);title=("SYNTHÈSE MENSUELLE GLOBALE DE L'ÉCOLE" if period_order is not None else "SYNTHÈSE GLOBALE DE L'ÉCOLE")
         return y,school,rows,total,title
 @router.get('/summary/{kind}')
-def summary(kind:str,year_id:UUID|None=None,class_id:UUID|None=None,section_id:UUID|None=None,period_order:int|None=Query(None,ge=1,le=12),currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    need(actor,'finance.recovery.monthly.read');y,_,rows,total,title=_summary_load(actor,services,kind,year_id,currency,class_id,section_id,period_order);return {'academic_year':{'id':str(y['id']),'label':y['label']},'title':title,'items':rows,'total':total,'currency':currency}
+def summary(kind:str,year_id:UUID|None=None,class_id:UUID|None=None,section_id:UUID|None=None,fee_type_id:UUID|None=None,period_order:int|None=Query(None,ge=1,le=12),currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    if kind not in ('class','section','school'):raise HTTPException(404,'Synthèse inconnue')
+    need(actor,'finance.recovery.monthly.read');y,_,rows,total,title=_summary_load(actor,services,kind,year_id,currency,class_id,section_id,period_order,fee_type_id);return {'academic_year':{'id':str(y['id']),'label':y['label']},'title':title,'items':rows,'total':total,'currency':currency}
 @router.get('/summary/{kind}.{fmt}')
-def summary_export(kind:str,fmt:str,year_id:UUID|None=None,class_id:UUID|None=None,section_id:UUID|None=None,period_order:int|None=Query(None,ge=1,le=12),currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    need(actor,'finance.recovery.monthly.read');need(actor,'finance.views.vf01.export');y,s,rows,total,title=_summary_load(actor,services,kind,year_id,currency,class_id,section_id,period_order);data=summary_pdf(school=s,title=title,year_label=y['label'],currency=currency,rows=rows,total=total) if fmt=='pdf' else summary_xlsx(school=s,title=title,year_label=y['label'],currency=currency,rows=rows,total=total);archive_generated_tx(services,actor,data=data,fmt='PDF' if fmt=='pdf' else 'XLSX',required_capability='finance.recovery.monthly.read',document_code=f'finance.recovery.summary.{kind}.{currency}',title=title.capitalize(),file_name=f'synthese_{kind}_{currency}.{fmt}',academic_year_id=y['id']);return StreamingResponse(BytesIO(data),media_type='application/pdf' if fmt=='pdf' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+def summary_export(kind:str,fmt:str,year_id:UUID|None=None,class_id:UUID|None=None,section_id:UUID|None=None,fee_type_id:UUID|None=None,period_order:int|None=Query(None,ge=1,le=12),currency:str=Query('CDF',pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    if kind not in ('class','section','school') or fmt not in ('pdf','xlsx'):raise HTTPException(404,'Export inconnu')
+    need(actor,'finance.recovery.monthly.read');need(actor,'finance.views.vf01.export');y,s,rows,total,title=_summary_load(actor,services,kind,year_id,currency,class_id,section_id,period_order,fee_type_id);data=summary_pdf(school=s,title=title,year_label=y['label'],currency=currency,rows=rows,total=total) if fmt=='pdf' else summary_xlsx(school=s,title=title,year_label=y['label'],currency=currency,rows=rows,total=total);archive_generated_tx(services,actor,data=data,fmt='PDF' if fmt=='pdf' else 'XLSX',required_capability='finance.recovery.monthly.read',document_code=f'finance.recovery.summary.{kind}.{currency}',title=title.capitalize(),file_name=f'synthese_{kind}_{currency}.{fmt}',academic_year_id=y['id']);return StreamingResponse(BytesIO(data),media_type='application/pdf' if fmt=='pdf' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 # ---------------------------------------------------------------- 2026-10-25 — Suivi financier d'un frais (en ordre / non en ordre)

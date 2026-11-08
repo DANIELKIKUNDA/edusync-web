@@ -54,7 +54,29 @@ class PostgresFinanceRecoveryRepository:
 
     def classes(self,school_id,year_id):
         with self.conn.cursor(row_factory=dict_row) as c:
-            c.execute("""SELECT DISTINCT sc.id,sc.label FROM school_classes sc JOIN enrollments e ON e.class_id=sc.id AND e.school_id=sc.school_id WHERE sc.school_id=%s AND e.academic_year_id=%s AND e.status<>'CANCELLED' ORDER BY sc.label""",(school_id,year_id));return [dict(r) for r in c.fetchall()]
+            c.execute("""SELECT DISTINCT sc.id,sc.label,sec.id section_id,sec.label section_label
+              FROM school_classes sc JOIN school_sections sec ON sec.id=sc.section_id AND sec.school_id=sc.school_id
+              JOIN enrollments e ON e.class_id=sc.id AND e.school_id=sc.school_id
+             WHERE sc.school_id=%s AND e.academic_year_id=%s AND e.status<>'CANCELLED'
+             ORDER BY sec.label,sc.label""",(school_id,year_id));return [dict(r) for r in c.fetchall()]
+
+    def fees(self,school_id,year_id,section_id=None):
+        """Fees that really generated obligations in the requested scope, with only their available periods."""
+        extra=" AND sc.section_id=%s" if section_id else "";params=[school_id,year_id]+([section_id] if section_id else [])
+        with self.conn.cursor(row_factory=dict_row) as c:
+            c.execute(f"""SELECT ft.id,ft.label,fc.periodicity,fc.period_order,fc.period_label
+              FROM finance_charge_effective fc JOIN enrollments e ON e.id=fc.enrollment_id AND e.school_id=fc.school_id
+              JOIN school_classes sc ON sc.id=e.class_id AND sc.school_id=e.school_id
+              JOIN fee_types ft ON ft.id=fc.fee_type_id AND ft.school_id=fc.school_id
+             WHERE fc.school_id=%s AND e.academic_year_id=%s AND fc.status='ACTIVE' AND fc.effective_net_amount>0 {extra}
+             GROUP BY ft.id,ft.label,fc.periodicity,fc.period_order,fc.period_label
+             ORDER BY ft.label,fc.period_order NULLS LAST,fc.period_label""",tuple(params));rows=c.fetchall()
+        out={}
+        for row in rows:
+            item=out.setdefault(str(row['id']),{'id':row['id'],'label':row['label'],'periodicity':row['periodicity'],'periods':[]})
+            if row['period_order'] is not None and not any(p['order']==row['period_order'] for p in item['periods']):
+                item['periods'].append({'order':row['period_order'],'label':row['period_label'] or f"Période {row['period_order']}"})
+        return list(out.values())
 
     def class_register(self,school_id,year_id,class_id,currency='CDF'):
         with self.conn.cursor(row_factory=dict_row) as c:
@@ -109,10 +131,15 @@ class PostgresFinanceRecoveryRepository:
         with self.conn.cursor(row_factory=dict_row) as c:
             c.execute("""SELECT DISTINCT sec.id,sec.label FROM school_sections sec JOIN school_classes sc ON sc.section_id=sec.id AND sc.school_id=sec.school_id JOIN enrollments e ON e.class_id=sc.id AND e.school_id=sc.school_id WHERE sec.school_id=%s AND e.academic_year_id=%s AND e.status<>'CANCELLED' ORDER BY sec.label""",(school_id,year_id));return [dict(r) for r in c.fetchall()]
 
-    def scope_summary(self,school_id,year_id,currency='CDF',section_id=None,period_order=None):
+    def scope_summary(self,school_id,year_id,currency='CDF',section_id=None,period_order=None,fee_type_id=None):
         extra=" AND sc.section_id=%s" if section_id else ""; params=[school_id,year_id,currency]+([section_id] if section_id else [])
+        if fee_type_id is not None:
+            extra += " AND fc.fee_type_id=%s";params.append(fee_type_id)
         if period_order is not None:
-            extra += " AND fc.periodicity='MONTHLY' AND COALESCE(fc.period_order,((EXTRACT(MONTH FROM fc.due_date)::int+3)%%12)+1,0)=%s"
+            # Backward compatibility: the old month-only API still derives a missing monthly order from the due date.
+            # With the professional fee selector, periods belong to that fee and use their explicit order.
+            extra += (" AND fc.period_order=%s" if fee_type_id is not None else
+                      " AND fc.periodicity='MONTHLY' AND COALESCE(fc.period_order,((EXTRACT(MONTH FROM fc.due_date)::int+3)%%12)+1,0)=%s")
             params.append(period_order)
         sql=f"""WITH b AS (SELECT sc.id class_id,sc.label class_label,sec.id section_id,sec.label section_label,e.id enrollment_id,fc.effective_net_amount net_amount,fc.paid_amount,fc.outside_cash_amount outside_cash FROM school_classes sc JOIN school_sections sec ON sec.id=sc.section_id JOIN enrollments e ON e.class_id=sc.id AND e.school_id=sc.school_id JOIN finance_charge_effective fc ON fc.enrollment_id=e.id AND fc.school_id=e.school_id WHERE sc.school_id=%s AND e.academic_year_id=%s AND fc.currency=%s AND fc.status='ACTIVE' {extra}), per_student AS (SELECT class_id,class_label,section_id,section_label,enrollment_id,sum(net_amount) expected,sum(paid_amount) cash_collected,sum(outside_cash) outside_cash FROM b GROUP BY class_id,class_label,section_id,section_label,enrollment_id) SELECT class_id,class_label,section_id,section_label,count(*) debtors,count(*) FILTER(WHERE cash_collected+outside_cash>=expected) in_order,count(*) FILTER(WHERE cash_collected+outside_cash<expected) not_in_order,sum(expected) expected,sum(cash_collected) cash_collected,sum(outside_cash) outside_cash,sum(cash_collected+outside_cash) regularized_total,sum(greatest(expected-cash_collected-outside_cash,0)) remaining,CASE WHEN sum(expected)>0 THEN round(sum(cash_collected+outside_cash)*100/sum(expected),1) ELSE 0 END recovery_rate FROM per_student GROUP BY class_id,class_label,section_id,section_label ORDER BY class_label"""
         with self.conn.cursor(row_factory=dict_row) as c:c.execute(sql,tuple(params));return [dict(r) for r in c.fetchall()]
