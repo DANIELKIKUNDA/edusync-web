@@ -53,7 +53,12 @@ def close_cash(b:CloseBody,actor:ActorContext=Depends(require_school_actor),serv
   if not r:raise HTTPException(409,'Aucune caisse ouverte à clôturer')
   c.execute(text("UPDATE finance_cash_sessions SET status='CLOSED',closed_at=now(),counted_cdf=:cdf,counted_usd=:usd,close_note=:n WHERE id=:id"),{'cdf':b.counted_cdf,'usd':b.counted_usd,'n':b.note,'id':str(r['id'])})
   c.execute(text("INSERT INTO finance_cash_events(school_id,cash_session_id,actor_user_id,event_type,payload) VALUES(:sid,:cs,:u,'CLOSE',jsonb_build_object('counted_cdf',:cdf,'counted_usd',:usd))"),{'sid':str(actor.school_id),'cs':str(r['id']),'u':str(actor.user_id),'cdf':b.counted_cdf,'usd':b.counted_usd})
-  r=one(c,'SELECT * FROM finance_cash_sessions WHERE id=:id',{'id':str(r['id'])});return projection(c,r)
+  r=one(c,'SELECT * FROM finance_cash_sessions WHERE id=:id',{'id':str(r['id'])});out=projection(c,r)
+  # Automatic alert to the finance supervision (owner request 2026-11-08); never blocks the closure.
+  from edusync.modules.alerts.application.school_alerts import cash_session_closed
+  name=c.execute(text("SELECT coalesce(nullif(trim(full_name),''),email) FROM users WHERE id=:u"),{'u':str(actor.user_id)}).scalar() or 'Un caissier'
+  cash_session_closed(c,services=services,school_id=actor.school_id,session=out,cashier_name=name,actor_user_id=actor.user_id)
+  return out
 @router.get('/history')
 def history(day:str|None=Query(None),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.cash.read');other='finance.cash.other.read' in actor.permissions
@@ -151,6 +156,9 @@ def reverse_payment(payment_id:UUID,b:ReversalBody,actor:ActorContext=Depends(re
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
    out=PostgresCashIntegrityRepository(c).reverse_payment(actor.school_id,payment_id,user_id=actor.user_id,membership_id=actor.membership_id,reversal_type=b.reversal_type,reason=b.reason,can_own=can_own,can_supervisor=can_sup)
    old=out.pop('old');_audit(c,actor,f'PAYMENT_{b.reversal_type}','FinancePayment',payment_id,old,{'status':out['status'],'reversal_id':out['id'],'authority':out['authority']},reason=b.reason)
+   from edusync.modules.alerts.application.school_alerts import payment_reversed
+   name=c.execute(text("SELECT coalesce(nullif(trim(full_name),''),email) FROM users WHERE id=:u"),{'u':str(actor.user_id)}).scalar() or 'un membre'
+   payment_reversed(c,services=services,school_id=actor.school_id,receipt=out.get('receipt_number'),amount=out.get('amount'),currency=out.get('currency') or 'CDF',kind=b.reversal_type,reason=b.reason,actor_name=name,actor_user_id=actor.user_id,reversal_id=out['id'])
    return out
  except SupervisorRequired as e:raise HTTPException(403,str(e)) from e
  except LookupError as e:raise HTTPException(404,str(e)) from e
@@ -171,7 +179,10 @@ def close_school_day(actor:ActorContext=Depends(require_school_actor),services:A
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
    r,changed=PostgresCashIntegrityRepository(c).close_day(actor.school_id,user_id=actor.user_id)
-   if changed:_audit(c,actor,'CLOSE_CASH_DAY','CashDay',actor.school_id,None,{'day':r['day'],'totals':r['totals'],'sessions':r['sessions']})
+   if changed:
+    _audit(c,actor,'CLOSE_CASH_DAY','CashDay',actor.school_id,None,{'day':r['day'],'totals':r['totals'],'sessions':r['sessions']})
+    from edusync.modules.alerts.application.school_alerts import cash_day_closed
+    cash_day_closed(c,services=services,school_id=actor.school_id,report=r,actor_user_id=actor.user_id)
    return {k:v for k,v in r.items() if k!='operations'}
  except ValueError as e:raise HTTPException(409,str(e)) from e
 class ReopenBody(BaseModel):reason:str=Field(min_length=5,max_length=500)
