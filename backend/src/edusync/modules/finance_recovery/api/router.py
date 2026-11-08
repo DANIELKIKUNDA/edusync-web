@@ -138,7 +138,7 @@ PILOTAGE_SQL = """
 WITH b AS (SELECT CAST(%(today)s AS date) d, date_trunc('week', CAST(%(today)s AS date))::date w,
                   date_trunc('month', CAST(%(today)s AS date))::date m, CAST(%(start)s AS date) y),
 mv AS (
-  SELECT s.business_date day, p.currency, p.amount FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
+  SELECT s.business_date AS bday, p.currency, p.amount FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
    WHERE s.school_id=%(sid)s AND s.business_date >= (SELECT least(y, w) FROM b)
   UNION ALL
   SELECT s.business_date, f.currency, f.amount FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id
@@ -150,10 +150,10 @@ mv AS (
   SELECT c.business_date, f.currency, -c.amount FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id
    WHERE c.school_id=%(sid)s AND c.business_date >= (SELECT least(y, w) FROM b) AND c.closure_type IN ('ANNULATION','REMBOURSEMENT'))
 SELECT mv.currency,
-       COALESCE(sum(amount) FILTER (WHERE day = b.d),0) today,
-       COALESCE(sum(amount) FILTER (WHERE day >= b.w AND day <= b.d),0) week,
-       COALESCE(sum(amount) FILTER (WHERE day >= b.m AND day <= b.d),0) month,
-       COALESCE(sum(amount) FILTER (WHERE day >= b.y AND day <= b.d),0) year
+       COALESCE(sum(amount) FILTER (WHERE bday = b.d),0) AS today,
+       COALESCE(sum(amount) FILTER (WHERE bday >= b.w AND bday <= b.d),0) AS week,
+       COALESCE(sum(amount) FILTER (WHERE bday >= b.m AND bday <= b.d),0) AS month,
+       COALESCE(sum(amount) FILTER (WHERE bday >= b.y AND bday <= b.d),0) AS year
   FROM mv, b GROUP BY mv.currency"""
 
 
