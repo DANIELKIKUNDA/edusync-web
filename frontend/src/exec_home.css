@@ -41,3 +41,5 @@
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ex-tile-due{background:transparent}:root:not([data-theme="light"]) .ex-total{background:transparent}}
 :root[data-theme="dark"] .ex-tile-due,:root[data-theme="dark"] .ex-total{background:transparent}
+.ex-detail{color:#b45309!important;font-size:11.5px!important}
+.ex-how{margin:12px 0 0;font-size:12px;color:var(--ui-muted,#64748b);line-height:1.5}

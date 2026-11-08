@@ -138,22 +138,24 @@ PILOTAGE_SQL = """
 WITH b AS (SELECT CAST(%(today)s AS date) d, date_trunc('week', CAST(%(today)s AS date))::date w,
                   date_trunc('month', CAST(%(today)s AS date))::date m, CAST(%(start)s AS date) y),
 mv AS (
-  SELECT s.business_date AS bday, p.currency, p.amount FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
+  SELECT s.business_date AS bday, p.currency, p.amount, 'R' AS kind FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
    WHERE s.school_id=%(sid)s AND s.business_date >= (SELECT least(y, w) FROM b)
   UNION ALL
-  SELECT s.business_date, f.currency, f.amount FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id
+  SELECT s.business_date, f.currency, f.amount, 'R' FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id
    WHERE s.school_id=%(sid)s AND s.business_date >= (SELECT least(y, w) FROM b)
   UNION ALL
-  SELECT r.business_date, r.currency, -r.amount FROM finance_payment_reversals r
+  SELECT r.business_date, r.currency, -r.amount, 'C' FROM finance_payment_reversals r
    WHERE r.school_id=%(sid)s AND r.business_date >= (SELECT least(y, w) FROM b)
   UNION ALL
-  SELECT c.business_date, f.currency, -c.amount FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id
+  SELECT c.business_date, f.currency, -c.amount, 'C' FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id
    WHERE c.school_id=%(sid)s AND c.business_date >= (SELECT least(y, w) FROM b) AND c.closure_type IN ('ANNULATION','REMBOURSEMENT'))
 SELECT mv.currency,
        COALESCE(sum(amount) FILTER (WHERE bday = b.d),0) AS today,
        COALESCE(sum(amount) FILTER (WHERE bday >= b.w AND bday <= b.d),0) AS week,
        COALESCE(sum(amount) FILTER (WHERE bday >= b.m AND bday <= b.d),0) AS month,
-       COALESCE(sum(amount) FILTER (WHERE bday >= b.y AND bday <= b.d),0) AS year
+       COALESCE(sum(amount) FILTER (WHERE bday >= b.y AND bday <= b.d),0) AS year,
+       COALESCE(sum(amount) FILTER (WHERE bday = b.d AND kind='R'),0) AS today_receipts,
+       COALESCE(-sum(amount) FILTER (WHERE bday = b.d AND kind='C'),0) AS today_cancellations
   FROM mv, b GROUP BY mv.currency"""
 
 
@@ -162,18 +164,26 @@ def pilotage(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_ac
     # Cash desks are school-wide: their money only for whoever supervises them (finance.cash.other.read). A section leader
     # (préfet, direction de section) given the finances follows the recovery of HIS section only (scoped like the tables).
     need(actor,'finance.recovery.monthly.read');sees_cash='finance.cash.other.read' in actor.permissions
-    from datetime import date as _d
     from psycopg.rows import dict_row as _dr
-    today=_d.today()
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         repo=PostgresFinanceRecoveryRepository(conn);y=repo.year(actor.school_id,year_id)
+        # « Today » is the business day of the cash desks themselves (sessions open on the database's CURRENT_DATE), so the
+        # promoteur's day and the cashier's day are always the same day.
+        with repo.conn.cursor() as c:
+            c.execute("SELECT CURRENT_DATE");today=c.fetchone()[0]
         if not y:raise HTTPException(409,'Année scolaire introuvable')
         start=min(y['start_date'],today)
         cash=None
         if sees_cash:
             with repo.conn.cursor(row_factory=_dr) as c:
                 c.execute(PILOTAGE_SQL,{'sid':actor.school_id,'today':today,'start':start});rows={r['currency']:r for r in c.fetchall()}
-            cash={cur:{k:str(rows.get(cur,{}).get(k,0) or 0) for k in ('today','week','month','year')} for cur in ('CDF','USD')}
+                # today's detail, so that the figure reconciles with the cash desks: receipts − cancellations = today;
+                # expenses are NOT deducted from the money received (they are in the theoretical balance of the desks).
+                c.execute("""SELECT e.currency AS cur, COALESCE(sum(e.amount),0) AS amt FROM finance_cash_expenses e JOIN finance_cash_sessions s ON s.id=e.cash_session_id
+                             WHERE s.school_id=%(sid)s AND s.business_date=%(today)s GROUP BY e.currency""",{'sid':actor.school_id,'today':today})
+                expenses={r['cur']:r['amt'] for r in c.fetchall()}
+            keys=('today','week','month','year','today_receipts','today_cancellations')
+            cash={cur:{**{k:str(rows.get(cur,{}).get(k,0) or 0) for k in keys},'today_expenses':str(expenses.get(cur,0) or 0)} for cur in ('CDF','USD')}
         scopes=actor.scopes_for('finance.recovery.monthly.read');recovery={}
         for cur in ('CDF','USD'):
             items=repo.monthly(actor.school_id,y['id'],cur,scopes=scopes);t=monthly_total(items)

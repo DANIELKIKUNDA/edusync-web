@@ -76,6 +76,14 @@ def run(A: dict) -> None:
     amt = one("SELECT amount FROM finance_payments WHERE id=:i", i=pay)[0]
     after = as_(gest).get("/api/v1/finance/recovery/pilotage").json()["cash"]["CDF"]["today"]
     check("→ l'annulation est déduite de l'argent du jour", float(after) == float(paid) - float(amt), (after, paid, amt))
+    # Owner, 2026-11-08: « les montants du caissier et du promoteur ne doivent jamais se contredire »
+    pj = as_(gest).get("/api/v1/finance/recovery/pilotage").json()["cash"]["CDF"]
+    ses = as_(cashier_actor).get("/api/v1/finance/cash/current").json()["session"]["cdf"]
+    day = as_(gest).get("/api/v1/finance/cash/day-summary").json()["currencies"]["CDF"]
+    check("un seul caissier : l'argent du jour du promoteur = reçus − annulations de la caisse du caissier",
+          float(pj["today"]) == float(ses["receipts"]) - float(ses["reversals"]) == float(pj["today_receipts"]) - float(pj["today_cancellations"]), (pj, ses))
+    check("le solde théorique global (promoteur) = le solde théorique de la caisse du caissier",
+          float(day["expected_cash"]) == float(ses["expected_cash"]), (day, ses))
     as_(cashier_actor)
     check("→ le gestionnaire reçoit « Reçu annulé » (motif inclus) ; le caissier rien",
           "Reçu annulé" in inbox(gest, "ALERT_FINANCE") and not inbox(cashier_actor, "ALERT_FINANCE"), (inbox(gest, "ALERT_FINANCE"), inbox(cashier_actor, "ALERT_FINANCE")))

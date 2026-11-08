@@ -247,7 +247,7 @@ export async function fetchDepositsExport(token:string,scope:EffectifsScope,year
 
 // Point 5 — Centre documentaire
 export type DocumentCatalogItem={code:string;label:string;module:string;formats:string[];preservation:string;status:string;source:string;capability?:string|null;archive_codes?:string[]};
-export async function getDocumentCatalog(token:string):Promise<{items:DocumentCatalogItem[];canonical_count:number;visible_count:number;doctrine:string}>{const r=await fetch(`${API}/documents/catalog`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Catalogue documentaire indisponible'));return r.json()}
+export async function getDocumentCatalog(token:string):Promise<{items:DocumentCatalogItem[];families?:DocumentCatalogItem[];canonical_count:number;visible_count:number;doctrine:string}>{const r=await fetch(`${API}/documents/catalog`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Catalogue documentaire indisponible'));return r.json()}
 export async function studentImportTemplate(token:string,academicYearId?:string):Promise<Blob>{const q=academicYearId?`?academic_year_id=${encodeURIComponent(academicYearId)}`:'';return fetchProtectedBlob(token,`${API}/documents/student-import-template.xlsx${q}`,'Modèle d’import indisponible')}
 
 // Point 6A — Encaissement industriel
@@ -284,7 +284,7 @@ export async function checkoutSellProduct(token:string,body:{student_id?:string|
 export type RecoveryMonthlyRow={ord?:number;month_label:string;debtors:number|null;in_order:number|null;not_in_order:number|null;expected:string;cash_collected:string;outside_cash:string;regularized_total:string;remaining:string;recovery_rate:string|number};
 export async function recoveryMonthly(token:string,yearId?:string,currency='CDF'):Promise<{academic_year:{id:string;label:string};currency:string;items:RecoveryMonthlyRow[];total:RecoveryMonthlyRow}>{const r=await fetch(`${API}/finance/recovery/monthly${qp({year_id:yearId,currency})}`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Suivi mensuel indisponible'));return r.json()}
 // Executive money view (owner, 2026-11-08): money received today / week / month / since the start of the year, and what remains to recover.
-type PilotagePeriods={today:string;week:string;month:string;year:string};
+type PilotagePeriods={today:string;week:string;month:string;year:string;today_receipts?:string;today_cancellations?:string;today_expenses?:string};
 export type FinancePilotage={academic_year:{id:string;label:string;start_date:string};today:string;week_start:string;month_start:string;cash:{CDF:PilotagePeriods;USD:PilotagePeriods}|null;recovery:{CDF:{expected:string;regularized:string;remaining:string;rate:string};USD:{expected:string;regularized:string;remaining:string;rate:string}}};
 export async function financePilotage(token:string,yearId?:string):Promise<FinancePilotage>{const r=await fetch(`${API}/finance/recovery/pilotage${qp({year_id:yearId})}`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Situation financière indisponible'));return r.json()}
 export async function recoveryMonthlyExport(token:string,kind:'pdf'|'xlsx',yearId?:string,currency='CDF'):Promise<Blob>{return fetchProtectedBlob(token,`${API}/finance/recovery/monthly.${kind}${qp({year_id:yearId,currency})}`,'Export du suivi mensuel impossible')}
@@ -317,7 +317,7 @@ export type CashSessionsPage={start:string;end:string;total:number;items:CashSes
 export async function cashSessions(token:string,f:{start?:string;end?:string;status?:string;membership_id?:string;limit?:number;offset?:number}):Promise<CashSessionsPage>{const r=await fetch(`${API}/finance/cash/sessions${qp(f as any)}`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Historique des caisses indisponible'));return r.json()}
 export async function cashSessionsXlsx(token:string,f:{start?:string;end?:string;status?:string;membership_id?:string}):Promise<Blob>{return fetchProtectedBlob(token,`${API}/finance/cash/sessions.xlsx${qp(f as any)}`,'Export des caisses indisponible')}
 export async function cashSessionJournalFile(token:string,id:string,kind:'pdf'|'xlsx'):Promise<Blob>{return fetchProtectedBlob(token,`${API}/finance/cash/${id}/journal.${kind}`,'Journal de caisse indisponible')}
-export async function cashDaySummary(token:string,day:string):Promise<any>{const r=await fetch(`${API}/finance/cash/day-summary${qp({day})}`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Situation globale indisponible'));return r.json()}
+export async function cashDaySummary(token:string,day?:string):Promise<any>{const r=await fetch(`${API}/finance/cash/day-summary${qp({day})}`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Situation globale indisponible'));return r.json()}
 // Point 6G — Rapports financiers dynamiques
 export type FinanceReportTemplate={id?:string;code:string;label:string;description?:string|null;scope_mode:'MY_CASH'|'ONE_CASHIER'|'ALL_CASHIERS';sections:string[];system_template:boolean;enabled:boolean};
 export type CommTemplate={id:string;code:string;label:string;channel:string;body:string;enabled:boolean;version:number;updated_at:string};

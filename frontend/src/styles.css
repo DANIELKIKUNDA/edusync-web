@@ -302,13 +302,17 @@ button.homeSearch{width:100%;text-align:left;font:inherit;cursor:pointer;border:
 
 /* School home — premium pass 2026-10-24 (built on platform/ui.css) */
 .sh-home{max-width:1240px}
-.sh-home-executive #sh-follow .ui-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
-.sh-home-executive #sh-follow .ui-card{min-height:150px}
-.sh-home-executive #sh-follow .ui-card-wide{grid-column:1/-1;min-height:auto}
-.sh-home-executive #sh-watch .ui-grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+/* Owner, 2026-11-08: small cards share the row — never one card alone on a line while there is room on its right. */
+.sh-rows{display:grid;gap:14px}
+.sh-home .ui-grid.sh-row{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.sh-home-executive [aria-labelledby=sh-follow] .ui-grid.sh-row{margin-top:14px}
+.sh-home-executive [aria-labelledby=sh-follow] .ui-grid,.sh-home-executive [aria-labelledby=sh-academic] .ui-grid,.sh-home-executive [aria-labelledby=sh-activity] .ui-grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr));align-items:stretch}
+.sh-home-executive [aria-labelledby=sh-follow] .ui-card{min-height:150px}
+.sh-home-executive [aria-labelledby=sh-follow] .ui-card-wide{grid-column:1/-1;min-height:auto}
+.sh-home-executive [aria-labelledby=sh-watch] .ui-grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
 @media (max-width:820px){
-  .sh-home-executive #sh-follow .ui-grid,.sh-home-executive #sh-watch .ui-grid{grid-template-columns:1fr}
-  .sh-home-executive #sh-follow .ui-card{min-height:0}
+  .sh-home-executive [aria-labelledby=sh-follow] .ui-grid,.sh-home-executive [aria-labelledby=sh-watch] .ui-grid,.sh-home-executive [aria-labelledby=sh-academic] .ui-grid,.sh-home-executive [aria-labelledby=sh-activity] .ui-grid{grid-template-columns:1fr}
+  .sh-home-executive [aria-labelledby=sh-follow] .ui-card{min-height:0}
 }
 
 .sh-search{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;border:1px solid var(--es-line,#d5dbe6);border-radius:14px;background:var(--es-surface,#fff);

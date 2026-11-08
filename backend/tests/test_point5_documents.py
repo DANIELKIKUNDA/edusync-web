@@ -39,3 +39,18 @@ def test_every_archived_document_code_has_its_catalog_folder():
            'headcounts.section':'effectifs.headcounts','contributions.register':'effectifs.contributions'}
     for code,family in codes.items():
         assert catalog_family(code) is not None and catalog_family(code).code==family, code
+
+
+def test_folders_follow_the_full_catalog_even_for_a_reader_who_cannot_produce_the_document():
+    """Owner, 2026-11-08: the promoteur saw « Annuaire des élèves » under « Autres documents » because the catalog sent to
+    him only listed what HE can produce. The folders now come from the whole catalog (names only, no right granted)."""
+    import json
+    from pathlib import Path
+    from edusync.modules.documents.domain.catalog import CATALOG, catalog_family, visible_catalog
+    root = Path(__file__).resolve().parents[2]
+    promoteur = frozenset(json.loads((root / "contracts/CAPABILITY_REGISTRY.json").read_text(encoding="utf-8"))["standard_roles"]["PROMOTEUR"]["capabilities"])
+    assert "schooling.student_directory" not in {d["code"] for d in visible_catalog(promoteur)}   # he cannot produce it…
+    assert catalog_family("students.directory").label == "Liste des élèves"                      # …but it has its folder
+    router = (root / "backend/src/edusync/modules/documents/api/router.py").read_text(encoding="utf-8")
+    assert '"families":families' in router and "for d in CATALOG]" in router
+    assert "setFamilies(x.families??x.items)" in (root / "frontend/src/documents.tsx").read_text(encoding="utf-8")
