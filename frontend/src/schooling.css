@@ -68,3 +68,29 @@
   .fi-rows li{flex-wrap:wrap;gap:6px}
   .fi-main small{white-space:normal}
 }
+/* Family sheet: what the family owes for the year, then child by child (owner request 2026-11-08). */
+.ff-total{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px;border:1px solid #e4e7ec;border-radius:14px;background:#f9fafb}
+.ff-total>div{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:#fff;border:1px solid #eaecf0}
+.ff-total span{font-size:11.5px;font-weight:600;color:#667085}
+.ff-total b{font-size:16px;color:#101828}
+.ff-total b.ok{color:#067647}
+.ff-total b.due{color:#b42318}
+.ff-bar{grid-column:1/-1;height:8px;border-radius:999px;background:#eaecf0;overflow:hidden}
+.ff-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#12b76a,#079455)}
+.ff-total small{grid-column:1/-1;font-size:12px;color:#475467}
+.ff-alert{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;padding:10px 12px;border-radius:10px;background:#fef3f2;color:#b42318;font-size:12.5px;font-weight:600}
+.ff-kids{display:grid;gap:6px;margin-top:10px}
+.ff-kid{border:1px solid #e4e7ec;border-radius:12px;background:#fff}
+.ff-kid>summary{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;cursor:pointer;list-style:none}
+.ff-kid>summary::-webkit-details-marker{display:none}
+.ff-kidName,.ff-kidNums{display:grid;gap:2px;min-width:0}
+.ff-kidName b{font-size:13.5px;color:#101828}
+.ff-kidName small,.ff-kidNums small{font-size:11.5px;color:#667085}
+.ff-kidNums{text-align:right}
+.ff-kidNums b{font-size:13.5px;color:#b42318}
+.ff-kid.done .ff-kidNums b{color:#067647}
+.ff-kid table{width:100%;border-collapse:collapse;font-size:12.5px}
+.ff-kid th,.ff-kid td{padding:6px 12px;border-top:1px solid #f2f4f7;text-align:right}
+.ff-kid th{text-align:left;font-weight:600;color:#344054}
+.ff-kid th small{display:block;font-weight:400;color:#667085}
+@media (max-width:520px){.ff-total{grid-template-columns:1fr}}
