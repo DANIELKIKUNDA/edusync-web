@@ -7,12 +7,24 @@ Channels: `edusync:rt:<user_id>:<school_id|platform>` (one per inbox).
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import time
 from typing import AsyncIterator
 
 STREAM_MAX_SECONDS = 300   # the client reconnects with a fresh access token; a revoked session stops within 5 min
 HEARTBEAT_SECONDS = 20
+
+
+# Inboxes changed by the current request (automatic alerts). The live-changes middleware publishes them once the request has
+# succeeded, i.e. after the business transaction committed, so a bell never rings for an alert that was rolled back.
+PENDING_INBOX: contextvars.ContextVar[list | None] = contextvars.ContextVar("edusync_pending_inbox", default=None)
+
+
+def note_inbox_changed(user_id, school_id) -> None:
+    pending = PENDING_INBOX.get()
+    if pending is not None:
+        pending.append((str(user_id), str(school_id) if school_id else None))
 
 
 def channel(user_id, school_id=None) -> str:

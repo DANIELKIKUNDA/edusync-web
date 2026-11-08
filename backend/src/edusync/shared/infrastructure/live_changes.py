@@ -8,7 +8,7 @@ import asyncio
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from edusync.shared.infrastructure.realtime import live_domains, publish_school_changed
+from edusync.shared.infrastructure.realtime import PENDING_INBOX, live_domains, publish_inbox_changed, publish_school_changed
 
 
 class LiveChangesMiddleware(BaseHTTPMiddleware):
@@ -17,9 +17,16 @@ class LiveChangesMiddleware(BaseHTTPMiddleware):
         self.redis_url = redis_url
 
     async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
+        pending: list[tuple[str, str | None]] = []
+        token = PENDING_INBOX.set(pending)      # automatic alerts written during the request register their recipients here
+        try:
+            response = await call_next(request)
+        finally:
+            PENDING_INBOX.reset(token)
         if not self.redis_url or not 200 <= response.status_code < 300:
             return response
+        if pending:   # after the commit: the bells of the people alerted ring at once (owner, 2026-11-08)
+            asyncio.get_running_loop().run_in_executor(None, publish_inbox_changed, self.redis_url, list(dict.fromkeys(pending)))
         school_id = getattr(request.state, "live_school_id", None)
         domains = live_domains(request.method, request.url.path) if school_id else ()
         if domains:

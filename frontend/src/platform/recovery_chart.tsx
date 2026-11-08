@@ -9,12 +9,13 @@ import {recoveryMonthly} from '../api';
 import {formatMoney} from './format';
 import './recovery_chart.css';
 
-type Row = {month_label: string; expected: string | number; regularized_total: string | number; remaining: string | number; recovery_rate: string | number; debtors?: number | null};
+type Row = {ord?: number; month_label: string; expected: string | number; regularized_total: string | number; remaining: string | number; recovery_rate: string | number; debtors?: number | null};
 type Data = {items: Row[]; total: Row | null};
 const num = (v: unknown) => Number(v ?? 0) || 0;
 const MONTHS: Record<string, string> = {janvier: 'Janv', février: 'Févr', mars: 'Mars', avril: 'Avr', mai: 'Mai', juin: 'Juin', juillet: 'Juil', août: 'Août', septembre: 'Sept', octobre: 'Oct', novembre: 'Nov', décembre: 'Déc'};
 /** Consistent short labels: months (Sept, Oct… Juin, Juil) and State-fee tranches (T1, T2, T3). */
-export const short = (label: string) => MONTHS[label.trim().toLowerCase()] ?? label.replace(/^(\d+)(re|e) tranche$/i, 'T$1');
+export const short = (label: string) => { const m = MONTHS[label.trim().toLowerCase()]; if (m) return m; const t = label.replace(/^.*?(\d+)(re|e) tranche$/i, 'T$1');
+  return t.length <= 9 ? t : `${t.slice(0, 8).trim()}.`; };  // other fees (inscription, articles…): their own band, short axis label
 
 export function RecoveryChart({token, yearId, compact, onOpen}: {token: string; yearId?: string; compact?: boolean; onOpen?: () => void}) {
   const [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
@@ -76,6 +77,8 @@ export function RecoveryChart({token, yearId, compact, onOpen}: {token: string; 
               return <g key={i}>
                 <rect className="rc-track" x={x(i) - barW / 2} y={yAmt(e)} width={barW} height={Math.max(0, base - yAmt(e))} rx={4}/>
                 {g > 0 && <rect className="rc-fill" x={x(i) - barW / 2} y={yAmt(g)} width={barW} height={Math.max(2, base - yAmt(g))} rx={4}/>}
+                {/* Owner report 2026-11-08: months first, then each non-monthly fee in its own band, after a separator */}
+                {num(r.ord) >= 100 && num(items[i - 1]?.ord) < 100 && i > 0 && <line className="rc-sep" x1={x(i) - step / 2} x2={x(i) - step / 2} y1={4} y2={amtH + 4}/>}
                 {(step >= 34 || i % 2 === 0) && <text className="rc-x" x={x(i)} y={amtH + 15} textAnchor="middle">{step < 84 ? short(r.month_label) : r.month_label}</text>}
               </g>; })}
           </svg></figure>
