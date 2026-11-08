@@ -102,9 +102,27 @@ def run(A: dict) -> None:
     check("→ ceux qui accordent les dérogations sont alertés (« Dérogation demandée »)", "Dérogation demandée" in inbox(gest, "ALERT_DECISIONS"), inbox(gest, "ALERT_DECISIONS"))
 
 
+def section_scopes(A: dict) -> None:
+    """Owner, 2026-11-08: a section leader sees HIS section only — headcounts and the section's money — never the school."""
+    print("\n== Directions de section : effectifs et finances limités à la section")
+    seen = {}
+    for role, section in (("PREFET_ETUDES", "SECONDAIRE"), ("DIRECTEUR_ETUDES", "SECONDAIRE"), ("DIRECTEUR_DISCIPLINE", "SECONDAIRE"), ("DIRECTION_SECTION", "PRIMAIRE")):
+        actor = actor_for(role, A["id"], scope=("SECTION", section))
+        r = as_(actor).get("/api/v1/effectifs/counts", params={"group_by": "class"})
+        sections = {i["section"] for i in r.json().get("items", [])} if r.status_code == 200 else set()
+        seen[role] = sections
+        check(f"{role} ({section}) : les effectifs de sa seule section", r.status_code == 200 and len(sections) == 1, (r.status_code, sections, r.text[:200]))
+    whole = as_(actor_for("PROMOTEUR", A["id"])).get("/api/v1/effectifs/counts", params={"group_by": "class"}).json()
+    check("le promoteur voit toutes les sections, la direction du primaire une autre que le préfet",
+          len({i["section"] for i in whole["items"]}) > 1 and seen["DIRECTION_SECTION"] != seen["PREFET_ETUDES"], ({i["section"] for i in whole["items"]}, seen))
+    p = as_(actor_for("PREFET_ETUDES", A["id"], scope=("SECTION", "SECONDAIRE"))).get("/api/v1/finance/recovery/pilotage")
+    check("préfet : les finances de sa section, jamais l'argent des caisses de l'école", p.status_code == 200 and p.json()["cash"] is None and "recovery" in p.json(), (p.status_code, p.text[:200]))
+
+
 def main() -> int:
     A = school("F")
     run(A)
+    section_scopes(A)
     H.CLIENT.__exit__(None, None, None)
     fails = [r for r in H.RESULTS if r[0] == "FAIL"]
     print(f"\n{len(H.RESULTS) - len(fails)}/{len(H.RESULTS)} PASS · {len(fails)} FAIL")
