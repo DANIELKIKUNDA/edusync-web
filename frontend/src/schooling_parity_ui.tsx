@@ -52,9 +52,12 @@ const FINANCE_MODE: Record<string, string> = {FAMILY: 'Payé par la famille', PA
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 const pupil = (r: any) => [r.last_name, r.middle_name, r.first_name].filter(Boolean).join(' ');
 
-export function FamilyInsights({token}: {token: string}) {
+export function FamilyInsights({token, onMetricChange}: {token: string; onMetricChange?: (metric: string) => void}) {
   const [diag, setDiag] = useState<Record<string, number> | null>(null); const [ov, setOv] = useState<Record<string, number> | null>(null);
-  const [metric, setMetric] = useState<FamilyMetric | ''>(''); const [rows, setRows] = useState<any[] | null>(null); const [error, setError] = useState('');
+  // Owner, 2026-11-08: ONE list at a time — choosing « Familles nombreuses » or « Bénéficiaires » replaces the directory
+  // below (the screen tells the parent page), « Familles inscrites » brings the directory back.
+  const [metric, setMetricState] = useState<FamilyMetric | ''>('');
+  const setMetric = (m: FamilyMetric | '') => { setMetricState(m); onMetricChange?.(m); }; const [rows, setRows] = useState<any[] | null>(null); const [error, setError] = useState('');
   useEffect(() => { getJson<Record<string, number>>(token, '/schooling/families/diagnostics').then(setDiag).catch(e => setError(friendlyError(e)));
     getJson<Record<string, number>>(token, '/schooling/families/overview').then(setOv).catch(() => undefined); }, [token]);
   async function open(m: FamilyMetric) {
@@ -62,7 +65,7 @@ export function FamilyInsights({token}: {token: string}) {
     setMetric(m); setRows(null);
     try { setRows((await getJson<{items: any[]}>(token, `/schooling/families/kpi/${m}`)).items); } catch (e) { setError(friendlyError(e)); setRows([]); }
   }
-  function showDirectory() { setMetric(''); setRows(null); const dir = document.querySelector<HTMLElement>('[data-family-directory]'); dir?.scrollIntoView({behavior: 'smooth', block: 'start'}); dir?.querySelector<HTMLInputElement>('input')?.focus({preventScroll: true}); }
+  function showDirectory() { setMetric(''); setRows(null); window.setTimeout(() => { const dir = document.querySelector<HTMLElement>('[data-family-directory]'); dir?.scrollIntoView({behavior: 'smooth', block: 'start'}); dir?.querySelector<HTMLInputElement>('input')?.focus({preventScroll: true}); }, 60); }
   const cards: {key: FamilyMetric | 'ALL'; icon: 'users' | 'star' | 'school' | 'home'; value: number; label: string; hint: string}[] = ov ? [
     {key: 'ALL', icon: 'home', value: ov.families ?? 0, label: 'Familles inscrites', hint: 'Voir l’annuaire des familles'},
     {key: 'LARGE_ELIGIBLE', icon: 'users', value: ov.large_eligible ?? 0, label: 'Familles nombreuses', hint: `${ov.large_family_min_children ?? 5} enfants inscrits ou plus`},
@@ -80,7 +83,8 @@ export function FamilyInsights({token}: {token: string}) {
   return <section className="fi" aria-label="Indicateurs des familles">
     {error && <div className="error" role="alert">{error}</div>}
     {ov && <div className="fi-cards">{cards.map(c => { const on = metric === c.key;
-      return <button key={c.key} type="button" className={`fi-card ${on ? 'on' : ''} ${c.value === 0 && c.key !== 'ALL' ? 'zero' : ''}`} aria-pressed={c.key === 'ALL' ? undefined : on}
+      const active = c.key === 'ALL' ? metric === '' : on;
+      return <button key={c.key} type="button" className={`fi-card ${active ? 'on' : ''} ${c.value === 0 && c.key !== 'ALL' ? 'zero' : ''}`} aria-pressed={active}
         onClick={() => c.key === 'ALL' ? showDirectory() : void open(c.key)}>
         <span className="fi-icon" aria-hidden="true"><NavGlyph g={c.icon} size={20}/></span>
         <span className="fi-text"><b>{c.value}</b><span>{c.label}</span><small>{c.hint}</small></span>

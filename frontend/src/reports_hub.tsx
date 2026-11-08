@@ -19,7 +19,18 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 const PERIOD: Record<string, string> = {JOURNALIER: 'Journalier', HEBDOMADAIRE: 'Hebdomadaire', MENSUEL: 'Mensuel', PERSONNALISE: 'Personnalisé'};
 const frDay=(v:string)=>{const [y,m,d]=v.split('-').map(Number);return y&&m&&d?new Date(y,m-1,d).toLocaleDateString('fr-FR') : v};
 
+/* Owner, 2026-11-08: « est-ce normal que le promoteur ait Générer le rapport officiel ? » — no. An official report is frozen
+   and archived by those who run the cash and the finances (caissier, gestionnaire, responsable financier, direction for its
+   section); the promoteur (and his assistant, a clone of the role) reads: preview, download, the reports already generated
+   — and receives them. He is recognised by what he does: he supervises the cash desks without operating any of them nor
+   deciding (no receipt, no financial decision). His rights are unchanged, so he keeps seeing every archived report. */
+export function officialReportProducer(can: (p: string) => boolean): boolean {
+  const supervisesOnly = can('finance.cash.other.read') && !can('finance.decisions.create') && !can('finance.receipts.print') && !can('finance.checkout.collect');
+  return !supervisesOnly;
+}
+
 export function ReportsHubPro({token, can, templates}: {token: string; can: (p: string) => boolean; templates: React.ReactNode}) {
+  const producer = officialReportProducer(can);
   // Templates and the register of generated reports are school-wide read models: the server says whether this actor's
   // scope reaches them (a section-only Préfet / Directeur does not — PR #27). Unknown (no periodic right) = unchanged.
   const [schoolHistory, setSchoolHistory] = useState(true);
@@ -38,8 +49,8 @@ export function ReportsHubPro({token, can, templates}: {token: string; can: (p: 
   if (!sections.length) return <p className="rh-empty">Aucun rapport n’est ouvert à votre rôle.</p>;
   return <section className="rh-root">
     <nav className="rh-tabs" role="tablist" aria-label="Rapports">{sections.map(([k, l, g]) => <button key={k} type="button" role="tab" aria-selected={key === k} className={key === k ? 'on' : ''} onClick={() => setKey(k)}><NavGlyph g={g} size={16}/>{l}</button>)}</nav>
-    {key === 'daily' && <DailyReport token={token}/>}
-    {key === 'periodic' && <PeriodicReports token={token} can={can}/>}
+    {key === 'daily' && <DailyReport token={token} official={producer}/>}
+    {key === 'periodic' && <PeriodicReports token={token} can={can} official={producer}/>}
     {key === 'sales' && <ProductSalesReport token={token}/>}
     {key === 'analyses' && <FinanceAnalyses token={token} can={(p: string) => p !== 'finance.products.sales_report.read' && can(p)}/>}
     {key === 'templates' && templates}
@@ -47,15 +58,15 @@ export function ReportsHubPro({token, can, templates}: {token: string; can: (p: 
   </section>;
 }
 
-function DailyReport({token}: {token: string}) {
+function DailyReport({token, official}: {token: string; official: boolean}) {
   const [day, setDay] = useState(iso(new Date())); const [busy, setBusy] = useState<'preview'|'official'|''>('');
   async function open(preview:boolean) { try { setBusy(preview?'preview':'official'); previewPdf(await cashDayPdf(token, 'report', day, preview), preview?'Aperçu du rapport financier journalier':'Rapport financier journalier officiel');
       toast.success(preview?'Aperçu préparé':'Rapport officiel généré et archivé dans Documents'); }
     catch (e) { toast.error(friendlyError(e)); } finally { setBusy(''); } }
-  return <article className="rh-card"><div><h4>Rapport financier journalier</h4><p>L’aperçu ne crée aucun document officiel. « Générer le rapport officiel » archive une version figée dans Documents.</p></div>
+  return <article className="rh-card"><div><h4>Rapport financier journalier</h4><p>{official ? 'L’aperçu ne crée aucun document officiel. « Générer le rapport officiel » archive une version figée dans Documents.' : 'Consultez le rapport de n’importe quelle journée. Les rapports officiels archivés par la caisse et la gestion sont dans « Rapports générés » et dans Documents.'}</p></div>
     <div className="rh-row"><label className="rh-field"><span>Journée</span><DateInput value={day} max={iso(new Date())} onChange={e => setDay(e.target.value)}/></label>
       <button type="button" className="rh-btn" disabled={!!busy || !day} onClick={() => void open(true)}><NavGlyph g="eye" size={17}/>{busy==='preview'?'Préparation…':'Aperçu'}</button>
-      <button type="button" className="rh-btn primary" disabled={!!busy || !day} onClick={() => void open(false)}><NavGlyph g="doc" size={17}/>{busy==='official'?'Génération…':'Générer le rapport officiel'}</button></div></article>;
+      {official && <button type="button" className="rh-btn primary" disabled={!!busy || !day} onClick={() => void open(false)}><NavGlyph g="doc" size={17}/>{busy==='official'?'Génération…':'Générer le rapport officiel'}</button>}</div></article>;
 }
 
 function GeneratedList({token}: {token: string}) {

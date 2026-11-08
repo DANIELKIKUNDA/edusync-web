@@ -8,6 +8,10 @@ router=APIRouter(tags=['finance-fee-tracking'])
 def need(a,p):
     try:a.require(p)
     except PermissionError as e:raise HTTPException(403,str(e)) from e
+def need_desk_or_analysis(a):
+    # Owner, 2026-11-08: the cashier receives the parents every day — the family / pupil sheet shows him the same financial
+    # situation as the promoteur. He already reads each child's balance at the desk (finance.checkout.balance.read).
+    if not any(c in a.permissions for c in ('finance.analysis.by_fee.read','finance.checkout.balance.read')):need(a,'finance.analysis.by_fee.read')
 def repo_call(actor,services,fn):
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return fn(PostgresFeeTrackingRepository(conn))
 @router.get('/taxonomy')
@@ -33,7 +37,7 @@ def students(year_id:UUID|None=None,currency:str='CDF',fee_type_id:UUID|None=Non
     return repo_call(actor,services,f)
 @router.get('/student/{student_id}')
 def student(student_id:UUID,currency:str='CDF',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    need(actor,'finance.analysis.by_fee.read');return repo_call(actor,services,lambda r:r.student_summary(actor.school_id,student_id,currency))
+    need_desk_or_analysis(actor);return repo_call(actor,services,lambda r:r.student_summary(actor.school_id,student_id,currency))
 @router.get('/family/{family_id}')
 def family(family_id:UUID,currency:str='CDF',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    need(actor,'finance.analysis.by_fee.read');return repo_call(actor,services,lambda r:r.family_summary(actor.school_id,family_id,currency))
+    need_desk_or_analysis(actor);return repo_call(actor,services,lambda r:r.family_summary(actor.school_id,family_id,currency))
