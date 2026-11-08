@@ -20,7 +20,7 @@ const StewardshipPage=lazyPage(()=>import('./stewardship'));
 const SyncAdminPage=lazyPage(()=>import('./sync_admin'));
 const AccessPage=lazyPage(()=>import('./access'));
 import {
-  AcademicYear,createAcademicYear,putEnrollmentWindow,activateAcademicYear,transitionAcademicYear,createClass,createFeeType,updateFeeType,createSchool,FeeType,getReferenceCatalog,
+  AcademicYear,createAcademicYear,putEnrollmentWindow,activateAcademicYear,transitionAcademicYear,createClass,createSchool,FeeType,getReferenceCatalog,
   getSettingsOverview,listAcademicYears,listYearSelector,listClasses,listFeeTypes,listSchools,listSections,listTariffs,loginPlatform,loginSchool,
   putSection,ReferenceCatalog,School,SchoolClass,SchoolLoginResult,SchoolSection,SettingsOverview,Tariff,createTariff,updateSchoolIdentity,listSettingsContributions,createSettingsContribution,listSettingsProducts,createSettingsProduct,SettingsContribution,SettingsProduct,platformSchoolsPage,platformAccess,platformAudit,platformDiagnostics,platformSuspendSchool,platformReactivateSchool,platformBootstrapAdmin,platformSystemNotifications,sendPlatformSystemNotification,platformSchoolDetail,platformRbacRoles,platformMembershipState,platformAssignRole,platformRevokeRole,platformGrantCollaborator,platformRevokeCollaborator
 } from './api';
@@ -51,17 +51,18 @@ import {platformMe,platformAvatarBlob,uploadPlatformAvatar,schoolAvatarVersion,s
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {Card,PageHeader,ProgressJourney,Section,Skeleton,StatusBadge,type Tone} from './platform/ui';
 import {readinessSteps,SETTINGS_TARGET_KEY} from './home';
-import {autoCode,yearCode as yearCodeOf,ClassBatchDialog,CONTRIBUTION_PRESETS,FEE_PRESETS,OptionCatalog,OPTIONS_SECTION,PRODUCT_PRESETS,SetupAssistant} from './settings_wizards';
+import {yearCode as yearCodeOf,ClassBatchDialog,CONTRIBUTION_PRESETS,OptionCatalog,OPTIONS_SECTION,PRODUCT_PRESETS,SetupAssistant} from './settings_wizards';
 import {Button as UIButton} from './platform/ui';
 import {PageTrail} from './platform/navigation';
 import {PdfPreviewHost} from './platform/pdf_viewer';
 import {installMobileBackCoordinator,installUnsavedFormGuard,pushMobileScreen,replaceMobileRoot} from './platform/mobile_back';
 import {confirmAction,promptText} from './platform/dialogs';
-import {formatDate,formatMoney,PERIODICITY_LABEL,suggestNextYear} from './platform/format';
+import {formatDate,formatMoney,suggestNextYear} from './platform/format';
 import {getPolicy,listOptions,putOption,putPolicy,schoolLogoBlob,setClassStatus,updateClass,uploadSchoolLogo,type SchoolOption} from './api';
 import './settings.css';
 import {TariffsSettings,TARIFF_GROUPS} from './settings_tariffs';
 import {Structure} from './settings_structure';
+import {Fees} from './settings_fees';
 import {ContributionsSettings} from './settings_contributions';
 import {BenefitsSettings} from './settings_benefits';
 import {DocumentSettingsPanel, MaintenanceSettings, NumberingCard} from './settings_maintenance';
@@ -271,45 +272,6 @@ function Years({token,years,can,onDone}:{token:string;years:AcademicYear[];can:(
     <div className="cardsList yearList">{years.map(y=><article key={y.id} className={y.status==='ACTIVE'?'current':''}><div><b>{y.label}</b><small>{formatDate(y.start_date)} → {formatDate(y.end_date)}</small><EnrollmentWindow token={token} year={y} editable={can('settings.academic_year.update')&&(y.status==='PREPARED'||y.status==='ACTIVE')} onDone={onDone}/></div><em className={`pill ${y.status==='ACTIVE'?'ready':''}`}>{yearStatusLabel(y.status)}</em><div className="rowActions">{y.status==='PREPARED'&&can('settings.academic_year.activate')&&(active?<small className="hint">Clôturez d’abord {active.label} pour l’activer.</small>:<button disabled={busy===y.id} onClick={()=>void act(y,'activate')}>Activer</button>)}{y.status==='ACTIVE'&&can('settings.academic_year.close')&&<button className="dangerSoft" disabled={busy===y.id} onClick={()=>void act(y,'close')}>Clôturer</button>}{y.status==='CLOSED'&&can('settings.academic_year.archive')&&<button disabled={busy===y.id} onClick={()=>void act(y,'archive')}>Archiver</button>}{(y.status==='CLOSED'||y.status==='ARCHIVED')&&can('settings.academic_year.reopen')&&<button className="ghost" disabled={busy===y.id} onClick={()=>void act(y,'reopen')}>Rouvrir</button>}</div></article>)}</div></Panel>
 }
 
-function Fees({token,fees,refs,can,onDone}:{token:string;fees:FeeType[];refs:ReferenceCatalog|null;can:(x:string)=>boolean;onDone:()=>Promise<void>}){
-  const [error,setError]=useState('');const [busy,setBusy]=useState('');const existing=new Set(fees.map(f=>f.code));const labels=new Set(fees.map(f=>f.label.toLowerCase()));
-  const presets=[...FEE_PRESETS,...(refs?.fee_types??[]).filter(r=>!FEE_PRESETS.some(p=>p.code===r.code)).map(r=>({code:r.code,label:r.label,periodicity:r.periodicity,regulatory:false,hint:''}))];
-  const [custom,setCustom]=useState<{label:string;periodicity:FeeType['periodicity'];currency:'CDF'|'USD'}>({label:'',periodicity:'ONE_TIME',currency:'CDF'});
-  async function add(code:string,label:string,periodicity:FeeType['periodicity'],currency:'CDF'|'USD',regulatory=false){try{setBusy(code);setError('');await createFeeType(token,{code,label,periodicity,default_currency:currency,regulatory});toast.success(`${label} ajouté`);await onDone()}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
-  const manage=can('settings.fee_types.manage');
-  return <Panel title="Types de frais" subtitle="Choisissez un modèle courant ou créez un frais propre à l’école : le code interne est généré automatiquement. Aucun frais n’engendre de dette tant qu’un tarif n’est pas défini.">{error&&<div className="error" role="alert">{error}</div>}
-    <div className="sw-field"><span>Modèles courants</span><div className="sw-chips">{presets.map(f=>{const have=existing.has(f.code);return <button key={f.code} type="button" className={`sw-chip ${have?'on':''}`} aria-pressed={have} disabled={have||!manage||busy===f.code} title={f.hint} onClick={()=>void add(f.code,f.label,f.periodicity,'CDF',!!f.regulatory)}>{have?'✓ ':'+ '}{f.label}</button>})}</div></div>
-    {manage&&<form className="sw-inline sw-custom-fee" onSubmit={e=>{e.preventDefault();const label=custom.label.trim();if(label.length<2){setError('Indiquez le nom du frais, par exemple Frais de laboratoire.');return}if(labels.has(label.toLowerCase())){setError('Un type de frais porte déjà ce nom.');return}void add(autoCode(label,existing),label,custom.periodicity,custom.currency).then(()=>setCustom(c=>({...c,label:''})))}}>
-      <input aria-label="Nom du frais personnalisé" placeholder="Frais propre à l’école (ex. Frais de laboratoire)" value={custom.label} onChange={e=>setCustom(c=>({...c,label:e.target.value}))}/>
-      <select aria-label="Périodicité" value={custom.periodicity} onChange={e=>setCustom(c=>({...c,periodicity:e.target.value as FeeType['periodicity']}))}>{(['ONE_TIME','MONTHLY','PERIODIC','OPTIONAL'] as const).map(p=><option key={p} value={p}>{PERIODICITY_LABEL[p]??p}</option>)}</select>
-      <select aria-label="Devise" value={custom.currency} onChange={e=>setCustom(c=>({...c,currency:e.target.value as 'CDF'|'USD'}))}><option value="CDF">FC</option><option value="USD">USD</option></select>
-      <UIButton variant="secondary" size="sm" icon="plus" type="submit">Créer</UIButton></form>}
-    <div className="cardsList">{fees.map(f=><FeeRow key={f.id} token={token} fee={f} labels={labels} canEdit={manage} canToggle={f.enabled?can('settings.fee_types.activate'):manage} onDone={onDone} onError={setError}/>)}</div></Panel>}
-
-// Desktop « modification depuis la ligne » (settings parity pass 2): rename, periodicity, currency, regulatory flag; a
-// disabled fee keeps its history and its existing charges, it is only no longer proposed for new tariffs.
-function FeeRow({token,fee,labels,canEdit,canToggle,onDone,onError}:{token:string;fee:FeeType;labels:Set<string>;canEdit:boolean;canToggle:boolean;onDone:()=>Promise<void>;onError:(m:string)=>void}){
-  const [edit,setEdit]=useState(false);const [busy,setBusy]=useState(false);
-  const [d,setD]=useState({label:fee.label,periodicity:fee.periodicity,currency:fee.default_currency,regulatory:fee.regulatory});
-  useEffect(()=>setD({label:fee.label,periodicity:fee.periodicity,currency:fee.default_currency,regulatory:fee.regulatory}),[fee.version]);
-  async function save(enabled:boolean,patch=d){const label=patch.label.trim();if(label.length<2){onError('Le nom du frais doit compter au moins deux caractères.');return}
-    if(label.toLowerCase()!==fee.label.toLowerCase()&&labels.has(label.toLowerCase())){onError('Un autre type de frais porte déjà ce nom.');return}
-    try{setBusy(true);onError('');await updateFeeType(token,fee,{label,periodicity:patch.periodicity,default_currency:patch.currency,regulatory:patch.regulatory,enabled});
-      toast.success(enabled===fee.enabled?`${label} modifié`:enabled?`${label} réactivé`:`${label} désactivé (historique et frais existants conservés)`);setEdit(false);await onDone()}
-    catch(e){onError(friendlyError(e))}finally{setBusy(false)}}
-  return <article className={fee.enabled?'':'muted'}>
-    {edit?<form className="feeEdit" onSubmit={e=>{e.preventDefault();void save(fee.enabled)}}>
-      <input aria-label="Nom du frais" value={d.label} maxLength={140} onChange={e=>setD(x=>({...x,label:e.target.value}))}/>
-      <select aria-label="Périodicité" value={d.periodicity} onChange={e=>setD(x=>({...x,periodicity:e.target.value as FeeType['periodicity']}))}>{(['ONE_TIME','MONTHLY','PERIODIC','OPTIONAL'] as const).map(p=><option key={p} value={p}>{PERIODICITY_LABEL[p]??p}</option>)}</select>
-      <select aria-label="Devise" value={d.currency} onChange={e=>setD(x=>({...x,currency:e.target.value as 'CDF'|'USD'}))}><option value="CDF">FC</option><option value="USD">USD</option></select>
-      <label className="checkField"><input type="checkbox" checked={d.regulatory} onChange={e=>setD(x=>({...x,regulatory:e.target.checked}))}/> Réglementaire</label>
-      <div className="formActions"><button type="button" className="ghost" disabled={busy} onClick={()=>setEdit(false)}>Annuler</button><button className="primaryBtn" disabled={busy}>{busy?'Enregistrement…':'Enregistrer'}</button></div>
-      {d.periodicity!==fee.periodicity&&<small className="policyHint">Changer la périodicité ne modifie pas les échéances déjà créées : réappliquez les barèmes pour les classes concernées.</small>}
-    </form>:<><div><b>{fee.label}</b><small>{PERIODICITY_LABEL[fee.periodicity]??fee.periodicity} · {fee.default_currency}{fee.regulatory?' · réglementaire':''}</small></div>
-      <div className="feeRowActions"><em className={`pill ${fee.enabled?'ready':''}`}>{fee.enabled?'Actif':'Inactif'}</em>
-        {canEdit&&fee.enabled&&<button type="button" className="linkBtn" onClick={()=>setEdit(true)}>Modifier</button>}
-        {canToggle&&<button type="button" className="linkBtn" disabled={busy} onClick={()=>void save(!fee.enabled,{label:fee.label,periodicity:fee.periodicity,currency:fee.default_currency,regulatory:fee.regulatory})}>{fee.enabled?'Désactiver':'Réactiver'}</button>}</div></>}
-  </article>}
 
 function IdentitySettings({token,overview,can,onDone}:{token:string;overview:SettingsOverview|null;can:(x:string)=>boolean;onDone:()=>Promise<void>}){const school=overview?.school;const schema=z.object({name:z.string().trim().min(2,'Nom obligatoire.'),email:z.string().trim().email('Adresse e-mail incomplète, par exemple direction@ecole.cd.').or(z.literal('')),phone:z.string().trim().regex(/^[+0-9 ()-]*$/,'Seuls les chiffres, espaces et le signe + sont acceptés.'),logo_url:z.string(),address:z.string(),city:z.string(),province:z.string(),motto:z.string().max(160,'160 caractères au plus.')});type F=z.infer<typeof schema>;const form=useForm<F>({resolver:zodResolver(schema),values:{name:school?.name??'',email:school?.email??'',phone:school?.phone??'',logo_url:school?.logo_url??'',address:school?.address??'',city:school?.city??'',province:school?.province??'',motto:school?.motto??''},...formDefaults});const [error,setError]=useState('');const save=form.handleSubmit(async v=>{if(!school)return;try{setError('');await updateSchoolIdentity(token,{name:v.name,email:v.email||null,phone:v.phone||null,logo_url:v.logo_url||null,address:v.address||null,city:v.city||null,province:v.province||null,motto:v.motto.trim()||null},school.version);toast.success('Identité de l’école enregistrée');await onDone()}catch(e){setError(friendlyError(e))}});return <Panel title="École & identité" subtitle="Coordonnées institutionnelles utilisées par l’interface et les documents.">{error&&<div className="error">{error}</div>}<LogoField token={token} canUpload={can('settings.documents.manage')}/><form className="settingsEditorGrid identityForm" onSubmit={save} noValidate><fieldset disabled={!can('settings.school_identity.update')}><legend>Établissement</legend><FormField label="Nom de l’école *" error={form.formState.errors.name?.message}><input autoComplete="organization" {...form.register('name')}/></FormField><FormField label="Devise / mention" hint="Imprimée sous le nom de l’école sur les reçus et rapports (ex. Travail – Discipline – Réussite)." error={form.formState.errors.motto?.message}><input maxLength={160} {...form.register('motto')}/></FormField></fieldset><fieldset disabled={!can('settings.school_identity.update')}><legend>Contact</legend><FormField label="Téléphone" error={form.formState.errors.phone?.message}><input type="tel" inputMode="tel" autoComplete="tel" placeholder="+243 …" {...form.register('phone')}/></FormField><FormField label="E-mail" error={form.formState.errors.email?.message}><input type="email" inputMode="email" autoComplete="email" {...form.register('email')}/></FormField></fieldset><fieldset disabled={!can('settings.school_identity.update')}><legend>Adresse</legend><FormField label="Adresse"><input autoComplete="street-address" {...form.register('address')}/></FormField><FormField label="Ville"><input autoComplete="address-level2" {...form.register('city')}/></FormField><FormField label="Province"><input autoComplete="address-level1" {...form.register('province')}/></FormField></fieldset>{can('settings.school_identity.update')&&<div className="stickyActions"><button className="primaryBtn" disabled={form.formState.isSubmitting||!form.formState.isDirty}>{form.formState.isSubmitting?'Enregistrement…':'Enregistrer'}</button></div>}</form></Panel>}
 
