@@ -23,8 +23,28 @@ export function maskFrenchDate(raw: string): string {
     const [d, m, y = ''] = parts;
     return [d.padStart(2, '0'), m.padStart(2, '0'), y.slice(0, 4)].filter((x, i) => i < 2 || x).join('/');
   }
-  const digits = raw.replace(/\D/g, '').slice(0, 8);
-  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean).join('/');
+  return guidedDigits(raw.replace(/\D/g, '')).text;
+}
+
+/** Owner report 2026-11-08: the day and the month are checked while typing. « 2 » as a month means February (« 02 »);
+ *  a digit that would give month 13–19 or day 32–39 is refused on the spot, with the reason, instead of a date that
+ *  is accepted now and refused later. */
+export function guidedDigits(input: string): {text: string; hint: string} {
+  let day = '', month = '', year = '', hint = '';
+  for (const ch of input) {
+    if (day.length < 2) {
+      if (day === '' && ch > '3') day = '0' + ch;
+      else if (day === '3' && ch > '1') { hint = 'Le jour va de 01 à 31.'; }
+      else if (day === '0' && ch === '0') { hint = 'Le jour commence à 01.'; }
+      else day += ch;
+    } else if (month.length < 2) {
+      if (month === '' && ch > '1') month = '0' + ch;
+      else if (month === '1' && ch > '2') { hint = 'Le mois va de 01 à 12 : pour février, écrivez 02.'; }
+      else if (month === '0' && ch === '0') { hint = 'Le mois commence à 01 (janvier).'; }
+      else month += ch;
+    } else if (year.length < 4) year += ch;
+  }
+  return {text: [day, month, year].filter(Boolean).join('/'), hint};
 }
 
 /** « 04/03/2015 » → « 2015-03-04 »; '' when incomplete; null when complete but impossible (31/02, 00/13…). */
@@ -76,6 +96,8 @@ export const DateInput = forwardRef<HTMLInputElement, Props>(function DateInput(
     editing.current = true;
     const shown = maskFrenchDate(raw);
     setText(shown);
+    const guided = /^[\d/]*$/.test(raw) ? guidedDigits(raw.replace(/\D/g, '')).hint : '';
+    if (guided) { setProblem(guided); return; }
     const iso = frenchToIso(shown);
     if (iso === null) { setProblem('Cette date n’existe pas : vérifiez le jour et le mois.'); return; }
     if (iso) { const p = outOfRange(iso); setProblem(p); if (!p) emit(iso); return; }

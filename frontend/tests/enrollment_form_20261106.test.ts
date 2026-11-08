@@ -57,3 +57,15 @@ it('grants the large-family benefit per group of children when the school chose 
   expect(largeFamilyState(v, 10, 2).canAdd).toBe(false);
   expect(largeFamilyState({...v, family_enrolled_children: 9, family_beneficiaries: 1}, 1, 0).remaining).toBe(1); // 10th child unlocks the 2nd
 });
+
+it('checks the day and the month while typing (owner report 2026-11-08)', async () => {
+  const {guidedDigits} = await import('../src/platform/date_input');
+  expect(maskFrenchDate('152')).toBe('15/02');              // « 2 » as the month means February
+  expect(maskFrenchDate('1522015')).toBe('15/02/2015');
+  expect(guidedDigits('1513').hint).toMatch(/01 à 12/);      // month 13 refused on the spot
+  expect(guidedDigits('1513').text).toBe('15/1');
+  expect(guidedDigits('5').text).toBe('05');                 // « 5 » as the day means the 5th
+  expect(guidedDigits('35').hint).toMatch(/01 à 31/);        // day 35 refused
+  expect(guidedDigits('32').hint).toMatch(/01 à 31/);
+  expect(maskFrenchDate('04032015')).toBe('04/03/2015');
+});

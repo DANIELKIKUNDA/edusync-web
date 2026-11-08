@@ -11,6 +11,8 @@ import {confirmAction} from './platform/dialogs';
 import {formatDate} from './platform/format';
 import {TARIFF_GROUPS} from './settings_tariffs';
 import {DateInput} from './platform/date_input';
+import {NavGlyph} from './platform/nav_icons';
+import {TargetChecklist} from './settings_admission';
 
 export const SCHOOL_MONTHS: [string, string][] = [['09', 'Septembre'], ['10', 'Octobre'], ['11', 'Novembre'], ['12', 'Décembre'], ['01', 'Janvier'], ['02', 'Février'],
   ['03', 'Mars'], ['04', 'Avril'], ['05', 'Mai'], ['06', 'Juin'], ['07', 'Juillet'], ['08', 'Août']];
@@ -44,19 +46,26 @@ export function AnticipationPlansSettings({token, years, fees, classes, sections
   }
   return <section className="panel">
     <div className="panelHead"><div><h3>Plans de paiement anticipé</h3><p>Un plan dirige une partie d’un paiement mensuel vers des mois futurs nommés d’un même frais. Il ne crée pas de réserve : c’est différent d’une avance libre (fonds anticipé).</p></div>
-      {editable && !editing && <button className="primaryBtn" onClick={() => setEditing('new')}>Nouveau plan</button>}</div>
+      {editable && <button className="primaryBtn" onClick={() => setEditing('new')}>Nouveau plan</button>}</div>
     {error && <div className="error" role="alert">{error}</div>}
     {!year && <div className="emptyGuide"><b>Aucune année préparée ou en cours</b><p>Les plans se règlent pour une année scolaire.</p></div>}
-    {year && editing && <PlanForm token={token} year={year} fees={fees} sections={sections} yearClasses={yearClasses} refs={refs} current={editing === 'new' ? null : editing}
-      onCancel={() => setEditing(null)} onSaved={async () => { setEditing(null); await load(); }}/>}
-    {year && rows && rows.length === 0 && !editing && <div className="emptyGuide"><b>Aucun plan pour {year.label}</b><p>Sans plan, la caisse encaisse normalement ; aucun paiement anticipé n’est proposé.</p></div>}
-    {rows && rows.length > 0 && <ul className="classList planList">{rows.map(p => <li key={p.id} className={p.active ? '' : 'muted'}>
-      <div><b>{p.name}</b><small>{p.fee_label} · {scopeLabel(p)} · {p.participation_mode === 'MANDATORY' ? 'obligatoire' : 'facultatif'}{p.active ? '' : ' · désactivé'}</small>
-        <small>Mois cibles : {p.target_months.map(monthName).join(', ')}</small>
-        <small>Contribution : {p.contribution_months.map(monthName).join(', ')} · répartition égale · dès le {formatDate(p.effective_from)}</small>
-        <small>{p.memberships ?? 0} adhésion(s)</small></div>
-      {editable && <div className="rowActions"><button className="softBtn" onClick={() => setEditing(p)}>Modifier</button><button className="ghost" onClick={() => void toggle(p)}>{p.active ? 'Désactiver' : 'Réactiver'}</button></div>}
-    </li>)}</ul>}
+    {year && rows && rows.length === 0 && <div className="emptyGuide"><b>Aucun plan pour {year.label}</b><p>Sans plan, la caisse encaisse normalement ; aucun paiement anticipé n’est proposé.</p></div>}
+    {/* Owner request 2026-11-08: plans as cards; the form opens in a window. */}
+    {rows && rows.length > 0 && <div className="ap-grid">{rows.map(p => <article key={p.id} className={`ap-card ${p.active ? '' : 'off'}`}>
+      <div className="ap-top"><span className="ap-icon" aria-hidden="true"><NavGlyph g="calendar" size={18}/></span><div><b>{p.name}</b><small>{p.fee_label}</small></div>
+        <em className={p.participation_mode === 'MANDATORY' ? 'must' : ''}>{p.participation_mode === 'MANDATORY' ? 'Obligatoire' : 'Facultatif'}</em></div>
+      <div className="ap-scope"><NavGlyph g="layers" size={14}/><span>{scopeLabel(p)}</span></div>
+      <div className="ap-months"><span className="ap-label">Mois payés d’avance</span><div>{p.target_months.map(m => <i key={m} className="t">{monthName(m)}</i>)}</div></div>
+      <div className="ap-months"><span className="ap-label">Mois de contribution</span><div>{p.contribution_months.map(m => <i key={m}>{monthName(m)}</i>)}</div></div>
+      <small className="ap-foot">{p.memberships ?? 0} adhésion{(p.memberships ?? 0) > 1 ? 's' : ''} · dès le {formatDate(p.effective_from)}{p.active ? '' : ' · désactivé'}</small>
+      {editable && <div className="ap-actions"><button type="button" className="ac-btn" onClick={() => setEditing(p)}>Modifier</button><button type="button" className={`ac-btn ${p.active ? 'danger' : ''}`} onClick={() => void toggle(p)}>{p.active ? 'Désactiver' : 'Réactiver'}</button></div>}
+    </article>)}</div>}
+    {year && editing && <div className="ac-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setEditing(null); }}>
+      <div className="ac-dialog" role="dialog" aria-modal="true" aria-label={editing === 'new' ? 'Nouveau plan' : editing.name}>
+        <header><div><span className="eyebrow">Plans de paiement anticipé · {year.label}</span><h3>{editing === 'new' ? 'Nouveau plan' : editing.name}</h3></div>
+          <button type="button" className="ac-close" aria-label="Fermer" onClick={() => setEditing(null)}><NavGlyph g="close" size={18}/></button></header>
+        <PlanForm token={token} year={year} fees={fees} sections={sections} yearClasses={yearClasses} refs={refs} current={editing === 'new' ? null : editing}
+          onCancel={() => setEditing(null)} onSaved={async () => { setEditing(null); await load(); }}/></div></div>}
   </section>;
 }
 
@@ -107,9 +116,8 @@ function PlanForm({token, year, fees, sections, yearClasses, refs, current, onCa
       </div>
     </fieldset>
     {scope !== 'SCHOOL' && <fieldset disabled={busy || locked} className="planTargets"><legend>Cibles du plan <small>({picked.length} choisie{picked.length > 1 ? 's' : ''} sur {choices.length})</small></legend>
-      <div className="planTargetTools"><button type="button" className="linkBtn" onClick={() => setPicked(choices.map(([v]) => v))}>Tout cocher</button><button type="button" className="linkBtn" onClick={() => setPicked([])}>Tout décocher</button></div>
-      {choices.length ? <div className="sw-chips">{choices.map(([v, l]) => { const on = picked.includes(v); return <button key={v} type="button" className={`sw-chip ${on ? 'on' : ''}`} aria-pressed={on}
-        onClick={() => setPicked(p => on ? p.filter(x => x !== v) : [...p, v])}>{on ? '✓ ' : '+ '}{l}</button>; })}</div>
+      {choices.length ? <TargetChecklist groups={scope === 'CLASS' ? sections.map(sec => [sec.label, yearClasses.filter(c => c.section_id === sec.id).map(c => [c.id, c.label] as [string, string])] as [string, [string, string][]]).filter(([, l]) => l.length) : [['', choices]]}
+        picked={picked} onChange={setPicked}/>
         : <p className="policyHint">Aucune cible disponible pour cette portée : ouvrez d’abord les classes de l’année.</p>}
       <p className="policyHint">{scope === 'CLASS' ? 'Exemple : seulement 1re primaire A et 2e primaire A.' : 'Le plan s’applique aux élèves de chaque cible cochée.'} Les autres élèves paient normalement, sans plan.</p>
     </fieldset>}

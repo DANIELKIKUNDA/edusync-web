@@ -111,7 +111,7 @@ function ConditionForm({token, year, fees, sections, classes, refs, current, onC
 }
 
 // Real checkboxes, grouped by section for classes (owner request 2026-11-08: « cocher plusieurs classes »).
-function TargetChecklist({groups, picked, onChange}: {groups: [string, [string, string][]][]; picked: string[]; onChange: (v: string[]) => void}) {
+export function TargetChecklist({groups, picked, onChange}: {groups: [string, [string, string][]][]; picked: string[]; onChange: (v: string[]) => void}) {
   const all = groups.flatMap(([, l]) => l.map(([v]) => v));
   const toggle = (v: string) => onChange(picked.includes(v) ? picked.filter(x => x !== v) : [...picked, v]);
   const setMany = (vs: string[], on: boolean) => onChange(on ? [...new Set([...picked, ...vs])] : picked.filter(x => !vs.includes(x)));
@@ -120,7 +120,7 @@ function TargetChecklist({groups, picked, onChange}: {groups: [string, [string, 
     {groups.map(([title, list]) => { const vs = list.map(([v]) => v); const n = vs.filter(v => picked.includes(v)).length;
       return <div key={title || 'all'} className="ac-group">{title && <div className="ac-groupHead"><b>{title}</b><small>{n}/{vs.length}</small>
         <button type="button" className="ac-link" onClick={() => setMany(vs, n < vs.length)}>{n < vs.length ? 'Tout' : 'Aucune'}</button></div>}
-        <div className="ac-grid">{list.map(([v, l]) => <label key={v} className={`ac-check ${picked.includes(v) ? 'on' : ''}`}><input type="checkbox" checked={picked.includes(v)} onChange={() => toggle(v)}/><span>{l}</span></label>)}</div></div>; })}
+        <div className="ac-grid">{list.map(([v, l]) => <label key={v} title={l} className={`ac-check ${picked.includes(v) ? 'on' : ''}`}><input type="checkbox" checked={picked.includes(v)} onChange={() => toggle(v)}/><span>{l}</span></label>)}</div></div>; })}
   </div>;
 }
 

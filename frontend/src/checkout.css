@@ -263,3 +263,6 @@
 @media(max-width:899px){
   .posDockInfo small,.posDockInfo span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
+/* A pupil who follows a payment plan: the plan panel opens and says so (owner request 2026-11-08). */
+.posAdvanced.planOn{border-color:#9b8afb;background:#faf8ff}
+.posAdvanced.planOn>summary{color:#5925dc}
