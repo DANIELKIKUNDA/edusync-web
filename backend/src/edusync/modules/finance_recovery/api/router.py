@@ -128,3 +128,51 @@ def followup_export(fmt: str, class_id: UUID, column: str | None = Query(None, m
     archive_generated_tx(services, actor, data=data, fmt=fmt.upper(), required_capability='finance.views.vf01.export', document_code='finance.recovery.followup',
                          title=f"Suivi financier {d['class_label']} — {d['title']}", file_name=f"{name}.{fmt}")
     return StreamingResponse(BytesIO(data), media_type=media, headers={'Content-Disposition': f'{"inline" if fmt == "pdf" else "attachment"}; filename="{name}.{fmt}"'})
+
+
+# ------------------------------------------------------------------ executive money view (owner, 2026-11-08)
+# « Le tableau de bord du promoteur : l'argent — aujourd'hui, la semaine, le mois, depuis la rentrée — et le reste à recouvrer. »
+# Net cash actually received by the school's cash desks: receipts + advance funds, minus cancellations / refunds (in a
+# session or by a supervisor), counted by business date. Same definition as the day summary of the cash desks.
+PILOTAGE_SQL = """
+WITH b AS (SELECT CAST(%(today)s AS date) d, date_trunc('week', CAST(%(today)s AS date))::date w,
+                  date_trunc('month', CAST(%(today)s AS date))::date m, CAST(%(start)s AS date) y),
+mv AS (
+  SELECT s.business_date day, p.currency, p.amount FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
+   WHERE s.school_id=%(sid)s AND s.business_date >= (SELECT least(y, w) FROM b)
+  UNION ALL
+  SELECT s.business_date, f.currency, f.amount FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id
+   WHERE s.school_id=%(sid)s AND s.business_date >= (SELECT least(y, w) FROM b)
+  UNION ALL
+  SELECT r.business_date, r.currency, -r.amount FROM finance_payment_reversals r
+   WHERE r.school_id=%(sid)s AND r.business_date >= (SELECT least(y, w) FROM b)
+  UNION ALL
+  SELECT c.business_date, f.currency, -c.amount FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id
+   WHERE c.school_id=%(sid)s AND c.business_date >= (SELECT least(y, w) FROM b) AND c.closure_type IN ('ANNULATION','REMBOURSEMENT'))
+SELECT mv.currency,
+       COALESCE(sum(amount) FILTER (WHERE day = b.d),0) today,
+       COALESCE(sum(amount) FILTER (WHERE day >= b.w AND day <= b.d),0) week,
+       COALESCE(sum(amount) FILTER (WHERE day >= b.m AND day <= b.d),0) month,
+       COALESCE(sum(amount) FILTER (WHERE day >= b.y AND day <= b.d),0) year
+  FROM mv, b GROUP BY mv.currency"""
+
+
+@router.get('/pilotage')
+def pilotage(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    need(actor,'finance.cash.other.read');need(actor,'finance.recovery.monthly.read')
+    from datetime import date as _d
+    from psycopg.rows import dict_row as _dr
+    today=_d.today()
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        repo=PostgresFinanceRecoveryRepository(conn);y=repo.year(actor.school_id,year_id)
+        if not y:raise HTTPException(409,'Année scolaire introuvable')
+        start=min(y['start_date'],today)
+        with repo.conn.cursor(row_factory=_dr) as c:
+            c.execute(PILOTAGE_SQL,{'sid':actor.school_id,'today':today,'start':start});rows={r['currency']:r for r in c.fetchall()}
+        cash={cur:{k:str(rows.get(cur,{}).get(k,0) or 0) for k in ('today','week','month','year')} for cur in ('CDF','USD')}
+        scopes=actor.scopes_for('finance.recovery.monthly.read');recovery={}
+        for cur in ('CDF','USD'):
+            items=repo.monthly(actor.school_id,y['id'],cur,scopes=scopes);t=monthly_total(items)
+            recovery[cur]={'expected':str(t['expected']),'regularized':str(t['regularized_total']),'remaining':str(t['remaining']),'rate':str(t['recovery_rate'])}
+    return {'academic_year':{'id':str(y['id']),'label':y['label'],'start_date':str(y['start_date'])},'today':str(today),
+            'week_start':str(today.fromordinal(today.toordinal()-today.weekday())),'month_start':str(today.replace(day=1)),'cash':cash,'recovery':recovery}

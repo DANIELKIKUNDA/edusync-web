@@ -102,7 +102,10 @@ export default function AccessPage({token,permissions,userName}:Props){
   // the school's business journal (audit_events), distinct from the access-rights journal above
   const canSchoolJournal=has(permissions,'audit.school.read');
   const canCreate=has(permissions,'access.users.create'),canUpdate=has(permissions,'access.users.update'),canActivate=has(permissions,'access.users.activate'),canReset=has(permissions,'access.users.credentials.reset');
-  const [tab,setTab]=useState<Tab>(canRead?'members':'journal');
+  // Owner, 2026-11-08: a promoteur / gestionnaire / responsable financier only READS the journal — for them this page is the
+  // « Journal d'audit » (what was done, by whom, when), not the governance of accounts and roles they cannot change.
+  const auditOnly=!canRead&&!canCreate&&!canManageRoles;
+  const [tab,setTab]=useState<Tab>(canRead?'members':auditOnly&&canSchoolJournal?'school':'journal');
   const [loading,setLoading]=useState(true),[error,setError]=useState('');
   const [catalog,setCatalog]=useState<Domain[]>([]),[roles,setRoles]=useState<Role[]>([]),[members,setMembers]=useState<Member[]>([]);
   const [journal,setJournal]=useState<JournalItem[]>([]),[scopes,setScopes]=useState<ScopeOptions>({sections:[],classes:[]});
@@ -163,8 +166,10 @@ export default function AccessPage({token,permissions,userName}:Props){
 
   return <div className="personnelPage accessPage pageEnter">
     <div className="personnelHero">
-      <div><span className="eyebrow"><Icon name="shield" size={14}/> Gouvernance des accès</span><h2>Accès & rôles</h2>
-        <p>Votre école décide de sa propre politique d’accès. Les garde-fous de sécurité s’appliquent automatiquement, et chaque changement est inscrit au journal.</p></div>
+      {auditOnly?<div><span className="eyebrow"><Icon name="history" size={14}/> Contrôle et traçabilité</span><h2>Journal d’audit</h2>
+        <p>Qui a fait quoi, et quand : les actions sensibles de l’établissement (caisse, finances, élèves, droits) sont enregistrées automatiquement et ne peuvent être ni modifiées ni effacées.</p></div>
+      :<div><span className="eyebrow"><Icon name="shield" size={14}/> Gouvernance des accès</span><h2>Accès & rôles</h2>
+        <p>Votre école décide de sa propre politique d’accès. Les garde-fous de sécurité s’appliquent automatiquement, et chaque changement est inscrit au journal.</p></div>}
       <div className="heroActions">{canCreate&&<button className="primaryBtn" onClick={()=>setAdding(true)}><Icon name="userPlus" size={16}/> Ajouter un membre</button>}{canManageRoles&&<button className={canCreate?'softBtn':'primaryBtn'} onClick={()=>setEditor({mode:'create'})}><Icon name="plus" size={16}/> Nouveau rôle</button>}</div>
     </div>
     {error&&<div className="error" role="alert">{error}</div>}
@@ -178,21 +183,22 @@ export default function AccessPage({token,permissions,userName}:Props){
       </>}
     </div>}
 
-    <div className="guardrails" aria-label="Garde-fous actifs">
+    {!auditOnly&&<div className="guardrails" aria-label="Garde-fous actifs">
       <span className="guardTitle"><Icon name="lock" size={15}/> Garde-fous actifs</span>
       <span><Icon name="check" size={13}/> Personne ne s’attribue de droits</span>
       <span><Icon name="check" size={13}/> Aucun droit plateforme</span>
       <span><Icon name="check" size={13}/> Toujours un gestionnaire des accès</span>
       <span><Icon name="check" size={13}/> Séparation des tâches</span>
       <span><Icon name="check" size={13}/> Tout est journalisé</span>
-    </div>
+    </div>}
 
     <div className="personTabs" role="tablist">
       {canRead&&<button role="tab" aria-selected={tab==='members'} className={tab==='members'?'active':''} onClick={()=>setTab('members')}><Icon name="users" size={15}/> Membres <span>{members.length}</span></button>}
       {canRead&&<button role="tab" aria-selected={tab==='roles'} className={tab==='roles'?'active':''} onClick={()=>setTab('roles')}><Icon name="key" size={15}/> Rôles <span>{activeRoles.length}</span></button>}
       {canRead&&<button role="tab" aria-selected={tab==='requests'} className={tab==='requests'?'active':''} onClick={()=>setTab('requests')}><Icon name="clock" size={15}/> Demandes <span>{requests.length}</span></button>}
-      {canJournal&&<button role="tab" aria-selected={tab==='journal'} className={tab==='journal'?'active':''} onClick={()=>setTab('journal')}><Icon name="history" size={15}/> Journal des droits <span>{journal.length}</span></button>}
-      {canSchoolJournal&&<button role="tab" aria-selected={tab==='school'} className={tab==='school'?'active':''} onClick={()=>setTab('school')}><Icon name="history" size={15}/> Journal de l’établissement</button>}
+      {auditOnly&&canSchoolJournal&&<button role="tab" aria-selected={tab==='school'} className={tab==='school'?'active':''} onClick={()=>setTab('school')}><Icon name="history" size={15}/> Actions de l’établissement</button>}
+      {canJournal&&<button role="tab" aria-selected={tab==='journal'} className={tab==='journal'?'active':''} onClick={()=>setTab('journal')}><Icon name="key" size={15}/> {auditOnly?'Changements de droits':'Journal des droits'} <span>{journal.length}</span></button>}
+      {!auditOnly&&canSchoolJournal&&<button role="tab" aria-selected={tab==='school'} className={tab==='school'?'active':''} onClick={()=>setTab('school')}><Icon name="history" size={15}/> Journal de l’établissement</button>}
     </div>
 
     {tab==='members'&&canRead&&<section className="premiumCard">

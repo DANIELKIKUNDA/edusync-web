@@ -39,7 +39,8 @@ export function RecoveryChart({token, yearId, compact, onOpen}: {token: string; 
   const yRate = (v: number) => 10 + (rateH - 22) * (1 - Math.min(100, Math.max(0, v)) / 100);
   const yAmt = (v: number) => 8 + (amtH - 16) * (1 - v / maxAmount);
   const tick = (v: number) => v >= 1e6 ? `${(v / 1e6).toLocaleString('fr-FR', {maximumFractionDigits: 1})} M` : v >= 1e3 ? `${Math.round(v / 1e3).toLocaleString('fr-FR')} k` : String(Math.round(v));
-  const linePath = items.map((r, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${yRate(num(r.recovery_rate)).toFixed(1)}`).join(' ');
+  // months form one trend line; each non-monthly fee is its own point, never joined to the months (owner, 2026-11-08)
+  const linePath = items.map((r, i) => `${i && num(r.ord) < 100 ? 'L' : 'M'}${x(i).toFixed(1)},${yRate(num(r.recovery_rate)).toFixed(1)}`).join(' ');
   const h = hover !== null ? items[hover] : null;
   const summary = t ? `Taux de recouvrement ${num(t.recovery_rate)} % : ${formatMoney(String(t.regularized_total), currency)} régularisés sur ${formatMoney(String(t.expected), currency)} attendus.` : '';
   return <div className="rc-root">
