@@ -63,11 +63,20 @@ def run(A: dict) -> None:
     check("recouvrement : un frais non mensuel a sa propre bande à son nom, jamais un nom de mois",
           bool(others) and all(i["month_label"] not in {m["month_label"] for m in months} for i in others)
           and any("nscription" in i["month_label"] for i in others), labels)
+    pil = as_(gest).get("/api/v1/finance/recovery/pilotage")
+    paid = one("SELECT COALESCE(sum(amount),0) FROM finance_payments WHERE school_id=:s AND currency='CDF'", s=A["id"])[0]
+    check("tableau du promoteur : l'argent du jour = les encaissements réels de la journée",
+          pil.status_code == 200 and float(pil.json()["cash"]["CDF"]["today"]) == float(paid) > 0
+          and pil.json()["cash"]["CDF"]["today"] == pil.json()["cash"]["CDF"]["year"], (pil.status_code, pil.text[:300], paid))
     as_(cashier_actor)
     pay = one("""SELECT p.id FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN students s ON s.id=e.student_id
                  WHERE s.family_id=:f ORDER BY p.created_at LIMIT 1""", f=r.json()["family_id"])[0]
     v = cashier.post(f"/api/v1/finance/cash/payments/{pay}/reverse", json={"reversal_type": "ANNULATION", "reason": "Erreur de saisie au guichet"})
     check("le caissier annule un reçu", v.status_code == 200, f"{v.status_code} {v.text[:200]}")
+    amt = one("SELECT amount FROM finance_payments WHERE id=:i", i=pay)[0]
+    after = as_(gest).get("/api/v1/finance/recovery/pilotage").json()["cash"]["CDF"]["today"]
+    check("→ l'annulation est déduite de l'argent du jour", float(after) == float(paid) - float(amt), (after, paid, amt))
+    as_(cashier_actor)
     check("→ le gestionnaire reçoit « Reçu annulé » (motif inclus) ; le caissier rien",
           "Reçu annulé" in inbox(gest, "ALERT_FINANCE") and not inbox(cashier_actor, "ALERT_FINANCE"), (inbox(gest, "ALERT_FINANCE"), inbox(cashier_actor, "ALERT_FINANCE")))
 
