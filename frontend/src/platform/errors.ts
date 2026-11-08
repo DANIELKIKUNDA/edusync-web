@@ -6,7 +6,7 @@ export function friendlyHttpMessage(status:number){if(status===400||status===422
 const explained=new Set<string>();
 const FIELD:Record<string,string>={name:'Nom',label:'Libellé',code:'Code',email:'E-mail',phone:'Téléphone',address:'Adresse',city:'Ville',province:'Province',logo_url:'Logo',
   start_date:'Date de rentrée',end_date:'Date de fin',amount:'Montant',currency:'Devise',periodicity:'Périodicité',reason:'Motif',quantity:'Quantité',section_id:'Section',
-  class_id:'Classe',academic_year_id:'Année scolaire',fee_type_id:'Type de frais',full_name:'Nom complet',password:'Mot de passe',due_date:'Échéance',unit_price:'Prix unitaire'};
+  class_id:'Classe',academic_year_id:'Année scolaire',fee_type_id:'Type de frais',period_order:'Période',full_name:'Nom complet',password:'Mot de passe',due_date:'Échéance',unit_price:'Prix unitaire'};
 const VALIDATION:Record<string,string>={missing:'est obligatoire',string_too_short:'est trop court',string_too_long:'est trop long',string_pattern_mismatch:'n’a pas le bon format',
   value_error:'n’est pas valide',greater_than:'doit être plus grand',greater_than_equal:'doit être positif ou nul',less_than_equal:'est trop grand',int_parsing:'doit être un nombre entier',
   decimal_parsing:'doit être un nombre',date_from_datetime_parsing:'doit être une date',date_parsing:'doit être une date',enum:'n’est pas une valeur proposée',uuid_parsing:'n’est pas valide'};
