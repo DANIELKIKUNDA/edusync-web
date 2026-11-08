@@ -5,7 +5,8 @@ Proven end to end, with real role assignments (rbac_assignments):
 * a cashier closes the cash desk → the gestionnaire is alerted (closure or counting gap), with a push/e-mail message
   queued in the communications outbox;
 * a secondary pupil abandons → the préfet des études (always the secondary) is alerted; the PRIMAIRE section director is not;
-* a pending dossier asking for a waiver → those who grant waivers are alerted.
+* a pending dossier asking for a waiver → those who grant waivers are alerted;
+* the recovery follow-up never shows a month twice: a one-time fee (inscription) is its own band, named after the fee.
 
     python tools/local/isolated_db.py env <db> -- ../.venv/Scripts/python.exe ../tools/ci/alerts_postgres_integration.py
 """
@@ -53,6 +54,16 @@ def run(A: dict) -> None:
     check("inscription avec paiement (2 reçus)", r.status_code == 201, f"{r.status_code} {r.text[:200]}")
     if r.status_code != 201:
         return
+    rec = as_(gest).get("/api/v1/finance/recovery/monthly")
+    items = rec.json().get("items", []) if rec.status_code == 200 else []
+    labels = [i["month_label"] for i in items]
+    months = [i for i in items if int(i["ord"]) < 100]
+    others = [i for i in items if int(i["ord"]) >= 100]
+    check("recouvrement : chaque mois n'apparaît qu'une fois (pas de « Septembre » en double)", rec.status_code == 200 and len(labels) == len(set(labels)), (rec.status_code, labels))
+    check("recouvrement : un frais non mensuel a sa propre bande à son nom, jamais un nom de mois",
+          bool(others) and all(i["month_label"] not in {m["month_label"] for m in months} for i in others)
+          and any("nscription" in i["month_label"] for i in others), labels)
+    as_(cashier_actor)
     pay = one("""SELECT p.id FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN students s ON s.id=e.student_id
                  WHERE s.family_id=:f ORDER BY p.created_at LIMIT 1""", f=r.json()["family_id"])[0]
     v = cashier.post(f"/api/v1/finance/cash/payments/{pay}/reverse", json={"reversal_type": "ANNULATION", "reason": "Erreur de saisie au guichet"})

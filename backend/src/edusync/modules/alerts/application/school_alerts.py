@@ -100,6 +100,9 @@ def school_alert(conn, *, school_id: UUID, audience: str, title: str, body: str,
                                 idempotency_key=f"alert:{dedupe_key}"[:180], created_by=created_by,
                                 recipients=[Recipient("USER", uuid5(NAMESPACE_URL, f"{p['user_id']}:{school_id}"), p["name"] or None,
                                                       email=p["email"] if email else None, user_id=p["user_id"]) for p in fresh])
+            from edusync.shared.infrastructure.realtime import note_inbox_changed
+            for p in fresh:
+                note_inbox_changed(p["user_id"], school_id)   # the bell rings right after the commit (live-changes middleware)
             return len(fresh)
     except Exception:  # an alert never blocks the business operation that raised it
         log.exception("school alert skipped (%s, %s)", audience, dedupe_key)

@@ -246,7 +246,7 @@ export async function fetchEffectifsExport(token:string,kind:'pdf'|'xlsx'|'print
 export async function fetchDepositsExport(token:string,scope:EffectifsScope,yearId?:string):Promise<Blob>{const r=await fetch(`${API}/effectifs/exports/deposits.xlsx${qp({scope,year_id:yearId})}`,{headers:{Authorization:`Bearer ${token}`}});if(!r.ok)throw new Error(await errorDetail(r,'Export des dépôts impossible'));return r.blob()}
 
 // Point 5 — Centre documentaire
-export type DocumentCatalogItem={code:string;label:string;module:string;formats:string[];preservation:string;status:string;source:string;capability?:string|null};
+export type DocumentCatalogItem={code:string;label:string;module:string;formats:string[];preservation:string;status:string;source:string;capability?:string|null;archive_codes?:string[]};
 export async function getDocumentCatalog(token:string):Promise<{items:DocumentCatalogItem[];canonical_count:number;visible_count:number;doctrine:string}>{const r=await fetch(`${API}/documents/catalog`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Catalogue documentaire indisponible'));return r.json()}
 export async function studentImportTemplate(token:string,academicYearId?:string):Promise<Blob>{const q=academicYearId?`?academic_year_id=${encodeURIComponent(academicYearId)}`:'';return fetchProtectedBlob(token,`${API}/documents/student-import-template.xlsx${q}`,'Modèle d’import indisponible')}
 
