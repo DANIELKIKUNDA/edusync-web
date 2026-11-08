@@ -388,3 +388,70 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .ac-check.on{border-color:#1557d6;background:#eff4ff;color:#1149b8}
 @media (max-width:640px){.ac-grid{grid-template-columns:1fr}}
 .gridForm .ac-link{background:none;color:#1557d6;padding:0;border-radius:0;font-weight:600}
+/* Class schedules as cards, one open at a time (owner request 2026-11-08). */
+.schedules h4 small{font-weight:500;color:#667085}
+.sch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.sch-card{border:1px solid #e4e7ec;border-radius:14px;background:#fff;min-width:0;transition:box-shadow .15s,border-color .15s}
+.sch-card:hover{border-color:#b2ccff}
+.sch-card.on{grid-column:1/-1;border-color:#1557d6;box-shadow:0 0 0 3px rgba(21,87,214,.10)}
+.sch-head{display:grid;grid-template-columns:1fr auto 24px;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;background:none;font:inherit;text-align:left;cursor:pointer;color:#101828}
+.sch-title{display:grid;gap:2px;min-width:0}
+.sch-title b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sch-title small,.sch-total small{font-size:11.5px;color:#667085;font-weight:400}
+.sch-total{display:grid;text-align:right;font-size:13.5px;font-weight:700;color:#1149b8}
+.sch-chev{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:#f2f4f7;color:#344054;font-weight:700}
+.sch-card.on .sch-chev{background:#1557d6;color:#fff}
+.sch-body{display:grid;gap:12px;padding:4px 14px 14px;border-top:1px solid #eaecf0}
+.sch-fee{display:grid;gap:8px;padding-top:10px}
+.sch-feeHead{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
+.sch-feeHead span{font-weight:700;color:#344054}
+.sch-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+.sch-item{display:grid;gap:1px;padding:8px 10px;border:1px solid #eaecf0;border-radius:10px;background:#f9fafb}
+.sch-item i{font-style:normal;font-size:12px;font-weight:600;color:#475467}
+.sch-item b{font-size:13.5px;color:#101828}
+.sch-item small{font-size:11px;color:#667085}
+@media (max-width:640px){.sch-grid{grid-template-columns:1fr}.sch-head{grid-template-columns:1fr auto 24px}}
+/* Paramètres → Inscriptions as cards (owner request 2026-11-08). */
+.ach-hub .panelHead h3 small{font-weight:500;color:#667085}
+.ach-cards{display:grid;gap:10px}
+.ach-card{border:1px solid #e4e7ec;border-radius:16px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.ach-card:hover{border-color:#b2ccff}
+.ach-card.on{border-color:#1557d6;box-shadow:0 0 0 3px rgba(21,87,214,.10)}
+.ach-head{display:grid;grid-template-columns:40px 1fr 28px;align-items:center;gap:12px;width:100%;padding:14px 16px;border:0;background:none;font:inherit;text-align:left;cursor:pointer;color:#101828}
+.ach-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#eff4ff;color:#1557d6}
+.ach-text{display:grid;gap:3px;min-width:0}
+.ach-text b{font-size:15px}
+.ach-text small{font-size:13px;color:#475467;line-height:1.4}
+.ach-chev{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:#f2f4f7;font-weight:700;color:#344054}
+.ach-card.on .ach-chev{background:#1557d6;color:#fff}
+.ach-body{padding:4px 16px 16px;border-top:1px solid #eaecf0}
+.ach-body .policyForm{margin-top:12px}
+.ach{display:grid;gap:12px;padding-top:12px}
+.ac-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.ac-card{display:grid;gap:10px;align-content:start;padding:14px;border:1px solid #e4e7ec;border-radius:14px;background:#fcfcfd;min-width:0}
+.ac-card.off{opacity:.6}
+.ac-cardTop{display:flex;gap:10px;align-items:flex-start}
+.ac-cardTop b{display:block;font-size:14.5px;color:#101828}
+.ac-cardTop small{display:block;font-size:12.5px;color:#667085;margin-top:2px}
+.ac-cardIcon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border-radius:10px;background:#ecfdf3;color:#067647}
+.ac-tags{display:flex;flex-wrap:wrap;gap:6px}
+.ac-tags span{font-size:11.5px;font-weight:600;color:#475467;background:#f2f4f7;border-radius:999px;padding:3px 9px}
+.ac-tags span.strong{background:#eff4ff;color:#1149b8}
+.ac-tags span.muted{background:#fef3f2;color:#b42318}
+.ac-scope{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;color:#344054;line-height:1.4}
+.ac-scope svg{flex:0 0 auto;margin-top:2px;color:#667085}
+.ac-actions{display:flex;gap:8px;margin-top:2px}
+.ac-btn{border:1px solid #d0d5dd;border-radius:9px;background:#fff;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;color:#344054;cursor:pointer}
+.ac-btn.danger{color:#b42318;border-color:#fecdca}
+.ac-add{place-items:center;align-content:center;text-align:center;border-style:dashed;border-color:#b2ccff;background:#f8faff;cursor:pointer;font:inherit;min-height:150px;color:#1149b8}
+.ac-add>span{font-size:26px;line-height:1;font-weight:500}
+.ac-add b{font-size:14px}
+.ac-add small{font-size:12px;color:#475467}
+.ac-backdrop{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:16px;background:rgba(16,24,40,.45);backdrop-filter:blur(2px)}
+.ac-dialog{width:min(860px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 24px 64px rgba(16,24,40,.25);padding:18px 20px}
+.ac-dialog>header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px}
+.ac-dialog>header h3{margin:2px 0 0;font-size:19px}
+.ac-close{display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:10px;background:#f2f4f7;color:#344054;cursor:pointer}
+.ac-dialog .ruleForm{margin-top:6px}
+.admExempt.embedded{border:0;background:none;padding:12px 0 0}
+@media (max-width:640px){.ac-cards{grid-template-columns:1fr}.ach-head{grid-template-columns:36px 1fr 28px;padding:12px}.ac-dialog{padding:14px;border-radius:14px}}
