@@ -320,7 +320,7 @@ function OtherCollections({token,can}:{token:string;can:(p:string)=>boolean}){co
    setProduct(null);setQty('1');newKey();setProducts((await checkoutProducts(token)).items)}
   catch(e){const m=friendlyError(e);setMsg(m);toast.error(m)}finally{setBusy(false)}}
  async function printDone(){if(!done?.payment_id)return;try{const b=await printReceipt(token,done.payment_id,printCfg?.receipt_format);printPdfDirectly(b,()=>setMsg('Le dialogue d’impression ne s’est pas ouvert. Réessayez.'))}catch(e){setMsg(friendlyError(e))}}
- return <section className="checkoutWorkspace saleDesk"><div className="checkoutWelcome"><b>Vente d’articles</b><p>Choisissez l’élève, puis l’article. Le prix et le stock viennent du catalogue de l’école.</p></div>
+ return <section className="checkoutWorkspace saleDesk"><div className="checkoutWelcome"><b>Vente d’articles</b><p>Choisissez l’élève, puis l’article. Le prix et le stock viennent du catalogue de l’école : aucune référence technique n’est à saisir au guichet.</p></div>
   <PersonFinder token={token} onChoose={p=>{setPerson(p);setDone(null)}}/>
   {person&&<div className="payerStrip"><div className="payerAvatar">{person.last_name[0]}{person.first_name[0]}</div><div><b>{person.last_name} {person.first_name}</b><span>{person.matricule} · {person.class_label}</span></div><button onClick={()=>{setPerson(null);setProduct(null);setDone(null)}}>Changer</button></div>}
   {done&&<div className="saleDone" role="status"><span className="saleDoneIcon" aria-hidden="true"><NavGlyph g="check" size={20}/></span><div><b>{done.replayed?'Vente déjà enregistrée (aucun double encaissement)':'Vente encaissée'}</b><span>{done.qty} × {done.label} · {money(done.amount,done.currency)} · {done.who}</span><small>Reçu {done.receipt}</small></div>
