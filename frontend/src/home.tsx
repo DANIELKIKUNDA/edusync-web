@@ -3,6 +3,7 @@ import {NavGlyph} from './platform/nav_icons';
 import {ScreenBoundary,ScreenError} from './platform/screen_boundary';
 import {RecoveryChart} from './platform/recovery_chart';
 import {DailyBriefing} from './home_briefing';
+import {ExecutiveHeadcounts,MoneyPilotage} from './exec_home';
 import {ALL_DOMAINS,useLive} from './platform/live';
 import {setFinanceTarget,type FinanceTarget} from './finance_nav';
 import {auditActionLabel} from './platform/labels';
@@ -51,7 +52,7 @@ function Async<T>({s,children,lines=2}:{s:Loaded<T>;children:(d:T)=>React.ReactN
 const ADMIN_WIDGETS=new Set(['access.members','access.requests','settings.academic_year','settings.structure','audit.recent','sync.devices']);
 const ICON:Record<string,string>={'access.members':'users','access.requests':'shield','settings.academic_year':'calendar','settings.structure':'layers','audit.recent':'clock',
   'sync.devices':'sync','cash.today':'finance','cash.supervision':'finance','checkout.quick':'receipt','headcounts.summary':'chart','headcounts.movements':'students','personnel.summary':'users','finance.recovery':'finance',
-  'finance.by_fee':'tag','finance.decisions':'shield','reports.latest':'doc','documents.recent':'folder','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart','students.files':'doc'};
+  'finance.by_fee':'tag','finance.pilotage':'finance','finance.decisions':'shield','reports.latest':'doc','documents.recent':'folder','inventory.stock':'box','inventory.counts':'checkCircle','cash.receipts':'receipt','enrollments.today':'students','products.watch':'cart','students.files':'doc'};
 
 function AdminCard({w,d,index,go}:{w:AccessWidget;d:Loaded<Record<string,any>>;index:number;go:()=>void}){
   const x=d.data?.[w.id];const loading=d.loading&&!d.data;
@@ -84,7 +85,7 @@ function Readiness({token,open,go}:{token:string;open:(section:string)=>void;go:
   </Card>;
 }
 
-function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void}){
+function BusinessCard({w,token,yearId,index,go,executive}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void;executive?:boolean}){
   const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
   switch(w.id){
     case 'cash.today':return <CashToday common={common} token={token}/>;
@@ -93,7 +94,8 @@ function BusinessCard({w,token,yearId,index,go}:{w:AccessWidget;token:string;yea
     case 'cash.receipts':return <CashReceipts common={common} token={token}/>;
     case 'enrollments.today':return <Enrollments common={common} token={token}/>;
     case 'products.watch':return <ProductsWatch common={common} token={token}/>;
-    case 'headcounts.summary':return <Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
+    case 'finance.pilotage':return <MoneyPilotage common={common} token={token} yearId={yearId}/>;
+    case 'headcounts.summary':return executive||(w.breakdowns??[]).includes('class')?<ExecutiveHeadcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>:<Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
     case 'personnel.summary':return <PersonnelSummary common={common} token={token}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
@@ -214,36 +216,60 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const first=userName.split(' ')[0];
   const readiness=me.widgets.find(w=>w.id==='settings.readiness');
   const figures=me.widgets.filter(w=>w.id!=='settings.readiness'&&w.id!=='audit.recent');
-  const executive=figures.some(w=>w.id==='cash.supervision');
+  // Executive home (owner, 2026-11-08): promoteur, his assistant, gestionnaire, responsable financier — money and pupils first.
+  const executive=figures.some(w=>w.id==='finance.pilotage');
+  const supervisor=executive||figures.some(w=>w.id==='cash.supervision');
   const journal=me.widgets.find(w=>w.id==='audit.recent');
   let index=0;
   // Every finance card opens ITS screen (owner, 2026-11-02: « Encaissements du jour » and « Articles à surveiller » used to
   // fall back to the quick checkout): today's receipts → the cash desk journal, articles → « Autres encaissements ».
-  const financeTarget=(id:string):FinanceTarget|undefined=>id==='cash.today'||id==='cash.supervision'||id==='cash.receipts'?'cash':id==='products.watch'?'products':id==='checkout.quick'?'checkout':id==='finance.recovery'?'recovery':id==='finance.by_fee'?'fees':id==='finance.decisions'?'controls':id==='reports.latest'?'reports':undefined;
+  const financeTarget=(id:string):FinanceTarget|undefined=>id==='cash.today'||id==='cash.supervision'||id==='cash.receipts'?'cash':id==='products.watch'?'products':id==='checkout.quick'?'checkout':id==='finance.recovery'||id==='finance.pilotage'?'recovery':id==='finance.by_fee'?'fees':id==='finance.decisions'?'controls':id==='reports.latest'?'reports':undefined;
   const openWidget=(w:AccessWidget)=>{const target=financeTarget(w.id);if(target)setFinanceTarget(target);onNavigate(w.module)};
   const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)setFinanceTarget(target);onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
     ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
-    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)}/>}</ScreenBoundary>;
-  return <div className={`ui-page sh-home${executive?' sh-home-executive':''}`}>
+    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)} executive={executive}/>}</ScreenBoundary>;
+  const byId=(id:string)=>figures.find(w=>w.id===id);
+  const pick2=(ids:string[])=>ids.map(byId).filter(Boolean) as AccessWidget[];
+  const headerShortcuts=executive?shortcuts.filter(a=>a.id!=='inventory.open'):shortcuts;
+  return <div className={`ui-page sh-home${supervisor?' sh-home-executive':''}`}>
     <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
-      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive?'pilotage de l’établissement : caisses, effectifs, recouvrement et alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
-      actions={shortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':a.id==='cash.supervise'?'finance':a.id==='reports.open'?'doc':'chevronRight'}
+      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive&&!me.permissions.includes('finance.cash.other.read')?'pilotage de votre section : les effectifs, les finances de la section et les dossiers des élèves.':supervisor?'pilotage de l’établissement : l’argent, les effectifs, le recouvrement et les alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
+      actions={headerShortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':a.id==='cash.supervise'?'finance':a.id==='reports.open'?'doc':'chevronRight'}
         onClick={()=>a.id==='settings.open'?openSettings('overview'):openAction(a)}>{a.label}</Button>)}/>
     {search&&<button type="button" className="sh-search" onClick={()=>setSpot(true)} aria-haspopup="dialog"><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille · Ctrl K</small></button>}
     {spot&&<StudentSpotlight token={token} onClose={()=>setSpot(false)} onPick={pick}/>}
     {me.widgets.length===0?<EmptyState icon="home" title="Aucun suivi pour votre rôle" text="Les modules auxquels vous avez accès sont dans le menu."/>:<>
       {readiness&&<ScreenBoundary compact label="readiness"><Readiness token={token} open={openSettings} go={()=>openSettings('overview')}/></ScreenBoundary>}
-      {(executive||!desk)&&<ScreenBoundary compact label="briefing"><DailyBriefing token={token} yearId={yearId} widgets={figures} open={openWidget}/></ScreenBoundary>}
-      {figures.length>0&&(()=>{
-        const overview=executive?figures.filter(w=>['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)):figures;
+      {executive&&(()=>{
+        /* Order (owner, 2026-11-08): the money, the pupils, the day's points, then recovery and the cash desks; checks only
+           for whoever acts on them (decisions, stock…); recent official reports last. Personnel and movements are summed up
+           in « Le point du jour » — their screens stay one click away in the menu. */
+        const money=pick2(['finance.pilotage']),pupils=pick2(['headcounts.summary']);
+        const follow=pick2(['finance.recovery','cash.supervision','finance.by_fee']);
+        // checks only for whoever acts on them (the gestionnaire decides); the promoteur reads them in « Le point du jour »
+        const operator=me.permissions.includes('finance.decisions.create');
+        const watch=operator?pick2(['finance.decisions','inventory.stock','inventory.counts']):[];
+        const activity=pick2(['reports.latest']);
+        // Section leaders (préfet, direction de section) also follow the pupils' files, movements and staff of their section.
+        const academic=me.permissions.includes('finance.cash.other.read')?[]:pick2(['students.files','headcounts.movements','personnel.summary']);
+        return <>{money.length>0&&<div className="ui-grid ex-top">{money.map(render)}</div>}
+          {pupils.length>0&&<div className="ui-grid ex-top">{pupils.map(render)}</div>}
+          <ScreenBoundary compact label="briefing"><DailyBriefing token={token} yearId={yearId} widgets={figures} open={openWidget}/></ScreenBoundary>
+          {follow.length>0&&<Section title={byId('cash.supervision')?'Recouvrement et caisses':'Recouvrement'} subtitle={byId('cash.supervision')?'Où en est l’argent attendu, et l’état des caisses aujourd’hui.':'Où en est l’argent attendu des élèves de votre périmètre.'} id="sh-follow"><div className="ui-grid">{follow.map(render)}</div></Section>}
+          {academic.length>0&&<Section title="Suivi de la section" subtitle="Dossiers des élèves, mouvements et personnel de votre section." id="sh-academic"><div className="ui-grid">{academic.map(render)}</div></Section>}
+          {watch.length>0&&<Section title="À vérifier" subtitle="Les décisions et alertes qui relèvent de votre gestion." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
+          {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Les derniers rapports officiels de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
+      {!executive&&(supervisor||!desk)&&<ScreenBoundary compact label="briefing"><DailyBriefing token={token} yearId={yearId} widgets={figures} open={openWidget}/></ScreenBoundary>}
+      {!executive&&figures.length>0&&(()=>{
+        const overview=supervisor?figures.filter(w=>['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)):figures;
         const activityIds=new Set(['reports.latest','documents.recent']);
-        const activity=executive?figures.filter(w=>activityIds.has(w.id)):[];
-        const watch=executive?figures.filter(w=>!['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)&&!activityIds.has(w.id)):[];
-        return <>{overview.length>0&&<Section title={executive?'Vue d’ensemble':'À suivre'} subtitle={executive?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
+        const activity=supervisor?figures.filter(w=>activityIds.has(w.id)):[];
+        const watch=supervisor?figures.filter(w=>!['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)&&!activityIds.has(w.id)):[];
+        return <>{overview.length>0&&<Section title={supervisor?'Vue d’ensemble':'À suivre'} subtitle={supervisor?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
           {watch.length>0&&<Section title="À vérifier" subtitle="Les exceptions et écarts à traiter en priorité." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
           {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Rapports, documents et actions récentes de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
-      {!executive&&journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
+      {!supervisor&&journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
     </>}
   </div>;
 }

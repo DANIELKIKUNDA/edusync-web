@@ -335,11 +335,14 @@ function SchoolApp({session,onLogout,onSwitchSpace}:{session:SavedSchoolSession;
   // first): Accueil + the 3 modules where this member works most, read from what the server already projects for them
   // (home widgets weigh 2, shortcuts 1 — never a role name), then « Plus ». It was the same 4 entries for everyone, so the
   // Intendant or the administrator had no work module in it.
-  const shortLabels:Record<string,string>={home:'Accueil',students:'Élèves',finance:'Finance',documents:'Documents',stewardship:'Intendance',headcounts:'Effectifs',personnel:'Personnel',communications:'Messages',settings:'Réglages',access:'Accès',sync:'Synchro'};
+  const shortLabels:Record<string,string>={home:'Accueil',students:'Élèves',finance:'Finance',documents:'Documents',stewardship:'Intendance',headcounts:'Effectifs',personnel:'Personnel',communications:'Messages',settings:'Réglages',access:nav.find(x=>x.key==='access')?.label==='Journal d’audit'?'Audit':'Accès',sync:'Synchro'};
   const weight=(key:string)=>2*(me?.widgets??[]).filter(w=>w.module===key).length+(me?.actions??[]).filter(a=>a.module===key).length;
   // Ordered by importance (the main work module right after Accueil); a module where the member has nothing on the home
   // comes only to fill the bar, and the school settings last (read-only for most roles, always reachable from « Plus »).
-  const ranked=nav.filter(x=>x.key!=='home').map((x,i)=>({key:x.key,score:weight(x.key)-(x.key==='settings'||x.key==='sync'?0.5:0),i})).sort((a,b)=>b.score-a.score||a.i-b.i).slice(0,3).map(x=>x.key);
+  // Executive home (owner, 2026-11-08): the promoteur / gestionnaire / responsable financier work on the money, the
+  // headcounts and the pupils — never the stock first, even if a stock card exists for them.
+  const execBar=(me?.widgets??[]).some(w=>w.id==='finance.pilotage')?['finance','headcounts','students'].filter(k=>nav.some(x=>x.key===k)):null;
+  const ranked=execBar&&execBar.length===3?execBar:nav.filter(x=>x.key!=='home').map((x,i)=>({key:x.key,score:weight(x.key)-(x.key==='settings'||x.key==='sync'?0.5:0),i})).sort((a,b)=>b.score-a.score||a.i-b.i).slice(0,3).map(x=>x.key);
   const barRank=new Map(['home',...ranked].map((k,i)=>[k,i]));
   // Whoever collects (the server grants the « Nouvel encaissement » shortcut) works at the desk: the finance entry of the
   // bar reads « Encaisser » and opens the checkout directly (owner, 2026-10-31); the other finance screens stay in its tabs.

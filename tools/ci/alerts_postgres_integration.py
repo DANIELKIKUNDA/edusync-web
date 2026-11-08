@@ -63,11 +63,20 @@ def run(A: dict) -> None:
     check("recouvrement : un frais non mensuel a sa propre bande à son nom, jamais un nom de mois",
           bool(others) and all(i["month_label"] not in {m["month_label"] for m in months} for i in others)
           and any("nscription" in i["month_label"] for i in others), labels)
+    pil = as_(gest).get("/api/v1/finance/recovery/pilotage")
+    paid = one("SELECT COALESCE(sum(amount),0) FROM finance_payments WHERE school_id=:s AND currency='CDF'", s=A["id"])[0]
+    check("tableau du promoteur : l'argent du jour = les encaissements réels de la journée",
+          pil.status_code == 200 and float(pil.json()["cash"]["CDF"]["today"]) == float(paid) > 0
+          and pil.json()["cash"]["CDF"]["today"] == pil.json()["cash"]["CDF"]["year"], (pil.status_code, pil.text[:300], paid))
     as_(cashier_actor)
     pay = one("""SELECT p.id FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN students s ON s.id=e.student_id
                  WHERE s.family_id=:f ORDER BY p.created_at LIMIT 1""", f=r.json()["family_id"])[0]
     v = cashier.post(f"/api/v1/finance/cash/payments/{pay}/reverse", json={"reversal_type": "ANNULATION", "reason": "Erreur de saisie au guichet"})
     check("le caissier annule un reçu", v.status_code == 200, f"{v.status_code} {v.text[:200]}")
+    amt = one("SELECT amount FROM finance_payments WHERE id=:i", i=pay)[0]
+    after = as_(gest).get("/api/v1/finance/recovery/pilotage").json()["cash"]["CDF"]["today"]
+    check("→ l'annulation est déduite de l'argent du jour", float(after) == float(paid) - float(amt), (after, paid, amt))
+    as_(cashier_actor)
     check("→ le gestionnaire reçoit « Reçu annulé » (motif inclus) ; le caissier rien",
           "Reçu annulé" in inbox(gest, "ALERT_FINANCE") and not inbox(cashier_actor, "ALERT_FINANCE"), (inbox(gest, "ALERT_FINANCE"), inbox(cashier_actor, "ALERT_FINANCE")))
 
@@ -93,9 +102,27 @@ def run(A: dict) -> None:
     check("→ ceux qui accordent les dérogations sont alertés (« Dérogation demandée »)", "Dérogation demandée" in inbox(gest, "ALERT_DECISIONS"), inbox(gest, "ALERT_DECISIONS"))
 
 
+def section_scopes(A: dict) -> None:
+    """Owner, 2026-11-08: a section leader sees HIS section only — headcounts and the section's money — never the school."""
+    print("\n== Directions de section : effectifs et finances limités à la section")
+    seen = {}
+    for role, section in (("PREFET_ETUDES", "SECONDAIRE"), ("DIRECTEUR_ETUDES", "SECONDAIRE"), ("DIRECTEUR_DISCIPLINE", "SECONDAIRE"), ("DIRECTION_SECTION", "PRIMAIRE")):
+        actor = actor_for(role, A["id"], scope=("SECTION", section))
+        r = as_(actor).get("/api/v1/effectifs/counts", params={"group_by": "class"})
+        sections = {i["section"] for i in r.json().get("items", [])} if r.status_code == 200 else set()
+        seen[role] = sections
+        check(f"{role} ({section}) : les effectifs de sa seule section", r.status_code == 200 and len(sections) == 1, (r.status_code, sections, r.text[:200]))
+    whole = as_(actor_for("PROMOTEUR", A["id"])).get("/api/v1/effectifs/counts", params={"group_by": "class"}).json()
+    check("le promoteur voit toutes les sections, la direction du primaire une autre que le préfet",
+          len({i["section"] for i in whole["items"]}) > 1 and seen["DIRECTION_SECTION"] != seen["PREFET_ETUDES"], ({i["section"] for i in whole["items"]}, seen))
+    p = as_(actor_for("PREFET_ETUDES", A["id"], scope=("SECTION", "SECONDAIRE"))).get("/api/v1/finance/recovery/pilotage")
+    check("préfet : les finances de sa section, jamais l'argent des caisses de l'école", p.status_code == 200 and p.json()["cash"] is None and "recovery" in p.json(), (p.status_code, p.text[:200]))
+
+
 def main() -> int:
     A = school("F")
     run(A)
+    section_scopes(A)
     H.CLIENT.__exit__(None, None, None)
     fails = [r for r in H.RESULTS if r[0] == "FAIL"]
     print(f"\n{len(H.RESULTS) - len(fails)}/{len(H.RESULTS)} PASS · {len(fails)} FAIL")

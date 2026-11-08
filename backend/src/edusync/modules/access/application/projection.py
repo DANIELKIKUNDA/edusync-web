@@ -8,29 +8,49 @@ this projection only decides what is worth showing.
 from __future__ import annotations
 
 # (key, label, icon, any-of capabilities) — `home` is always present.
+# Order (owner, 2026-11-08 — the pattern of the big management suites): daily work first (money, pupils, staff…),
+# control next, configuration LAST. Labels follow what the member actually does (see ``navigation``).
 NAVIGATION: list[tuple[str, str, str, tuple[str, ...]]] = [
     ("home", "Accueil", "home", ()),
-    ("settings", "Paramètres", "settings", (
-        "settings.school_identity.read", "settings.structure.read", "settings.academic_year.read", "settings.tariffs.read",
-        "settings.fee_types.read", "settings.payment_policy.read", "settings.documents.read", "settings.products.read",
-        "settings.contributions.read", "settings.benefits.read", "settings.enrollment_policy.read", "settings.backups.read",
-        "finance.anticipation_plans.read")),
-    ("personnel", "Personnel", "users", ("personnel.read",)),
-    ("students", "Élèves & inscriptions", "students", ("students.read", "families.read")),
-    ("headcounts", "Effectifs & dépôts", "chart", ("headcounts.read", "contributions.read", "contributions.register.read")),
-    ("finance", "Centre financier", "finance", (
+    ("finance", "Finances", "finance", (
         "finance.cash.read", "finance.checkout.search", "finance.receipts.read", "finance.recovery.monthly.read",
         "finance.reports.history.read", "finance.decisions.read", "finance.advance_funds.read", "finance.cash.other.read",
         "finance.products.read", "finance.analysis.by_fee.read")),
+    ("students", "Élèves & inscriptions", "students", ("students.read", "families.read")),
+    ("headcounts", "Effectifs & dépôts", "chart", ("headcounts.read", "contributions.read", "contributions.register.read")),
+    ("personnel", "Personnel", "users", ("personnel.read",)),
     ("documents", "Documents", "folder", (
         "documents.history.read", "documents.open", "students.directory.export", "families.directory.export",
         "personnel.directory.export", "headcounts.export", "finance.views.vf01.export", "finance.reports.periodic.export",
         "students.account.export")),
     ("stewardship", "Intendance", "box", ("inventory.assets.read", "inventory.stock.read", "inventory.counts.read")),
-    ("sync", "Synchronisation", "sync", ("sync.status.read",)),
     ("communications", "Communication", "bell", ("communications.read", "notifications.internal.configure")),
     ("access", "Accès & rôles", "lock", ("access.users.read", "access.roles.read", "audit.school.read")),
+    ("sync", "Synchronisation", "sync", ("sync.status.read",)),
+    ("settings", "Paramètres", "settings", (
+        "settings.school_identity.read", "settings.structure.read", "settings.academic_year.read", "settings.tariffs.read",
+        "settings.fee_types.read", "settings.payment_policy.read", "settings.documents.read", "settings.products.read",
+        "settings.contributions.read", "settings.benefits.read", "settings.enrollment_policy.read", "settings.backups.read",
+        "finance.anticipation_plans.read")),
 ]
+
+ACCESS_ADMIN = ("access.users.read", "access.roles.read")
+
+
+def nav_label(key: str, label: str, caps: set[str]) -> str:
+    """The menu says what the member does there (owner, 2026-11-08)."""
+    if key == "students" and "enrollments.create" not in caps:
+        return "Élèves"                              # consults pupils, does not enroll them
+    if key == "access" and not any(c in caps for c in ACCESS_ADMIN):
+        return "Journal d’audit"                     # reads the journal, manages neither accounts nor roles
+    if key == "finance" and "finance.checkout.collect" in caps and "finance.cash.other.read" not in caps:
+        return "Caisse"                              # the cashier's desk
+    return label
+
+
+def nav_icon(key: str, icon: str, caps: set[str]) -> str:
+    return "audit" if key == "access" and not any(c in caps for c in ACCESS_ADMIN) else icon
+
 
 # Dashboard widgets: id, title, module opened by « Voir », priority (lower first), all-of, any-of.
 WIDGETS: list[dict] = [
@@ -43,8 +63,13 @@ WIDGETS: list[dict] = [
     # (the cashier reads the year and the structure through the secretariat baseline but administers neither).
     {"id": "settings.academic_year", "title": "Année scolaire", "module": "settings", "priority": 13, "all": ("settings.academic_year.update",)},
     {"id": "settings.structure", "title": "Structure : sections et classes", "module": "settings", "priority": 14, "all": ("settings.classes.create",)},
-    {"id": "audit.recent", "title": "Dernières actions administratives", "module": "access", "priority": 15, "all": ("audit.school.read",)},
+    # On the home of whoever ADMINISTERS accounts; the others read it in « Journal d'audit » (owner, 2026-11-08).
+    {"id": "audit.recent", "title": "Dernières actions administratives", "module": "access", "priority": 15, "all": ("audit.school.read", "access.users.read")},
     {"id": "sync.devices", "title": "Appareils et synchronisation", "module": "sync", "priority": 16, "all": ("sync.device.register",)},
+    # Executive money view (owner, 2026-11-08): today / week / month / since the start of the year, and what remains to recover.
+    # Section leaders (préfet, direction de section) given the finances: the same card, limited to their section's recovery.
+    {"id": "finance.pilotage", "title": "L’argent de l’école", "module": "finance", "priority": 5, "all": ("finance.recovery.monthly.read",),
+     "any": ("finance.cash.other.read", "headcounts.by_option.read")},
     # Operations
     {"id": "cash.today", "title": "Ma caisse du jour", "module": "finance", "priority": 20, "all": ("finance.cash.read", "finance.cash.open")},
     {"id": "cash.supervision", "title": "Situation des caisses", "module": "finance", "priority": 20, "all": ("finance.cash.other.read",)},
@@ -75,7 +100,9 @@ WIDGETS: list[dict] = [
 
 # Shortcuts offered on the home screen / header.
 ACTIONS: list[dict] = [
-    {"id": "students.search", "label": "Rechercher un élève", "module": "students", "all": ("students.read",)},
+    # Owner, 2026-11-08: the search bar is for those who HANDLE pupils' files (secretariat, desk, discipline, studies,
+    # section leaders) — not for the promoteur / gestionnaire / responsable financier, who follow figures.
+    {"id": "students.search", "label": "Rechercher un élève", "module": "students", "all": ("students.read", "students.profile.complete")},
     {"id": "cash.supervise", "label": "Superviser les caisses", "module": "finance", "all": ("finance.cash.other.read",)},
     {"id": "reports.open", "label": "Rapports financiers", "module": "finance", "all": ("finance.reports.history.read",)},
     {"id": "checkout.new", "label": "Nouvel encaissement", "module": "finance", "all": ("finance.checkout.collect",)},
@@ -91,7 +118,8 @@ def _allowed(entry: dict, caps: set[str]) -> bool:
 
 
 def navigation(caps: set[str]) -> list[dict]:
-    return [{"key": k, "label": label, "icon": icon} for k, label, icon, any_of in NAVIGATION if not any_of or any(c in caps for c in any_of)]
+    return [{"key": k, "label": nav_label(k, label, caps), "icon": nav_icon(k, icon, caps)}
+            for k, label, icon, any_of in NAVIGATION if not any_of or any(c in caps for c in any_of)]
 
 
 def widgets(caps: set[str], school_caps: set[str] | None = None) -> list[dict]:
