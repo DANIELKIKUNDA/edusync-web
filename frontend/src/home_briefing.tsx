@@ -15,7 +15,6 @@ const n=(v:unknown)=>num(v).toLocaleString('fr-FR');
 // School year months in order (RDC: September → June); a month is « due » once it has started.
 const MONTHS=['septembre','octobre','novembre','décembre','janvier','février','mars','avril','mai','juin','juillet','août'];
 const schoolMonthIndex=(d:Date)=>(d.getMonth()+4)%12;   // September = 0
-const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 
 async function recoveryFinding(token:string,yearId?:string):Promise<Finding|null>{
   const r=await recoveryMonthly(token,yearId,'CDF');const now=schoolMonthIndex(new Date());
@@ -31,13 +30,16 @@ async function recoveryFinding(token:string,yearId?:string):Promise<Finding|null
     text:`Mois échus (${span}) : ${fc(paid)} encaissés sur ${fc(expected)} attendus, il manque ${fc(expected-paid)}. Sur l’année : ${n(year?.recovery_rate)} % (${fc(year?.regularized_total)} sur ${fc(year?.expected)}).`};
 }
 async function cashFinding(token:string):Promise<Finding>{
-  const d=await cashDaySummary(token,localDay());const cdf=d?.currencies?.CDF??{},usd=d?.currencies?.USD??{};
+  // the cash desks' own business day (server), the same day as the promoteur's « Aujourd'hui » (owner, 2026-11-08)
+  const d=await cashDaySummary(token);const cdf=d?.currencies?.CDF??{},usd=d?.currencies?.USD??{};
   const open=num(d?.open_count),closed=num(d?.closed_count);
   const gaps=(d?.sessions??[]).filter((x:any)=>x.status==='CLOSED'&&[x?.cdf?.variance,x?.usd?.variance].some((v:any)=>v!=null&&Math.abs(Number(v))>0.0001)).length;
   if(!open&&!closed)return {widget:'cash.supervision',tone:'info',icon:'receipt',title:'Aucune caisse ouverte aujourd’hui',text:'Aucun encaissement enregistré pour la journée.'};
-  const usdTxt=num(usd.receipts)?` et ${n(usd.receipts)} USD`:'';
+  // net of cancellations / refunds, exactly like « L'argent de l'école » (receipts − cancellations)
+  const net=(c:any)=>num(c.receipts)-num(c.reversals)-num(c.supervisor_reversals);
+  const usdTxt=net(usd)?` et ${n(net(usd))} USD`:'';
   return {widget:'cash.supervision',tone:gaps?'warn':'ok',icon:'receipt',
-    title:gaps?`${gaps} clôture${gaps>1?'s':''} de caisse avec écart à vérifier`:`Aujourd’hui : ${fc(cdf.receipts)} encaissés${usdTxt}`,
+    title:gaps?`${gaps} clôture${gaps>1?'s':''} de caisse avec écart à vérifier`:`Aujourd’hui : ${fc(net(cdf))} encaissés${usdTxt}`,
     text:`${n(open)} caisse${open>1?'s':''} ouverte${open>1?'s':''}, ${n(closed)} clôturée${closed>1?'s':''} · dépenses ${fc(cdf.expenses)} · solde théorique ${fc(cdf.expected_cash)}.`};
 }
 async function headcountFinding(token:string,yearId?:string):Promise<Finding>{

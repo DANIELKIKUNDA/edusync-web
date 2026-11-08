@@ -22,7 +22,6 @@ const n=(v:number)=>new Intl.NumberFormat('fr-FR').format(v);
 const money=(v:any)=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Number(v||0));
 const ago=(v?:string|null)=>{if(!v)return '';const m=Math.round((Date.now()-new Date(v).getTime())/60000);if(m<1)return 'à l’instant';if(m<60)return `il y a ${m} min`;const h=Math.round(m/60);if(h<24)return `il y a ${h} h`;const d=Math.round(h/24);return d===1?'hier':`il y a ${d} jours`};
 const plural=(k:number,one:string,many:string)=>`${n(k)} ${k>1?many:one}`;
-const localIsoDay=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const frDate=(v?:string|null)=>{if(!v)return '—';const [y,m,d]=String(v).slice(0,10).split('-').map(Number);return y&&m&&d?new Date(y,m-1,d).toLocaleDateString('fr-FR'):String(v)};
 
 /** Settings section opened by a readiness step (read once by the settings page). */
@@ -111,7 +110,7 @@ function BusinessCard({w,token,yearId,index,go,executive,desk}:{w:AccessWidget;t
   }
 }
 type Common={icon:string;title:string;onClick:()=>void;index:number;ariaLabel:string};
-function CashSupervision({common,token}:{common:Common;token:string}){const day=localIsoDay();const s=useData(()=>cashDaySummary(token,day),[token,day]);
+function CashSupervision({common,token}:{common:Common;token:string}){const s=useData(()=>cashDaySummary(token),[token]);
   return <Async s={s}>{(d:any)=>{const cdf=d?.currencies?.CDF??{};const usd=d?.currencies?.USD??{};const open=Number(d?.open_count??0),closed=Number(d?.closed_count??0);
     const gaps=(d?.sessions??[]).filter((x:any)=>x.status==='CLOSED'&&[x?.cdf?.variance,x?.usd?.variance].some(v=>v!=null&&Math.abs(Number(v))>0.0001)).length;
     return <Card level={gaps?'priority':'info'} tone={gaps?'warn':undefined} {...common}
@@ -231,6 +230,17 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
     ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
     :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)} executive={executive} desk={desk}/>}</ScreenBoundary>;
   const byId=(id:string)=>figures.find(w=>w.id===id);
+  /* Owner, 2026-11-08: « les petites cartes sur une même ligne » — small cards go by rows of four, a full-width card
+     (today's receipts, recovery chart, journal) comes between two full rows, and the last row stretches to fill the line. */
+  const WIDE=new Set(['cash.receipts','finance.recovery','audit.recent',...(desk?[]:['headcounts.summary'])]);
+  const rows=(list:AccessWidget[])=>{const out:React.ReactNode[]=[];let buf:AccessWidget[]=[];const later:AccessWidget[]=[];
+    const flush=()=>{if(buf.length)out.push(<div key={'r'+out.length} className={`ui-grid${buf.length<4?' sh-row':''}`}>{buf.map(render)}</div>);buf=[]};
+    const wide=(w:AccessWidget)=>out.push(<div key={'w'+w.id} className="ui-grid">{render(w)}</div>);
+    // order kept; a full-width card waits until the row of small cards before it is complete
+    for(const w of list){if(WIDE.has(w.id)){if(buf.length)later.push(w);else wide(w);continue}
+      buf.push(w);if(buf.length===4){flush();later.splice(0).forEach(wide)}}
+    flush();later.forEach(wide);
+    return <div className="sh-rows">{out}</div>};
   const pick2=(ids:string[])=>ids.map(byId).filter(Boolean) as AccessWidget[];
   const headerShortcuts=executive?shortcuts.filter(a=>a.id!=='inventory.open'):shortcuts;
   return <div className={`ui-page sh-home${supervisor?' sh-home-executive':''}`}>
@@ -247,17 +257,18 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
            for whoever acts on them (decisions, stock…); recent official reports last. Personnel and movements are summed up
            in « Le point du jour » — their screens stay one click away in the menu. */
         const money=pick2(['finance.pilotage']),pupils=pick2(['headcounts.summary']);
-        const follow=pick2(['finance.recovery','cash.supervision','finance.by_fee']);
+        // the recent official reports share the row of the small money cards (owner, 2026-11-08: no card alone on a line)
+        const follow=pick2(['finance.recovery','cash.supervision','finance.by_fee','reports.latest']);
         // checks only for whoever acts on them (the gestionnaire decides); the promoteur reads them in « Le point du jour »
         const operator=me.permissions.includes('finance.decisions.create');
         const watch=operator?pick2(['finance.decisions','inventory.stock','inventory.counts']):[];
-        const activity=pick2(['reports.latest']);
+        const activity:AccessWidget[]=[];
         // Section leaders (préfet, direction de section) also follow the pupils' files, movements and staff of their section.
         const academic=me.permissions.includes('finance.cash.other.read')?[]:pick2(['students.files','headcounts.movements','personnel.summary']);
         return <>{money.length>0&&<div className="ui-grid ex-top">{money.map(render)}</div>}
           {pupils.length>0&&<div className="ui-grid ex-top">{pupils.map(render)}</div>}
           <ScreenBoundary compact label="briefing"><DailyBriefing token={token} yearId={yearId} widgets={figures} open={openWidget}/></ScreenBoundary>
-          {follow.length>0&&<Section title={byId('cash.supervision')?'Recouvrement et caisses':'Recouvrement'} subtitle={byId('cash.supervision')?'Où en est l’argent attendu, et l’état des caisses aujourd’hui.':'Où en est l’argent attendu des élèves de votre périmètre.'} id="sh-follow"><div className="ui-grid">{follow.map(render)}</div></Section>}
+          {follow.length>0&&<Section title={byId('cash.supervision')?'Recouvrement et caisses':'Recouvrement'} subtitle={byId('cash.supervision')?'Où en est l’argent attendu, l’état des caisses aujourd’hui et les derniers rapports officiels.':'Où en est l’argent attendu des élèves de votre périmètre.'} id="sh-follow">{follow.filter(w=>w.id==='finance.recovery').length>0&&<div className="ui-grid">{follow.filter(w=>w.id==='finance.recovery').map(render)}</div>}{follow.some(w=>w.id!=='finance.recovery')&&<div className="ui-grid sh-row">{follow.filter(w=>w.id!=='finance.recovery').map(render)}</div>}</Section>}
           {academic.length>0&&<Section title="Suivi de la section" subtitle="Dossiers des élèves, mouvements et personnel de votre section." id="sh-academic"><div className="ui-grid">{academic.map(render)}</div></Section>}
           {watch.length>0&&<Section title="À vérifier" subtitle="Les décisions et alertes qui relèvent de votre gestion." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
           {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Les derniers rapports officiels de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
@@ -267,9 +278,9 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
         const activityIds=new Set(['reports.latest','documents.recent']);
         const activity=supervisor?figures.filter(w=>activityIds.has(w.id)):[];
         const watch=supervisor?figures.filter(w=>!['cash.supervision','headcounts.summary','personnel.summary','finance.recovery'].includes(w.id)&&!activityIds.has(w.id)):[];
-        return <>{overview.length>0&&<Section title={supervisor?'Vue d’ensemble':'À suivre'} subtitle={supervisor?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow"><div className="ui-grid">{overview.map(render)}</div></Section>}
+        return <>{overview.length>0&&<Section title={supervisor?'Vue d’ensemble':'À suivre'} subtitle={supervisor?'Les indicateurs essentiels de l’établissement, sans actions opérationnelles.':undefined} id="sh-follow">{rows(overview)}</Section>}
           {watch.length>0&&<Section title="À vérifier" subtitle="Les exceptions et écarts à traiter en priorité." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
-          {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Rapports, documents et actions récentes de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
+          {supervisor&&(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Rapports, documents et actions récentes de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
       {!supervisor&&journal&&<Section title="Activité récente" id="sh-activity"><div className="ui-grid">{render(journal)}</div></Section>}
     </>}
   </div>;

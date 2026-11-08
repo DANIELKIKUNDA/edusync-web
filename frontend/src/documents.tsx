@@ -16,7 +16,7 @@ function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{toke
  // Owner request 2026-11-08: generated documents also browsed as folders — module, then document type, then files.
  const [view,setView]=useState<'folders'|'list'>(()=>{try{return localStorage.getItem('edusync.docs.view')==='list'?'list':'folders'}catch{return 'folders'}});
  const [folder,setFolder]=useState<{module?:string;code?:string}>({});const [families,setFamilies]=useState<DocumentCatalogItem[]>([]);
- useEffect(()=>{getDocumentCatalog(token).then(x=>setFamilies(x.items)).catch(()=>setFamilies([]))},[token]);
+ useEffect(()=>{getDocumentCatalog(token).then(x=>setFamilies(x.families??x.items)).catch(()=>setFamilies([]))},[token]);
  // Each archived document belongs to the catalog family whose archive code matches best (exact or « code. » prefix).
  const familyOf=useMemo(()=>{const pairs=families.flatMap(f=>(f.archive_codes?.length?f.archive_codes:[f.code]).map(c=>[c,f] as const)).sort((a,b)=>b[0].length-a[0].length);
   return (code:string)=>pairs.find(([c])=>code===c||code.startsWith(c+'.'))?.[1]},[families]);

@@ -36,13 +36,15 @@ export function MoneyPilotage({common,token,yearId}:{common:Common;token:string;
       <p className="ex-sub">Argent réellement entré dans les caisses de l’école (encaissements moins annulations et remboursements) · année {d.academic_year.label}</p>
       <div className="ex-money-grid">
         {periods.map(([k,label,when])=><button type="button" key={k} className="ex-tile" onClick={common.onClick} aria-label={`${label} : ${money(cash.CDF[k])} FC${hasValue(cash.USD[k])?` et ${money(cash.USD[k])} USD`:''}`}>
-          <small>{label}</small><strong>{money(cash.CDF[k])} <em>FC</em></strong>{hasValue(cash.USD[k])?<b>{money(cash.USD[k])} USD</b>:<b className="ex-muted">0 USD</b>}<span>{when}</span></button>)}
+          <small>{label}</small><strong>{money(cash.CDF[k])} <em>FC</em></strong>{hasValue(cash.USD[k])?<b>{money(cash.USD[k])} USD</b>:<b className="ex-muted">0 USD</b>}<span>{when}</span>
+          {k==='today'&&hasValue(cash.CDF.today_cancellations)&&<span className="ex-detail">reçus {money(cash.CDF.today_receipts)} − annulés {money(cash.CDF.today_cancellations)}</span>}</button>)}
         <button type="button" className="ex-tile ex-tile-due" onClick={common.onClick} aria-label={`Reste à recouvrer : ${money(d.recovery.CDF.remaining)} FC`}>
           <small>Reste à recouvrer</small><strong>{money(d.recovery.CDF.remaining)} <em>FC</em></strong>
           {hasValue(d.recovery.USD.remaining)?<b>{money(d.recovery.USD.remaining)} USD</b>:<b className="ex-muted">0 USD</b>}
           <span>{Number(d.recovery.CDF.rate||0).toLocaleString('fr-FR')} % recouvré sur l’année</span>
           <i aria-hidden="true"><em style={{width:`${Math.min(100,Number(d.recovery.CDF.rate||0))}%`}}/></i></button>
-      </div></>}
+      </div>
+      <p className="ex-how">Calcul : <b>reçus de toutes les caisses − annulations et remboursements</b>, par jour de caisse. Le fond de caisse et les dépenses n’en font pas partie : ils sont dans le solde théorique de « Situation des caisses ». Semaine = depuis lundi, mois = depuis le 1er, rentrée = depuis le début de l’année scolaire.</p></>}
   </Card>;
 }
 
