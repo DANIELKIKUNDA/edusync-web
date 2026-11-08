@@ -160,6 +160,25 @@ def run(A: dict) -> None:
     a3 = H.CLIENT.post("/api/v1/personnel", headers=key(), json={"employee_no": "ens-77", "last_name": "KABILA", "gender": "M", "category": "ENSEIGNANT"})
     check("un matricule officiel saisi est gardé (en majuscules)", a3.status_code == 201 and a3.json().get("employee_no") == "ENS-77", a3.text[:150])
 
+    print("\n== Autres encaissements : une vente cliquée plusieurs fois n'est enregistrée qu'une fois (rapport du 2026-11-08)")
+    import uuid as _uuid
+    pid = _uuid.uuid4()
+    sql("INSERT INTO school_products(id,school_id,code,label,currency,unit_price) VALUES(:i,:s,'PILES_SEC','Piles (secondaire)','CDF',2000)", i=pid, s=A["id"])
+    as_(cashier_actor)
+    pupil = one("SELECT e.id,e.student_id FROM enrollments e JOIN students s ON s.id=e.student_id WHERE e.school_id=:s AND s.first_name LIKE 'Y%' LIMIT 1", s=A["id"])
+    sale = {"student_id": str(pupil[1]), "enrollment_id": str(pupil[0]), "product_id": str(pid), "quantity": "1"}
+    k = {"Idempotency-Key": f"sale-{_uuid.uuid4().hex}"}
+    r1 = H.CLIENT.post("/api/v1/finance/checkout/products/sell", headers=k, json=sale)
+    r2 = H.CLIENT.post("/api/v1/finance/checkout/products/sell", headers=k, json=sale)
+    n = one("SELECT count(*) FROM finance_product_sales WHERE school_id=:s AND product_id=:p", s=A["id"], p=pid)[0]
+    check("même vente envoyée deux fois (même clé) → une seule vente, même reçu, article et reçu rappelés",
+          r1.status_code == 200 and r2.status_code == 200 and int(n) == 1 and r2.json().get("replayed") is True
+          and r2.json().get("receipt_number") == r1.json().get("receipt_number") and r2.json().get("product_label") == "Piles (secondaire)" and r2.json().get("payment_id"),
+          f"{r1.status_code} {r2.status_code} n={n} {r2.text[:200]}")
+    r3 = H.CLIENT.post("/api/v1/finance/checkout/products/sell", headers={"Idempotency-Key": f"sale-{_uuid.uuid4().hex}"}, json=sale)
+    n = one("SELECT count(*) FROM finance_product_sales WHERE school_id=:s AND product_id=:p", s=A["id"], p=pid)[0]
+    check("une nouvelle vente volontaire (nouvelle opération) est bien enregistrée", r3.status_code == 200 and int(n) == 2, f"{r3.status_code} n={n}")
+
 
 def main() -> int:
     A = school("D")

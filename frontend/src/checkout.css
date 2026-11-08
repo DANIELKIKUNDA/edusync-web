@@ -266,3 +266,24 @@
 /* A pupil who follows a payment plan: the plan panel opens and says so (owner request 2026-11-08). */
 .posAdvanced.planOn{border-color:#9b8afb;background:#faf8ff}
 .posAdvanced.planOn>summary{color:#5925dc}
+/* Article sale (owner report 2026-11-08): pinned payment zone, clear confirmation. */
+.saleDesk{position:relative}
+.saleDone{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid #abefc6;background:#ecfdf3;border-radius:14px;animation:saleIn .25s ease-out}
+@keyframes saleIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.saleDoneIcon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#079455;color:#fff}
+.saleDone b{display:block;font-size:14.5px;color:#05603a}
+.saleDone span{display:block;font-size:13px;color:#344054}
+.saleDone small{display:block;font-size:12px;color:#067647;font-weight:600}
+.saleFoot{position:sticky;bottom:8px;z-index:5;display:grid;grid-template-columns:1fr auto auto auto;gap:14px;align-items:center;margin-top:12px;padding:12px 14px;border:1px solid #b2ccff;border-radius:16px;background:#fff;box-shadow:0 10px 30px rgba(16,24,40,.16)}
+.saleFootInfo b{display:block;font-size:14.5px;color:#101828}
+.saleFootInfo span{display:block;font-size:12.5px;color:#667085}
+.saleQty{display:grid;gap:4px;font-size:12px;font-weight:600;color:#475467}
+.saleStepper{display:inline-grid;grid-template-columns:36px 64px 36px;border:1px solid #d0d5dd;border-radius:10px;overflow:hidden}
+.saleStepper button{border:0;background:#f9fafb;font:inherit;font-size:18px;font-weight:700;color:#344054;cursor:pointer}
+.saleStepper button:disabled{opacity:.4;cursor:not-allowed}
+.saleStepper input{border:0;border-left:1px solid #eaecf0;border-right:1px solid #eaecf0;text-align:center;font:inherit;font-size:15px;font-weight:700;min-height:40px;width:100%}
+.saleTotal{display:grid;text-align:right}
+.saleTotal span{font-size:12px;color:#667085}
+.saleTotal b{font-size:18px;color:#101828}
+@media (max-width:760px){.saleFoot{grid-template-columns:1fr auto;bottom:calc(72px + env(safe-area-inset-bottom))}.saleFoot .collectBtn{grid-column:1/-1}.saleDone{grid-template-columns:40px 1fr}.saleDone .receiptBtn{grid-column:1/-1}}
+.saleDoneIcon svg{display:block;margin:auto}
