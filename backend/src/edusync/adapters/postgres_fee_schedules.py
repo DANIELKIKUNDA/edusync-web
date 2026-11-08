@@ -247,7 +247,9 @@ class PostgresFeeScheduleRepository:
             item = (code, month) if is_tuition_code(code) and month else (code, None)
             if item not in out:
                 out.append(item)
-        if out:
+        # The school has its own conditions: a class none of them targets has nothing to pay at enrollment. The Desktop
+        # historical bundle only stands in for a school that never set any condition (owner report 2026-11-08).
+        if out or rows:
             return out
         if self.settings.admission_review(school_id)["reviewed_at"] is not None:
             return []

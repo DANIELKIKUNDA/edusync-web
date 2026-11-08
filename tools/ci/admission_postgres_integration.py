@@ -129,6 +129,9 @@ def run(A: dict) -> None:
 
     print("\n== Portée à plusieurs cibles : une condition pour plusieurs sections (demande du 2026-11-08)")
     as_(admin)
+    # Billing policy of the school: June is the month required at enrollment (Tarifs → Mois facturés).
+    sql("""INSERT INTO school_billing_policy(school_id,billing_months,month_due_at_enrollment) VALUES(:s,CAST(:m AS jsonb),'06')
+           ON CONFLICT (school_id) DO UPDATE SET month_due_at_enrollment='06'""", s=A["id"], m='["09","10","11","12","01","02","03","04","05","06"]')
     sco = one("SELECT id FROM fee_types WHERE school_id=:s AND code='SCOLARITE'", s=A["id"])[0]
     put = lambda refs, version=None, cid=None: H.CLIENT.put("/api/v1/settings/admission-conditions", headers=key(), json={
         "academic_year_id": str(A["year"]), "condition_id": cid, "label": "Frais scolaires de juin", "fee_type_id": str(sco), "required": True,
