@@ -149,6 +149,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/admission_postgres_integration.py
+      - name: Alertes automatiques — caisse, annulations, abandons, dérogations (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/alerts_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true

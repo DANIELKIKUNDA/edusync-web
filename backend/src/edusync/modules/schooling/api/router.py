@@ -421,6 +421,10 @@ def create_enrollment_dossier(body:FamilyEnrollmentBody,actor:ActorContext=Depen
                 VALUES(:s,:y,:l,:n,CAST(:p AS jsonb),CAST(:w AS jsonb),:u) RETURNING *"""),{"s":actor.school_id,"y":year['id'],"l":_dossier_label(body),"n":len(body.children),
                 "p":_json.dumps(data),"w":_json.dumps([{**w,'status':'REQUESTED'} for w in requested]),"u":actor.user_id}).mappings().first()
             _audit_outbox(conn,replace(actor,correlation_id=uuid4()),action='ENROLLMENT_DOSSIER_CREATED',entity_type='EnrollmentDossier',entity_id=r['id'],new={'label':r['label'],'children':len(body.children)})
+            if requested:
+                from edusync.modules.alerts.application.school_alerts import waiver_requested
+                names=[' '.join(x for x in (body.children[w['index']].last_name,body.children[w['index']].first_name) if x) or f"enfant {w['index']+1}" for w in requested]
+                waiver_requested(conn,school_id=actor.school_id,dossier_label=r['label'],child_names=names,dossier_id=r['id'],actor_user_id=actor.user_id)
             return _dossier_out(dict(r))
     except Exception as exc:_error(exc)
 
@@ -553,7 +557,9 @@ def _lifecycle(capability,event,student_id,body,if_match,idempotency_key,actor,s
         def action(conn,request_actor):
             repo=PostgresSchoolingRepository(conn);old=repo.get_student(actor.school_id,student_id,scopes=scopes)
             if not old: raise LookupError('Élève introuvable dans votre périmètre')
-            out=repo.change_status(actor.school_id,student_id,expected_version=expected,event_type=event,effective_date=body.effective_date,reason=body.reason,actor_user_id=actor.user_id,destination=body.destination);payload=_jsonable(out);_audit_outbox(conn,request_actor,action=f'STUDENT_{event}',entity_type='Student',entity_id=student_id,old=_jsonable(old),new=payload,reason=body.reason);return 200,payload
+            out=repo.change_status(actor.school_id,student_id,expected_version=expected,event_type=event,effective_date=body.effective_date,reason=body.reason,actor_user_id=actor.user_id,destination=body.destination);payload=_jsonable(out);_audit_outbox(conn,request_actor,action=f'STUDENT_{event}',entity_type='Student',entity_id=student_id,old=_jsonable(old),new=payload,reason=body.reason)
+            from edusync.modules.alerts.application.school_alerts import student_left
+            student_left(conn,school_id=actor.school_id,student_id=student_id,event=event,reason=body.reason,actor_user_id=actor.user_id);return 200,payload
         return _mutate(services=services,actor=actor,key=key,operation=f'SCHOOLING_{event}',payload={**body.model_dump(mode='json'),'id':str(student_id),'expected':expected},action=action).body
     except Exception as exc:_error(exc)
 

@@ -4,6 +4,8 @@ import {friendlyError} from './errors';
 import {NavGlyph} from './nav_icons';
 import './notification_center.css';
 
+// Automatic alerts between roles (owner request 2026-11-08): where the alert comes from.
+const ORIGIN: Record<string, string> = {ALERT_FINANCE: 'Caisse & finances', ALERT_ACADEMIC: 'Suivi des élèves', ALERT_DECISIONS: 'Dérogations'};
 const SEV: Record<string, {label: string; cls: string; icon: string}> = {
   INFO: {label: 'Information', cls: 'nc-info', icon: 'info'},
   WARNING: {label: 'Avertissement', cls: 'nc-warn', icon: 'alert'},
@@ -29,7 +31,7 @@ export function Item({n, onRead, canRead}: {n: InboxItem; onRead: (n: InboxItem)
     <div className="nc-body">
       <b>{!n.read_at && <span className="nc-dot" aria-label="Non lue"/>}{n.title}</b>
       <p>{n.body}</p>
-      <small>{sev.label} · {when(n.created_at)}{n.expires_at ? ` · expire le ${new Date(n.expires_at).toLocaleDateString('fr-FR')}` : ''}</small>
+      <small>{ORIGIN[n.category] ? `${ORIGIN[n.category]} · ` : ''}{sev.label} · {when(n.created_at)}{n.expires_at ? ` · expire le ${new Date(n.expires_at).toLocaleDateString('fr-FR')}` : ''}</small>
       <span className="nc-acts">
         {link && <a className="es-btn es-btn-ghost" href={link} onClick={() => !n.read_at && canRead && onRead(n)}>Ouvrir</a>}
         {!n.read_at && canRead && <button className="es-btn es-btn-ghost" onClick={() => onRead(n)}>Marquer comme lue</button>}
