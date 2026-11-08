@@ -67,7 +67,9 @@ WIDGETS: list[dict] = [
     {"id": "audit.recent", "title": "Dernières actions administratives", "module": "access", "priority": 15, "all": ("audit.school.read", "access.users.read")},
     {"id": "sync.devices", "title": "Appareils et synchronisation", "module": "sync", "priority": 16, "all": ("sync.device.register",)},
     # Executive money view (owner, 2026-11-08): today / week / month / since the start of the year, and what remains to recover.
-    {"id": "finance.pilotage", "title": "L’argent de l’école", "module": "finance", "priority": 5, "all": ("finance.cash.other.read", "finance.recovery.monthly.read")},
+    # Section leaders (préfet, direction de section) given the finances: the same card, limited to their section's recovery.
+    {"id": "finance.pilotage", "title": "L’argent de l’école", "module": "finance", "priority": 5, "all": ("finance.recovery.monthly.read",),
+     "any": ("finance.cash.other.read", "headcounts.by_option.read")},
     # Operations
     {"id": "cash.today", "title": "Ma caisse du jour", "module": "finance", "priority": 20, "all": ("finance.cash.read", "finance.cash.open")},
     {"id": "cash.supervision", "title": "Situation des caisses", "module": "finance", "priority": 20, "all": ("finance.cash.other.read",)},
@@ -98,7 +100,9 @@ WIDGETS: list[dict] = [
 
 # Shortcuts offered on the home screen / header.
 ACTIONS: list[dict] = [
-    {"id": "students.search", "label": "Rechercher un élève", "module": "students", "all": ("students.read",)},
+    # Owner, 2026-11-08: the search bar is for those who HANDLE pupils' files (secretariat, desk, discipline, studies,
+    # section leaders) — not for the promoteur / gestionnaire / responsable financier, who follow figures.
+    {"id": "students.search", "label": "Rechercher un élève", "module": "students", "all": ("students.read", "students.profile.complete")},
     {"id": "cash.supervise", "label": "Superviser les caisses", "module": "finance", "all": ("finance.cash.other.read",)},
     {"id": "reports.open", "label": "Rapports financiers", "module": "finance", "all": ("finance.reports.history.read",)},
     {"id": "checkout.new", "label": "Nouvel encaissement", "module": "finance", "all": ("finance.checkout.collect",)},

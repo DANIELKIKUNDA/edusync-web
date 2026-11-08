@@ -159,7 +159,9 @@ SELECT mv.currency,
 
 @router.get('/pilotage')
 def pilotage(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    need(actor,'finance.cash.other.read');need(actor,'finance.recovery.monthly.read')
+    # Cash desks are school-wide: their money only for whoever supervises them (finance.cash.other.read). A section leader
+    # (préfet, direction de section) given the finances follows the recovery of HIS section only (scoped like the tables).
+    need(actor,'finance.recovery.monthly.read');sees_cash='finance.cash.other.read' in actor.permissions
     from datetime import date as _d
     from psycopg.rows import dict_row as _dr
     today=_d.today()
@@ -167,9 +169,11 @@ def pilotage(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_ac
         repo=PostgresFinanceRecoveryRepository(conn);y=repo.year(actor.school_id,year_id)
         if not y:raise HTTPException(409,'Année scolaire introuvable')
         start=min(y['start_date'],today)
-        with repo.conn.cursor(row_factory=_dr) as c:
-            c.execute(PILOTAGE_SQL,{'sid':actor.school_id,'today':today,'start':start});rows={r['currency']:r for r in c.fetchall()}
-        cash={cur:{k:str(rows.get(cur,{}).get(k,0) or 0) for k in ('today','week','month','year')} for cur in ('CDF','USD')}
+        cash=None
+        if sees_cash:
+            with repo.conn.cursor(row_factory=_dr) as c:
+                c.execute(PILOTAGE_SQL,{'sid':actor.school_id,'today':today,'start':start});rows={r['currency']:r for r in c.fetchall()}
+            cash={cur:{k:str(rows.get(cur,{}).get(k,0) or 0) for k in ('today','week','month','year')} for cur in ('CDF','USD')}
         scopes=actor.scopes_for('finance.recovery.monthly.read');recovery={}
         for cur in ('CDF','USD'):
             items=repo.monthly(actor.school_id,y['id'],cur,scopes=scopes);t=monthly_total(items)

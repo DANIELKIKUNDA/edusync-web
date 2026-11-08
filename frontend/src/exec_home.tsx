@@ -26,16 +26,17 @@ type Common={icon:string;title:string;onClick:()=>void;index:number;ariaLabel:st
 export function MoneyPilotage({common,token,yearId}:{common:Common;token:string;yearId?:string}){
   const s=useLoad<FinancePilotage>(()=>financePilotage(token,yearId),[token,yearId]);
   const d=s.data;
-  const periods:[keyof FinancePilotage['cash']['CDF'],string,string][]=d?[['today','Aujourd’hui',new Date(d.today).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})],
+  const periods:[keyof PilotagePeriodsT,string,string][]=d&&d.cash?[['today','Aujourd’hui',new Date(d.today).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})],
     ['week','Cette semaine',`depuis le ${new Date(d.week_start).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`],
     ['month','Ce mois',new Date(d.month_start).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})],
     ['year','Depuis la rentrée',`depuis le ${new Date(d.academic_year.start_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`]]:[];
-  return <Card level="info" wide icon={common.icon} title={common.title} index={common.index} className="ex-money">
-    {s.loading&&!d?<Skeleton lines={3}/>:s.error?<ScreenError compact error={s.error} onRetry={s.retry}/>:d&&<>
+  const cash=d?.cash;
+  return <Card level="info" wide icon={common.icon} title={d&&!cash?'Les finances de votre section':common.title} index={common.index} className="ex-money">
+    {s.loading&&!d?<Skeleton lines={3}/>:s.error?<ScreenError compact error={s.error} onRetry={s.retry}/>:d&&!cash?<SectionMoney d={d} open={common.onClick}/>:d&&cash&&<>
       <p className="ex-sub">Argent réellement entré dans les caisses de l’école (encaissements moins annulations et remboursements) · année {d.academic_year.label}</p>
       <div className="ex-money-grid">
-        {periods.map(([k,label,when])=><button type="button" key={k} className="ex-tile" onClick={common.onClick} aria-label={`${label} : ${money(d.cash.CDF[k])} FC${hasValue(d.cash.USD[k])?` et ${money(d.cash.USD[k])} USD`:''}`}>
-          <small>{label}</small><strong>{money(d.cash.CDF[k])} <em>FC</em></strong>{hasValue(d.cash.USD[k])?<b>{money(d.cash.USD[k])} USD</b>:<b className="ex-muted">0 USD</b>}<span>{when}</span></button>)}
+        {periods.map(([k,label,when])=><button type="button" key={k} className="ex-tile" onClick={common.onClick} aria-label={`${label} : ${money(cash.CDF[k])} FC${hasValue(cash.USD[k])?` et ${money(cash.USD[k])} USD`:''}`}>
+          <small>{label}</small><strong>{money(cash.CDF[k])} <em>FC</em></strong>{hasValue(cash.USD[k])?<b>{money(cash.USD[k])} USD</b>:<b className="ex-muted">0 USD</b>}<span>{when}</span></button>)}
         <button type="button" className="ex-tile ex-tile-due" onClick={common.onClick} aria-label={`Reste à recouvrer : ${money(d.recovery.CDF.remaining)} FC`}>
           <small>Reste à recouvrer</small><strong>{money(d.recovery.CDF.remaining)} <em>FC</em></strong>
           {hasValue(d.recovery.USD.remaining)?<b>{money(d.recovery.USD.remaining)} USD</b>:<b className="ex-muted">0 USD</b>}
@@ -43,6 +44,20 @@ export function MoneyPilotage({common,token,yearId}:{common:Common;token:string;
           <i aria-hidden="true"><em style={{width:`${Math.min(100,Number(d.recovery.CDF.rate||0))}%`}}/></i></button>
       </div></>}
   </Card>;
+}
+
+type PilotagePeriodsT=NonNullable<FinancePilotage['cash']>['CDF'];
+
+/* Préfet / direction de section given the finances (owner, 2026-11-08): the cash desks are school-wide, so a section
+   leader follows what HIS section's pupils owe and have paid this year (the server limits the figures to his section). */
+function SectionMoney({d,open}:{d:FinancePilotage;open:()=>void}){
+  const r=d.recovery;const tile=(label:string,k:'expected'|'regularized'|'remaining',hint:string,due=false)=>
+    <button type="button" className={`ex-tile${due?' ex-tile-due':''}`} onClick={open}><small>{label}</small><strong>{money(r.CDF[k])} <em>FC</em></strong>
+      {hasValue(r.USD[k])?<b>{money(r.USD[k])} USD</b>:<b className="ex-muted">0 USD</b>}<span>{hint}</span>
+      {due&&<i aria-hidden="true"><em style={{width:`${Math.min(100,Number(r.CDF.rate||0))}%`}}/></i>}</button>;
+  return <><p className="ex-sub">Frais des élèves de votre section · année {d.academic_year.label} · les caisses de l’école sont suivies par la direction financière.</p>
+    <div className="ex-money-grid">{tile('Attendu sur l’année','expected','frais échus et à venir')}{tile('Déjà payé','regularized','encaissé et régularisé')}
+      {tile('Reste à recouvrer','remaining',`${Number(r.CDF.rate||0).toLocaleString('fr-FR')} % recouvré sur l’année`,true)}</div></>;
 }
 
 type Breakdown={label:string;rows:EffectifsRow[];byOption:EffectifsRow[];total:number;female:number;male:number};
@@ -66,13 +81,13 @@ export function ExecutiveHeadcounts({common,token,yearId,breakdowns}:{common:Com
       <p className="ex-sub">Élèves actifs (hors abandons et transferts) · {hover?'survolez':'touchez'} une section pour voir le détail{sections.some(b=>b.byOption.length)?' par classe et par option':' par classe'}.</p>
       <div className="ex-heads-grid">
         <button type="button" className="ex-tile ex-total" onClick={common.onClick} aria-label={`${n(c.total.active.total)} élèves actifs — ouvrir les effectifs`}>
-          <small>Total de l’école</small><strong>{n(c.total.active.total)}</strong><span>{n(c.total.active.female)} filles · {n(c.total.active.male)} garçons</span>
+          <small>{sections.length===1?'Total de votre section':'Total de l’école'}</small><strong>{n(c.total.active.total)}</strong><span>{n(c.total.active.female)} filles · {n(c.total.active.male)} garçons</span>
           <span className="ex-muted">{n(c.total.enrolled.total)} inscrits · {n(c.total.abandoned.total)} abandons · {n(c.total.transferred.total)} transferts</span></button>
         {sections.map(b=>{const isOpen=open===b.label;const share=c.total.active.total?Math.round(b.total*100/c.total.active.total):0;const opts=b.byOption.length>0;
           const rows=(view==='option'&&opts?b.byOption:b.rows);
           return <div key={b.label} className={`ex-sec${isOpen?' open':''}`} onMouseEnter={hover?()=>setOpen(b.label):undefined} onMouseLeave={hover?()=>setOpen(x=>x===b.label?null:x):undefined}>
             <button type="button" className="ex-tile" aria-expanded={isOpen} onClick={()=>setOpen(x=>hover?b.label:x===b.label?null:b.label)} onFocus={hover?()=>setOpen(b.label):undefined}>
-              <small>{b.label}</small><strong>{n(b.total)}</strong><span>{n(b.female)} F · {n(b.male)} G · {share} % de l’école</span>
+              <small>{b.label}</small><strong>{n(b.total)}</strong><span>{n(b.female)} F · {n(b.male)} G{sections.length>1?` · ${share} % de l’école`:''}</span>
               <i aria-hidden="true"><em style={{width:`${share}%`}}/></i><span className="ex-more">{isOpen&&!hover?'Masquer le détail':'Voir le détail'}</span></button>
             {isOpen&&(b.rows.length>0||opts)&&<div className="ex-pop" role="region" aria-label={`Détail ${b.label}`}>
               {opts&&b.rows.length>0&&<div className="ex-pop-tabs" role="tablist"><button type="button" role="tab" aria-selected={view==='class'} className={view==='class'?'active':''} onClick={()=>setView('class')}>Par classe</button><button type="button" role="tab" aria-selected={view==='option'} className={view==='option'?'active':''} onClick={()=>setView('option')}>Par option</button></div>}

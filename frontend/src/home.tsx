@@ -95,7 +95,7 @@ function BusinessCard({w,token,yearId,index,go,executive}:{w:AccessWidget;token:
     case 'enrollments.today':return <Enrollments common={common} token={token}/>;
     case 'products.watch':return <ProductsWatch common={common} token={token}/>;
     case 'finance.pilotage':return <MoneyPilotage common={common} token={token} yearId={yearId}/>;
-    case 'headcounts.summary':return executive?<ExecutiveHeadcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>:<Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
+    case 'headcounts.summary':return executive||(w.breakdowns??[]).includes('class')?<ExecutiveHeadcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>:<Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
     case 'personnel.summary':return <PersonnelSummary common={common} token={token}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
@@ -234,7 +234,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const headerShortcuts=executive?shortcuts.filter(a=>a.id!=='inventory.open'):shortcuts;
   return <div className={`ui-page sh-home${supervisor?' sh-home-executive':''}`}>
     <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
-      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {supervisor?'pilotage de l’établissement : l’argent, les effectifs, le recouvrement et les alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
+      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive&&!me.permissions.includes('finance.cash.other.read')?'pilotage de votre section : les effectifs, les finances de la section et les dossiers des élèves.':supervisor?'pilotage de l’établissement : l’argent, les effectifs, le recouvrement et les alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
       actions={headerShortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':a.id==='cash.supervise'?'finance':a.id==='reports.open'?'doc':'chevronRight'}
         onClick={()=>a.id==='settings.open'?openSettings('overview'):openAction(a)}>{a.label}</Button>)}/>
     {search&&<button type="button" className="sh-search" onClick={()=>setSpot(true)} aria-haspopup="dialog"><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille · Ctrl K</small></button>}
@@ -251,10 +251,13 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
         const operator=me.permissions.includes('finance.decisions.create');
         const watch=operator?pick2(['finance.decisions','inventory.stock','inventory.counts']):[];
         const activity=pick2(['reports.latest']);
+        // Section leaders (préfet, direction de section) also follow the pupils' files, movements and staff of their section.
+        const academic=me.permissions.includes('finance.cash.other.read')?[]:pick2(['students.files','headcounts.movements','personnel.summary']);
         return <>{money.length>0&&<div className="ui-grid ex-top">{money.map(render)}</div>}
           {pupils.length>0&&<div className="ui-grid ex-top">{pupils.map(render)}</div>}
           <ScreenBoundary compact label="briefing"><DailyBriefing token={token} yearId={yearId} widgets={figures} open={openWidget}/></ScreenBoundary>
-          {follow.length>0&&<Section title="Recouvrement et caisses" subtitle="Où en est l’argent attendu, et l’état des caisses aujourd’hui." id="sh-follow"><div className="ui-grid">{follow.map(render)}</div></Section>}
+          {follow.length>0&&<Section title={byId('cash.supervision')?'Recouvrement et caisses':'Recouvrement'} subtitle={byId('cash.supervision')?'Où en est l’argent attendu, et l’état des caisses aujourd’hui.':'Où en est l’argent attendu des élèves de votre périmètre.'} id="sh-follow"><div className="ui-grid">{follow.map(render)}</div></Section>}
+          {academic.length>0&&<Section title="Suivi de la section" subtitle="Dossiers des élèves, mouvements et personnel de votre section." id="sh-academic"><div className="ui-grid">{academic.map(render)}</div></Section>}
           {watch.length>0&&<Section title="À vérifier" subtitle="Les décisions et alertes qui relèvent de votre gestion." id="sh-watch"><div className="ui-grid">{watch.map(render)}</div></Section>}
           {(activity.length>0||journal)&&<Section title="Activité récente" subtitle="Les derniers rapports officiels de l’établissement." id="sh-activity"><div className="ui-grid">{activity.map(render)}{journal&&render(journal)}</div></Section>}</>})()}
       {!executive&&(supervisor||!desk)&&<ScreenBoundary compact label="briefing"><DailyBriefing token={token} yearId={yearId} widgets={figures} open={openWidget}/></ScreenBoundary>}
