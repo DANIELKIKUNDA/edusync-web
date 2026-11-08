@@ -36,6 +36,8 @@ export function AdmissionSettlement({preview, loading, error, waivers, onWaiver,
   const canWaive = preview.can_waive; const canRequest = !canWaive && (dossierMode || !preview.can_collect);
   const anyConfigured = c.children.some(x => x.configured);
   return <div className="as-box" role="region" aria-label="Conditions d’inscription">
+    {preview.offline && <div className="as-offline" role="status"><NavGlyph g="wifiOff" size={18}/><div><b>Hors connexion : l’inscription sera enregistrée sur cet appareil, en attente</b>
+      <span>Montants de la copie de cet appareil (mise à jour {new Date(preview.offline.generated_at).toLocaleString('fr-FR', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'})}). L’inscription et le paiement seront envoyés automatiquement au retour du réseau ; le serveur attribuera alors les matricules et les reçus, après avoir tout revérifié.</span></div></div>}
     <header className="as-head"><span className="as-icon" aria-hidden="true"><NavGlyph g="receipt" size={20}/></span>
       <div><b>Conditions d’inscription fixées par l’école</b>
         <small>{anyConfigured ? 'Rien n’est enregistré tant que ces frais ne sont pas payés : les enfants, leurs frais et les reçus sont enregistrés ensemble, en une seule opération.' : 'L’école n’exige aucun paiement à l’inscription.'}</small></div></header>

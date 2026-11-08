@@ -41,7 +41,9 @@ export function useSchoolOffline(session: {token: string; school: {id: string}; 
 // 2026-10-31 (every school role works offline): the same for the lists each role needs to work — the stock for the
 // Intendant, the staff directory and assignment choices for whoever manages staff. Same URLs as the screens (defaults).
 const OFFLINE_REFERENCE:[(p:string[])=>boolean,string[]][]=[
-  [p=>p.includes('enrollments.create')||p.includes('enrollments.reenroll'),['/api/v1/settings/classes/selector','/api/v1/settings/academic-years/selector','/api/v1/settings/options/selector']],
+  [p=>p.includes('enrollments.create')||p.includes('enrollments.reenroll'),['/api/v1/settings/classes/selector','/api/v1/settings/academic-years/selector','/api/v1/settings/options/selector','/api/v1/schooling/enrollment-benefits']],
+  // offline enrollment (owner, 2026-11-08): what a new pupil pays in each class, for the review step without network
+  [p=>p.includes('enrollments.create'),['/api/v1/schooling/enrollments/offline-admission']],
   [p=>p.includes('inventory.stock.read'),['/api/v1/stewardship/dashboard','/api/v1/stewardship/stock','/api/v1/stewardship/sale-stock']],
   [p=>p.includes('inventory.stock.movements.read'),['/api/v1/stewardship/stock/movements']],
   [p=>p.includes('inventory.assets.read'),['/api/v1/stewardship/assets','/api/v1/stewardship/locations']],
