@@ -33,7 +33,7 @@ def test_who_reads_the_journal_without_managing_access_sees_an_audit_journal():
 
 
 def test_menu_names_say_what_the_member_does():
-    assert "Élèves & inscriptions" in nav("CAISSIER") and "Caisse" in nav("CAISSIER")
+    assert "Élèves & inscriptions" in nav("CAISSIER") and "Centre financier" in nav("CAISSIER")
     for role in ("PROMOTEUR", "PREFET_ETUDES", "SECRETARIAT"):
         assert "Élèves" in nav(role) and "Élèves & inscriptions" not in nav(role), role
 

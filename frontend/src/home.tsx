@@ -85,7 +85,7 @@ function Readiness({token,open,go}:{token:string;open:(section:string)=>void;go:
   </Card>;
 }
 
-function BusinessCard({w,token,yearId,index,go,executive}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void;executive?:boolean}){
+function BusinessCard({w,token,yearId,index,go,executive,desk}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void;executive?:boolean;desk?:boolean}){
   const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
   switch(w.id){
     case 'cash.today':return <CashToday common={common} token={token}/>;
@@ -95,7 +95,8 @@ function BusinessCard({w,token,yearId,index,go,executive}:{w:AccessWidget;token:
     case 'enrollments.today':return <Enrollments common={common} token={token}/>;
     case 'products.watch':return <ProductsWatch common={common} token={token}/>;
     case 'finance.pilotage':return <MoneyPilotage common={common} token={token} yearId={yearId}/>;
-    case 'headcounts.summary':return executive||(w.breakdowns??[]).includes('class')?<ExecutiveHeadcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>:<Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
+    // The cashier's desk keeps its own card (owner, 2026-11-08: « je n'ai pas demandé de changer le tableau du caissier »).
+    case 'headcounts.summary':return executive||(!desk&&(w.breakdowns??[]).includes('class'))?<ExecutiveHeadcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>:<Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
     case 'personnel.summary':return <PersonnelSummary common={common} token={token}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
@@ -228,7 +229,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)setFinanceTarget(target);onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
     ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
-    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)} executive={executive}/>}</ScreenBoundary>;
+    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)} executive={executive} desk={desk}/>}</ScreenBoundary>;
   const byId=(id:string)=>figures.find(w=>w.id===id);
   const pick2=(ids:string[])=>ids.map(byId).filter(Boolean) as AccessWidget[];
   const headerShortcuts=executive?shortcuts.filter(a=>a.id!=='inventory.open'):shortcuts;

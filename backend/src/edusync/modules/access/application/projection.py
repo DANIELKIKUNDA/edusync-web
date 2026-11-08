@@ -44,7 +44,7 @@ def nav_label(key: str, label: str, caps: set[str]) -> str:
     if key == "access" and not any(c in caps for c in ACCESS_ADMIN):
         return "Journal d’audit"                     # reads the journal, manages neither accounts nor roles
     if key == "finance" and "finance.checkout.collect" in caps and "finance.cash.other.read" not in caps:
-        return "Caisse"                              # the cashier's desk
+        return "Centre financier"                    # the cashier's menu stays as he knows it (owner, 2026-11-08)
     return label
 
 
