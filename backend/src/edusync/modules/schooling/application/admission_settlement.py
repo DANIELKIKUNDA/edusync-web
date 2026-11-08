@@ -64,6 +64,9 @@ def conditions_due(conn, school_id: UUID, enrollments: list[dict[str, Any]], *, 
             exemption = {"kind": "BENEFIT", "label": "Bénéficiaire d’un avantage (exempté par la politique de l’école)"}
         elif exempt_staff and child.get("staff_member_id"):
             exemption = {"kind": "STAFF_CHILD", "label": "Enfant du personnel (exempté par la politique de l’école)"}
+        # A condition this class should carry but no fee of the class bills (e.g. June not configured for 4ème HP):
+        # the child is NOT free — the enrollment is refused until the fees are configured or the direction waives it.
+        missing = [m["label"] for m in due.get("missing", [])]
         child_totals: dict[str, Decimal] = {}
         for i in items:
             child_totals[i["currency"]] = child_totals.get(i["currency"], Decimal("0")) + money(i["amount"])
@@ -75,10 +78,21 @@ def conditions_due(conn, school_id: UUID, enrollments: list[dict[str, Any]], *, 
             "name": info["name"] if info else "", "class_label": info["class_label"] if info else "",
             "items": items, "totals": {k: str(v) for k, v in child_totals.items()},
             "exemption": exemption, "to_pay": exemption is None and bool(items),
+            "missing": missing, "blocked": exemption is None and bool(missing),
             "configured": bool(due.get("bundle")), "complete": bool(due.get("ready")),
         })
+    blocked = [c for c in out_children if c["blocked"]]
     return {"children": out_children, "totals": {k: str(v) for k, v in totals.items() if v > 0},
-            "requires_payment": any(v > 0 for v in totals.values())}
+            "requires_payment": any(v > 0 for v in totals.values()), "blocked": bool(blocked),
+            "blocked_message": blocked_message(blocked) if blocked else None}
+
+
+def blocked_message(blocked: list[dict[str, Any]]) -> str:
+    """French, child by child: which required fee is not configured for which class, and what to do."""
+    def one(c: dict[str, Any]) -> str:
+        return f"{' et '.join(dict.fromkeys(c['missing']))} pour {c['name'] or 'l’enfant'} ({c['class_label'] or 'classe'})"
+    return ("Conditions d’inscription non configurées : " + " ; ".join(one(c) for c in blocked)
+            + ". Aucun enfant n’a été inscrit : configurez ces frais pour la classe (Finances → Frais) ou accordez une dérogation.")
 
 
 def basket_lines(due: dict[str, Any]) -> list[dict[str, Any]]:

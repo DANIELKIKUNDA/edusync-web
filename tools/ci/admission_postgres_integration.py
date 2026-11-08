@@ -89,6 +89,31 @@ def run(A: dict) -> None:
     again = H.CLIENT.post(f"/api/v1/schooling/enrollment-dossiers/{dos['id']}/complete", headers=key(), json={"payment": {"mode": "CASH"}, "expected_version": w.json()["version"] + 1})
     check("un dossier déjà inscrit ne peut pas l'être une seconde fois", again.status_code == 409, again.status_code)
 
+    print("\n== Juin facturé au primaire mais pas configuré pour la classe du secondaire (rapport du 2026-11-08)")
+    sec = A["classes"]["SECONDAIRE"]
+    mixed = [child("MX1", cls), child("MX2", sec)]
+    r = H.CLIENT.post("/api/v1/schooling/enrollments/family/preview", json=body(mixed))
+    pv = r.json() if r.status_code == 200 else {}
+    kids_pv = pv.get("conditions", {}).get("children", [])
+    check("aperçu : l'enfant du secondaire n'est PAS « rien à payer » — Juin signalé non configuré pour sa classe",
+          r.status_code == 200 and pv["conditions"].get("blocked") is True and len(kids_pv) == 2 and kids_pv[1].get("blocked") is True
+          and any("Juin" in m for m in kids_pv[1].get("missing", [])) and kids_pv[0].get("to_pay") is True, r.text[:400])
+    r = H.CLIENT.post("/api/v1/schooling/enrollments/family", headers=key(), json=body(mixed))
+    check("inscription refusée tant que les frais ne sont pas configurés : message en français, aucun élève enregistré",
+          r.status_code == 409 and "non configurées" in r.text and "SEC-1A" in r.text and not any(w in r.text for w in ENGLISH) and students("MX%") == 0,
+          f"{r.status_code} {r.text[:250]}")
+    as_(clerk_actor)
+    d = H.CLIENT.post("/api/v1/schooling/enrollment-dossiers", json=body(mixed, pay=False))
+    check("le dossier en attente reste possible (aucun élève inscrit)", d.status_code == 201 and students("MX%") == 0, f"{d.status_code} {d.text[:200]}")
+    if d.status_code == 201:
+        as_(director_actor)
+        w = H.CLIENT.post(f"/api/v1/schooling/enrollment-dossiers/{d.json()['id']}/waivers", json={"index": 1, "reason": "Tarif du secondaire en cours de validation", "expected_version": d.json()["version"]})
+        as_(cashier_actor)
+        c = H.CLIENT.post(f"/api/v1/schooling/enrollment-dossiers/{d.json()['id']}/complete", headers=key(), json={"payment": {"mode": "CASH"}, "expected_version": w.json().get("version", 0)})
+        check("dérogation de la direction pour l'enfant du secondaire → la famille paie le primaire et les deux sont inscrits",
+              w.status_code == 200 and c.status_code == 201 and students("MX%") == 2, f"{w.status_code} {c.status_code} {c.text[:200]}")
+    as_(cashier_actor)
+
     print("\n== Exemption par la politique de l'école : enfants du personnel et bénéficiaires d'avantages")
     as_(admin)
     p = H.CLIENT.put("/api/v1/settings/policies/ENROLLMENT", headers=key(), json={"payload": {"required_student_fields": ["last_name", "middle_name", "first_name", "class_id"],

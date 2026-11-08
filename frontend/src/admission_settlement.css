@@ -61,3 +61,13 @@
 @media (max-width:640px){.ed-panel li{flex-wrap:wrap}.ed-open{width:100%}}
 .ed-dialog .kp-dbody>.kp-btn{justify-self:start}
 .as-approve{min-height:34px;padding:0 12px;border:0;border-radius:9px;background:#079455;color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+/* A required fee not configured for a class (owner report 2026-11-08): shown in red, never as « rien à payer ». */
+.as-rows li.blocked{background:#fef3f2}
+.as-missing{display:inline-flex;align-items:center;gap:5px;color:#b42318;font-weight:600;font-size:12.5px}
+.as-todo{color:#b42318;font-weight:700;font-size:13px;white-space:nowrap}
+.as-blocked{display:flex;gap:10px;align-items:flex-start;margin:0 14px 12px;padding:12px 14px;border:1px solid #fecdca;background:#fef3f2;border-radius:12px;color:#b42318}
+.as-blocked b{display:block;font-size:14px}
+.as-blocked span{display:block;font-size:13px;line-height:1.45;color:#7a271a;margin-top:2px}
+.enr-notice{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid #fedf89;background:#fffaeb;border-radius:12px;color:#93370d;font-size:13px;line-height:1.45}
+.as-items>span.as-missing{background:#fee4e2;color:#b42318}
+.enrollmentWizard .wizardActions .primaryBtn:disabled,.kp-dfoot .kp-btn.primary:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}

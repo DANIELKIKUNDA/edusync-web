@@ -70,6 +70,6 @@ function DossierDialog({token, dossier, can, onClose, onDone}: {token: string; d
       </div>
       <footer className="kp-dfoot"><span className="kp-summary">{preview ? (preview.conditions.requires_payment ? <>À encaisser : <b>{totalsText(preview.conditions.totals)}</b></> : 'Aucun paiement exigé') : '…'}</span>
         <button type="button" className="kp-btn ghost" onClick={() => void cancel()} disabled={busy}>Annuler le dossier</button>
-        {canCollect && <button type="button" className="kp-btn primary" disabled={busy || !preview} onClick={() => void complete()}><NavGlyph g="check" size={16}/>{busy ? 'Inscription…' : action.kind === 'ENROLL' ? 'Inscrire' : action.label}</button>}</footer>
+        {canCollect && <button type="button" className="kp-btn primary" disabled={busy || !preview || action.kind === 'BLOCKED'} onClick={() => void complete()}><NavGlyph g="check" size={16}/>{busy ? 'Inscription…' : action.kind === 'ENROLL' ? 'Inscrire' : action.label}</button>}</footer>
     </div></div>;
 }

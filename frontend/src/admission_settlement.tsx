@@ -16,8 +16,11 @@ export function totalsText(totals: Record<string, string>): string {
 }
 
 /** What the primary button says, so the user knows exactly what will happen. */
-export function settlementAction(p: AdmissionPreview | null, n: number): {label: string; kind: 'PAY' | 'DOSSIER' | 'ENROLL'} {
+export function settlementAction(p: AdmissionPreview | null, n: number): {label: string; kind: 'PAY' | 'DOSSIER' | 'ENROLL' | 'BLOCKED'} {
   const plural = n > 1 ? 's' : '';
+  // A required fee not configured for a class (owner report 2026-11-08): nothing can be enrolled until it is configured
+  // or waived; someone who cannot collect may still keep the dossier « en attente ».
+  if (p?.conditions.blocked && p.can_collect) return {label: 'Conditions à configurer', kind: 'BLOCKED'};
   if (!p || !p.conditions.requires_payment) return {label: `Valider ${n} inscription${plural}`, kind: 'ENROLL'};
   if (!p.can_collect) return {label: 'Enregistrer le dossier (paiement à la caisse)', kind: 'DOSSIER'};
   return {label: `Encaisser ${totalsText(p.conditions.totals)} et inscrire`, kind: 'PAY'};
@@ -37,13 +40,14 @@ export function AdmissionSettlement({preview, loading, error, waivers, onWaiver,
       <div><b>Conditions d’inscription fixées par l’école</b>
         <small>{anyConfigured ? 'Rien n’est enregistré tant que ces frais ne sont pas payés : les enfants, leurs frais et les reçus sont enregistrés ensemble, en une seule opération.' : 'L’école n’exige aucun paiement à l’inscription.'}</small></div></header>
     <ul className="as-rows">{c.children.map(ch => { const w = waivers[ch.index]; const waived = ch.exemption?.kind === 'WAIVER' || (w !== undefined && w !== null);
-      return <li key={ch.index} className={ch.exemption ? 'exempt' : ch.to_pay ? 'due' : 'free'}>
+      return <li key={ch.index} className={ch.exemption ? 'exempt' : ch.blocked ? 'blocked' : ch.to_pay ? 'due' : 'free'}>
         <div className="as-who"><b>{ch.name || `Enfant ${ch.index + 1}`}</b><small>{ch.class_label}</small></div>
-        <div className="as-items">{ch.items.length ? ch.items.map(i => <span key={i.charge_id}>{i.label} · {formatMoney(i.amount, i.currency)}</span>) : <span className="as-none">Rien à payer à l’inscription</span>}
+        <div className="as-items">{ch.items.length ? ch.items.map(i => <span key={i.charge_id}>{i.label} · {formatMoney(i.amount, i.currency)}</span>) : (ch.blocked || ch.exemption ? null : <span className="as-none">{ch.configured ? 'Rien à payer à l’inscription' : 'Aucune condition fixée pour cette classe'}</span>)}
+          {!ch.exemption && ch.missing?.map(m => <span key={m} className="as-missing"><NavGlyph g="alert" size={13}/>{m} : non configuré pour {ch.class_label || 'cette classe'}</span>)}
           {ch.exemption && <em className="as-exempt"><NavGlyph g="check" size={13}/>{ch.exemption.label}{ch.exemption.reason ? ` : ${ch.exemption.reason}` : ''}</em>}
           {!ch.exemption && w !== undefined && w !== null && !canWaive && <em className="as-request">Dérogation demandée : {w || '(motif à préciser)'}</em>}</div>
-        <div className="as-amount">{ch.exemption ? <span className="as-zero">Exempté</span> : ch.to_pay ? <b>{totalsText(ch.totals)}</b> : <span className="as-zero">0</span>}</div>
-        {(canWaive || canRequest) && (ch.to_pay || waived) && <div className="as-waiver">
+        <div className="as-amount">{ch.exemption ? <span className="as-zero">Exempté</span> : ch.blocked ? <span className="as-todo">À configurer{ch.to_pay ? ` + ${totalsText(ch.totals)}` : ''}</span> : ch.to_pay ? <b>{totalsText(ch.totals)}</b> : <span className="as-zero">0</span>}</div>
+        {(canWaive || canRequest) && (ch.to_pay || ch.blocked || waived) && <div className="as-waiver">
           {w === undefined || w === null
             ? <button type="button" className="as-link" onClick={() => onWaiver(ch.index, '')}>{canWaive ? 'Accorder une dérogation' : 'Demander une dérogation à la direction'}</button>
             : <label className="as-reason"><span>{canWaive ? 'Motif de la dérogation (direction)' : 'Motif de la demande'}</span>
@@ -52,6 +56,7 @@ export function AdmissionSettlement({preview, loading, error, waivers, onWaiver,
                 <button type="button" className="as-link danger" onClick={() => onWaiver(ch.index, null)}>Retirer</button></label>}
         </div>}
       </li>; })}</ul>
+    {c.blocked && c.blocked_message && <div className="as-blocked" role="alert"><NavGlyph g="alert" size={18}/><div><b>Inscription impossible pour l’instant</b><span>{c.blocked_message}</span></div></div>}
     {c.requires_payment && <footer className="as-foot">
       <div className="as-total"><span>Total à payer par la famille</span><b>{totalsText(c.totals)}</b></div>
       {preview.can_collect && !dossierMode ? <div className="as-pay">
