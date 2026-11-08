@@ -666,6 +666,7 @@ class AdmissionConditionPut(BaseModel):
     bundle_code:str|None=Field(default=None,max_length=48)
     scope_type:Literal['SCHOOL','SECTION','ACADEMIC_CLASS','CLASS']='SCHOOL'
     scope_ref:str|None=Field(default=None,max_length=64)
+    scope_refs:list[str]|None=Field(default=None,max_length=300)
     sort_order:int=Field(default=100,ge=0,le=10000)
     expected_version:int|None=Field(default=None,ge=1)
 

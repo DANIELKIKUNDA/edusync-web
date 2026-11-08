@@ -32,8 +32,13 @@ export function AdmissionConditionsSettings({token, years, fees, sections, class
   async function markReviewed() {
     try { await reviewAdmissionConditions(token); toast.success('Conditions d’inscription validées'); await load(); } catch (e) { setError(friendlyError(e)); }
   }
-  const scopeLabel = (c: AdmissionCondition) => c.scope_type === 'SECTION' ? sections.find(s => s.id === c.scope_ref)?.label ?? 'Section'
-    : c.scope_type === 'CLASS' ? classes.find(x => x.id === c.scope_ref)?.label ?? 'Classe' : c.scope_type === 'ACADEMIC_CLASS' ? c.scope_ref : SCOPE.SCHOOL;
+  // Several targets since 0109 (owner request 2026-11-08): « Maternelle, Primaire » or « 1re primaire A, 2e primaire A ».
+  const scopeLabel = (c: AdmissionCondition) => {
+    if (c.scope_type === 'SCHOOL') return SCOPE.SCHOOL;
+    const one = (r: string) => c.scope_type === 'SECTION' ? sections.find(s => s.id === r)?.label ?? 'Section' : c.scope_type === 'CLASS' ? classes.find(x => x.id === r)?.label ?? 'Classe' : r;
+    const list = (c.scope_refs?.length ? c.scope_refs : [c.scope_ref]).map(one);
+    return list.length > 4 ? `${list.slice(0, 3).join(', ')} et ${list.length - 3} autres` : list.join(', ');
+  };
   if (!year) return null;
   return <section className="panel">
     <div className="panelHead"><div><h3>Conditions d’inscription</h3><p>Ce qui est exigé à l’inscription, ce qui peut attendre et la portée de chaque condition. Les conditions obligatoires « à l’inscription » forment le lot que la caisse encaisse en premier.</p></div></div>
@@ -58,7 +63,7 @@ function ConditionForm({token, year, fees, sections, classes, refs, current, onC
   const [label, setLabel] = useState(current?.label ?? ''); const [fee, setFee] = useState(current?.fee_type_id ?? '');
   const [required, setRequired] = useState(current?.required ?? true); const [timing, setTiming] = useState(current?.payment_timing ?? 'AT_ENROLLMENT');
   const [later, setLater] = useState(current?.can_pay_later ?? false); const [bundle, setBundle] = useState(current?.bundle_code ?? '');
-  const [scope, setScope] = useState(current?.scope_type ?? 'SCHOOL'); const [target, setTarget] = useState(current?.scope_type === 'SCHOOL' ? '' : current?.scope_ref ?? '');
+  const [scope, setScope] = useState(current?.scope_type ?? 'SCHOOL'); const [picked, setPicked] = useState<string[]>(current && current.scope_type !== 'SCHOOL' ? (current.scope_refs?.length ? current.scope_refs : [current.scope_ref]) : []);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const yearClasses = classes.filter(c => c.academic_year_id === year.id);
   const levels = [...new Set(yearClasses.map(c => (c.reference_code ?? '').toUpperCase()).filter(Boolean))];
@@ -67,11 +72,11 @@ function ConditionForm({token, year, fees, sections, classes, refs, current, onC
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (label.trim().length < 2) { setError('Donnez un libellé à la condition, par exemple « Frais d’inscription ».'); return; }
-    if (scope !== 'SCHOOL' && !target) { setError('Choisissez la cible de la condition.'); return; }
+    if (scope !== 'SCHOOL' && !picked.length) { setError('Cochez au moins une section, un niveau ou une classe.'); return; }
     try {
       setBusy(true); setError('');
       await putAdmissionCondition(token, {academic_year_id: year.id, condition_id: current?.id ?? null, label: label.trim(), fee_type_id: fee || null, required, payment_timing: timing,
-        can_pay_later: later, bundle_code: bundle.trim() || null, scope_type: scope, scope_ref: scope === 'SCHOOL' ? null : target, sort_order: current?.sort_order ?? 100, expected_version: current?.version ?? null});
+        can_pay_later: later, bundle_code: bundle.trim() || null, scope_type: scope, scope_ref: scope === 'SCHOOL' ? null : picked[0], scope_refs: scope === 'SCHOOL' ? null : picked, sort_order: current?.sort_order ?? 100, expected_version: current?.version ?? null});
       toast.success('Condition enregistrée'); await onSaved();
     } catch (err) { setError(friendlyError(err)); } finally { setBusy(false); }
   }
@@ -80,13 +85,32 @@ function ConditionForm({token, year, fees, sections, classes, refs, current, onC
     <FormField label="Libellé *"><input value={label} maxLength={160} onChange={e => setLabel(e.target.value)}/></FormField>
     <FormField label="Frais lié"><select value={fee} onChange={e => setFee(e.target.value)}><option value="">— Aucun frais lié —</option>{fees.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}</select></FormField>
     <FormField label="Moment du paiement"><select value={timing} onChange={e => setTiming(e.target.value)}>{Object.entries(TIMING).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FormField>
-    <FormField label="Portée"><select value={scope} onChange={e => { setScope(e.target.value); setTarget(''); }}>{Object.entries(SCOPE).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FormField>
-    {scope !== 'SCHOOL' && <FormField label="Cible *"><select value={target} onChange={e => setTarget(e.target.value)}><option value="">Choisir…</option>{targets.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FormField>}
+    <FormField label="Portée"><select value={scope} onChange={e => { setScope(e.target.value); setPicked([]); }}>{Object.entries(SCOPE).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FormField>
+    {scope !== 'SCHOOL' && <fieldset className="planTargets wide"><legend>{scope === 'SECTION' ? 'Sections concernées' : scope === 'CLASS' ? 'Classes concernées' : 'Niveaux concernés'} * <small>({picked.length} cochée{picked.length > 1 ? 's' : ''} sur {targets.length})</small></legend>
+      {targets.length ? <TargetChecklist groups={scope === 'CLASS' ? sections.map(sec => [sec.label, yearClasses.filter(c => c.section_id === sec.id).map(c => [c.id, c.label] as [string, string])] as [string, [string, string][]]).filter(([, l]) => l.length) : [['', targets]]}
+        picked={picked} onChange={setPicked}/>
+        : <p className="policyHint">Aucune cible disponible : ouvrez d’abord les sections et les classes de l’année.</p>}
+      <p className="policyHint">La condition s’applique aux élèves de chaque cible cochée ; les autres classes ne la paient pas à l’inscription.</p>
+    </fieldset>}
     <FormField label="Regroupement (facultatif)"><input value={bundle} maxLength={48} onChange={e => setBundle(e.target.value)}/></FormField>
     <label className="checkField"><input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)}/> Obligatoire</label>
     <label className="checkField"><input type="checkbox" checked={later} onChange={e => setLater(e.target.checked)}/> Paiement différé possible</label>
     <div className="formActions"><button type="button" className="ghost" onClick={onCancel}>Annuler</button><button className="primaryBtn" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer la condition'}</button></div>
   </form>;
+}
+
+// Real checkboxes, grouped by section for classes (owner request 2026-11-08: « cocher plusieurs classes »).
+function TargetChecklist({groups, picked, onChange}: {groups: [string, [string, string][]][]; picked: string[]; onChange: (v: string[]) => void}) {
+  const all = groups.flatMap(([, l]) => l.map(([v]) => v));
+  const toggle = (v: string) => onChange(picked.includes(v) ? picked.filter(x => x !== v) : [...picked, v]);
+  const setMany = (vs: string[], on: boolean) => onChange(on ? [...new Set([...picked, ...vs])] : picked.filter(x => !vs.includes(x)));
+  return <div className="ac-targets">
+    <div className="ac-tools"><button type="button" className="ac-link" onClick={() => onChange(all)}>Tout cocher</button><button type="button" className="ac-link" onClick={() => onChange([])}>Tout décocher</button></div>
+    {groups.map(([title, list]) => { const vs = list.map(([v]) => v); const n = vs.filter(v => picked.includes(v)).length;
+      return <div key={title || 'all'} className="ac-group">{title && <div className="ac-groupHead"><b>{title}</b><small>{n}/{vs.length}</small>
+        <button type="button" className="ac-link" onClick={() => setMany(vs, n < vs.length)}>{n < vs.length ? 'Tout' : 'Aucune'}</button></div>}
+        <div className="ac-grid">{list.map(([v, l]) => <label key={v} className={`ac-check ${picked.includes(v) ? 'on' : ''}`}><input type="checkbox" checked={picked.includes(v)} onChange={() => toggle(v)}/><span>{l}</span></label>)}</div></div>; })}
+  </div>;
 }
 
 // Exemptions of the enrollment conditions (owner decision 2026-11-06): school-wide categories that are enrolled without

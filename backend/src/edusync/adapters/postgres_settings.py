@@ -448,7 +448,7 @@ class PostgresSettingsRepository:
         return _benefit_out(dict(_m(row))),previous
 
     # ---------- admission conditions (Desktop enrollment_policy_items, parity lot L4) ----------
-    ADMISSION_COLUMNS = ("id,academic_year_id,fee_type_id,label,scope_type,scope_ref,required,payment_timing,bundle_code,can_pay_later,"
+    ADMISSION_COLUMNS = ("id,academic_year_id,fee_type_id,label,scope_type,scope_ref,scope_refs,required,payment_timing,bundle_code,can_pay_later,"
                          "active,sort_order,version")
 
     def list_admission_conditions(self, school_id: UUID, year_id: UUID) -> list[dict[str,Any]]:
@@ -460,23 +460,29 @@ class PostgresSettingsRepository:
     def upsert_admission_condition(self, school_id: UUID, *, academic_year_id:UUID, label:str, fee_type_id:UUID|None, required:bool,
                                    payment_timing:str, can_pay_later:bool, bundle_code:str|None=None, scope_type:str='SCHOOL',
                                    scope_ref:str|None=None, sort_order:int=100, condition_id:UUID|None=None,
-                                   expected_version:int|None=None) -> tuple[dict[str,Any],dict[str,Any]|None]:
+                                   expected_version:int|None=None, scope_refs:list[str]|None=None) -> tuple[dict[str,Any],dict[str,Any]|None]:
         """Desktop upsert_enrollment_policy_item."""
         self._editable_year(school_id,academic_year_id)
         label=label.strip()
         if len(label)<2: raise ValueError("Le libellé de la condition est obligatoire")
         if payment_timing not in ('AT_ENROLLMENT','AFTER_ENROLLMENT','OPTIONAL'): raise ValueError("Moment de paiement invalide")
-        ref='*' if scope_type=='SCHOOL' else (scope_ref or '').strip()
-        if scope_type not in ('SCHOOL','SECTION','ACADEMIC_CLASS','CLASS') or not ref: raise ValueError("Portée d'inscription invalide")
-        if scope_type=='SECTION' and self.connection.execute(text("SELECT 1 FROM school_sections WHERE id=CAST(:r AS uuid) AND school_id=:sid"),{"r":ref,"sid":school_id}).first() is None:
-            raise ValueError("Section incompatible avec cette école")
-        if scope_type=='CLASS' and self.connection.execute(text("SELECT 1 FROM school_classes WHERE id=CAST(:r AS uuid) AND school_id=:sid AND academic_year_id=:y"),
-                                                           {"r":ref,"sid":school_id,"y":academic_year_id}).first() is None:
-            raise ValueError("Classe incompatible avec cette école ou cette année")
-        if scope_type=='ACADEMIC_CLASS': ref=ref.upper()
+        if scope_type not in ('SCHOOL','SECTION','ACADEMIC_CLASS','CLASS'): raise ValueError("Portée d'inscription invalide")
+        # Several targets of the same kind (owner request 2026-11-08): e.g. Maternelle + Primaire, or 1re and 2e primaire A.
+        refs:list[str]=[]
+        for r in ([] if scope_type=='SCHOOL' else (scope_refs if scope_refs else [scope_ref or ''])):
+            r=(r or '').strip(); r=r.upper() if scope_type=='ACADEMIC_CLASS' else r
+            if r and r not in refs: refs.append(r)
+        if scope_type!='SCHOOL' and not refs: raise ValueError("Choisissez au moins une cible pour cette condition")
+        for r in refs:
+            if scope_type=='SECTION' and self.connection.execute(text("SELECT 1 FROM school_sections WHERE id=CAST(:r AS uuid) AND school_id=:sid"),{"r":r,"sid":school_id}).first() is None:
+                raise ValueError("Section incompatible avec cette école")
+            if scope_type=='CLASS' and self.connection.execute(text("SELECT 1 FROM school_classes WHERE id=CAST(:r AS uuid) AND school_id=:sid AND academic_year_id=:y"),
+                                                               {"r":r,"sid":school_id,"y":academic_year_id}).first() is None:
+                raise ValueError("Classe incompatible avec cette école ou cette année")
+        ref='*' if scope_type=='SCHOOL' else refs[0]
         if fee_type_id is not None and self.connection.execute(text("SELECT 1 FROM fee_types WHERE id=:f AND school_id=:sid"),{"f":fee_type_id,"sid":school_id}).first() is None:
             raise ValueError("Type de frais introuvable")
-        values={"sid":school_id,"y":academic_year_id,"f":fee_type_id,"l":label,"st":scope_type,"sr":ref,"req":bool(required),"pt":payment_timing,
+        values={"sid":school_id,"y":academic_year_id,"f":fee_type_id,"l":label,"st":scope_type,"sr":ref,"srs":refs or None,"req":bool(required),"pt":payment_timing,
                 "b":(bundle_code or '').strip() or None,"later":bool(can_pay_later),"so":int(sort_order)}
         if condition_id is not None:
             old=self.connection.execute(text(f"SELECT {self.ADMISSION_COLUMNS} FROM school_admission_conditions WHERE id=:id AND school_id=:sid AND academic_year_id=:y FOR UPDATE"),
@@ -484,12 +490,12 @@ class PostgresSettingsRepository:
             if old is None: raise LookupError("Condition introuvable")
             if expected_version is not None and int(_m(old)['version'])!=expected_version:
                 raise OptimisticConcurrencyError("Condition modifiée par une autre session; rechargez")
-            row=self.connection.execute(text(f"""UPDATE school_admission_conditions SET fee_type_id=:f,label=:l,scope_type=:st,scope_ref=:sr,required=:req,
+            row=self.connection.execute(text(f"""UPDATE school_admission_conditions SET fee_type_id=:f,label=:l,scope_type=:st,scope_ref=:sr,scope_refs=:srs,required=:req,
                 payment_timing=:pt,bundle_code=:b,can_pay_later=:later,active=true,sort_order=:so WHERE id=:id RETURNING {self.ADMISSION_COLUMNS}"""),
                 {**values,"id":condition_id}).first()
             return dict(_m(row)),dict(_m(old))
-        row=self.connection.execute(text(f"""INSERT INTO school_admission_conditions(school_id,academic_year_id,fee_type_id,label,scope_type,scope_ref,
-            required,payment_timing,bundle_code,can_pay_later,sort_order) VALUES (:sid,:y,:f,:l,:st,:sr,:req,:pt,:b,:later,:so)
+        row=self.connection.execute(text(f"""INSERT INTO school_admission_conditions(school_id,academic_year_id,fee_type_id,label,scope_type,scope_ref,scope_refs,
+            required,payment_timing,bundle_code,can_pay_later,sort_order) VALUES (:sid,:y,:f,:l,:st,:sr,:srs,:req,:pt,:b,:later,:so)
             RETURNING {self.ADMISSION_COLUMNS}"""),values).first()
         return dict(_m(row)),None
 

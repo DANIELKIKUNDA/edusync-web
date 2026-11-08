@@ -24,7 +24,7 @@ it('creates the record without asking for the function catalogue nor offering an
   render(<PersonnelPage token="t" schoolName="École A" permissions={['personnel.read', 'personnel.create', 'personnel.update']}/>);
   await userEvent.click(await screen.findByRole('button', {name: /Nouvel agent/}));
   expect(await screen.findByText(/le gestionnaire du personnel affectera ensuite l’agent/)).toBeTruthy();
-  expect(screen.queryByText('Fonction initiale')).toBeNull();
+  expect(screen.queryByText('Poste occupé')).toBeNull();
   await waitFor(() => expect(calls.some(p => p.endsWith('/personnel/scope-options'))).toBe(true));
   expect(calls.some(p => p.endsWith('/personnel/catalog/functions'))).toBe(false);
 });
@@ -32,7 +32,7 @@ it('creates the record without asking for the function catalogue nor offering an
 it('the staff manager keeps the initial assignment', async () => {
   render(<PersonnelPage token="t" schoolName="École A" permissions={['personnel.read', 'personnel.create', 'personnel.functions.read', 'personnel.assignments.add']}/>);
   await userEvent.click(await screen.findByRole('button', {name: /Nouvel agent/}));
-  expect(await screen.findByText('Fonction initiale')).toBeTruthy();
+  expect(await screen.findByText('Poste occupé')).toBeTruthy();
   expect(calls.some(p => p.endsWith('/personnel/catalog/functions'))).toBe(true);
 });
 

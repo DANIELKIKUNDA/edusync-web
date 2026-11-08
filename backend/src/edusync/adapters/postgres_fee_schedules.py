@@ -231,16 +231,17 @@ class PostgresFeeScheduleRepository:
         if e is None or e._mapping["status"] != "ACTIVE":
             return []
         m = e._mapping
-        rows = self.connection.execute(text("""SELECT a.scope_type,a.scope_ref,f.code AS fee_code FROM school_admission_conditions a
+        rows = self.connection.execute(text("""SELECT a.scope_type,a.scope_ref,a.scope_refs,f.code AS fee_code FROM school_admission_conditions a
               LEFT JOIN fee_types f ON f.id=a.fee_type_id
              WHERE a.school_id=:sid AND a.academic_year_id=:y AND a.active AND a.required AND a.payment_timing='AT_ENROLLMENT'
              ORDER BY a.sort_order,a.label"""), {"sid": school_id, "y": m["academic_year_id"]}).all()
         month = self.settings.get_billing_policy(school_id).get("month_due_at_enrollment")
         out: list[tuple[str, str | None]] = []
         for r in rows:
-            scope, ref, code = r._mapping["scope_type"], r._mapping["scope_ref"], r._mapping["fee_code"]
-            hit = (scope == "SCHOOL" or (scope == "SECTION" and ref == str(m["section_id"])) or (scope == "ACADEMIC_CLASS" and ref == m["level"])
-                   or (scope == "CLASS" and ref == str(m["class_id"])))
+            scope, code = r._mapping["scope_type"], r._mapping["fee_code"]
+            refs = set(r._mapping["scope_refs"] or [r._mapping["scope_ref"]])   # several targets since 0109 (2026-11-08)
+            hit = (scope == "SCHOOL" or (scope == "SECTION" and str(m["section_id"]) in refs) or (scope == "ACADEMIC_CLASS" and m["level"] in refs)
+                   or (scope == "CLASS" and str(m["class_id"]) in refs))
             if not hit or not code:
                 continue
             item = (code, month) if is_tuition_code(code) and month else (code, None)

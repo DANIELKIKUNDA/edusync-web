@@ -127,6 +127,36 @@ def run(A: dict) -> None:
     check("aperçu : B2 bénéficiaire exempté, la famille ne paie que pour B1 (35 000)",
           r.status_code == 200 and Decimal(pv["conditions"]["totals"]["CDF"]) == 35000 and pv["conditions"]["children"][1]["exemption"]["kind"] == "BENEFIT", r.text[:300])
 
+    print("\n== Portée à plusieurs cibles : une condition pour plusieurs sections (demande du 2026-11-08)")
+    as_(admin)
+    sco = one("SELECT id FROM fee_types WHERE school_id=:s AND code='SCOLARITE'", s=A["id"])[0]
+    put = lambda refs, version=None, cid=None: H.CLIENT.put("/api/v1/settings/admission-conditions", headers=key(), json={
+        "academic_year_id": str(A["year"]), "condition_id": cid, "label": "Frais scolaires de juin", "fee_type_id": str(sco), "required": True,
+        "payment_timing": "AT_ENROLLMENT", "scope_type": "SECTION", "scope_ref": refs[0], "scope_refs": refs, "expected_version": version})
+    c1 = put([str(A["sections"]["SECONDAIRE"])])
+    check("condition « juin » limitée au secondaire enregistrée", c1.status_code in (200, 201), c1.text[:200])
+    as_(cashier_actor)
+    pv = H.CLIENT.post("/api/v1/schooling/enrollments/family/preview", json=body([child("SC1", cls)])).json()
+    k = pv["conditions"]["children"][0]
+    check("enfant du primaire : aucune condition ne vise sa classe (pas « bloqué »)", k["configured"] is False and not k.get("blocked") and not k["to_pay"], k)
+    as_(admin)
+    c2 = put([str(A["sections"]["SECONDAIRE"]), str(A["sections"]["PRIMAIRE"])], c1.json().get("version"), c1.json().get("id"))
+    check("même condition étendue à deux sections (cases cochées)", c2.status_code in (200, 201) and len(c2.json().get("scope_refs") or []) == 2, c2.text[:200])
+    as_(cashier_actor)
+    pv = H.CLIENT.post("/api/v1/schooling/enrollments/family/preview", json=body([child("SC2", cls)])).json()
+    k = pv["conditions"]["children"][0]
+    check("enfant du primaire : juin exigé à l'inscription (20 000)", k["configured"] is True and Decimal(k["totals"].get("CDF", "0")) == 20000, k)
+
+    print("\n== Personnel : matricule facultatif, numéro de l'école attribué automatiquement")
+    as_(actor_for("SECRETARIAT", A["id"]))
+    agent = lambda n: H.CLIENT.post("/api/v1/personnel", headers=key(), json={"last_name": n, "first_name": "Test", "gender": "F", "category": "ENSEIGNANT"})
+    a1, a2 = agent("MWAMBA"), agent("ILUNGA")
+    check("deux agents sans matricule → AG-0001 puis AG-0002",
+          a1.status_code == 201 and a2.status_code == 201 and a1.json().get("employee_no") == "AG-0001" and a2.json().get("employee_no") == "AG-0002",
+          f"{a1.status_code} {a1.text[:120]} | {a2.status_code} {a2.text[:120]}")
+    a3 = H.CLIENT.post("/api/v1/personnel", headers=key(), json={"employee_no": "ens-77", "last_name": "KABILA", "gender": "M", "category": "ENSEIGNANT"})
+    check("un matricule officiel saisi est gardé (en majuscules)", a3.status_code == 201 and a3.json().get("employee_no") == "ENS-77", a3.text[:150])
+
 
 def main() -> int:
     A = school("D")
