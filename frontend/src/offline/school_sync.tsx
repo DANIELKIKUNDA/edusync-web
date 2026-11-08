@@ -50,6 +50,18 @@ const OFFLINE_REFERENCE:[(p:string[])=>boolean,string[]][]=[
   [p=>p.includes('inventory.counts.read'),['/api/v1/stewardship/counts']],
   [p=>p.includes('personnel.read'),['/api/v1/personnel?limit=200&offset=0']],
   [p=>p.includes('personnel.create')||p.includes('personnel.update'),['/api/v1/personnel/scope-options']],
+  // Essential consultation is prepared before the network disappears. The server still applies the role and section
+  // scope to every response; IndexedDB isolates the copy by school + identity and never stores the bearer token.
+  [p=>p.includes('students.read'),['/api/v1/schooling/students?limit=200&offset=0']],
+  [p=>p.includes('families.read'),['/api/v1/schooling/families?limit=50&offset=0']],
+  [p=>p.includes('headcounts.read'),['/api/v1/effectifs/overview?scope=ALL','/api/v1/effectifs/counts?group_by=section&scope=ALL','/api/v1/effectifs/counts?group_by=class&scope=ALL']],
+  [p=>p.includes('headcounts.movements.read'),['/api/v1/effectifs/movements?scope=ALL&limit=50&offset=0']],
+  [p=>p.includes('finance.recovery.monthly.read'),['/api/v1/finance/recovery/monthly?currency=CDF','/api/v1/finance/recovery/monthly?currency=USD','/api/v1/finance/recovery/classes','/api/v1/finance/recovery/sections','/api/v1/finance/recovery/fees','/api/v1/finance/recovery/pilotage']],
+  [p=>p.includes('finance.cash.other.read'),['/api/v1/finance/cash/day-summary']],
+  [p=>p.includes('communications.read'),['/api/v1/communications/readiness','/api/v1/communications/history']],
+  [p=>p.includes('audit.school.read'),['/api/v1/audit/events?limit=50']],
+  [p=>p.includes('documents.history.read'),['/api/v1/documents/history?offset=0&limit=50&scope=school','/api/v1/documents/catalog']],
+  [p=>p.includes('notifications.internal.read'),['/api/v1/notifications']],
 ];
 export function useEnrollmentReference(session: {token: string; school: {id: string}; user: {id: string}; permissions: string[]}) {
   const tokenRef = useRef(session.token); tokenRef.current = session.token;
