@@ -16,6 +16,7 @@ import {FormField} from './platform/forms';
 import {formatDate, formatMoney} from './platform/format';
 import {TariffAssistant} from './settings_tariff_assistant';
 import {DateInput} from './platform/date_input';
+import {NavGlyph} from './platform/nav_icons';
 
 export const TARIFF_GROUPS: [string, string][] = [['GENERAL', 'Humanités générales'], ['TECHNICAL', 'Humanités techniques'], ['OTHER', 'Autre groupe']];
 const SCOPES: [TariffScope, string][] = [['SCHOOL', 'Toute l’école'], ['SECTION', 'Section'], ['ACADEMIC_CLASS', 'Classe académique (niveau)'], ['OPTION_GROUP', 'Groupe d’Humanités'], ['CLASS', 'Classe ouverte']];
@@ -39,7 +40,7 @@ export function TariffsSettings({token, tariffs, years, fees, classes, sections,
     return [...m.entries()];
   }, [yearRules]);
   const [error, setError] = useState('');
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(false); const [openFee, setOpenFee] = useState<string | null | undefined>(undefined);
   const [assistant, setAssistant] = useState<null | 'grid' | 'rule' | 'regulatory'>(null);
   // Page organisation (owner, 2026-11-02: « une page trop longue », the annual exigibility hidden at the very bottom):
   // the four jobs of this screen are four tabs with their state in the tab itself — the administrator sees at once what
@@ -83,21 +84,31 @@ export function TariffsSettings({token, tariffs, years, fees, classes, sections,
           initialMode={assistant} onClose={() => setAssistant(null)} onDone={onDone}/>}
         {yearRules.length === 0 && <div className="emptyGuide"><b>Aucune règle tarifaire pour {year.label}</b><p>{fees.length ? 'Ajoutez une règle pour chaque frais : par exemple un montant pour toute l’école, puis une règle plus précise pour une section ou une classe.' : 'Commencez par les types de frais, puis revenez ici.'}</p></div>}
         <p className="policyHint">La règle la plus précise s’applique : classe ouverte → classe académique → groupe d’Humanités → section → école. Une nouvelle règle datée ne réécrit jamais un mois déjà payé.</p>
-        {byFee.map(([feeId, list], i) => {
+        {/* Owner request 2026-11-08: one card per fee, one open at a time; each rule is a small card. */}
+        <div className="tf-grid">{byFee.map(([feeId, list], i) => {
           const amounts = list.filter(t => t.amount !== null).map(t => Number(t.amount)); const cur = list[0].currency;
           const range = amounts.length ? (Math.min(...amounts) === Math.max(...amounts) ? formatMoney(String(amounts[0]), cur) : `${formatMoney(String(Math.min(...amounts)), cur)} → ${formatMoney(String(Math.max(...amounts)), cur)}`) : 'À fixer';
-          return <details className="tariffGroup tariffFee" key={feeId} open={byFee.length <= 2 || i === 0}>
-            <summary><h4>{list[0].fee_label ?? 'Frais'}</h4><span className="tariffFeeMeta">{list.length} règle(s) · {range}{list.some(t => t.status !== 'ACTIVE') ? ' · en attente' : ''}</span></summary>
-            <ul className="moneyList">{list.map(t => <li key={t.id} className={t.status === 'ACTIVE' ? '' : 'pending'}>
-              <div><b>{scopeName(t)}</b><small>{SCOPES.find(s => s[0] === t.scope_type)?.[1]}{scopeCode(t)} · dès le {formatDate(t.effective_from)}{t.source_reference ? ` · ${t.source_reference}` : ''}</small></div>
-              <div className="tariffAmount">{t.amount === null ? <em className="pill">À fixer</em> : <strong className="amount">{formatMoney(t.amount, t.currency)}</strong>}{t.status !== 'ACTIVE' && <small>{STATUS_LABEL[t.status]}</small>}</div>
-            </li>)}</ul>
-          </details>;
-        })}
-        {canManage && (adding
-          ? <RuleForm token={token} year={year} fees={fees} classes={classes} sections={sections} refs={refs} can={can}
-                      onCancel={() => setAdding(false)} onSaved={async () => { setAdding(false); await onDone(); }}/>
-          : <button type="button" className="softBtn addLine" onClick={() => setAdding(true)}>+ Nouvelle règle tarifaire <small>{year.label}</small></button>)}
+          const on = (openFee === undefined ? (i === 0 ? feeId : null) : openFee) === feeId; const pending = list.filter(t => t.status !== 'ACTIVE').length;
+          return <article className={`tf-card ${on ? 'on' : ''}`} key={feeId}>
+            <button type="button" className="tf-head" aria-expanded={on} onClick={() => setOpenFee(on ? null : feeId)}>
+              <span className="tf-icon" aria-hidden="true"><NavGlyph g="tag" size={18}/></span>
+              <span className="tf-title"><b>{list[0].fee_label ?? 'Frais'}</b><small>{list.length} règle{list.length > 1 ? 's' : ''}{pending ? ` · ${pending} en attente` : ''}</small></span>
+              <span className="tf-range">{range}</span><span className="tf-chev" aria-hidden="true">{on ? '−' : '+'}</span></button>
+            {on && <div className="tf-rules">{list.map(t => <div key={t.id} className={`tf-rule ${t.status === 'ACTIVE' ? '' : 'pending'}`}>
+              <span className="tf-scope">{SCOPES.find(sc => sc[0] === t.scope_type)?.[1]}{scopeCode(t)}</span>
+              <b>{scopeName(t)}</b>
+              <strong>{t.amount === null ? 'À fixer' : formatMoney(t.amount, t.currency)}</strong>
+              <small>dès le {formatDate(t.effective_from)}{t.status !== 'ACTIVE' ? ` · ${STATUS_LABEL[t.status]}` : ''}{t.source_reference ? ` · ${t.source_reference}` : ''}</small>
+            </div>)}</div>}
+          </article>;
+        })}</div>
+        {canManage && <button type="button" className="softBtn addLine" onClick={() => setAdding(true)}>+ Nouvelle règle tarifaire <small>{year.label}</small></button>}
+        {canManage && adding && <div className="ac-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setAdding(false); }}>
+          <div className="ac-dialog" role="dialog" aria-modal="true" aria-label="Nouvelle règle tarifaire">
+            <header><div><span className="eyebrow">Tarifs &amp; barèmes · {year.label}</span><h3>Nouvelle règle tarifaire</h3></div>
+              <button type="button" className="ac-close" aria-label="Fermer" onClick={() => setAdding(false)}><NavGlyph g="close" size={18}/></button></header>
+            <RuleForm token={token} year={year} fees={fees} classes={classes} sections={sections} refs={refs} can={can}
+              onCancel={() => setAdding(false)} onSaved={async () => { setAdding(false); await onDone(); }}/></div></div>}
         <p className="policyHint">Exemple : si l’école augmente le montant à partir de février, créez une nouvelle règle datée de février. Les mensualités antérieures gardent leur montant.</p>
       </>}
       {tab === 'months' && can('settings.tariffs.read') && <BillingMonths token={token} canEdit={can('settings.billing_months.manage')} onError={setError}
