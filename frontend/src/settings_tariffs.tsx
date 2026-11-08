@@ -258,7 +258,7 @@ function BillingMonths({token, canEdit, onError, onSaved}: {token: string; canEd
 // Desktop « Appliquer les barèmes aux classes ouvertes »: schedule lines per class, then the due charges of every
 // validated enrollment. A line that already received money is never rewritten (a dated rule is required instead).
 function Schedules({token, year, canApply, onError, onDone}: {token: string; year: AcademicYear; canApply: boolean; onError: (m: string) => void; onDone: () => Promise<void>}) {
-  const [rows, setRows] = useState<FeeSchedule[]>([]); const [busy, setBusy] = useState(false);
+  const [rows, setRows] = useState<FeeSchedule[]>([]); const [busy, setBusy] = useState(false); const [open, setOpen] = useState<string | null>(null);
   async function load() { try { setRows(await listFeeSchedules(token, year.id)); } catch (e) { onError(friendlyError(e)); } }
   useEffect(() => { void load(); }, [token, year.id]);
   const byClass = useMemo(() => { const m = new Map<string, FeeSchedule[]>(); for (const r of rows) m.set(r.class_label, [...(m.get(r.class_label) ?? []), r]); return [...m.entries()]; }, [rows]);
@@ -270,12 +270,25 @@ function Schedules({token, year, canApply, onError, onDone}: {token: string; yea
       await load(); await onDone();
     } catch (e) { onError(friendlyError(e)); } finally { setBusy(false); }
   }
+  // Owner request 2026-11-08: one card per class; opening a class closes the previous one (never a wall of open lists).
+  const totals = (list: FeeSchedule[]) => { const t: Record<string, number> = {}; for (const r of list) t[r.currency] = (t[r.currency] ?? 0) + Number(r.amount); return Object.entries(t).map(([c, v]) => formatMoney(String(v), c)).join(' + '); };
+  function toggle(label: string) {
+    const next = open === label ? null : label; setOpen(next);
+    if (next) window.setTimeout(() => document.getElementById(`sch-${next.replace(/\W+/g, '-')}`)?.scrollIntoView({behavior: 'smooth', block: 'nearest'}), 60);
+  }
   return <div className="schedules">
-    <h4>Échéances par classe</h4>
+    <h4>Échéances par classe <small>· {byClass.length} classe{byClass.length > 1 ? 's' : ''}</small></h4>
     {rows.length === 0 && <p className="policyHint">Aucune échéance : appliquez les barèmes pour créer les échéances des classes et les frais dus des élèves.</p>}
-    {byClass.map(([label, list]) => <details key={label} className="scheduleClass"><summary><b>{label}</b><small>{list.length} échéance(s)</small></summary>
-      <ul className="moneyList">{list.map(r => <li key={r.id}><div><b>{r.fee_label}{r.period_label ? ` — ${r.period_label}` : ''}</b><small>{r.due_date ? `Échéance ${formatDate(r.due_date)}` : 'Sans échéance'} · {r.charge_count} élève(s)</small></div><strong className="amount">{formatMoney(r.amount, r.currency)}</strong></li>)}</ul>
-    </details>)}
+    <div className="sch-grid">{byClass.map(([label, list]) => { const on = open === label; const fees = new Map<string, FeeSchedule[]>(); for (const r of list) fees.set(r.fee_label, [...(fees.get(r.fee_label) ?? []), r]);
+      return <article key={label} id={`sch-${label.replace(/\W+/g, '-')}`} className={`sch-card ${on ? 'on' : ''}`}>
+        <button type="button" className="sch-head" aria-expanded={on} onClick={() => toggle(label)}>
+          <span className="sch-title"><b>{label}</b><small>{fees.size} frais · {list.length} échéance{list.length > 1 ? 's' : ''}</small></span>
+          <span className="sch-total">{totals(list)}<small>par élève et par an</small></span><span className="sch-chev" aria-hidden="true">{on ? '−' : '+'}</span></button>
+        {on && <div className="sch-body">{[...fees.entries()].map(([fee, items]) => <div key={fee} className="sch-fee">
+          <div className="sch-feeHead"><b>{fee}</b><span>{totals(items)}</span></div>
+          <div className="sch-items">{items.map(r => <span key={r.id} className="sch-item"><i>{r.period_label ?? 'Paiement unique'}</i><b>{formatMoney(r.amount, r.currency)}</b>
+            <small>{r.due_date ? formatDate(r.due_date) : 'Sans échéance'} · {r.charge_count} élève{r.charge_count > 1 ? 's' : ''}</small></span>)}</div></div>)}</div>}
+      </article>; })}</div>
     {canApply && <div className="formActions"><button type="button" className="primaryBtn" disabled={busy} onClick={() => void apply()}>{busy ? 'Application…' : 'Appliquer les barèmes aux classes ouvertes'}</button></div>}
   </div>;
 }

@@ -13,13 +13,15 @@ import {confirmAction} from './platform/dialogs';
 import {friendlyError} from './platform/errors';
 import {FormField} from './platform/forms';
 import {formatDate} from './platform/format';
+import {NavGlyph} from './platform/nav_icons';
 
 const TIMING: Record<string, string> = {AT_ENROLLMENT: 'À l’inscription', AFTER_ENROLLMENT: 'Après l’inscription', OPTIONAL: 'Facultatif'};
 const SCOPE: Record<string, string> = {SCHOOL: 'Toute l’école', SECTION: 'Section', ACADEMIC_CLASS: 'Classe académique', CLASS: 'Classe ouverte'};
 
 type Props = {token: string; years: AcademicYear[]; fees: FeeType[]; sections: SchoolSection[]; classes: SchoolClass[]; refs: ReferenceCatalog | null; can: (x: string) => boolean};
 
-export function AdmissionConditionsSettings({token, years, fees, sections, classes, refs, can}: Props) {
+export function AdmissionConditionsSettings({token, years, fees, sections, classes, refs, can, onChanged}: Props & {onChanged?: () => void}) {
+  const [showRemoved, setShowRemoved] = useState(false);
   const year = years.find(y => y.status === 'ACTIVE') ?? years.find(y => y.status === 'PREPARED');
   const [items, setItems] = useState<AdmissionCondition[]>([]); const [review, setReview] = useState<{reviewed_at: string | null} | null>(null);
   const [editing, setEditing] = useState<AdmissionCondition | 'new' | null>(null); const [error, setError] = useState('');
@@ -27,7 +29,7 @@ export function AdmissionConditionsSettings({token, years, fees, sections, class
   useEffect(() => { void load(); }, [token, year?.id]);
   async function toggle(c: AdmissionCondition) {
     if (c.active && !await confirmAction({title: `Retirer « ${c.label} » ?`, message: 'La condition n’est plus exigée pour les prochaines inscriptions. Elle reste dans l’historique et peut être réactivée.', confirmLabel: 'Retirer', danger: true})) return;
-    try { await setAdmissionConditionActive(token, c.id, !c.active); toast.success(c.active ? 'Condition retirée' : 'Condition réactivée'); await load(); } catch (e) { setError(friendlyError(e)); }
+    try { await setAdmissionConditionActive(token, c.id, !c.active); toast.success(c.active ? 'Condition retirée' : 'Condition réactivée'); await load(); onChanged?.(); } catch (e) { setError(friendlyError(e)); }
   }
   async function markReviewed() {
     try { await reviewAdmissionConditions(token); toast.success('Conditions d’inscription validées'); await load(); } catch (e) { setError(friendlyError(e)); }
@@ -40,22 +42,31 @@ export function AdmissionConditionsSettings({token, years, fees, sections, class
     return list.length > 4 ? `${list.slice(0, 3).join(', ')} et ${list.length - 3} autres` : list.join(', ');
   };
   if (!year) return null;
-  return <section className="panel">
-    <div className="panelHead"><div><h3>Conditions d’inscription</h3><p>Ce qui est exigé à l’inscription, ce qui peut attendre et la portée de chaque condition. Les conditions obligatoires « à l’inscription » forment le lot que la caisse encaisse en premier.</p></div></div>
+  const manage = can('settings.enrollment_policy.manage');
+  const shown = items.filter(c => c.active || showRemoved);
+  return <div className="ach">
     {error && <div className="error" role="alert">{error}</div>}
     {items.length === 0 && <div className="emptyGuide"><b>Aucune condition pour {year.label}</b><p>Tant que la rubrique n’est pas validée, la caisse applique le lot historique : Inscription + mensualité de juin. Validez la rubrique même si l’école n’exige aucun frais à l’inscription.</p></div>}
-    <ul className="moneyList">{items.map(c => <li key={c.id} className={c.active ? '' : 'pending'}>
-      <div><b>{c.label}</b><small>{c.fee_label ?? 'Sans frais lié'} · {TIMING[c.payment_timing]}{c.required ? ' · obligatoire' : ''}{c.can_pay_later ? ' · paiement différé possible' : ''} · {scopeLabel(c)}{c.active ? '' : ' · retirée'}</small></div>
-      <div className="classActions">{can('settings.enrollment_policy.manage') && c.active && <button type="button" className="ghost" onClick={() => setEditing(c)}>Modifier</button>}
-        {can('settings.enrollment_policy.activate') && <button type="button" className={c.active ? 'ghost dangerText' : 'softBtn'} onClick={() => void toggle(c)}>{c.active ? 'Retirer' : 'Réactiver'}</button>}</div>
-    </li>)}</ul>
-    {editing && <ConditionForm token={token} year={year} fees={fees} sections={sections} classes={classes} refs={refs} current={editing === 'new' ? null : editing}
-      onCancel={() => setEditing(null)} onSaved={async () => { setEditing(null); await load(); }}/>}
-    {!editing && can('settings.enrollment_policy.manage') && <button type="button" className="softBtn addLine" onClick={() => setEditing('new')}>+ Nouvelle condition</button>}
-    <ConditionExemptions token={token} canManage={can('settings.enrollment_policy.manage')}/>
+    <div className="ac-cards">{shown.map(c => <article key={c.id} className={`ac-card ${c.active ? '' : 'off'}`}>
+      <div className="ac-cardTop"><span className="ac-cardIcon" aria-hidden="true"><NavGlyph g="receipt" size={18}/></span><div><b>{c.label}</b><small>{c.fee_label ?? 'Sans frais lié'}</small></div></div>
+      <div className="ac-tags"><span>{TIMING[c.payment_timing]}</span>{c.required && <span className="strong">Obligatoire</span>}{c.can_pay_later && <span>Paiement différé possible</span>}{!c.active && <span className="muted">Retirée</span>}</div>
+      <div className="ac-scope"><NavGlyph g="layers" size={14}/><span>{scopeLabel(c)}</span></div>
+      <div className="ac-actions">{manage && c.active && <button type="button" className="ac-btn" onClick={() => setEditing(c)}>Modifier</button>}
+        {can('settings.enrollment_policy.activate') && <button type="button" className={`ac-btn ${c.active ? 'danger' : ''}`} onClick={() => void toggle(c)}>{c.active ? 'Retirer' : 'Réactiver'}</button>}</div>
+    </article>)}
+      {manage && <button type="button" className="ac-card ac-add" onClick={() => setEditing('new')}><span aria-hidden="true">+</span><b>Nouvelle condition</b><small>Frais exigé à l’inscription : juin, uniformes, pulls…</small></button>}
+    </div>
+    {items.some(c => !c.active) && <button type="button" className="ac-link" onClick={() => setShowRemoved(v => !v)}>{showRemoved ? 'Masquer les conditions retirées' : `Voir les conditions retirées (${items.filter(c => !c.active).length})`}</button>}
+    {editing && <div className="ac-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setEditing(null); }}>
+      <div className="ac-dialog" role="dialog" aria-modal="true" aria-label={editing === 'new' ? 'Nouvelle condition d’inscription' : `Modifier ${editing.label}`}>
+        <header><div><span className="eyebrow">Conditions d’inscription · {year.label}</span><h3>{editing === 'new' ? 'Nouvelle condition' : editing.label}</h3></div>
+          <button type="button" className="ac-close" aria-label="Fermer" onClick={() => setEditing(null)}><NavGlyph g="close" size={18}/></button></header>
+        <ConditionForm token={token} year={year} fees={fees} sections={sections} classes={classes} refs={refs} current={editing === 'new' ? null : editing}
+          onCancel={() => setEditing(null)} onSaved={async () => { setEditing(null); await load(); onChanged?.(); }}/>
+      </div></div>}
     <div className="reviewRow"><span>{review?.reviewed_at ? `Rubrique validée le ${formatDate(review.reviewed_at)}` : 'Rubrique pas encore validée'}</span>
       {can('settings.enrollment_policy.review') && <button type="button" className="softBtn" onClick={() => void markReviewed()}>Valider les conditions d’inscription</button>}</div>
-  </section>;
+  </div>;
 }
 
 function ConditionForm({token, year, fees, sections, classes, refs, current, onCancel, onSaved}: {token: string; year: AcademicYear; fees: FeeType[]; sections: SchoolSection[];
@@ -83,7 +94,7 @@ function ConditionForm({token, year, fees, sections, classes, refs, current, onC
   return <form className="gridForm ruleForm" onSubmit={submit} noValidate>
     {error && <div className="error" role="alert">{error}</div>}
     <FormField label="Libellé *"><input value={label} maxLength={160} onChange={e => setLabel(e.target.value)}/></FormField>
-    <FormField label="Frais lié"><select value={fee} onChange={e => setFee(e.target.value)}><option value="">— Aucun frais lié —</option>{fees.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}</select></FormField>
+    <FormField label="Frais lié" hint="Le montant se règle dans Tarifs & barèmes. Un frais nouveau (uniformes, pulls…) : créez-le d’abord dans Types de frais."><select value={fee} onChange={e => setFee(e.target.value)}><option value="">— Aucun frais lié —</option>{fees.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}</select></FormField>
     <FormField label="Moment du paiement"><select value={timing} onChange={e => setTiming(e.target.value)}>{Object.entries(TIMING).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FormField>
     <FormField label="Portée"><select value={scope} onChange={e => { setScope(e.target.value); setPicked([]); }}>{Object.entries(SCOPE).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></FormField>
     {scope !== 'SCHOOL' && <fieldset className="planTargets wide"><legend>{scope === 'SECTION' ? 'Sections concernées' : scope === 'CLASS' ? 'Classes concernées' : 'Niveaux concernés'} * <small>({picked.length} cochée{picked.length > 1 ? 's' : ''} sur {targets.length})</small></legend>
@@ -120,7 +131,7 @@ const EXEMPTIONS: [string, string, string][] = [
   ['conditions_exempt_staff_children', 'Enfants du personnel', 'L’enfant d’un agent de l’école est inscrit sans payer les conditions à l’inscription.'],
   ['conditions_exempt_benefit_beneficiaries', 'Bénéficiaires d’avantages', 'Un enfant gratuit (famille nombreuse) ou bénéficiaire « enfant du personnel » est inscrit sans payer les conditions.'],
 ];
-function ConditionExemptions({token, canManage}: {token: string; canManage: boolean}) {
+export function ConditionExemptions({token, canManage, onChanged}: {token: string; canManage: boolean; onChanged?: () => void}) {
   const [policy, setPolicy] = useState<any>(undefined); const [busy, setBusy] = useState(''); const [error, setError] = useState('');
   async function load() { try { setPolicy(await getPolicy(token, 'ENROLLMENT')); } catch (e) { setError(friendlyError(e)); } }
   useEffect(() => { void load(); }, [token]);
@@ -128,15 +139,51 @@ function ConditionExemptions({token, canManage}: {token: string; canManage: bool
   async function toggle(key: string) {
     try { setBusy(key); setError('');
       await putPolicy(token, 'ENROLLMENT', {payload: {...payload, [key]: !payload[key]}, status: 'ACTIVE', expected_version: policy?.version ?? null});
-      toast.success('Exemption des conditions d’inscription enregistrée'); await load();
+      toast.success('Exemption des conditions d’inscription enregistrée'); await load(); onChanged?.();
     } catch (e) { setError(friendlyError(e)); } finally { setBusy(''); }
   }
   if (policy === undefined && !error) return null;
-  return <div className="admExempt">
-    <b>Exemptions des conditions d’inscription</b>
+  return <div className="admExempt embedded">
     <small>Ces enfants sont inscrits sans payer à l’inscription ; leurs frais restent dus plus tard, sauf s’ils sont couverts par un avantage. Pour un cas particulier, la direction accorde une dérogation à l’inscription, avec un motif.</small>
     {error && <div className="error" role="alert">{error}</div>}
     {EXEMPTIONS.map(([key, label, hint]) => <label key={key} className="switchRow"><span>{label}<small>{hint}</small></span>
       <input type="checkbox" role="switch" checked={!!payload[key]} disabled={!canManage || !!busy} onChange={() => void toggle(key)}/></label>)}
   </div>;
+}
+
+// Paramètres → Inscriptions as clickable cards (owner request 2026-11-08): each card says in one line what is set;
+// one card open at a time, never a long sheet of forms.
+type HubKey = 'conditions' | 'exemptions' | 'rules';
+export function EnrollmentSettingsHub(props: Props & {rules: React.ReactNode}) {
+  const {token, years, can} = props;
+  const year = years.find(y => y.status === 'ACTIVE') ?? years.find(y => y.status === 'PREPARED');
+  const [open, setOpen] = useState<HubKey | null>('conditions');
+  const [conds, setConds] = useState<AdmissionCondition[] | null>(null); const [policy, setPolicy] = useState<Record<string, unknown> | null>(null);
+  async function load() {
+    try { if (year) setConds((await getAdmissionConditions(token, year.id)).items); } catch { setConds(null); }
+    try { setPolicy(((await getPolicy(token, 'ENROLLMENT'))?.payload ?? {}) as Record<string, unknown>); } catch { setPolicy(null); }
+  }
+  useEffect(() => { void load(); }, [token, year?.id]);
+  const active = (conds ?? []).filter(c => c.active && c.required && c.payment_timing === 'AT_ENROLLMENT');
+  const exempt = EXEMPTIONS.filter(([k]) => policy?.[k]).map(([, l]) => l);
+  const extra = Array.isArray(policy?.required_student_fields) ? (policy!.required_student_fields as string[]).filter(k => !['last_name', 'middle_name', 'first_name', 'gender', 'class_id'].includes(k)).length : 0;
+  const cards: [HubKey, string, string, string][] = [
+    ['conditions', 'receipt', 'Conditions d’inscription', conds === null ? '…' : active.length ? `${active.length} frais exigé${active.length > 1 ? 's' : ''} à l’inscription : ${active.map(c => c.label).join(', ')}` : 'Aucun frais exigé à l’inscription'],
+    ['exemptions', 'shield', 'Exemptions', policy === null ? '…' : exempt.length ? `Exemptés : ${exempt.join(', ')}` : 'Aucune catégorie exemptée · dérogation au cas par cas'],
+    ['rules', 'doc', 'Règles de saisie', policy === null ? '…' : `5 informations obligatoires${extra ? ` + ${extra} exigée${extra > 1 ? 's' : ''} par l’école` : ''}${policy?.guardian_required_at_enrollment ? ' · responsable exigé' : ''}`],
+  ];
+  return <section className="panel ach-hub">
+    <div className="panelHead"><div><h3>Inscriptions{year ? <small> · {year.label}</small> : null}</h3><p>Ce que l’école exige pour inscrire un enfant. Cliquez sur une carte pour la régler.</p></div></div>
+    <div className="ach-cards">{cards.map(([key, icon, title, summary]) => { const on = open === key;
+      return <article key={key} className={`ach-card ${on ? 'on' : ''}`}>
+        <button type="button" className="ach-head" aria-expanded={on} onClick={() => { setOpen(on ? null : key); void load(); }}>
+          <span className="ach-icon" aria-hidden="true"><NavGlyph g={icon as any} size={20}/></span>
+          <span className="ach-text"><b>{title}</b><small>{summary}</small></span><span className="ach-chev" aria-hidden="true">{on ? '−' : '+'}</span></button>
+        {on && <div className="ach-body">
+          {key === 'conditions' && <AdmissionConditionsSettings {...props} onChanged={() => void load()}/>}
+          {key === 'exemptions' && <ConditionExemptions token={token} canManage={can('settings.enrollment_policy.manage')} onChanged={() => void load()}/>}
+          {key === 'rules' && props.rules}
+        </div>}
+      </article>; })}</div>
+  </section>;
 }

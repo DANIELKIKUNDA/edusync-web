@@ -61,3 +61,15 @@
 .enrollmentWizard .wizardActions .enr-addKid+.primaryBtn{margin-left:0}
 .enr-kidClass{font-style:normal;font-size:12px;font-weight:700;color:#1149b8}
 @media (max-width:640px){.enr-addKid{padding:9px 10px}.enr-addKid{font-size:13px}}
+/* Large-family choice pinned at the bottom of step 2 (owner report 2026-11-08): always visible while adding children. */
+.enr-benefit.compact{position:sticky;bottom:-1px;z-index:4;gap:8px;padding:10px 14px;border-radius:14px;background:#f6fef9;box-shadow:0 -8px 24px rgba(16,24,40,.10);animation:none}
+.enr-benefit.compact>header b{font-size:13.5px}
+.enr-benefit.compact>header small{font-size:12px;margin-top:0}
+.enr-benefit.compact .enr-benefitIcon{width:28px;height:28px;border-radius:8px}
+.enr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.enr-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border:1px solid #d0d5dd;border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:600;color:#344054;cursor:pointer}
+.enr-chip small{font-size:11.5px;font-weight:500;color:#667085}
+.enr-chip.on{border-color:#079455;background:#dcfae6;color:#05603a}
+.enr-chip.on small{color:#067647}
+.enr-chip:disabled{opacity:.5;cursor:not-allowed}
+@media (max-width:640px){.enr-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}.enr-chip{flex:0 0 auto}}
