@@ -125,6 +125,7 @@ def run(A: dict) -> None:
     as_(cashier_actor)
     b = cashier.get("/api/v1/schooling/enrollment-benefits").json()
     check("politique désactivée par l'école → le formulaire n'affiche plus rien", b.get("large_family") is None, b)
+    check("… et dit pourquoi : « désactivée pour 2026-2027 (Paramètres → Avantages) »", "désactivée pour 2026-2027" in (b.get("large_family_notice") or ""), b.get("large_family_notice"))
     r = enroll([child("V1", cls), child("V2", cls), child("V3", cls), child("V4", cls), child("V5", cls, free=True)])
     check("politique désactivée → gratuité refusée par le serveur aussi", r.status_code == 409, f"{r.status_code} {r.text[:160]}")
 

@@ -147,6 +147,6 @@ export function ReenrollWizard({token, classes, refOrder, levelLabels, onClose, 
       </div>
       <footer className="kp-dfoot"><span className="kp-summary">{pupil && classId ? <>{fullName(pupil)} → <b>{classes.find(c => c.id === classId)?.label}</b></> : 'Retrouvez l’élève, puis choisissez sa nouvelle classe'}</span>
         <button type="button" className="kp-btn ghost" onClick={onClose} disabled={busy}>Annuler</button>
-        <button type="button" className="kp-btn primary" disabled={busy || !pupil || !!already || !classId || previewBusy || !preview} onClick={() => void submit()}><NavGlyph g="sync" size={16}/>{busy ? 'Réinscription…' : action.kind === 'ENROLL' ? 'Réinscrire' : action.label.replace('et inscrire', 'et réinscrire')}</button></footer>
+        <button type="button" className="kp-btn primary" disabled={busy || !pupil || !!already || !classId || previewBusy || !preview || action.kind === 'BLOCKED'} onClick={() => void submit()}><NavGlyph g="sync" size={16}/>{busy ? 'Réinscription…' : action.kind === 'ENROLL' ? 'Réinscrire' : action.label.replace('et inscrire', 'et réinscrire')}</button></footer>
     </div></div>;
 }

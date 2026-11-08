@@ -308,7 +308,14 @@ def enrollment_benefits(family_id:UUID|None=None,actor:ActorContext=Depends(requ
               (SELECT count(*) FROM student_benefits b WHERE b.school_id=m.school_id AND b.academic_year_id=:y AND b.kind='STAFF_CHILD'
                 AND b.active AND b.source_reference=m.id::text) AS beneficiaries
             FROM staff_members m WHERE m.school_id=:s AND m.status='ACTIVE' ORDER BY m.last_name,m.first_name"""),{"s":actor.school_id,"y":year['id']}).all()]
-        return _jsonable({"large_family":large_view,"staff_child":view(staff),"staff":members})
+        # Owner report 2026-11-08: when the choice is not offered, the form says why (never a silent absence).
+        notice=None
+        if large_view is None:
+            other=conn.execute(text("""SELECT p.enabled,y.label,y.id=:y AS this_year FROM school_benefit_policies p JOIN academic_years y ON y.id=p.academic_year_id
+                WHERE p.school_id=:s AND p.benefit_type='LARGE_FAMILY' ORDER BY (y.id=:y) DESC,p.enabled DESC LIMIT 1"""),{"s":actor.school_id,"y":year['id']}).mappings().first()
+            if other and other['this_year']:notice=f"La politique « Famille nombreuse » est désactivée pour {year['label']} (Paramètres → Avantages)."
+            elif other and other['enabled']:notice=f"La politique « Famille nombreuse » est réglée pour {other['label']}, pas pour l’année en cours {year['label']} (Paramètres → Avantages)."
+        return _jsonable({"large_family":large_view,"large_family_notice":notice,"staff_child":view(staff),"staff":members})
 
 class _PreviewRollback(Exception):
     def __init__(self,result):super().__init__('preview');self.result=result
@@ -336,6 +343,7 @@ def _enroll_and_settle(conn,request_actor,actor:ActorContext,body:FamilyEnrollme
                        policy=repo.enrollment_policy(actor.school_id),waivers=waivers)
     payload['conditions']=due;payload['waivers']=[{'index':i,**w} for i,w in sorted(waivers.items())]
     if not settle:return payload
+    if due.get('blocked'):raise ConditionsNotPaid(due['blocked_message'])
     if due['requires_payment']:
         totals={k:_D(v) for k,v in due['totals'].items()}
         if body.payment is None:

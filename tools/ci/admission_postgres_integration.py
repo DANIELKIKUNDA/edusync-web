@@ -89,6 +89,31 @@ def run(A: dict) -> None:
     again = H.CLIENT.post(f"/api/v1/schooling/enrollment-dossiers/{dos['id']}/complete", headers=key(), json={"payment": {"mode": "CASH"}, "expected_version": w.json()["version"] + 1})
     check("un dossier déjà inscrit ne peut pas l'être une seconde fois", again.status_code == 409, again.status_code)
 
+    print("\n== Juin facturé au primaire mais pas configuré pour la classe du secondaire (rapport du 2026-11-08)")
+    sec = A["classes"]["SECONDAIRE"]
+    mixed = [child("MX1", cls), child("MX2", sec)]
+    r = H.CLIENT.post("/api/v1/schooling/enrollments/family/preview", json=body(mixed))
+    pv = r.json() if r.status_code == 200 else {}
+    kids_pv = pv.get("conditions", {}).get("children", [])
+    check("aperçu : l'enfant du secondaire n'est PAS « rien à payer » — Juin signalé non configuré pour sa classe",
+          r.status_code == 200 and pv["conditions"].get("blocked") is True and len(kids_pv) == 2 and kids_pv[1].get("blocked") is True
+          and any("Juin" in m for m in kids_pv[1].get("missing", [])) and kids_pv[0].get("to_pay") is True, r.text[:400])
+    r = H.CLIENT.post("/api/v1/schooling/enrollments/family", headers=key(), json=body(mixed))
+    check("inscription refusée tant que les frais ne sont pas configurés : message en français, aucun élève enregistré",
+          r.status_code == 409 and "non configurées" in r.text and "SEC-1A" in r.text and not any(w in r.text for w in ENGLISH) and students("MX%") == 0,
+          f"{r.status_code} {r.text[:250]}")
+    as_(clerk_actor)
+    d = H.CLIENT.post("/api/v1/schooling/enrollment-dossiers", json=body(mixed, pay=False))
+    check("le dossier en attente reste possible (aucun élève inscrit)", d.status_code == 201 and students("MX%") == 0, f"{d.status_code} {d.text[:200]}")
+    if d.status_code == 201:
+        as_(director_actor)
+        w = H.CLIENT.post(f"/api/v1/schooling/enrollment-dossiers/{d.json()['id']}/waivers", json={"index": 1, "reason": "Tarif du secondaire en cours de validation", "expected_version": d.json()["version"]})
+        as_(cashier_actor)
+        c = H.CLIENT.post(f"/api/v1/schooling/enrollment-dossiers/{d.json()['id']}/complete", headers=key(), json={"payment": {"mode": "CASH"}, "expected_version": w.json().get("version", 0)})
+        check("dérogation de la direction pour l'enfant du secondaire → la famille paie le primaire et les deux sont inscrits",
+              w.status_code == 200 and c.status_code == 201 and students("MX%") == 2, f"{w.status_code} {c.status_code} {c.text[:200]}")
+    as_(cashier_actor)
+
     print("\n== Exemption par la politique de l'école : enfants du personnel et bénéficiaires d'avantages")
     as_(admin)
     p = H.CLIENT.put("/api/v1/settings/policies/ENROLLMENT", headers=key(), json={"payload": {"required_student_fields": ["last_name", "middle_name", "first_name", "class_id"],
@@ -101,6 +126,39 @@ def run(A: dict) -> None:
     pv = r.json() if r.status_code == 200 else {}
     check("aperçu : B2 bénéficiaire exempté, la famille ne paie que pour B1 (35 000)",
           r.status_code == 200 and Decimal(pv["conditions"]["totals"]["CDF"]) == 35000 and pv["conditions"]["children"][1]["exemption"]["kind"] == "BENEFIT", r.text[:300])
+
+    print("\n== Portée à plusieurs cibles : une condition pour plusieurs sections (demande du 2026-11-08)")
+    as_(admin)
+    # Billing policy of the school: June is the month required at enrollment (Tarifs → Mois facturés).
+    sql("""INSERT INTO school_billing_policy(school_id,billing_months,month_due_at_enrollment) VALUES(:s,CAST(:m AS jsonb),'06')
+           ON CONFLICT (school_id) DO UPDATE SET month_due_at_enrollment='06'""", s=A["id"], m='["09","10","11","12","01","02","03","04","05","06"]')
+    sco = one("SELECT id FROM fee_types WHERE school_id=:s AND code='SCOLARITE'", s=A["id"])[0]
+    put = lambda refs, version=None, cid=None: H.CLIENT.put("/api/v1/settings/admission-conditions", headers=key(), json={
+        "academic_year_id": str(A["year"]), "condition_id": cid, "label": "Frais scolaires de juin", "fee_type_id": str(sco), "required": True,
+        "payment_timing": "AT_ENROLLMENT", "scope_type": "SECTION", "scope_ref": refs[0], "scope_refs": refs, "expected_version": version})
+    c1 = put([str(A["sections"]["SECONDAIRE"])])
+    check("condition « juin » limitée au secondaire enregistrée", c1.status_code in (200, 201), c1.text[:200])
+    as_(cashier_actor)
+    pv = H.CLIENT.post("/api/v1/schooling/enrollments/family/preview", json=body([child("SC1", cls)])).json()
+    k = pv["conditions"]["children"][0]
+    check("enfant du primaire : aucune condition ne vise sa classe (pas « bloqué »)", k["configured"] is False and not k.get("blocked") and not k["to_pay"], k)
+    as_(admin)
+    c2 = put([str(A["sections"]["SECONDAIRE"]), str(A["sections"]["PRIMAIRE"])], c1.json().get("version"), c1.json().get("id"))
+    check("même condition étendue à deux sections (cases cochées)", c2.status_code in (200, 201) and len(c2.json().get("scope_refs") or []) == 2, c2.text[:200])
+    as_(cashier_actor)
+    pv = H.CLIENT.post("/api/v1/schooling/enrollments/family/preview", json=body([child("SC2", cls)])).json()
+    k = pv["conditions"]["children"][0]
+    check("enfant du primaire : juin exigé à l'inscription (20 000)", k["configured"] is True and Decimal(k["totals"].get("CDF", "0")) == 20000, k)
+
+    print("\n== Personnel : matricule facultatif, numéro de l'école attribué automatiquement")
+    as_(actor_for("SECRETARIAT", A["id"]))
+    agent = lambda n: H.CLIENT.post("/api/v1/personnel", headers=key(), json={"last_name": n, "first_name": "Test", "gender": "F", "category": "ENSEIGNANT"})
+    a1, a2 = agent("MWAMBA"), agent("ILUNGA")
+    check("deux agents sans matricule → AG-0001 puis AG-0002",
+          a1.status_code == 201 and a2.status_code == 201 and a1.json().get("employee_no") == "AG-0001" and a2.json().get("employee_no") == "AG-0002",
+          f"{a1.status_code} {a1.text[:120]} | {a2.status_code} {a2.text[:120]}")
+    a3 = H.CLIENT.post("/api/v1/personnel", headers=key(), json={"employee_no": "ens-77", "last_name": "KABILA", "gender": "M", "category": "ENSEIGNANT"})
+    check("un matricule officiel saisi est gardé (en majuscules)", a3.status_code == 201 and a3.json().get("employee_no") == "ENS-77", a3.text[:150])
 
 
 def main() -> int:

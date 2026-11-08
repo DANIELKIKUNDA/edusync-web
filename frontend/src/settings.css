@@ -204,6 +204,8 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .planTargets{border:1px solid #e5e9f1;border-radius:12px;padding:10px 12px;display:grid;gap:8px}
 .planTargets legend small{font-weight:400;color:#5b6475}
 .planTargetTools{display:flex;gap:12px}
+.ruleForm .planTargets{grid-column:1/-1;min-width:0}
+.ruleForm .planTargets legend{font-size:13px;font-weight:650;color:#344054;padding:0 4px}
 /* School articles: stock catalogue (2026-10-24) */
 .productKpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:4px 0 12px}
 .productKpis>div,.productKpis>button{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-align:left;border:1px solid #e5e9f1;border-radius:14px;padding:12px 14px;background:#fff;font:inherit;color:inherit}
@@ -370,3 +372,19 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .admExempt{display:grid;gap:8px;margin:14px 0 6px;padding:14px 16px;border:1px solid #e4e7ec;border-radius:14px;background:#fcfcfd}
 .admExempt>b{font-size:14px;color:#101828}
 .admExempt>small{font-size:12.5px;line-height:1.45;color:#667085}
+/* Enrollment condition targets: real checkboxes grouped by section (owner request 2026-11-08). */
+.ac-targets{display:grid;gap:12px}
+.ac-tools{display:flex;gap:14px}
+.ac-link{border:0;background:none;padding:0;color:#1557d6;font:inherit;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.ac-group{display:grid;gap:8px}
+.ac-groupHead{display:flex;align-items:center;gap:10px;padding-bottom:4px;border-bottom:1px solid #eaecf0}
+.ac-groupHead b{font-size:13.5px;color:#101828}
+.ac-groupHead small{font-size:12px;color:#667085}
+.ac-groupHead .ac-link{margin-left:auto}
+.ac-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
+.ac-check{display:flex;align-items:center;gap:9px;min-height:40px;padding:6px 10px;border:1px solid #e4e7ec;border-radius:10px;background:#fff;font-size:13.5px;font-weight:500;color:#344054;cursor:pointer}
+.ac-check input{width:18px;height:18px;margin:0;flex:0 0 auto;accent-color:#1557d6}
+.ac-check span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac-check.on{border-color:#1557d6;background:#eff4ff;color:#1149b8}
+@media (max-width:640px){.ac-grid{grid-template-columns:1fr}}
+.gridForm .ac-link{background:none;color:#1557d6;padding:0;border-radius:0;font-weight:600}
