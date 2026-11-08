@@ -22,11 +22,11 @@ log = logging.getLogger("edusync.alerts")
 
 # Audience → capabilities (standard roles, CAPABILITY_REGISTRY):
 #   FINANCE   gestionnaire, promoteur, responsable financier          (finance.cash.other.read)
-#   ACADEMIC  préfet des études, direction de section, directeur des études, promoteur (students.lifecycle.history.read)
+#   ACADEMIC  préfet des études, direction de section, directeur des études, gestionnaire, promoteur (headcounts.by_option.read)
 #   DECISIONS ceux qui accordent dérogations et réductions             (finance.decisions.create)
 AUDIENCES: dict[str, tuple[str, ...]] = {
     "FINANCE": ("finance.cash.other.read",),
-    "ACADEMIC": ("students.lifecycle.history.read",),
+    "ACADEMIC": ("headcounts.by_option.read",),
     "DECISIONS": ("finance.decisions.create",),
 }
 SEVERITIES = ("INFO", "WARNING", "CRITICAL")

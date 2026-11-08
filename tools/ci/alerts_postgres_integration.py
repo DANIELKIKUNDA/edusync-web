@@ -4,7 +4,7 @@ Proven end to end, with real role assignments (rbac_assignments):
 * a cashier cancels a receipt → the gestionnaire is alerted (« Reçu annulé »), the cashier is not;
 * a cashier closes the cash desk → the gestionnaire is alerted (closure or counting gap), with a push/e-mail message
   queued in the communications outbox;
-* a primary pupil abandons → the préfet des études is alerted; a section director of the SECONDAIRE is not;
+* a secondary pupil abandons → the préfet des études (always the secondary) is alerted; the PRIMAIRE section director is not;
 * a pending dossier asking for a waiver → those who grant waivers are alerted.
 
     python tools/local/isolated_db.py env <db> -- ../.venv/Scripts/python.exe ../tools/ci/alerts_postgres_integration.py
@@ -39,8 +39,8 @@ def run(A: dict) -> None:
     fees(A)
     cls = A["classes"]["PRIMAIRE"]
     gest = assign(actor_for("GESTIONNAIRE", A["id"]), "GESTIONNAIRE", A["id"])
-    prefet = assign(actor_for("PREFET_ETUDES", A["id"]), "PREFET_ETUDES", A["id"])
-    dir_sec = assign(actor_for("DIRECTION_SECTION", A["id"]), "DIRECTION_SECTION", A["id"], section="SECONDAIRE")
+    prefet = assign(actor_for("PREFET_ETUDES", A["id"]), "PREFET_ETUDES", A["id"], section="SECONDAIRE")   # always the secondary
+    dir_sec = assign(actor_for("DIRECTION_SECTION", A["id"]), "DIRECTION_SECTION", A["id"], section="PRIMAIRE")
     cashier_actor = assign(actor_for("CAISSIER", A["id"]), "CAISSIER", A["id"])
     clerk = assign(actor_for("CAISSIER", A["id"], drop={"finance.checkout.collect", "finance.checkout.family.collect"}), "CAISSIER", A["id"])
 
@@ -69,10 +69,10 @@ def run(A: dict) -> None:
     queued = one("SELECT count(*) FROM communication_messages WHERE school_id=:s AND kind='ALERT'", s=A["id"])[0]
     check("→ notifications push / e-mail mises en file (outbox des communications)", int(queued) >= 2, queued)
 
-    student = one("SELECT s.id,s.version FROM students s WHERE s.family_id=:f ORDER BY s.first_name LIMIT 1", f=r.json()["family_id"])
+    student = one("SELECT s.id,s.version FROM students s WHERE s.id=:i", i=A["pupils"]["SECONDAIRE"])
     a = cashier.post(f"/api/v1/schooling/students/{student[0]}/abandon", headers={**key(), "If-Match": str(student[1])}, json={"reason": "Déménagement à Kolwezi"})
-    check("abandon d'un élève du primaire", a.status_code == 200, f"{a.status_code} {a.text[:200]}")
-    check("→ le préfet des études reçoit « Abandon » ; la direction de la section SECONDAIRE ne le reçoit pas",
+    check("abandon d'un élève du secondaire", a.status_code == 200, f"{a.status_code} {a.text[:200]}")
+    check("→ le préfet des études (secondaire) reçoit « Abandon » ; la direction de la section PRIMAIRE ne le reçoit pas",
           "Abandon" in inbox(prefet, "ALERT_ACADEMIC") and not inbox(dir_sec, "ALERT_ACADEMIC"), (inbox(prefet, "ALERT_ACADEMIC"), inbox(dir_sec, "ALERT_ACADEMIC")))
 
     as_(clerk)
