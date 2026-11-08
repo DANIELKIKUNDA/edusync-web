@@ -85,11 +85,11 @@ def test_frontend_offers_member_management_and_first_sign_in_screen():
 
 def test_settings_centre_confirms_year_transitions_and_uploads_a_verified_logo():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    years = app[app.index("function Years("):app.index("function Fees(")]
+    years = app[app.index("function Years("):app.index("function IdentitySettings(")]  # Fees moved to settings_fees.tsx (2026-11-08)
     assert "await confirmAction(confirmText[action](y))" in years and "Préparer une nouvelle année" in years
     assert "URL du logo" not in app and "<LogoField token={token}" in app and "uploadSchoolLogo(token,f)" in app
     structure = (ROOT / "frontend/src/settings_structure.tsx").read_text(encoding="utf-8")  # Structure moved there (2026-11-06)
-    assert "import {Structure} from './settings_structure'" in app
+    assert "import {Structure} from './settings_structure'" in app and "import {Fees} from './settings_fees'" in app
     assert "async function changeStatus(c: SchoolClass" in structure and "await confirmAction(ask)" in structure  # state changes are confirmed
     assert "PageTrail parents={shown==='overview'" in app and "edusyncSettingsDetail" in app  # 2026-10-24: back = breadcrumb  # phone: list of sections → section screen
 

@@ -455,3 +455,20 @@ fieldset:disabled .switchRow{cursor:not-allowed;opacity:.7}
 .ac-dialog .ruleForm{margin-top:6px}
 .admExempt.embedded{border:0;background:none;padding:12px 0 0}
 @media (max-width:640px){.ac-cards{grid-template-columns:1fr}.ach-head{grid-template-columns:36px 1fr 28px;padding:12px}.ac-dialog{padding:14px;border-radius:14px}}
+/* Structure & classes: one card per section, one open at a time (owner request 2026-11-08). */
+.st-card{margin-top:10px;border:1px solid #e4e7ec;border-radius:16px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.st-card:hover{border-color:#b2ccff}
+.st-card.on{border-color:#1557d6;box-shadow:0 0 0 3px rgba(21,87,214,.10)}
+.st-head{display:grid;grid-template-columns:38px 1fr 28px;align-items:center;gap:12px;width:100%;padding:12px 16px;border:0;background:none;font:inherit;text-align:left;cursor:pointer;color:#101828}
+.st-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#eff4ff;color:#1557d6}
+.st-title{display:grid;gap:2px;min-width:0}
+.st-title b{font-size:15px}
+.st-title small{font-size:12.5px;color:#667085}
+.st-chev{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:#f2f4f7;font-weight:700;color:#344054}
+.st-card.on .st-chev{background:#1557d6;color:#fff}
+.st-body{padding:2px 16px 14px;border-top:1px solid #eaecf0}
+.st-body .structLevel:first-child{margin-top:10px}
+.structPage .sectionList{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.structPage .sectionList>article{border:1px solid #e4e7ec;border-radius:14px;background:#fff;padding:14px;align-items:flex-start}
+.structPage .sectionList>article b{font-size:14.5px}
+@media (min-width:641px){.st-body .structTiles{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}}

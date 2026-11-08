@@ -21,7 +21,7 @@ export function Structure({token, sections, classes, years, refs, can, onDone}: 
   refs: ReferenceCatalog | null; can: (x: string) => boolean; onDone: () => Promise<void>}) {
   const [error, setError] = useState(''); const [options, setOptions] = useState<SchoolOption[]>([]); const [batch, setBatch] = useState(false);
   const [view, setViewState] = useState<View>(readView); const [sectionFilter, setSectionFilter] = useState('all'); const [query, setQuery] = useState('');
-  const [menu, setMenu] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const [menu, setMenu] = useState<string | null>(null); const [busy, setBusy] = useState(false); const [openSection, setOpenSection] = useState<string | null | undefined>(undefined);
   const setView = (v: View) => { setViewState(v); try { sessionStorage.setItem(VIEW_KEY, v); } catch { /* per-viewer convenience only */ } };
   async function loadOptions() { try { setOptions(await listOptions(token)); } catch { setOptions([]); } }
   useEffect(() => { void loadOptions(); }, [token]);
@@ -75,6 +75,13 @@ export function Structure({token, sections, classes, years, refs, can, onDone}: 
   }
 
   const shownSections = sections.filter(s => sectionFilter === 'all' || s.id === sectionFilter);
+  // Owner request 2026-11-08: one section card open at a time (all open while searching or filtering a section).
+  const firstSection = shownSections.find(s => visible.some(c => c.section_id === s.id))?.id ?? null;
+  const isOpen = (id: string) => !!q || sectionFilter !== 'all' || (openSection === undefined ? firstSection : openSection) === id;
+  function toggleSection(id: string) {
+    const next = isOpen(id) && !q && sectionFilter === 'all' ? null : id; setOpenSection(next);
+    if (next) window.setTimeout(() => document.querySelector(`.st-card.on`)?.scrollIntoView({behavior: 'smooth', block: 'nearest'}), 60);
+  }
   const existing = new Set(sections.map(s => s.code));
   return <section className="panel structurePage">
     <div className="panelHead"><div><h3>Structure &amp; classes{year && <small> · {year.label}</small>}</h3><p>Les classes ouvertes par section et par niveau. Les sections et les options des Humanités se règlent dans le second onglet.</p></div>
@@ -116,9 +123,13 @@ export function Structure({token, sections, classes, years, refs, can, onDone}: 
         // Levels of one or two classes (maternelle, primaire) read better as one grid; a level grouping only helps when it has many classes.
         const grouped = ordered.some(([, items]) => items.length > 2);
         const groups: [string, SchoolClass[]][] = grouped ? ordered : [['', ordered.flatMap(([, items]) => [...items].sort((a, b) => a.label.localeCompare(b.label, 'fr', {numeric: true})))]];
-        return <section key={s.id} className="structSection" aria-label={s.label}>
-          <header><h4>{s.label}</h4><small>{plural(list.length, 'classe', 'classes')} · {plural(list.reduce((n, c) => n + (c.student_count ?? 0), 0), 'élève', 'élèves')}</small></header>
-          {groups.map(([level, items]) => <div key={level || 'all'} className={`structLevel ${level ? '' : 'flat'}`}>
+        const on = isOpen(s.id); const off = list.filter(c => statusOf(c) !== 'ACTIVE').length;
+        return <section key={s.id} className={`structSection st-card ${on ? 'on' : ''}`} aria-label={s.label}>
+          <button type="button" className="st-head" aria-expanded={on} onClick={() => toggleSection(s.id)}>
+            <span className="st-icon" aria-hidden="true"><NavGlyph g="school" size={18}/></span>
+            <span className="st-title"><b>{s.label}</b><small>{plural(list.length, 'classe', 'classes')} · {plural(list.reduce((n, c) => n + (c.student_count ?? 0), 0), 'élève', 'élèves')}{off ? ` · ${off} en pause` : ''}</small></span>
+            <span className="st-chev" aria-hidden="true">{on ? '−' : '+'}</span></button>
+          {on && <div className="st-body">{groups.map(([level, items]) => <div key={level || 'all'} className={`structLevel ${level ? '' : 'flat'}`}>
             {level && <div className="structLevelHead"><b>{refOrder.get(level)?.label ?? (level === '—' ? 'Autres classes' : level)}</b><small>{plural(items.length, 'classe', 'classes')} · {plural(items.reduce((n, c) => n + (c.student_count ?? 0), 0), 'élève', 'élèves')}</small></div>}
             <ul className="structTiles">{(level ? [...items].sort((a, b) => a.label.localeCompare(b.label, 'fr', {numeric: true})) : items).map(c => {
               const st = statusOf(c); const n = c.student_count ?? 0; const locked = c.academic_year_status === 'CLOSED' || c.academic_year_status === 'ARCHIVED';
@@ -134,7 +145,7 @@ export function Structure({token, sections, classes, years, refs, can, onDone}: 
                   {can('settings.classes.activate') && n === 0 && <button type="button" role="menuitem" className="dangerText" onClick={() => void changeStatus(c, 'ARCHIVED')}>Archiver</button>}
                 </div>}
               </li>; })}</ul>
-          </div>)}
+          </div>)}</div>}
         </section>; })}
     </div>}
 
