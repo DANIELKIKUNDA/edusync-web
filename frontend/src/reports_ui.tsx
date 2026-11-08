@@ -33,7 +33,7 @@ function bounds(type: string, ref: string): [string, string] {
   return [ref, ref];
 }
 
-export function PeriodicReports({token, can}: {token: string; can: (p: string) => boolean}) {
+export function PeriodicReports({token, can, official = true}: {token: string; can: (p: string) => boolean; official?: boolean}) {
   const today = iso(new Date());
   const [officialAllowed, setOfficialAllowed] = useState(false); const [historyAllowed, setHistoryAllowed] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]); const [profile, setProfile] = useState('CONSOLIDE'); const [type, setType] = useState('JOURNALIER');
@@ -79,7 +79,7 @@ export function PeriodicReports({token, can}: {token: string; can: (p: string) =
     {report ? <>
       <div className="reportTitle"><div><span className="eyebrow">{a === b ? formatDate(a) : `${formatDate(a)} → ${formatDate(b)}`} · {MODE_LABEL[report.partial_reporting_mode] ?? report.partial_reporting_mode}</span><h3>{report.profile.title}</h3><small>{report.profile.intro}</small></div>
         <b>{money(report.totals.CDF ?? 0, 'CDF')} · {money(report.totals.USD ?? 0, 'USD')}</b></div>
-      <div className="dayActions">{officialAllowed && can('finance.reports.periodic.generate') && <button className="collectBtn" disabled={busy} onClick={() => void officialPdf()}>Générer le rapport officiel</button>}
+      <div className="dayActions">{officialAllowed && can('finance.reports.periodic.generate') && official && <button className="collectBtn" disabled={busy} onClick={() => void officialPdf()}>Générer le rapport officiel</button>}
         {can('finance.reports.periodic.export') && <button className="softBtn" onClick={() => void excel()}>Excel (sans numéro)</button>}</div>
       <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>N°</th><th>Noms et post-noms</th><th>Classe</th><th>Observation</th><th>FC</th><th>USD</th></tr></thead>
         <tbody>{report.rows.map((r, i) => <tr key={r.payment_id}><td>{i + 1}</td><td><b>{[r.last_name, r.middle_name, r.first_name].filter(Boolean).join(' ') || '—'}</b></td><td>{r.class_label || '—'}</td><td>{r.observation}</td>

@@ -62,3 +62,29 @@ def test_section_leaders_see_their_section_money_never_the_school_cash():
     block = src.split("def pilotage(", 1)[1]
     assert "sees_cash='finance.cash.other.read' in actor.permissions" in block and "cash=None" in block
     assert "scopes=actor.scopes_for('finance.recovery.monthly.read')" in block
+
+
+def test_the_promoteur_reads_reports_but_does_not_produce_official_ones():
+    """Owner, 2026-11-08: no « Générer le rapport officiel » for the promoteur (nor his assistant, a clone of the role)."""
+    def producer(role):
+        c = caps(role)
+        supervises_only = "finance.cash.other.read" in c and not ({"finance.decisions.create", "finance.receipts.print", "finance.checkout.collect"} & c)
+        return not supervises_only
+    assert not producer("PROMOTEUR")
+    for role in ("GESTIONNAIRE", "RESPONSABLE_FINANCE", "CAISSIER", "PREFET_ETUDES", "DIRECTION_SECTION"):
+        assert producer(role), role
+    hub = (ROOT / "frontend/src/reports_hub.tsx").read_text(encoding="utf-8")
+    assert "can('finance.cash.other.read') && !can('finance.decisions.create') && !can('finance.receipts.print') && !can('finance.checkout.collect')" in hub
+    assert "{official && <button" in hub
+
+
+def test_the_cashier_sees_the_family_financial_situation_like_the_promoteur():
+    router = (ROOT / "backend/src/edusync/modules/finance_fee_tracking/api/router.py").read_text(encoding="utf-8")
+    assert "('finance.analysis.by_fee.read','finance.checkout.balance.read')" in router
+    assert "finance.checkout.balance.read" in caps("CAISSIER")
+    assert "(can('finance.analysis.by_fee.read')||can('finance.checkout.balance.read'))" in (ROOT / "frontend/src/schooling.tsx").read_text(encoding="utf-8")
+
+
+def test_one_family_list_at_a_time():
+    ui = (ROOT / "frontend/src/schooling.tsx").read_text(encoding="utf-8")
+    assert "onMetricChange={setFamilyMetric}" in ui and "tab==='families'&&!familyMetric&&<FamilyDirectory" in ui
