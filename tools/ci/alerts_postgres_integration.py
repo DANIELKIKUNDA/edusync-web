@@ -127,10 +127,36 @@ def section_scopes(A: dict) -> None:
     check("préfet : les finances de sa section, jamais l'argent des caisses de l'école", p.status_code == 200 and p.json()["cash"] is None and "recovery" in p.json(), (p.status_code, p.text[:200]))
 
 
+def offline_enrollment(A: dict) -> None:
+    """Owner, 2026-11-08: enrollment WITH the payment of the required fees works without network — the device shows the
+    amounts from its copy (same dry run as the server preview) and replays the enrollment / dossier with its key."""
+    print("\n== Inscription hors connexion : montants de la copie de l'appareil, rejeu sans doublon")
+    cls = A["classes"]["PRIMAIRE"]
+    cashier = actor_for("CAISSIER", A["id"])
+    pack = as_(cashier).get("/api/v1/schooling/enrollments/offline-admission")
+    row = next((c for c in pack.json().get("classes", []) if c["class_id"] == str(cls)), None) if pack.status_code == 200 else None
+    pv = as_(cashier).post("/api/v1/schooling/enrollments/family/preview", json={"household_confidence": "NONE", "primary_guardian": {"full_name": "TSHIBANDA Paul", "role": "PERE"},
+                                                                               "children": [child("OF1", cls)]})
+    server_total = pv.json()["conditions"]["totals"] if pv.status_code == 200 else None
+    check("copie de l'appareil : pour chaque classe, les frais exigés d'un nouvel élève (montants du serveur)",
+          row is not None and row["available"] and row["totals"] == server_total and pack.json()["can_collect"], (pack.status_code, row, server_total))
+    left = one("SELECT count(*) FROM students WHERE school_id=:s AND last_name='HORS' AND middle_name='CONNEXION'", s=A["id"])[0]
+    check("le calcul de la copie n'enregistre aucun élève (simulation annulée)", int(left) == 0, left)
+    clerk = actor_for("CAISSIER", A["id"], drop={"finance.checkout.collect", "finance.checkout.family.collect"})
+    body = {"household_confidence": "NONE", "primary_guardian": {"full_name": "KALALA Banze", "role": "MERE"}, "children": [child("OF2", cls)]}
+    k = {"Idempotency-Key": f"offline-dossier-{A['id']}"}
+    d1 = as_(clerk).post("/api/v1/schooling/enrollment-dossiers", json=body, headers=k)
+    d2 = as_(clerk).post("/api/v1/schooling/enrollment-dossiers", json=body, headers=k)
+    n = one("SELECT count(*) FROM enrollment_dossiers WHERE school_id=:s AND label='Foyer de KALALA Banze'", s=A["id"])[0]
+    check("dossier en attente rejoué deux fois avec la même clé (hors connexion) : un seul dossier",
+          d1.status_code == 201 and d2.status_code in (200, 201) and int(n) == 1 and d1.json()["id"] == d2.json()["id"], (d1.status_code, d2.status_code, n, d1.text[:200]))
+
+
 def main() -> int:
     A = school("F")
     run(A)
     section_scopes(A)
+    offline_enrollment(A)
     H.CLIENT.__exit__(None, None, None)
     fails = [r for r in H.RESULTS if r[0] == "FAIL"]
     print(f"\n{len(H.RESULTS) - len(fails)}/{len(H.RESULTS)} PASS · {len(fails)} FAIL")

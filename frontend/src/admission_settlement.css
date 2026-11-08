@@ -71,3 +71,9 @@
 .enr-notice{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid #fedf89;background:#fffaeb;border-radius:12px;color:#93370d;font-size:13px;line-height:1.45}
 .as-items>span.as-missing{background:#fee4e2;color:#b42318}
 .enrollmentWizard .wizardActions .primaryBtn:disabled,.kp-dfoot .kp-btn.primary:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+/* Offline enrollment (owner, 2026-11-08) */
+.as-offline{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;padding:12px 14px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12}
+.as-offline b{display:block;font-size:14px}.as-offline span{display:block;font-size:12.5px;line-height:1.45;color:#9a3412}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .as-offline{background:#431407;border-color:#9a3412;color:#fed7aa}:root:not([data-theme="light"]) .as-offline span{color:#fdba74}}
+:root[data-theme="dark"] .as-offline{background:#431407;border-color:#9a3412;color:#fed7aa}
+:root[data-theme="dark"] .as-offline span{color:#fdba74}

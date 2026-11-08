@@ -373,6 +373,44 @@ def preview_family_enrollment(body:FamilyEnrollmentBody,actor:ActorContext=Depen
     except _PreviewRollback as r:return _jsonable(r.result)
     except Exception as exc:_error(exc)
 
+class _ClassPreview(Exception):
+    def __init__(self,result):self.result=result
+
+@router.get('/enrollments/offline-admission')
+def offline_admission(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Offline enrollment (owner, 2026-11-08: « l'inscription doit être faite offline, en attente »). For each class of the
+    active year, what a NEW pupil must pay at enrollment — computed by the SAME dry run as the preview (charges generated,
+    conditions, missing fees), then rolled back. The device keeps it to show the amounts without network; the server
+    re-checks everything when the enrollment is replayed with its Idempotency-Key."""
+    _need(actor,'enrollments.create')
+    from datetime import datetime as _dt,timezone as _tz
+    items=[]
+    try:
+        with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+            repo=PostgresSchoolingRepository(conn);policy=repo.enrollment_policy(actor.school_id)
+            rows=conn.execute(text("""SELECT c.id,c.label FROM school_classes c JOIN academic_years y ON y.id=c.academic_year_id AND y.school_id=c.school_id
+                WHERE c.school_id=:s AND c.enabled AND y.status='ACTIVE' ORDER BY c.label"""),{"s":actor.school_id}).mappings().all()
+            for r in rows:
+                body=FamilyEnrollmentBody(household_confidence='NONE',primary_guardian=GuardianInput(full_name='Copie hors connexion'),
+                                          children=[ChildInput(last_name='HORS',middle_name='CONNEXION',first_name='Calcul',class_id=r['id'],gender='F')])
+                try:
+                    with conn.begin_nested():
+                        due=_enroll_and_settle(conn,actor,actor,body,key='offline-pack',settle=False)['conditions']
+                        raise _ClassPreview(due)
+                except _ClassPreview as p:
+                    c=(p.result.get('children') or [{}])[0]
+                    items.append({'class_id':str(r['id']),'class_label':r['label'],'available':True,
+                                  'items':[{'label':i['label'],'currency':i['currency'],'amount':str(i['amount'])} for i in c.get('items',[])],
+                                  'totals':c.get('totals',{}),'missing':c.get('missing',[]),'configured':bool(c.get('configured'))})
+                except Exception as exc:  # a class that refuses new pupils (closed, full…) is marked, never guessed
+                    items.append({'class_id':str(r['id']),'class_label':r['label'],'available':False,'reason':str(exc)[:240],'items':[],'totals':{},'missing':[],'configured':False})
+            raise _PreviewRollback({'generated_at':_dt.now(_tz.utc).isoformat(),'classes':items,
+                                    'policy':{'conditions_exempt_staff_children':bool(policy.get('conditions_exempt_staff_children')),
+                                              'conditions_exempt_benefit_beneficiaries':bool(policy.get('conditions_exempt_benefit_beneficiaries'))},
+                                    'can_collect':'finance.checkout.collect' in actor.permissions})
+    except _PreviewRollback as r:return _jsonable(r.result)
+    except Exception as exc:_error(exc)
+
 @router.post('/enrollments/family',status_code=201)
 def enroll_family(body:FamilyEnrollmentBody,response:Response,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     cap='enrollments.reenroll' if any(c.student_id for c in body.children) else 'enrollments.create';_need(actor,cap);key=_key(idempotency_key)
@@ -400,7 +438,7 @@ def _dossier_out(d:dict)->dict:
     return _jsonable({k:d[k] for k in ('id','status','label','children_count','totals','waivers','created_at','completed_at','family_id','cancel_reason','version')}|{'payload':d['payload']})
 
 @router.post('/enrollment-dossiers',status_code=201)
-def create_enrollment_dossier(body:FamilyEnrollmentBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def create_enrollment_dossier(body:FamilyEnrollmentBody,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """The form is kept without enrolling anybody; it is validated now (dry run) so the cashier only has to collect."""
     cap='enrollments.reenroll' if any(c.student_id for c in body.children) else 'enrollments.create';_need(actor,cap)
     data=body.model_dump(mode='json');data['payment']=None
@@ -412,20 +450,26 @@ def create_enrollment_dossier(body:FamilyEnrollmentBody,actor:ActorContext=Depen
             _enroll_and_settle(conn,actor,actor,FamilyEnrollmentBody.model_validate(data),key='dossier',settle=False);raise _PreviewRollback(None)
     except _PreviewRollback:pass
     except Exception as exc:_error(exc)
+    def action(conn,request_actor):
+        year=PostgresSchoolingRepository(conn).active_year(actor.school_id)
+        if not year:raise ValueError("Aucune année scolaire active")
+        import json as _json
+        r=conn.execute(text("""INSERT INTO enrollment_dossiers(school_id,academic_year_id,label,children_count,payload,waivers,created_by)
+            VALUES(:s,:y,:l,:n,CAST(:p AS jsonb),CAST(:w AS jsonb),:u) RETURNING *"""),{"s":actor.school_id,"y":year['id'],"l":_dossier_label(body),"n":len(body.children),
+            "p":_json.dumps(data),"w":_json.dumps([{**w,'status':'REQUESTED'} for w in requested]),"u":actor.user_id}).mappings().first()
+        _audit_outbox(conn,replace(actor,correlation_id=uuid4()),action='ENROLLMENT_DOSSIER_CREATED',entity_type='EnrollmentDossier',entity_id=r['id'],new={'label':r['label'],'children':len(body.children)})
+        if requested:
+            from edusync.modules.alerts.application.school_alerts import waiver_requested
+            names=[' '.join(x for x in (body.children[w['index']].last_name,body.children[w['index']].first_name) if x) or f"enfant {w['index']+1}" for w in requested]
+            waiver_requested(conn,school_id=actor.school_id,dossier_label=r['label'],child_names=names,dossier_id=r['id'],actor_user_id=actor.user_id)
+        return 201,_jsonable(_dossier_out(dict(r)))
     try:
+        # Offline (owner, 2026-11-08): a dossier recorded without network is replayed with its Idempotency-Key — the same
+        # key gives the same dossier, never a second one.
+        if idempotency_key:
+            return _mutate(services=services,actor=actor,key=_key(idempotency_key),operation='SCHOOLING_ENROLLMENT_DOSSIER',payload=body.model_dump(mode='json'),action=action).body
         with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-            year=PostgresSchoolingRepository(conn).active_year(actor.school_id)
-            if not year:raise ValueError("Aucune année scolaire active")
-            import json as _json
-            r=conn.execute(text("""INSERT INTO enrollment_dossiers(school_id,academic_year_id,label,children_count,payload,waivers,created_by)
-                VALUES(:s,:y,:l,:n,CAST(:p AS jsonb),CAST(:w AS jsonb),:u) RETURNING *"""),{"s":actor.school_id,"y":year['id'],"l":_dossier_label(body),"n":len(body.children),
-                "p":_json.dumps(data),"w":_json.dumps([{**w,'status':'REQUESTED'} for w in requested]),"u":actor.user_id}).mappings().first()
-            _audit_outbox(conn,replace(actor,correlation_id=uuid4()),action='ENROLLMENT_DOSSIER_CREATED',entity_type='EnrollmentDossier',entity_id=r['id'],new={'label':r['label'],'children':len(body.children)})
-            if requested:
-                from edusync.modules.alerts.application.school_alerts import waiver_requested
-                names=[' '.join(x for x in (body.children[w['index']].last_name,body.children[w['index']].first_name) if x) or f"enfant {w['index']+1}" for w in requested]
-                waiver_requested(conn,school_id=actor.school_id,dossier_label=r['label'],child_names=names,dossier_id=r['id'],actor_user_id=actor.user_id)
-            return _dossier_out(dict(r))
+            return action(conn,actor)[1]
     except Exception as exc:_error(exc)
 
 @router.get('/enrollment-dossiers')
