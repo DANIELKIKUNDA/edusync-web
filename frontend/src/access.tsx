@@ -23,8 +23,12 @@ type ChangeRequest={id:string;kind:string;payload:{summary?:string};rules:SodRul
 type PolicyView={baseline:string[];effective:string[];locked:string[];holders:number;held_by_me:boolean;pending_requests:{id:string;summary:string}[]};
 type ChangeResult={status?:string;message?:string;request_id?:string};
 type Scope={type:'SCHOOL'|'SECTION'|'CLASS';value:string|null};
-type MemberRole={assignment_id:string;role_id:string;role_label:string;role_kind:string;valid_until:string|null;scopes:Scope[]};
-type Member={membership_id:string;active:boolean;full_name:string;email:string;roles:MemberRole[];is_me:boolean;must_change_password?:boolean;shared_account?:boolean};
+type MemberRole={assignment_id:string;role_id:string;role_label:string;role_kind:string;valid_until:string|null;scopes:Scope[];title?:string};
+// Monsieur / Madame (owner, 2026-11-09): only the WORDS of the role change (« Promotrice », « Directrice de la maternelle »).
+type Civility='M'|'MME';
+const CIVILITY_LABEL:Record<Civility,string>={M:'Monsieur',MME:'Madame'};
+const roleName=(r:MemberRole)=>r.title||r.role_label;
+type Member={membership_id:string;active:boolean;full_name:string;email:string;roles:MemberRole[];is_me:boolean;civility?:Civility|null;must_change_password?:boolean;shared_account?:boolean};
 type JournalItem={created_at:string;action:string;reason:string|null;new_data:any;old_data:any;actor:string|null};
 type ScopeOptions={sections:{code:string;label:string}[];classes:{code:string;label:string;section:string}[]};
 
@@ -139,7 +143,7 @@ export default function AccessPage({token,permissions,userName}:Props){
   const customCount=activeRoles.filter(r=>r.kind==='SCHOOL_CUSTOM').length;
   const temporary=members.reduce((n,m)=>n+m.roles.filter(r=>r.valid_until).length,0);
   const recent=journal.filter(j=>Date.now()-new Date(j.created_at).getTime()<30*864e5).length;
-  const filtered=members.filter(m=>(status==='all'||(status==='active'?m.active:!m.active))&&(!q.trim()||`${m.full_name} ${m.email} ${m.roles.map(r=>r.role_label).join(' ')}`.toLowerCase().includes(q.trim().toLowerCase())));
+  const filtered=members.filter(m=>(status==='all'||(status==='active'?m.active:!m.active))&&(!q.trim()||`${m.full_name} ${m.email} ${m.roles.map(r=>`${r.role_label} ${r.title??''}`).join(' ')}`.toLowerCase().includes(q.trim().toLowerCase())));
   const opened=members.find(m=>m.membership_id===openId)||null;
   const inactiveCount=members.filter(m=>!m.active).length;
 
@@ -211,7 +215,7 @@ export default function AccessPage({token,permissions,userName}:Props){
         {filtered.slice(0,limit).map(m=><li key={m.membership_id}><button type="button" className={`memberRow ${m.active?'':'inactive'}`} onClick={()=>setOpenId(m.membership_id)} aria-label={`Ouvrir la fiche de ${m.full_name}`}>
           <span className="avatar">{initials(m.full_name)}</span>
           <span className="memberIdentity"><b>{m.full_name}{m.is_me&&<em className="meBadge">Vous</em>}</b><small>{m.email}</small></span>
-          <span className="memberSummary">{m.roles.length===0?<span className="noRole">Aucun rôle</span>:<><span className={`roleChip ${m.roles[0].role_kind==='SCHOOL_CUSTOM'?'custom':''}`}><b>{m.roles[0].role_label}</b></span>{m.roles.length>1&&<span className="moreRoles">+{m.roles.length-1}</span>}</>}</span>
+          <span className="memberSummary">{m.roles.length===0?<span className="noRole">Aucun rôle</span>:<><span className={`roleChip ${m.roles[0].role_kind==='SCHOOL_CUSTOM'?'custom':''}`}><b>{roleName(m.roles[0])}</b></span>{m.roles.length>1&&<span className="moreRoles">+{m.roles.length-1}</span>}</>}</span>
           <span className="memberState">{!m.active?<em className="statePill off">Désactivé</em>:m.must_change_password?<em className="statePill wait" title="Doit choisir son mot de passe à la prochaine connexion">Mot de passe provisoire</em>:null}</span>
           <Icon name="chevron" size={18}/>
         </button></li>)}
@@ -399,6 +403,7 @@ function ReasonDialog({title,text,cta,run,onClose}:{title:string;text:string;cta
 function MemberSheet({member,canAssign,canUpdate,canActivate,canReset,token,onClose,onAssign,onRevoke,onAction,onRenamed}:{member:Member;canAssign:boolean;canUpdate:boolean;canActivate:boolean;canReset:boolean;token:string;
   onClose:()=>void;onAssign:()=>void;onRevoke:(r:MemberRole)=>void;onAction:(k:'deactivate'|'activate'|'reset')=>void;onRenamed:()=>Promise<void>}){
   const [renaming,setRenaming]=useState(false),[name,setName]=useState(member.full_name),[reason,setReason]=useState(''),[busy,setBusy]=useState(false);
+  async function setCivility(c:Civility|'NONE'){try{setBusy(true);await send(token,'PATCH',`members/${member.membership_id}`,{full_name:member.full_name,civility:c,reason:'Civilité du membre'});toast.success(c==='NONE'?'Civilité retirée':`Civilité : ${CIVILITY_LABEL[c]}`);await onRenamed()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
   useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose]);
   const locked=member.is_me;
   async function rename(){if(name.trim().length<3||reason.trim().length<3)return;try{setBusy(true);await send(token,'PATCH',`members/${member.membership_id}`,{full_name:name.trim(),reason:reason.trim()});toast.success('Nom modifié');setRenaming(false);await onRenamed()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
@@ -414,13 +419,16 @@ function MemberSheet({member,canAssign,canUpdate,canActivate,canReset,token,onCl
       {locked&&<p className="sheetNote"><Icon name="lock" size={14}/> C’est votre compte : vos droits ne se modifient pas ici, et votre mot de passe se change dans « Sécurité et appareils ».</p>}
       <section className="sheetSection"><div className="sheetSectionHead"><h4>Rôles</h4>{canAssign&&!locked&&member.active&&<button className="softBtn" onClick={onAssign}><Icon name="plus" size={15}/> Attribuer un rôle</button>}</div>
         {member.roles.length===0?<p className="noRole">Aucun rôle : ce membre ne voit encore rien de l’école.</p>:
-        <ul className="sheetRoles">{member.roles.map(r=><li key={r.assignment_id}><span><b>{r.role_label}</b><small>{r.scopes.map(scopeText).join(' · ')}{r.valid_until?` · jusqu’au ${dateFr(r.valid_until)}`:''}</small></span>
+        <ul className="sheetRoles">{member.roles.map(r=><li key={r.assignment_id}><span><b>{roleName(r)}</b><small>{r.scopes.map(scopeText).join(' · ')}{r.valid_until?` · jusqu’au ${dateFr(r.valid_until)}`:''}</small></span>
           {canAssign&&!locked&&<button className="textBtn danger" onClick={()=>onRevoke(r)} aria-label={`Retirer le rôle ${r.role_label}`}>Retirer</button>}</li>)}</ul>}
       </section>
       {!locked&&(canUpdate||canReset||canActivate)&&<section className="sheetSection"><div className="sheetSectionHead"><h4>Compte</h4></div>
         {renaming?<div className="renameBox"><label>Nom complet *<input value={name} onChange={e=>setName(e.target.value)} autoComplete="name" maxLength={180}/></label><label>Motif *<input value={reason} onChange={e=>setReason(e.target.value)} placeholder="Ex. faute de frappe"/></label>
           <div className="modalActions"><button className="ghost" onClick={()=>setRenaming(false)}>Annuler</button><button disabled={busy||name.trim().length<3||reason.trim().length<3} onClick={()=>void rename()}>{busy?'Enregistrement…':'Enregistrer'}</button></div></div>:
         <div className="accountActions">
+          {canUpdate&&<div className="actionRow civilityRow"><Icon name="user" size={17}/><span><b>Civilité</b><small>Sert à écrire le rôle au féminin ou au masculin (Promotrice, Directrice de la maternelle…). Les droits ne changent pas.</small>
+            <span className="civilityChoice" role="radiogroup" aria-label="Civilité">{(['M','MME'] as Civility[]).map(c=><button key={c} type="button" role="radio" aria-checked={member.civility===c} className={member.civility===c?'on':''} disabled={busy} onClick={()=>void setCivility(c)}>{CIVILITY_LABEL[c]}</button>)}
+              {member.civility&&<button type="button" className="textBtn" disabled={busy} onClick={()=>void setCivility('NONE')}>Non précisé</button>}</span></span></div>}
           {canUpdate&&<button className="actionRow" disabled={member.shared_account} onClick={()=>setRenaming(true)}><Icon name="edit" size={17}/><span><b>Modifier le nom</b><small>{member.shared_account?'Compte partagé : seul son titulaire peut le modifier.':'Corrige le nom affiché partout dans l’école.'}</small></span></button>}
           {canReset&&member.active&&<button className="actionRow" disabled={member.shared_account} onClick={()=>onAction('reset')}><Icon name="key" size={17}/><span><b>Réinitialiser le mot de passe</b><small>{member.shared_account?'Compte partagé avec un autre espace : réinitialisation par son titulaire ou la plateforme.':'Mot de passe oublié : un provisoire est généré, ses sessions sont coupées.'}</small></span></button>}
           {canActivate&&<button className={`actionRow ${member.active?'danger':''}`} onClick={()=>onAction(member.active?'deactivate':'activate')}><Icon name="power" size={17}/><span><b>{member.active?'Désactiver l’accès':'Réactiver l’accès'}</b><small>{member.active?'Départ, suspension : coupe immédiatement l’accès à cette école.':'Rétablit l’accès avec ses rôles actuels.'}</small></span></button>}
@@ -437,7 +445,7 @@ type CreatedMember={membership_id:string;email:string;full_name:string;created:b
 const REASONS = ['Arrivée dans l’équipe', 'Remplacement', 'Nouvelle fonction', 'Stage', 'Renfort temporaire'];
 function AddMemberDialog({token,roles,canAssign,sections,canScope,onClose,onDone}:{token:string;roles:Role[];canAssign:boolean;sections:{code:string;label:string}[];canScope:boolean;onClose:()=>void;onDone:(r:CreatedMember)=>Promise<void>}){
   const [email,setEmail]=useState(''),[name,setName]=useState(''),[roleId,setRoleId]=useState(''),[reason,setReason]=useState(REASONS[0]),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const [delivery,setDelivery]=useState<'TEMPORARY_PASSWORD'|'INVITATION'>('TEMPORARY_PASSWORD');
+  const [delivery,setDelivery]=useState<'TEMPORARY_PASSWORD'|'INVITATION'>('TEMPORARY_PASSWORD');const [civility,setCivility]=useState<Civility|''>('');
   const [touched,setTouched]=useState(false);const [q,setQ]=useState('');
   const emailOk=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()),nameOk=name.trim().length>=3,reasonOk=reason.trim().length>=3;
   useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!busy)onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose,busy]);
@@ -448,7 +456,7 @@ function AddMemberDialog({token,roles,canAssign,sections,canScope,onClose,onDone
   // A section-bound leadership role (Préfet, Direction de section…) needs its section(s); several = explicit union.
   const bound=sectionBound(role);const [picked,setPicked]=useState<string[]>([]);const sectionsOk=!bound||picked.length>0;
   async function save(e:React.FormEvent){e.preventDefault();setTouched(true);setError('');if(!emailOk||!nameOk||!reasonOk||!sectionsOk)return;
-    try{setBusy(true);const r=await send<CreatedMember>(token,'POST','members',{email:email.trim().toLowerCase(),full_name:name.trim(),role_id:roleId||null,reason:reason.trim(),delivery,...(bound?{scopes:picked.map(v=>({type:'SECTION',value:v}))}:{})});await onDone(r)}
+    try{setBusy(true);const r=await send<CreatedMember>(token,'POST','members',{email:email.trim().toLowerCase(),full_name:name.trim(),role_id:roleId||null,reason:reason.trim(),delivery,...(civility?{civility}:{}),...(bound?{scopes:picked.map(v=>({type:'SECTION',value:v}))}:{})});await onDone(r)}
     catch(err){setError(err instanceof Error?err.message:friendlyError(err))}finally{setBusy(false)}}
   return createPortal(<div className="am-backdrop" onClick={()=>{if(!busy)onClose()}}>
     <form className="am-dialog" role="dialog" aria-modal="true" aria-labelledby="am-title" onClick={e=>e.stopPropagation()} onSubmit={save} noValidate>
@@ -464,6 +472,9 @@ function AddMemberDialog({token,roles,canAssign,sections,canScope,onClose,onDone
             <div className={`am-field ${touched&&!emailOk?'invalid':''}`}><label htmlFor="am-email">Adresse e-mail *</label>
               <div className="am-input"><Icon name="mail" size={17}/><input id="am-email" type="email" inputMode="email" autoComplete="off" value={email} onChange={e=>setEmail(e.target.value)} placeholder="prenom.nom@ecole.cd"/></div>
               {touched&&!emailOk?<small className="am-error">Saisissez une adresse e-mail valide.</small>:<small className="am-hint">Elle sert d’identifiant de connexion.</small>}</div>
+            <div className="am-field"><label>Civilité <small>facultatif</small></label>
+              <div className="civilityChoice" role="radiogroup" aria-label="Civilité">{(['M','MME'] as Civility[]).map(c=><button key={c} type="button" role="radio" aria-checked={civility===c} className={civility===c?'on':''} onClick={()=>setCivility(v=>v===c?'':c)}>{CIVILITY_LABEL[c]}</button>)}</div>
+              <small className="am-hint">Le rôle s’affichera au féminin ou au masculin : Promotrice, Directrice de la maternelle…</small></div>
           </div>
         </section>
         {canAssign&&<section className="am-section"><h4><span>2</span>Quel rôle ? <small>facultatif, modifiable ensuite</small></h4>
