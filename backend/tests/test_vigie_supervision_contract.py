@@ -30,6 +30,21 @@ def test_vigie_first_rules_are_measured_and_actionable():
     assert "au moins deux mensualités impayées" in src
 
 
+def test_vigie_operational_rules_cover_daily_backlogs_without_notification_flooding():
+    src = (ROOT / "src/edusync/modules/alerts/application/supervision.py").read_text()
+    for rule in (
+        "STALE_ENROLLMENT_DOSSIERS",
+        "RECEIPT_PRINT_BACKLOG",
+        "COMMUNICATION_DELIVERY_FAILURES",
+        "SYNC_CONFLICT_BACKLOG",
+        "PAYMENT_REVERSAL_SPIKE",
+    ):
+        assert rule in src
+    assert "count(*)::int" in src
+    assert "remind every 12 h" in src
+    assert 'response_status"] == "NEW"' in src
+
+
 def test_push_click_is_connected_to_school_navigation():
     main = (ROOT.parent / "frontend/src/main.tsx").read_text()
     app = (ROOT.parent / "frontend/src/App.tsx").read_text()

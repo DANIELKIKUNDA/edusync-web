@@ -90,6 +90,62 @@ def measure(conn, school_id: UUID) -> list[Finding]:
             "Ces élèves peuvent apparaître comme en ordre alors qu'aucun frais n'a été généré.",
             "Vérifiez les barèmes et régénérez les obligations avant les prochains encaissements.",
             "settings.tariffs.read", "/settings?view=tariffs", {"enrollments": row["n"]}))
+
+    # Operational backlogs are aggregated: the Vigie opens one actionable incident instead of flooding managers.
+    row = conn.execute(text("""SELECT count(*)::int n, min(created_at) oldest
+      FROM enrollment_dossiers WHERE school_id=:s AND status='PENDING' AND created_at < now()-interval '48 hours'"""),
+      {"s": str(school_id)}).mappings().one()
+    if row["n"]:
+        age = max(2, (datetime.now(timezone.utc) - row["oldest"]).days)
+        findings.append(Finding("STALE_ENROLLMENT_DOSSIERS", "school", "SCHOOLING",
+            "CRITICAL" if age >= 7 else "WARNING", "Dossiers d'inscription en attente",
+            f"{row['n']} dossier(s) attendent depuis plus de 48 heures ; le plus ancien a {age} jour(s).",
+            "Un dossier non finalisé peut cacher un paiement attendu, une pièce manquante ou une famille sans réponse.",
+            "Ouvrez les dossiers, attribuez chaque blocage et clôturez ou relancez les familles concernées.",
+            "students.read", "/enrollments?view=pending", {"pending": row["n"], "oldest_days": age}))
+
+    row = conn.execute(text("""SELECT count(*)::int n,
+        count(*) FILTER (WHERE status='FAILED')::int failed,
+        min(queued_at) FILTER (WHERE status='PENDING') oldest
+      FROM finance_receipt_print_jobs WHERE school_id=:s AND
+        (status='FAILED' OR (status='PENDING' AND queued_at < now()-interval '24 hours'))"""),
+      {"s": str(school_id)}).mappings().one()
+    if row["n"]:
+        findings.append(Finding("RECEIPT_PRINT_BACKLOG", "school", "FINANCE", "WARNING",
+            "Reçus à imprimer ou en échec", f"{row['n']} reçu(s) demandent une intervention, dont {row['failed']} en échec.",
+            "La preuve papier d'un encaissement n'est pas confirmée tant que le travail d'impression reste en attente ou en échec.",
+            "Relancez l'impression, vérifiez l'imprimante puis confirmez la remise des reçus.",
+            "finance.receipts.read", "/finance?view=receipts", {"backlog": row["n"], "failed": row["failed"]}))
+
+    row = conn.execute(text("""SELECT count(*)::int n, coalesce(sum(attempts),0)::int attempts
+      FROM communication_deliveries WHERE school_id=:s AND status='FAILED' AND failed_at >= now()-interval '24 hours'"""),
+      {"s": str(school_id)}).mappings().one()
+    if row["n"] >= 3:
+        findings.append(Finding("COMMUNICATION_DELIVERY_FAILURES", "school", "TECHNICAL", "CRITICAL",
+            "Messages non remis", f"{row['n']} envoi(s) ont échoué pendant les dernières 24 heures.",
+            "Plusieurs échecs rapprochés indiquent un problème de fournisseur, de crédit ou de coordonnées destinataires.",
+            "Vérifiez le fournisseur, le solde et les erreurs, puis relancez uniquement les envois corrigés.",
+            "communications.read", "/communications?view=deliveries", {"failed": row["n"], "attempts": row["attempts"]}))
+
+    row = conn.execute(text("""SELECT count(*)::int n FROM sync_inbox
+      WHERE school_id=:s AND status IN ('CONFLICT','REJECTED') AND received_at >= now()-interval '7 days'"""),
+      {"s": str(school_id)}).mappings().one()
+    if row["n"] >= 3:
+        findings.append(Finding("SYNC_CONFLICT_BACKLOG", "school", "TECHNICAL", "CRITICAL",
+            "Conflits de synchronisation à traiter", f"{row['n']} opération(s) hors ligne ont été rejetées ou mises en conflit cette semaine.",
+            "Ces opérations ne sont pas silencieusement perdues, mais leur résultat métier doit être arbitré.",
+            "Ouvrez les conflits, comparez les versions et réconciliez prioritairement les opérations financières.",
+            "sync.conflicts.read", "/settings?view=sync-conflicts", {"conflicts": row["n"]}))
+
+    row = conn.execute(text("""SELECT count(*)::int n, coalesce(sum(amount),0) amount
+      FROM finance_payment_reversals WHERE school_id=:s AND performed_at >= now()-interval '24 hours'"""),
+      {"s": str(school_id)}).mappings().one()
+    if row["n"] >= 3:
+        findings.append(Finding("PAYMENT_REVERSAL_SPIKE", "school", "FINANCE", "CRITICAL",
+            "Volume inhabituel d'annulations", f"{row['n']} annulation(s) ou remboursement(s) ont été enregistrés en 24 heures.",
+            "Une concentration d'annulations peut être légitime, mais elle exige une revue du journal et des motifs.",
+            "Contrôlez les auteurs, les motifs et les pièces justificatives avant la clôture de caisse.",
+            "audit.school.read", "/finance?view=audit", {"reversals": row["n"], "amount": str(row["amount"])}))
     return findings
 
 
@@ -107,8 +163,13 @@ def evaluate_school(conn, school_id: UUID, *, services=None, now: datetime | Non
               explanation=:ex,recommendation=:rec,metric_json=CAST(:metric AS jsonb),target_path=:target WHERE id=:id"""),
               {"now": now, "sev": f.severity, "title": f.title, "summary": f.summary, "ex": f.explanation,
                "rec": f.recommendation, "metric": __import__('json').dumps(f.metric), "target": f.target, "id": old["id"]})
-            # One reminder per 24 h while unresolved; notification dedupe remains independent of measurements.
-            should_notify = old["last_notified_at"] is None or (now-old["last_notified_at"]).total_seconds() >= 86400
+            # Unacknowledged incidents escalate after 48 h and remind every 12 h; owned work remains on a daily cadence.
+            unowned = old["response_status"] == "NEW"
+            overdue = unowned and (now-old["opened_at"]).total_seconds() >= 172800
+            reminder_delay = 43200 if overdue else 86400
+            should_notify = old["last_notified_at"] is None or (now-old["last_notified_at"]).total_seconds() >= reminder_delay
+            if overdue and f.severity != "CRITICAL":
+                conn.execute(text("UPDATE supervision_incidents SET severity='CRITICAL' WHERE id=:id"), {"id": old["id"]})
             incident_id = old["id"]
         else:
             incident_id = conn.execute(text("""INSERT INTO supervision_incidents(school_id,rule_code,fingerprint,domain,severity,title,summary,
