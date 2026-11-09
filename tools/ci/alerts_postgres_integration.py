@@ -152,11 +152,29 @@ def offline_enrollment(A: dict) -> None:
           d1.status_code == 201 and d2.status_code in (200, 201) and int(n) == 1 and d1.json()["id"] == d2.json()["id"], (d1.status_code, d2.status_code, n, d1.text[:200]))
 
 
+def titles(A: dict) -> None:
+    """Owner, 2026-11-09: « Directrice du primaire », « Promotrice » — the civility of the member, never his rights."""
+    print("\n== Titres au féminin et par section")
+    direc = assign(actor_for("DIRECTION_SECTION", A["id"]), "DIRECTION_SECTION", A["id"], section="PRIMAIRE")
+    me = as_(direc).get("/api/v1/access/me").json()
+    check("civilité non précisée : « Direction du primaire »", me.get("role_label") == "Direction du primaire", me.get("role_label"))
+    admin = actor_for("ADMIN_SYSTEME_ECOLE", A["id"])
+    name = one("SELECT full_name FROM users WHERE id=:u", u=direc.user_id)[0]
+    r = as_(admin).patch(f"/api/v1/access/members/{direc.membership_id}", json={"full_name": name, "civility": "MME", "reason": "Civilité du membre"}, headers=key())
+    me = as_(direc).get("/api/v1/access/me").json()
+    check("Madame → « Directrice du primaire » (droits inchangés)", r.status_code == 200 and me.get("role_label") == "Directrice du primaire"
+          and me.get("civility") == "MME", (r.status_code, r.text[:200], me.get("role_label")))
+    prom = assign(actor_for("PROMOTEUR", A["id"]), "PROMOTEUR", A["id"])
+    sql("UPDATE school_memberships SET civility='MME' WHERE id=:m", m=prom.membership_id)
+    check("Madame → « Promotrice »", as_(prom).get("/api/v1/access/me").json().get("role_label") == "Promotrice")
+
+
 def main() -> int:
     A = school("F")
     run(A)
     section_scopes(A)
     offline_enrollment(A)
+    titles(A)
     H.CLIENT.__exit__(None, None, None)
     fails = [r for r in H.RESULTS if r[0] == "FAIL"]
     print(f"\n{len(H.RESULTS) - len(fails)}/{len(H.RESULTS)} PASS · {len(fails)} FAIL")

@@ -277,3 +277,11 @@
 :root[data-theme=dark] .am-foot{background:transparent;border-color:var(--es-line,#24304a)}
 .am-roles{max-height:none;overflow:visible}@media (max-width:640px){.am-roles{max-height:none}}
 
+/* Civility (owner, 2026-11-09) */
+.civilityChoice{display:inline-flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center}
+.civilityChoice button[role=radio]{border:1px solid var(--es-line,#d0d5dd);background:var(--es-surface,#fff);color:inherit;border-radius:999px;padding:6px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.civilityChoice button[role=radio].on{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+.civilityRow{cursor:default}
+.civilityRow .civilityChoice{display:flex;flex-direction:row;gap:8px}
+.civilityChoice button{width:auto!important;flex:0 0 auto;min-height:0}
+.civilityRow .civilityChoice .textBtn{padding:6px 8px;font-size:13px}

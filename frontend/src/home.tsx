@@ -84,7 +84,7 @@ function Readiness({token,open,go}:{token:string;open:(section:string)=>void;go:
   </Card>;
 }
 
-function BusinessCard({w,token,yearId,index,go,executive,desk}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void;executive?:boolean;desk?:boolean}){
+function BusinessCard({w,token,yearId,index,go,executive,desk,sectionScoped,sectionCount}:{w:AccessWidget;token:string;yearId?:string;index:number;go:()=>void;executive?:boolean;desk?:boolean;sectionScoped?:boolean;sectionCount?:number}){
   const common={icon:ICON[w.id],title:w.title,onClick:go,index,ariaLabel:`${w.title} — ouvrir`};
   switch(w.id){
     case 'cash.today':return <CashToday common={common} token={token}/>;
@@ -93,9 +93,9 @@ function BusinessCard({w,token,yearId,index,go,executive,desk}:{w:AccessWidget;t
     case 'cash.receipts':return <CashReceipts common={common} token={token}/>;
     case 'enrollments.today':return <Enrollments common={common} token={token}/>;
     case 'products.watch':return <ProductsWatch common={common} token={token}/>;
-    case 'finance.pilotage':return <MoneyPilotage common={common} token={token} yearId={yearId}/>;
+    case 'finance.pilotage':return <MoneyPilotage common={common} token={token} yearId={yearId} sectionCount={sectionCount}/>;
     // The cashier's desk keeps its own card (owner, 2026-11-08: « je n'ai pas demandé de changer le tableau du caissier »).
-    case 'headcounts.summary':return executive||(!desk&&(w.breakdowns??[]).includes('class'))?<ExecutiveHeadcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>:<Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
+    case 'headcounts.summary':return executive||(!desk&&(w.breakdowns??[]).includes('class'))?<ExecutiveHeadcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]} scoped={sectionScoped}/>:<Headcounts common={common} token={token} yearId={yearId} breakdowns={w.breakdowns??[]}/>;
     case 'headcounts.movements':return <Movements common={common} token={token} yearId={yearId}/>;
     case 'personnel.summary':return <PersonnelSummary common={common} token={token}/>;
     case 'finance.recovery':return <Recovery common={common} token={token} yearId={yearId}/>;
@@ -219,6 +219,9 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   // Executive home (owner, 2026-11-08): promoteur, his assistant, gestionnaire, responsable financier — money and pupils first.
   const executive=figures.some(w=>w.id==='finance.pilotage');
   const supervisor=executive||figures.some(w=>w.id==='cash.supervision');
+  // A member limited to one or several sections (directions, préfet…) sees « vos sections », never « l’école » (2026-11-09).
+  const sectionScoped=(me.scoped??[]).some(x=>x.type==='SECTION'&&x.capability.startsWith('headcounts'));
+  const sectionCount=new Set((me.scoped??[]).filter(x=>x.type==='SECTION').map(x=>x.value)).size;
   const journal=me.widgets.find(w=>w.id==='audit.recent');
   let index=0;
   // Every finance card opens ITS screen (owner, 2026-11-02: « Encaissements du jour » and « Articles à surveiller » used to
@@ -228,7 +231,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const openAction=(a:{id:string;module:string})=>{const target=a.id==='cash.supervise'?'cash':a.id==='reports.open'?'reports':a.id==='checkout.new'?'checkout':undefined;if(target)setFinanceTarget(target);onNavigate(a.module)};
   const render=(w:AccessWidget)=><ScreenBoundary key={w.id} compact label={w.id}>{ADMIN_WIDGETS.has(w.id)
     ?<AdminCard w={w} d={admin} index={index++} go={()=>openWidget(w)}/>
-    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)} executive={executive} desk={desk}/>}</ScreenBoundary>;
+    :<BusinessCard w={w} token={token} yearId={yearId} index={index++} go={()=>openWidget(w)} executive={executive} desk={desk} sectionScoped={sectionScoped} sectionCount={sectionCount}/>}</ScreenBoundary>;
   const byId=(id:string)=>figures.find(w=>w.id===id);
   /* Owner, 2026-11-08: « les petites cartes sur une même ligne » — small cards go by rows of four, a full-width card
      (today's receipts, recovery chart, journal) comes between two full rows, and the last row stretches to fill the line. */
@@ -245,7 +248,7 @@ export default function HomePage({token,me,schoolName,userName,onNavigate,yearId
   const headerShortcuts=executive?shortcuts.filter(a=>a.id!=='inventory.open'):shortcuts;
   return <div className={`ui-page sh-home${supervisor?' sh-home-executive':''}`}>
     <PageHeader eyebrow={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${me.role_label}`} title={`${greeting} ${first}`}
-      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive&&!me.permissions.includes('finance.cash.other.read')?'pilotage de votre section : les effectifs, les finances de la section et les dossiers des élèves.':supervisor?'pilotage de l’établissement : l’argent, les effectifs, le recouvrement et les alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
+      subtitle={<>{schoolName}{yearLabel?` · année ${yearLabel}`:''} — {executive&&!me.permissions.includes('finance.cash.other.read')?(sectionCount>1?'pilotage de vos sections : les effectifs, les finances de vos sections et les dossiers des élèves.':'pilotage de votre section : les effectifs, les finances de la section et les dossiers des élèves.'):supervisor?'pilotage de l’établissement : l’argent, les effectifs, le recouvrement et les alertes.':desk&&!needsAdmin?'votre guichet du jour : caisse, encaissements, inscriptions.':'voici ce qui demande votre attention aujourd’hui.'}</>}
       actions={headerShortcuts.slice(0,3).map((a,i)=><Button key={a.id} variant={i===0?'primary':'secondary'} icon={a.id==='members.create'||a.id==='enrollments.new'?'plus':a.id==='settings.open'?'settings':a.id==='checkout.new'?'receipt':a.id==='cash.supervise'?'finance':a.id==='reports.open'?'doc':'chevronRight'}
         onClick={()=>a.id==='settings.open'?openSettings('overview'):openAction(a)}>{a.label}</Button>)}/>
     {search&&<button type="button" className="sh-search" onClick={()=>setSpot(true)} aria-haspopup="dialog"><NavGlyph g="search" size={18}/><span>{search.label}</span><small>nom, matricule ou famille · Ctrl K</small></button>}
