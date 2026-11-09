@@ -30,7 +30,7 @@ CAPS = [
     "audit.school.filter", "communications.history.read", "communications.read", "contributions.read", "documents.open",
     "families.directory.export", "families.read", "finance.analysis.advance.read", "finance.old_debt.read", "finance.products.read",
     "finance.products.sales_report.read", "finance.reports.daily.generate", "finance.reports.periodic.export", "finance.views.vf01.export",
-    "inventory.assets.history.read", "inventory.stock.movements.read", "migration.finance_history.analyze", "settings.documents.read",
+    "inventory.assets.history.read", "inventory.stock.movements.read", "settings.documents.read",
     "students.account.export", "students.account.read", "students.directory.export",
 ]
 # Capabilities checked only for a variant of the call (the audit filter is required only when a filter is used).
