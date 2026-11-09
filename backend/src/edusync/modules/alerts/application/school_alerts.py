@@ -56,6 +56,24 @@ def recipients(conn, school_id: UUID, audience: str, *, section_code: str | None
     return [{"user_id": r["user_id"], "email": None, "name": None} for r in rows if str(r["user_id"]) not in skip]
 
 
+def capability_recipients(conn, school_id: UUID, capability: str, *, scope_type: str | None = None,
+                          scope_value: str | None = None, exclude: tuple = ()) -> list[dict]:
+    """Resolve an alert audience from capability and delegated RBAC scope, never from a hard-coded role name."""
+    rows = conn.execute(text("""
+        SELECT DISTINCT a.user_id
+          FROM rbac_assignments a
+          JOIN rbac_role_capabilities rc ON rc.role_id=a.role_id AND rc.capability_code=:cap
+          JOIN school_memberships m ON m.id=a.membership_id AND m.school_id=a.school_id AND m.active
+         WHERE a.school_id=:s AND a.active AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())
+           AND (CAST(:st AS text) IS NULL OR CAST(:sv AS text) IS NULL
+                OR NOT EXISTS (SELECT 1 FROM rbac_assignment_scopes x WHERE x.assignment_id=a.id AND x.scope_type=:st)
+                OR EXISTS (SELECT 1 FROM rbac_assignment_scopes x WHERE x.assignment_id=a.id AND x.scope_type=:st
+                           AND upper(x.scope_value)=upper(:sv)))
+    """), {"cap": capability, "s": str(school_id), "st": scope_type, "sv": scope_value}).mappings().all()
+    skip = {str(x) for x in exclude if x}
+    return [{"user_id": r["user_id"], "email": None, "name": None} for r in rows if str(r["user_id"]) not in skip]
+
+
 def _identities(services, user_ids: list) -> dict[str, tuple[str | None, str | None]]:
     if services is None or not user_ids:
         return {}
@@ -106,6 +124,42 @@ def school_alert(conn, *, school_id: UUID, audience: str, title: str, body: str,
             return len(fresh)
     except Exception:  # an alert never blocks the business operation that raised it
         log.exception("school alert skipped (%s, %s)", audience, dedupe_key)
+        return 0
+
+
+def capability_alert(conn, *, school_id: UUID, required_capability: str, title: str, body: str, dedupe_key: str,
+                     link_path: str | None = None, severity: str = "INFO", scope_type: str | None = None,
+                     scope_value: str | None = None, exclude_user_ids: tuple = (), created_by: UUID | None = None,
+                     services=None) -> int:
+    """Durable in-app + push alert whose recipients follow current capabilities and delegated scopes."""
+    if severity not in SEVERITIES:
+        raise ValueError("Gravité inconnue")
+    category = "SUPERVISION"
+    try:
+        with conn.begin_nested():
+            people = capability_recipients(conn, school_id, required_capability, scope_type=scope_type,
+                                           scope_value=scope_value, exclude=exclude_user_ids)
+            fresh = []
+            for p in people:
+                done = conn.execute(text("""SELECT 1 FROM notifications WHERE school_id=:s AND user_id=:u AND category=:c
+                    AND title=:t AND created_at>now()-interval '20 hours' LIMIT 1"""),
+                    {"s": str(school_id), "u": str(p["user_id"]), "c": category, "t": title[:180]}).first()
+                if done: continue
+                conn.execute(text("""INSERT INTO notifications(school_id,user_id,category,severity,title,body,link_path)
+                    VALUES(:s,:u,:c,:sev,:t,:b,:l)"""), {"s": str(school_id), "u": str(p["user_id"]), "c": category,
+                    "sev": severity, "t": title[:180], "b": body[:2000], "l": link_path})
+                fresh.append(p)
+            if fresh:
+                from edusync.modules.communications.application.messaging import Recipient, request_message
+                request_message(conn, school_id=school_id, kind="ALERT", channels=["PUSH"], subject=title[:120],
+                    body=body[:240], link_path=link_path, idempotency_key=f"alert:{dedupe_key}"[:180], created_by=created_by,
+                    recipients=[Recipient("USER", uuid5(NAMESPACE_URL, f"{p['user_id']}:{school_id}"), None,
+                                          user_id=p["user_id"]) for p in fresh])
+            from edusync.shared.infrastructure.realtime import note_inbox_changed
+            for p in fresh: note_inbox_changed(p["user_id"], school_id)
+            return len(fresh)
+    except Exception:
+        log.exception("capability alert skipped (%s, %s)", required_capability, dedupe_key)
         return 0
 
 

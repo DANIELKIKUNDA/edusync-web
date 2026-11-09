@@ -24,6 +24,7 @@ NAVIGATION: list[tuple[str, str, str, tuple[str, ...]]] = [
         "personnel.directory.export", "headcounts.export", "finance.views.vf01.export", "finance.reports.periodic.export",
         "students.account.export")),
     ("stewardship", "Intendance", "box", ("inventory.assets.read", "inventory.stock.read", "inventory.counts.read")),
+    ("supervision", "Surveillance", "pulse", ("notifications.internal.read",)),
     ("communications", "Communication", "bell", ("communications.read", "notifications.internal.configure")),
     ("access", "Accès & rôles", "lock", ("access.users.read", "access.roles.read", "audit.school.read")),
     ("sync", "Synchronisation", "sync", ("sync.status.read",)),

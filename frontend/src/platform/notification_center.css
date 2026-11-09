@@ -19,9 +19,10 @@
 .nc-acts{display:flex;gap:6px;flex-wrap:wrap}.nc-acts:empty{display:none}
 .nc-acts .es-btn{min-height:32px;padding:4px 10px;font-size:12.5px;text-decoration:none}
 .nc-center{max-height:88vh;display:flex;flex-direction:column}
+.nc-center>.es-modal-head{position:sticky;top:0;z-index:2;background:inherit}
 .nc-center .nc-list{overflow:auto;border:1px solid #edf0f5;border-radius:12px}
 .nc-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .nc-tabs{margin:0;flex:1;min-width:240px}
 .nc-toolbar select{min-height:38px;border:1px solid #d5dbe6;border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;background:#fff}
 .nc-more{justify-self:center;margin-top:10px}
-@media (max-width:640px){.nc-toolbar select,.nc-toolbar .es-btn{flex:1;min-height:44px}.nc-acts .es-btn{min-height:44px}}
+@media (max-width:640px){.nc-center{height:96dvh;max-height:96dvh;overflow:hidden}.nc-center .nc-toolbar{flex:none}.nc-center .nc-list{min-height:0;overscroll-behavior:contain}.nc-toolbar select,.nc-toolbar .es-btn{flex:1;min-height:44px}.nc-acts .es-btn{min-height:44px}}

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     platform_alerts_enabled: bool = True
     platform_alert_delay_seconds: int = 300
     platform_alert_interval_seconds: int = 60
+    # Vigie EduSync: deterministic business supervision across active schools. One elected evaluator per interval.
+    supervision_enabled: bool = True
+    supervision_interval_seconds: int = 900
     # Push notifications: "disabled" (default) or "mock" (local certification). Real providers: BLOCKED_EXTERNAL.
     push_provider: str = "disabled"
     # Multiplies every sensitive-operation rate limit (1 in production; raised only for local certification runs).

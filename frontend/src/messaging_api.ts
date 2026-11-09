@@ -32,6 +32,9 @@ export type HistoryItem = {
   id: string; kind: string; subject: string | null; audience_type: string; channels: string[]; recipient_count: number; sms_segments_reserved: number;
   created_at: string; dispatched_at: string | null; author: string | null; counts: Record<string, number>; sms_units_billed: number; errors: string[] | null;
 };
+export type SupervisionIncident = {id:string;rule_code:string;domain:string;severity:'INFO'|'WARNING'|'CRITICAL';condition_status:'OPEN'|'RESOLVED';
+  response_status:'NEW'|'ACKNOWLEDGED'|'IN_PROGRESS'|'CLOSED';title:string;summary:string;explanation:string;recommendation:string;
+  metric_json:Record<string,unknown>;target_path:string|null;opened_at:string;last_seen_at:string;resolved_at:string|null;reminder_count:number};
 
 export const readiness = (t: string) => call<Readiness>(t, '/communications/readiness');
 export const saveSettings = (t: string, s: {enabled: boolean; sms_enabled: boolean; email_enabled: boolean; push_enabled: boolean; sms_low_balance_threshold: number; expected_version: number}) =>
@@ -43,6 +46,9 @@ export const confirmSend = (t: string, d: Draft, key: string, fingerprint?: stri
 export const history = (t: string) => call<{items: HistoryItem[]}>(t, '/communications/history');
 export const deliveries = (t: string, id: string) => call<{items: any[]}>(t, `/communications/history/${id}/deliveries`);
 export const retryDelivery = (t: string, id: string) => post<{requeued: boolean}>(t, `/communications/deliveries/${id}/retry`, {});
+export const supervisionIncidents = (t:string, state='active', domain='') => call<{items:SupervisionIncident[];counts:{active:number;critical:number;new:number}}>(t, `/supervision/incidents?state=${encodeURIComponent(state)}&domain=${encodeURIComponent(domain)}`);
+export const supervisionAction = (t:string,id:string,action:'acknowledge'|'start'|'close') => post<{id:string;action:string}>(t, `/supervision/incidents/${id}/${action}`, {});
+export const supervisionEvaluate = (t:string) => post<{findings:number;opened:number;notified:number;resolved:number}>(t, '/supervision/evaluate', {});
 
 // Push devices (this browser) ------------------------------------------------------------------------------------
 export type PushConfig = {provider: 'fcm' | 'fake' | 'disabled'; web_config: Record<string, string> | null; vapid_public_key: string | null};
