@@ -33,7 +33,7 @@ export function Item({n, onRead, canRead}: {n: InboxItem; onRead: (n: InboxItem)
       <p>{n.body}</p>
       <small>{ORIGIN[n.category] ? `${ORIGIN[n.category]} · ` : ''}{sev.label} · {when(n.created_at)}{n.expires_at ? ` · expire le ${new Date(n.expires_at).toLocaleDateString('fr-FR')}` : ''}</small>
       <span className="nc-acts">
-        {link && <a className="es-btn es-btn-ghost" href={link} onClick={() => !n.read_at && canRead && onRead(n)}>Ouvrir</a>}
+        {link && <a className="es-btn es-btn-ghost" href={link} onClick={e => {e.preventDefault();if(!n.read_at&&canRead)void onRead(n);window.dispatchEvent(new CustomEvent('edusync:navigate',{detail:{path:link}}));}}>Ouvrir</a>}
         {!n.read_at && canRead && <button className="es-btn es-btn-ghost" onClick={() => onRead(n)}>Marquer comme lue</button>}
       </span>
     </div>
