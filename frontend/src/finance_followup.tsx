@@ -59,8 +59,8 @@ export default function FinanceFollowup({token, can, yearId, schoolName}: {token
         </div>
         <div className="ff-bar"><div><b>{d.class_label}</b> · {d.title}{d.cumulative && d.periods.length > 1 ? <small> ({d.periods.join(', ')})</small> : null}</div>
           <label className="ff-search"><NavGlyph g="search" size={15}/><input value={q} onChange={e => setQ(e.target.value)} placeholder="Nom ou matricule…" aria-label="Rechercher un élève"/></label>
-          {canExport && <><button type="button" className="ff-btn primary" onClick={() => void print(false)} disabled={!d.counts.not_in_order}><NavGlyph g="print" size={17}/>Liste à emporter en classe</button>
-            <button type="button" className="ff-btn" onClick={() => void print(true)}><NavGlyph g="doc" size={17}/>Toute la classe</button><button type="button" className="ff-btn" onClick={() => void excel()}><NavGlyph g="sheet" size={17}/>Excel</button></>}
+          {canExport && <div className="ff-actions" aria-label="Actions d’export"><button type="button" className="ff-btn primary" onClick={() => void print(false)} disabled={!d.counts.not_in_order}><NavGlyph g="print" size={17}/>Liste des non-régularisés</button>
+            <button type="button" className="ff-btn" onClick={() => void print(true)}><NavGlyph g="doc" size={17}/>Situation de toute la classe</button><button type="button" className="ff-btn" onClick={() => void excel()}><NavGlyph g="sheet" size={17}/>Exporter vers Excel</button></div>}
         </div>
         <div className="ff-table" role="table" aria-label="Situation des élèves">
           <div className="ff-row ff-th" role="row"><span>Élève</span><span>Situation</span><span>Reste dû</span><span>Périodes non réglées</span></div>

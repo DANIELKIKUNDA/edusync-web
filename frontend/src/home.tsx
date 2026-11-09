@@ -157,7 +157,7 @@ function Movements({common,token,yearId}:{common:Common;token:string;yearId?:str
 // Real recovery chart (owner, 2026-10-24): rate and amounts per due period, aligned, one currency at a time.
 function Recovery({common,token,yearId}:{common:Common;token:string;yearId?:string}){
   return <Card level="info" wide icon={common.icon} title={common.title} index={common.index}><RecoveryChart token={token} yearId={yearId} onOpen={common.onClick}/></Card>}
-function ByFee({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>feeTrackingOverview(token,yearId,'CDF'),[token,yearId]);
+function ByFee({common,token,yearId}:{common:Common;token:string;yearId?:string}){const s=useData(()=>feeTrackingOverview(token,{yearId,currency:'CDF'}),[token,yearId]);
   return <Card level="secondary" {...common}><Async s={s}>{(d:any)=><ul className="ui-list">{(d?.items??[]).slice(0,5).map((x:any,i:number)=><li key={x.category_id??i}><b>{x.category_label??x.label}</b><small>reste {money(x.remaining)} FC</small></li>)}</ul>}</Async></Card>}
 function FinancialDecisions({common,token}:{common:Common;token:string}){const s=useData(()=>financeDecisions(token,'ACTIVE'),[token]);
   return <Card level="secondary" {...common}><Async s={s}>{d=>{const items=d.items??[];return <><p className="ui-card-value">{n(items.length)}<small>{items.length>1?'décisions actives':'décision active'}</small></p>
