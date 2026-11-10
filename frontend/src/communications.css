@@ -42,10 +42,12 @@
 .commChips,.commStatuses{display:flex;gap:6px;flex-wrap:wrap}
 .commChips em,.commStatuses i{font-style:normal;font-size:.78rem;padding:2px 8px;border-radius:999px;background:var(--surface-2,#eef2f7)}
 .commErr{color:#a3290f}
+.commAvailable{display:block;color:var(--success,#067647)!important;line-height:1.45;margin-top:.3rem}
 .commDeliveries{padding:0 14px 12px}
 .commDeliveries li,.commLedger li{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line,#eef2f7)}
 .commDeliveries li span,.commLedger li span{display:grid;min-width:0;overflow-wrap:anywhere}
 .commDeliveries small,.commLedger small{color:var(--muted,#5b6b82)}
+.commDeliveries>li>span.st-CANCELLED small,.commDeliveries>li>span.st-FAILED_PERMANENT small,.commDeliveries>li>span.st-FAILED_RETRYABLE small{display:block;max-width:34rem;margin-top:.2rem;color:var(--muted,#5b6b82);font-weight:400;line-height:1.35}
 .st-SENT,.st-DELIVERED{color:#0f6b3a}
 .st-FAILED_PERMANENT{color:#a3290f}
 .st-FAILED_RETRYABLE,.st-PROCESSING,.st-QUEUED{color:#8a4b00}
