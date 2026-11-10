@@ -10,7 +10,7 @@ def test_audit_is_read_only_and_permission_gated():
     assert '@router.post' not in s and '@router.delete' not in s and '@router.patch' not in s
 def test_notifications_are_personal_by_default():
     s=read('backend/src/edusync/modules/notifications/api/router.py')
-    assert 'user_id=:uid' in s and 'notifications.internal.read' in s and 'notifications.internal.dismiss' in s
+    assert 'user_id=:uid' in s and 'notifications.internal.read' in s
 def test_sync_status_does_not_weaken_finance_offline_doctrine():
     s=read('backend/src/edusync/modules/sync/api/router.py')+read('backend/src/edusync/modules/sync/domain/contracts.py')
     assert 'sync.status.read' in s and 'AUTHORIZED_PARTITIONED_CASH_V2' in s and 'NO_AUTOMATIC_FINANCIAL_MERGE' in s

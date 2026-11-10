@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {inboxList, inboxRead, inboxReadAll, type InboxItem, type InboxScope} from '../api';
 import {friendlyError} from './errors';
 import {NavGlyph} from './nav_icons';
@@ -24,7 +25,7 @@ function when(iso: string) {
 function safeLink(path: string | null) { return path && /^\/[A-Za-z0-9/_?=&.-]*$/.test(path) && !path.startsWith('//') ? path : null; }
 
 /** Also used as the recipient preview of the composer (same component as the real bell). */
-export function Item({n, onRead, canRead}: {n: InboxItem; onRead: (n: InboxItem) => void; canRead: boolean}) {
+export function Item({n, onRead, onOpen, canRead = true}: {n: InboxItem; onRead: (n: InboxItem) => void; onOpen?: (n: InboxItem, path: string) => void; canRead?:boolean}) {
   const sev = SEV[n.severity] || SEV.INFO; const link = safeLink(n.link_path);
   return <li className={`nc-item ${n.read_at ? '' : 'nc-unread'} ${sev.cls}`}>
     <span className="nc-sev" aria-hidden="true"><NavGlyph g={sev.icon} size={16}/></span>
@@ -33,14 +34,14 @@ export function Item({n, onRead, canRead}: {n: InboxItem; onRead: (n: InboxItem)
       <p>{n.body}</p>
       <small>{ORIGIN[n.category] ? `${ORIGIN[n.category]} · ` : ''}{sev.label} · {when(n.created_at)}{n.expires_at ? ` · expire le ${new Date(n.expires_at).toLocaleDateString('fr-FR')}` : ''}</small>
       <span className="nc-acts">
-        {link && <a className="es-btn es-btn-ghost" href={link} onClick={e => {e.preventDefault();if(!n.read_at&&canRead)void onRead(n);window.dispatchEvent(new CustomEvent('edusync:navigate',{detail:{path:link}}));}}>Ouvrir</a>}
+        {link && onOpen && <a className="es-btn es-btn-primary" href={link} onClick={e => {e.preventDefault();onOpen(n,link);}}>Ouvrir</a>}
         {!n.read_at && canRead && <button className="es-btn es-btn-ghost" onClick={() => onRead(n)}>Marquer comme lue</button>}
       </span>
     </div>
   </li>;
 }
 
-export function NotificationCenterDialog({token, scope, canRead, onClose, onChanged}: {token: string; scope: InboxScope; canRead: boolean; onClose: () => void; onChanged: () => void}) {
+export function NotificationCenterDialog({token, scope, onClose, onChanged, onOpen}: {token: string; scope: InboxScope; onClose: () => void; onChanged: () => void; onOpen:(n:InboxItem,path:string)=>void}) {
   const [status, setStatus] = useState<'all' | 'unread' | 'read'>('all');
   const [severity, setSeverity] = useState('');
   const [items, setItems] = useState<InboxItem[] | null>(null);
@@ -60,7 +61,7 @@ export function NotificationCenterDialog({token, scope, canRead, onClose, onChan
   }, []);
   async function read(n: InboxItem) { try { await inboxRead(token, scope, n.id); await load(); onChanged(); } catch (e) { setError(friendlyError(e)); } }
   async function readAll() { try { await inboxReadAll(token, scope); await load(); onChanged(); } catch (e) { setError(friendlyError(e)); } }
-  return <div className="es-modal-backdrop" onMouseDown={e => e.currentTarget === e.target && onClose()}>
+  return createPortal(<div className="es-modal-backdrop nc-backdrop" onPointerDown={e => e.currentTarget === e.target && onClose()}>
     <div className="es-modal es-modal-wide nc-center" role="dialog" aria-modal="true" aria-labelledby="nc-title" ref={ref}>
       <div className="es-modal-head"><div><h2 id="nc-title">Notifications</h2><p>{unread ? `${unread} non lue(s)` : 'Tout est lu'}</p></div>
         <button className="es-icon-btn" aria-label="Fermer" onClick={onClose}><NavGlyph g="close" size={18}/></button></div>
@@ -69,14 +70,14 @@ export function NotificationCenterDialog({token, scope, canRead, onClose, onChan
           {(['all', 'unread', 'read'] as const).map(s => <button key={s} role="tab" aria-selected={status === s} className={status === s ? 'es-on' : ''} onClick={() => setStatus(s)}>{s === 'all' ? 'Toutes' : s === 'unread' ? 'Non lues' : 'Lues'}</button>)}
         </div>
         <select aria-label="Filtrer par gravité" value={severity} onChange={e => setSeverity(e.target.value)}><option value="">Toutes gravités</option><option value="INFO">Information</option><option value="WARNING">Avertissement</option><option value="CRITICAL">Critique</option></select>
-        {unread > 0 && canRead && <button className="es-btn" onClick={() => void readAll()}>Tout marquer comme lu</button>}
+        {unread > 0 && <button className="es-btn" onClick={() => void readAll()}>Tout marquer comme lu</button>}
       </div>
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       {items === null ? <div className="es-skeleton" aria-busy="true"><i/><i/><i/></div> : items.length === 0 ? <div className="es-empty">Aucune notification.</div> :
-        <ul className="nc-list">{items.map(n => <Item key={n.id} n={n} onRead={read} canRead={canRead}/>)}</ul>}
+        <ul className="nc-list">{items.map(n => <Item key={n.id} n={n} onRead={read} onOpen={onOpen}/>)}</ul>}
       {cursor && <button className="es-btn es-btn-ghost nc-more" onClick={() => void load(true)}>Charger plus</button>}
     </div>
-  </div>;
+  </div>, document.body);
 }
 
 /** Real-time "inbox changed" signals (Server-Sent Events read with fetch so the access token travels in the
@@ -110,7 +111,7 @@ function useInboxStream(token: string, scope: InboxScope, onChange: () => void) 
 }
 
 /** Bell with unread counter and quick panel; "Voir tout" opens the full notification center. */
-export function NotificationBell({token, canDismiss, scope = 'school'}: {token: string; canDismiss: boolean; scope?: InboxScope}) {
+export function NotificationBell({token, scope = 'school'}: {token: string; canDismiss?: boolean; scope?: InboxScope}) {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -128,16 +129,24 @@ export function NotificationBell({token, canDismiss, scope = 'school'}: {token: 
     return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
   }, [open]);
   async function read(n: InboxItem) { try { await inboxRead(token, scope, n.id); await load(); } catch { /* reste non lue */ } }
+  function openItem(n:InboxItem,path:string){
+    setOpen(false);setCenter(false);
+    if(!n.read_at)void read(n);
+    window.dispatchEvent(new CustomEvent('edusync:navigate',{detail:{path}}));
+    const q=new URLSearchParams(path.split('?')[1]||'');
+    const financeTarget=q.get('view')||q.get('tab');
+    if(path.startsWith('/finance')&&financeTarget)window.setTimeout(()=>window.dispatchEvent(new CustomEvent('edusync:finance-target',{detail:financeTarget==='receipts'?'cash':financeTarget})),0);
+  }
   return <div className="es-account nc-bell" ref={ref}>
     <button className="es-icon-btn" aria-label={unread ? `Notifications, ${unread} non lue(s)` : 'Notifications'} aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(x => !x)}>
       <NavGlyph g="bell" size={18}/>{unread > 0 && <span className="es-badge" aria-hidden="true">{unread > 9 ? '9+' : unread}</span>}
     </button>
     {open && <div className="es-pop nc-pop" role="dialog" aria-label="Notifications récentes">
-      <div className="es-pop-head"><span>Notifications</span>{unread > 0 && canDismiss ? <button className="nc-link" onClick={async () => { await inboxReadAll(token, scope); await load(); }}>Tout marquer comme lu</button> : unread > 0 ? <small>{unread} non lue(s)</small> : null}</div>
+      <div className="es-pop-head"><span>Notifications</span>{unread > 0 ? <button className="nc-link" onClick={async () => { await inboxReadAll(token, scope); await load(); }}>Tout marquer comme lu</button> : <small>Tout est lu</small>}</div>
       {failed ? <div className="es-pop-empty">Notifications momentanément indisponibles.</div> : items.length === 0 ? <div className="es-pop-empty">Aucune notification.</div> :
-        <ul className="nc-list nc-list-compact">{items.map(n => <Item key={n.id} n={n} onRead={read} canRead={canDismiss}/>)}</ul>}
+        <ul className="nc-list nc-list-compact">{items.slice(0,4).map(n => <Item key={n.id} n={n} onRead={read} onOpen={openItem}/>)}</ul>}
       <button className="nc-all" onClick={() => { setOpen(false); setCenter(true); }}>Voir toutes les notifications</button>
     </div>}
-    {center && <NotificationCenterDialog token={token} scope={scope} canRead={canDismiss} onClose={() => setCenter(false)} onChanged={() => void load()}/>}
+    {center && <NotificationCenterDialog token={token} scope={scope} onClose={() => setCenter(false)} onChanged={() => void load()} onOpen={openItem}/>}
   </div>;
 }
