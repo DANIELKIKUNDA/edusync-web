@@ -187,7 +187,9 @@ async function probe(){
   // The question is « is the server reachable? ». A JSON health answer must say ok; an origin without the health route (the
   // dev server answers its index page) still proves the network is there. 5xx (backend down behind nginx) is a failure.
   const json=r.headers.get('Content-Type')?.includes('application/json');const healthy=r.ok&&(json?(await r.json().catch(()=>null))?.status==='ok':true);healthy?success():failure()}catch{failure()}finally{probing=false;offlineBeats=snap.state==='OFFLINE'?offlineBeats+1:0;
-  if(probeTimer===undefined)probeSoon(snap.state==='ONLINE'?30_000:snap.state==='OFFLINE'?Math.min(30_000,5_000*2**Math.min(offlineBeats-1,3))+Math.random()*1_000:2_500)}}
+  // Chrome/PWA does not always emit `online` after a laptop wake-up. Retry quickly at first (1 s, 2 s, 4 s…), then
+  // progressively back off to 30 s so recovery is prompt without draining a phone that remains offline.
+  if(probeTimer===undefined)probeSoon(snap.state==='ONLINE'?30_000:snap.state==='OFFLINE'?Math.min(30_000,1_000*2**Math.min(offlineBeats-1,5))+Math.random()*500:2_500)}}
 function probeSoon(ms:number){if(!probeStarted)return;if(probeTimer!==undefined)clearTimeout(probeTimer);probeTimer=setTimeout(()=>{probeTimer=undefined;void probe()},ms)}
 function startHealthProbe(){if(probeStarted)return;probeStarted=true;if(probeTimer===undefined)probeSoon(5_000)}
 export function connectivityLabel(s:ConnectivityState){return s==='ONLINE'?'En ligne':s==='DEGRADED'?'Connexion instable':s==='SUSPECTED_OFFLINE'?'Vérification du réseau…':s==='RECOVERING'?'Reconnexion…':'Hors ligne'}
