@@ -38,8 +38,7 @@ it('a one-second network drop never switches the app offline; a real loss does, 
   expect(c.getConnectivity().state).toBe('OFFLINE');               // confirmed after several failed probes
   up = true; window.dispatchEvent(new Event('online'));
   await vi.advanceTimersByTimeAsync(100);
-  expect(c.getConnectivity().state).toBe('RECOVERING');            // one answer is not enough after a confirmed loss
-  await vi.advanceTimersByTimeAsync(2_000);
+  // Native `online` plus one successful server health check restores the UI without waiting for a frozen old probe.
   expect(c.getConnectivity().state).toBe('ONLINE');
   vi.useRealTimers(); vi.unstubAllGlobals();
 });

@@ -41,7 +41,7 @@ import {AccessDirectory,ACCESS_URL_KEYS,type AccessPreset} from './platform/iden
 import {SchoolFormDialog} from './platform/school_sheet';
 import {usePlatformTheme,type ThemePref} from './platform/theme';
 import {useReducedMotion} from './platform/personal_preferences';
-import {setStepUpHandler} from './platform/connectivity';
+import {refreshAccessSession,setStepUpHandler} from './platform/connectivity';
 import {fetchSpaces,OfflineAdminBanner,rememberSpace,SpaceRecovery,spaceKey,SpaceSwitcher,type SpacesState} from './platform/spaces';
 const TeamPage=lazyPage(()=>import('./platform/team').then(m=>({default:m.TeamPage})));
 type TeamPreset={openMember?:string;addExisting?:{id:string;full_name:string;email:string};nonce:number};
@@ -422,7 +422,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
       // Never wait forever for the session service: after 10 s the cached context or the sign-in screen is shown.
       const ctl=new AbortController();const timer=window.setTimeout(()=>ctl.abort(),10000);
       try{
-        const r=await fetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal:ctl.signal});
+        const r=await refreshAccessSession(ctl.signal);
         if(!alive)return;
         if(!r.ok){
           if(r.status===401 || r.status===403){

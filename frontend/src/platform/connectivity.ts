@@ -36,7 +36,21 @@ function suspected(){return (typeof navigator!=='undefined'&&navigator.onLine===
 function confirmedOffline(){return !!knownContext()&&(getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'||snap.state==='OFFLINE')}
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 function retryable(input:RequestInfo|URL,init?:RequestInit){const method=(init?.method||((input as Request)?.method)||'GET').toUpperCase();if(method==='GET'||method==='HEAD')return true;const h=new Headers(init?.headers);return h.has('Idempotency-Key')}
-let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{const r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store'});if(!r.ok){/* the space of the session may have been withdrawn: the app checks the other spaces of the identity */if(r.status===401)window.dispatchEvent(new CustomEvent('edusync:space-check'));return null}const data=await r.json();const token=String(data.access_token||'');if(token){window.dispatchEvent(new CustomEvent('edusync:token-refreshed',{detail:{token,scope:data.scope}}));return token}return null}catch{return null}finally{refreshing=null}})();return refreshing}
+async function doRefresh(signal?:AbortSignal){
+  let r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal});
+  // A request frozen by Chrome may resume with the preceding cookie after another tab/PWA has rotated it. The server
+  // deliberately keeps the device session alive; retry once so the browser sends its current cookie.
+  if(r.status===409&&r.headers.get('X-EduSync-Session')==='STALE_REFRESH'){
+    await sleep(120);r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal});
+  }
+  return r;
+}
+/** One refresh at a time across Chrome tabs and the installed PWA (Web Locks is origin-wide). */
+export async function refreshAccessSession(signal?:AbortSignal):Promise<Response>{
+  const locks=typeof navigator!=='undefined'?navigator.locks:undefined;
+  return locks?locks.request('edusync-session-refresh',()=>doRefresh(signal)):doRefresh(signal);
+}
+let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{const r=await refreshAccessSession();if(!r.ok){/* the space of the session may have been withdrawn: the app checks the other spaces of the identity */if(r.status===401)window.dispatchEvent(new CustomEvent('edusync:space-check'));return null}const data=await r.json();const token=String(data.access_token||'');if(token){setPlatformAuthState('ONLINE_AUTHENTICATED');window.dispatchEvent(new CustomEvent('edusync:token-refreshed',{detail:{token,scope:data.scope}}));return token}return null}catch{return null}finally{refreshing=null}})();return refreshing}
 /* Write activity (POST/PUT/PATCH/DELETE to the API): what the status chip reports to the user.
    Nothing is queued offline here; a failed write is reported as not sent. */
 export type WriteActivity={pending:number;retrying:boolean;last:'none'|'ok'|'failed';at:number};
@@ -145,9 +159,22 @@ export function installResilientFetch(){
   if(!installed){installed=true;
     // The browser signal is a hint, never the verdict: it starts a check, the probes decide.
     window.addEventListener('offline',()=>{failure();probeSoon(0)});
-    window.addEventListener('online',()=>probeSoon(0));
+    window.addEventListener('online',()=>{
+      // A native `online` event is still only a hint, but combined with one successful health request it is sufficient to
+      // leave confirmed offline mode. This avoids keeping the interface read-only while a second probe is delayed by a
+      // request that the browser froze during sleep.
+      if(snap.state==='OFFLINE'||snap.state==='RECOVERING')snap={...snap,successes:RECOVER_SUCCESSES-1};
+      probeSoon(0);
+      if(knownContext())void renewAccess();
+    });
     // Back to the app (phone unlocked, tab shown): check at once instead of waiting for the next beat.
-    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&snap.state!=='ONLINE')probeSoon(0)});
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){
+      if(snap.state!=='ONLINE')probeSoon(0);
+      // A wake-up is a session-resume event even when Chrome still reports the network as online.
+      // Do not start a refresh while the app already knows it is offline: a frozen request would occupy the cross-tab lock
+      // and delay the real restoration when the network returns.
+      if(knownContext()&&snap.state==='ONLINE'&&navigator.onLine!==false)void renewAccess();
+    }});
     if(navigator.onLine===false){failure();probeSoon(0)}
   }
 }
@@ -156,11 +183,16 @@ export function subscribeConnectivity(fn:(s:Snapshot)=>void){listeners.add(fn);f
 /* Heartbeat: every 30 s when online; every 2.5 s while checking a suspicion (so the verdict comes in ~10 s); when offline,
    exponential backoff with jitter (5 s → 30 s) so a phone without network does not drain its battery. */
 let probeStarted=false,probeTimer:ReturnType<typeof setTimeout>|undefined,probing=false,offlineBeats=0;
-async function probe(){if(probing)return;probing=true;try{const c=new AbortController();const t=setTimeout(()=>c.abort(),6_000);const r=await nativeFetch('/health-api',{cache:'no-store',signal:c.signal});clearTimeout(t);
+async function probe(){
+  // The browser can announce `online` while an old offline probe is still waiting for its timeout. Keep retrying briefly
+  // instead of losing that wake-up signal; otherwise the offline banner can remain visible for another full backoff cycle.
+  if(probing){probeSoon(250);return}probing=true;try{const c=new AbortController();const t=setTimeout(()=>c.abort(),6_000);const r=await nativeFetch('/health-api',{cache:'no-store',signal:c.signal});clearTimeout(t);
   // The question is « is the server reachable? ». A JSON health answer must say ok; an origin without the health route (the
   // dev server answers its index page) still proves the network is there. 5xx (backend down behind nginx) is a failure.
   const json=r.headers.get('Content-Type')?.includes('application/json');const healthy=r.ok&&(json?(await r.json().catch(()=>null))?.status==='ok':true);healthy?success():failure()}catch{failure()}finally{probing=false;offlineBeats=snap.state==='OFFLINE'?offlineBeats+1:0;
-  if(probeTimer===undefined)probeSoon(snap.state==='ONLINE'?30_000:snap.state==='OFFLINE'?Math.min(30_000,5_000*2**Math.min(offlineBeats-1,3))+Math.random()*1_000:2_500)}}
+  // Chrome/PWA does not always emit `online` after a laptop wake-up. Retry quickly at first (1 s, 2 s, 4 s…), then
+  // progressively back off to 30 s so recovery is prompt without draining a phone that remains offline.
+  if(probeTimer===undefined)probeSoon(snap.state==='ONLINE'?30_000:snap.state==='OFFLINE'?Math.min(30_000,1_000*2**Math.min(offlineBeats-1,5))+Math.random()*500:2_500)}}
 function probeSoon(ms:number){if(!probeStarted)return;if(probeTimer!==undefined)clearTimeout(probeTimer);probeTimer=setTimeout(()=>{probeTimer=undefined;void probe()},ms)}
 function startHealthProbe(){if(probeStarted)return;probeStarted=true;if(probeTimer===undefined)probeSoon(5_000)}
 export function connectivityLabel(s:ConnectivityState){return s==='ONLINE'?'En ligne':s==='DEGRADED'?'Connexion instable':s==='SUSPECTED_OFFLINE'?'Vérification du réseau…':s==='RECOVERING'?'Reconnexion…':'Hors ligne'}
