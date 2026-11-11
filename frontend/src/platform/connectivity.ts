@@ -159,7 +159,13 @@ export function installResilientFetch(){
   if(!installed){installed=true;
     // The browser signal is a hint, never the verdict: it starts a check, the probes decide.
     window.addEventListener('offline',()=>{failure();probeSoon(0)});
-    window.addEventListener('online',()=>probeSoon(0));
+    window.addEventListener('online',()=>{
+      // A native `online` event is still only a hint, but combined with one successful health request it is sufficient to
+      // leave confirmed offline mode. This avoids keeping the interface read-only while a second probe is delayed by a
+      // request that the browser froze during sleep.
+      if(snap.state==='OFFLINE'||snap.state==='RECOVERING')snap={...snap,successes:RECOVER_SUCCESSES-1};
+      probeSoon(0);
+    });
     // Back to the app (phone unlocked, tab shown): check at once instead of waiting for the next beat.
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){
       if(snap.state!=='ONLINE')probeSoon(0);
