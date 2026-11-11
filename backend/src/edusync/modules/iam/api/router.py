@@ -671,6 +671,8 @@ def accept_invitation(body: LinkPasswordInput, request: Request, response: Respo
 
 @router.post('/refresh')
 def refresh_session(request:Request,response:Response,services:AppServices=Depends(get_services)):
+    # Compatibility note: ROTATED_TOKEN_REUSED was the former false-positive revocation reason. It is deliberately no
+    # longer emitted: a stale rotated credential is refused without destroying the legitimate Chrome/PWA session.
     _assert_same_origin(request, services)
     raw=request.cookies.get(services.settings.persistent_session_cookie)
     if not raw: raise HTTPException(401,'Session à renouveler')
@@ -679,12 +681,12 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
     # Revocations must be committed before answering 401, so they are decided in their own transaction.
     with services.platform_db.platform_transaction() as conn:
         revoked=conn.execute(text("""UPDATE user_device_sessions SET revoked_at=now(),revoked_reason=CASE
-              WHEN token_hash<>:th THEN 'ROTATED_TOKEN_REUSED' WHEN expires_at<=now() THEN 'ABSOLUTE_EXPIRY' ELSE 'IDLE_TIMEOUT' END
+              WHEN expires_at<=now() THEN 'ABSOLUTE_EXPIRY' ELSE 'IDLE_TIMEOUT' END
             WHERE revoked_at IS NULL AND (
-              -- a rotated token replayed after its grace window: the cookie was copied, kill the whole session
-              (previous_token_hash=:th AND previous_valid_until<=now())
-              -- optional owner policies (disabled by default: no periodic re-authentication)
-              OR (token_hash=:th AND (expires_at<=now() OR (:idle>0 AND last_seen_at<=now()-make_interval(days=>:idle)))))
+              -- Optional owner policies (disabled by default: no periodic re-authentication). A late request carrying
+              -- the preceding token is NOT a revocation signal: Chrome/PWA can freeze an in-flight request during sleep
+              -- and resume it after the rotation grace period. Revoking here turned a normal wake-up into a logout.
+              token_hash=:th AND (expires_at<=now() OR (:idle>0 AND last_seen_at<=now()-make_interval(days=>:idle))))
             RETURNING id"""),{'th':th,'idle':cfg.session_idle_days}).first()
     if revoked:
         denied=JSONResponse(status_code=401,content={'detail':'Session à renouveler'})
@@ -694,7 +696,16 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
         row=conn.execute(text("""SELECT s.*,u.active,u.version current_user_version,u.is_platform_admin,(s.token_hash=:th) current_token
             FROM user_device_sessions s JOIN users u ON u.id=s.user_id
             WHERE s.revoked_at IS NULL AND (s.expires_at IS NULL OR s.expires_at>now()) AND (s.token_hash=:th OR (s.previous_token_hash=:th AND s.previous_valid_until>now())) FOR UPDATE OF s"""),{'th':th}).mappings().first()
-        if not row: raise HTTPException(401,'Session à renouveler')
+        if not row:
+            # A concurrent tab/PWA may have rotated the cookie while this frozen Chrome request was suspended. Tell the
+            # client to retry with the cookie currently held by the browser; do not revoke the valid device session and
+            # do not delete a newer cookie from a response to an older request.
+            stale=conn.execute(text("""SELECT 1 FROM user_device_sessions WHERE revoked_at IS NULL
+                AND previous_token_hash=:th AND previous_valid_until<=now() LIMIT 1"""),{'th':th}).first()
+            if stale:
+                return JSONResponse(status_code=409,content={'detail':{'code':'STALE_REFRESH','message':'Renouvellement repris après la veille'}},
+                                    headers={'X-EduSync-Session':'STALE_REFRESH','Retry-After':'0'})
+            raise HTTPException(401,'Session à renouveler')
         if not row['active'] or int(row['user_version'])!=int(row['current_user_version']): raise HTTPException(401,'Session à renouveler')
         claims={'scope':'platform','user_version':row['current_user_version'],'sid':str(row['id'])}
         if row['school_id']:
