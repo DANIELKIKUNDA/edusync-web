@@ -174,7 +174,10 @@ export function subscribeConnectivity(fn:(s:Snapshot)=>void){listeners.add(fn);f
 /* Heartbeat: every 30 s when online; every 2.5 s while checking a suspicion (so the verdict comes in ~10 s); when offline,
    exponential backoff with jitter (5 s → 30 s) so a phone without network does not drain its battery. */
 let probeStarted=false,probeTimer:ReturnType<typeof setTimeout>|undefined,probing=false,offlineBeats=0;
-async function probe(){if(probing)return;probing=true;try{const c=new AbortController();const t=setTimeout(()=>c.abort(),6_000);const r=await nativeFetch('/health-api',{cache:'no-store',signal:c.signal});clearTimeout(t);
+async function probe(){
+  // The browser can announce `online` while an old offline probe is still waiting for its timeout. Keep retrying briefly
+  // instead of losing that wake-up signal; otherwise the offline banner can remain visible for another full backoff cycle.
+  if(probing){probeSoon(250);return}probing=true;try{const c=new AbortController();const t=setTimeout(()=>c.abort(),6_000);const r=await nativeFetch('/health-api',{cache:'no-store',signal:c.signal});clearTimeout(t);
   // The question is « is the server reachable? ». A JSON health answer must say ok; an origin without the health route (the
   // dev server answers its index page) still proves the network is there. 5xx (backend down behind nginx) is a failure.
   const json=r.headers.get('Content-Type')?.includes('application/json');const healthy=r.ok&&(json?(await r.json().catch(()=>null))?.status==='ok':true);healthy?success():failure()}catch{failure()}finally{probing=false;offlineBeats=snap.state==='OFFLINE'?offlineBeats+1:0;
