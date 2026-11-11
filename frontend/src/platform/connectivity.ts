@@ -50,7 +50,7 @@ export async function refreshAccessSession(signal?:AbortSignal):Promise<Response
   const locks=typeof navigator!=='undefined'?navigator.locks:undefined;
   return locks?locks.request('edusync-session-refresh',()=>doRefresh(signal)):doRefresh(signal);
 }
-let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{const r=await refreshAccessSession();if(!r.ok){/* the space of the session may have been withdrawn: the app checks the other spaces of the identity */if(r.status===401)window.dispatchEvent(new CustomEvent('edusync:space-check'));return null}const data=await r.json();const token=String(data.access_token||'');if(token){window.dispatchEvent(new CustomEvent('edusync:token-refreshed',{detail:{token,scope:data.scope}}));return token}return null}catch{return null}finally{refreshing=null}})();return refreshing}
+let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{const r=await refreshAccessSession();if(!r.ok){/* the space of the session may have been withdrawn: the app checks the other spaces of the identity */if(r.status===401)window.dispatchEvent(new CustomEvent('edusync:space-check'));return null}const data=await r.json();const token=String(data.access_token||'');if(token){setPlatformAuthState('ONLINE_AUTHENTICATED');window.dispatchEvent(new CustomEvent('edusync:token-refreshed',{detail:{token,scope:data.scope}}));return token}return null}catch{return null}finally{refreshing=null}})();return refreshing}
 /* Write activity (POST/PUT/PATCH/DELETE to the API): what the status chip reports to the user.
    Nothing is queued offline here; a failed write is reported as not sent. */
 export type WriteActivity={pending:number;retrying:boolean;last:'none'|'ok'|'failed';at:number};
@@ -165,6 +165,7 @@ export function installResilientFetch(){
       // request that the browser froze during sleep.
       if(snap.state==='OFFLINE'||snap.state==='RECOVERING')snap={...snap,successes:RECOVER_SUCCESSES-1};
       probeSoon(0);
+      if(knownContext())void renewAccess();
     });
     // Back to the app (phone unlocked, tab shown): check at once instead of waiting for the next beat.
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){
