@@ -170,7 +170,9 @@ export function installResilientFetch(){
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){
       if(snap.state!=='ONLINE')probeSoon(0);
       // A wake-up is a session-resume event even when Chrome still reports the network as online.
-      if(knownContext())void renewAccess();
+      // Do not start a refresh while the app already knows it is offline: a frozen request would occupy the cross-tab lock
+      // and delay the real restoration when the network returns.
+      if(knownContext()&&snap.state==='ONLINE'&&navigator.onLine!==false)void renewAccess();
     }});
     if(navigator.onLine===false){failure();probeSoon(0)}
   }
