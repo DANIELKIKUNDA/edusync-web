@@ -1,0 +1,339 @@
+# EduSync — PRODUCTION sur Coolify 4.4.x (application « Docker Compose » depuis ce dépôt), domaine app.myeducsync.com.
+# Guide complet : deploy/coolify/README.md. Le staging (deploy/staging) et docker-compose.yml ne sont pas concernés.
+#
+# Principes (audit 2026-11-12) :
+#  - Aucune compilation sur le VPS : images CI certifiées (ghcr.io, étiquette = SHA complet validé CI + staging + E2E)
+#    et images d'infrastructure épinglées par empreinte (mêmes que le contrôleur de déploiement du staging).
+#  - Une seule variable obligatoire : EDUSYNC_RELEASE_SHA. Aucun « required » fictif, aucune URL à recopier à la main.
+#  - Coolify v4 injecte TOUTES les variables de la ressource dans TOUS les conteneurs (issue coollabsio/coolify#7655,
+#    corrigée seulement en v5) : aucun secret généré ne passe donc par les variables Coolify. « secrets-init » les crée
+#    une fois dans deux volumes ; chaque service ne monte que ce qu'il lui faut (le mot de passe propriétaire
+#    PostgreSQL n'est jamais visible de l'API ni des workers) et ne lit que ses propres fichiers.
+#  - Traefik (proxy de Coolify) termine le HTTPS : pas de Caddy, aucun port publié. Le domaine se règle dans Coolify
+#    sur le service « frontend », port 80.
+#  - Journaux Docker bornés (3 × 10 Mo par service) : le disque du VPS ne se remplit pas.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Réglages non secrets, identiques pour l'API, le migrateur et les workers (visibles dans Coolify, modifiables).
+x-app-env: &app-env
+  EDUSYNC_ENV: production
+  EDUSYNC_REDIS_URL: redis://redis:6379/0
+  EDUSYNC_CORS_ORIGINS: https://${EDUSYNC_DOMAIN:-app.myeducsync.com}
+  # Domaine public + localhost (contrôle de santé interne du conteneur API).
+  EDUSYNC_TRUSTED_HOSTS: ${EDUSYNC_DOMAIN:-app.myeducsync.com},localhost,127.0.0.1
+  EDUSYNC_PUBLIC_APP_URL: https://${EDUSYNC_DOMAIN:-app.myeducsync.com}
+  EDUSYNC_JWT_ISSUER: edusync
+  EDUSYNC_JWT_AUDIENCE: edusync-web
+  EDUSYNC_ACCESS_TOKEN_MINUTES: ${EDUSYNC_ACCESS_TOKEN_MINUTES:-30}
+  EDUSYNC_OFFLINE_FINANCE_ENABLED: ${EDUSYNC_OFFLINE_FINANCE_ENABLED:-false}
+  EDUSYNC_OFFLINE_FINANCE_CERTIFIED: ${EDUSYNC_OFFLINE_FINANCE_CERTIFIED:-false}
+  EDUSYNC_OBJECT_STORAGE_BACKEND: s3
+  EDUSYNC_OBJECT_STORAGE_ENDPOINT: http://object-storage:8333
+  EDUSYNC_OBJECT_STORAGE_BUCKET: edusync-documents
+  EDUSYNC_OBJECT_STORAGE_REGION: us-east-1
+  EDUSYNC_OBJECT_STORAGE_PATH_STYLE: "true"
+  # Messagerie : désactivée tant que les comptes réels ne sont pas fournis (deploy/coolify/README.md §6).
+  EDUSYNC_EMAIL_PROVIDER: ${EDUSYNC_EMAIL_PROVIDER:-disabled}
+  EDUSYNC_SMTP_HOST: ${EDUSYNC_SMTP_HOST:-}
+  EDUSYNC_SMTP_PORT: ${EDUSYNC_SMTP_PORT:-587}
+  EDUSYNC_SMTP_FROM_EMAIL: ${EDUSYNC_SMTP_FROM_EMAIL:-}
+  EDUSYNC_SMTP_FROM_NAME: ${EDUSYNC_SMTP_FROM_NAME:-EduSync}
+  EDUSYNC_SMTP_SECURITY: ${EDUSYNC_SMTP_SECURITY:-starttls}
+  EDUSYNC_PUSH_PROVIDER: ${EDUSYNC_PUSH_PROVIDER:-disabled}
+  EDUSYNC_FCM_WEB_CONFIG_JSON: ${EDUSYNC_FCM_WEB_CONFIG_JSON:-}
+  EDUSYNC_FCM_VAPID_PUBLIC_KEY: ${EDUSYNC_FCM_VAPID_PUBLIC_KEY:-}
+  EDUSYNC_SMS_PROVIDER: ${EDUSYNC_SMS_PROVIDER:-disabled}
+
+# Lecture des secrets générés : chaque commande définit s() (lit un fichier de /run/edusync/app, échoue s'il manque)
+# et n'exporte que les secrets dont le service a besoin. Rien n'est affiché. Aucune expression « dollar-accolade » dans
+# les commandes : Coolify n'en tire aucune variable.
+
+services:
+  # Une fois au premier démarrage (puis vérification à chaque déploiement) : génère les secrets manquants, ne
+  # remplace jamais un secret existant, n'affiche rien.
+  secrets-init:
+    image: docker.io/library/postgres:16.15-alpine3.23@sha256:621a761097839bdb50207afd6b87a72f38e2d718dd46c3d744828d8917c4f1e0
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        umask 077
+        gen() { f="$$1/$$2"; [ -s "$$f" ] && return 0; head -c 64 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c "$$3" > "$$f.tmp"; [ "$$(wc -c < "$$f.tmp")" -eq "$$3" ]; mv "$$f.tmp" "$$f"; }
+        key32() { f="$$1/$$2"; [ -s "$$f" ] && return 0; head -c 32 /dev/urandom | base64 | tr -d '\n' > "$$f.tmp"; mv "$$f.tmp" "$$f"; }
+        gen /run/edusync/owner owner_password 48
+        for n in tenant_password platform_password worker_password s3_secret_key; do gen /run/edusync/app "$$n" 40; done
+        gen /run/edusync/app s3_access_key 20
+        gen /run/edusync/app jwt_secret 64
+        gen /run/edusync/app document_link_secret 64
+        key32 /run/edusync/app mfa_key
+        # PostgreSQL (uid 70) lit le mot de passe propriétaire ; les autres conteneurs tournent en root.
+        chown 70:70 /run/edusync/owner/owner_password && chmod 0400 /run/edusync/owner/owner_password
+        chmod 0444 /run/edusync/app/* && chmod 0755 /run/edusync/owner /run/edusync/app
+        echo "secrets EduSync : présents"
+    volumes:
+      - secrets_owner:/run/edusync/owner
+      - secrets_app:/run/edusync/app
+    restart: "no"
+    exclude_from_hc: true
+    logging: *logging
+
+  postgres:
+    image: docker.io/library/postgres:16.15-alpine3.23@sha256:621a761097839bdb50207afd6b87a72f38e2d718dd46c3d744828d8917c4f1e0
+    environment:
+      POSTGRES_DB: edusync
+      POSTGRES_USER: edusync_owner
+      POSTGRES_PASSWORD_FILE: /run/edusync/owner/owner_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - secrets_owner:/run/edusync/owner:ro
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edusync_owner -d edusync"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: docker.io/library/redis:7.4.11-alpine3.21@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    # noeviction : les messages en file (outbox, notifications) ne sont jamais perdus en silence.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+
+  # Stockage S3 privé des documents (SeaweedFS). Identité S3 générée au démarrage depuis les secrets, jamais commitée.
+  object-storage:
+    image: docker.io/chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        s() { test -s "/run/edusync/app/$$1" || { echo "secret manquant : $$1" >&2; return 1; }; cat "/run/edusync/app/$$1"; }
+        umask 077
+        S3KEY="$$(s s3_access_key)"; S3SECRET="$$(s s3_secret_key)"
+        printf '{"identities":[{"name":"edusync-app","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Read","Write","List","Tagging","Admin"]}]}' \
+          "$$S3KEY" "$$S3SECRET" > /tmp/s3.json
+        exec weed server -dir=/data -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    volumes:
+      - object_data:/data
+      - secrets_app:/run/edusync/app:ro
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    logging: *logging
+
+  # Migrations + rôles PostgreSQL à moindre privilège (edusync_tenant, edusync_platform, edusync_worker), à chaque
+  # déploiement, puis arrêt. Seul service applicatif qui voit le mot de passe propriétaire.
+  migrator:
+    image: ghcr.io/danielkikunda/edusync-backend:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
+    environment:
+      <<: *app-env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        s() { test -s "/run/edusync/app/$$1" || { echo "secret manquant : $$1" >&2; return 1; }; cat "/run/edusync/app/$$1"; }
+        OWNER="$$(cat /run/edusync/owner/owner_password)"; TENANT="$$(s tenant_password)"; PLATFORM="$$(s platform_password)"
+        WORKER="$$(s worker_password)"; JWT="$$(s jwt_secret)"; MFA="$$(s mfa_key)"
+        export EDUSYNC_OWNER_DATABASE_URL="postgresql+psycopg://edusync_owner:$$OWNER@postgres:5432/edusync"
+        export EDUSYNC_TENANT_DATABASE_URL="postgresql+psycopg://edusync_tenant:$$TENANT@postgres:5432/edusync"
+        export EDUSYNC_PLATFORM_DATABASE_URL="postgresql+psycopg://edusync_platform:$$PLATFORM@postgres:5432/edusync"
+        export EDUSYNC_WORKER_DATABASE_URL="postgresql+psycopg://edusync_worker:$$WORKER@postgres:5432/edusync"
+        export EDUSYNC_JWT_SECRET="$$JWT" EDUSYNC_MFA_ENCRYPTION_KEY="$$MFA"
+        python scripts/provision_database.py && python scripts/bootstrap_platform_admin.py
+    volumes:
+      - secrets_owner:/run/edusync/owner:ro
+      - secrets_app:/run/edusync/app:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    exclude_from_hc: true
+    logging: *logging
+
+  backend:
+    image: ghcr.io/danielkikunda/edusync-backend:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
+    environment:
+      <<: *app-env
+      # Premier Manager Système depuis la page de connexion : jeton à usage unique, visible dans Coolify, inutile
+      # dès qu'un manager existe (README §5).
+      EDUSYNC_SETUP_TOKEN: ${SERVICE_PASSWORD_64_SETUPTOKEN}
+      EDUSYNC_BACKUP_STATUS_FILE: /backup-status/last.json
+      EDUSYNC_ORANGE_SMS_CLIENT_ID: ${EDUSYNC_ORANGE_SMS_CLIENT_ID:-}
+      EDUSYNC_ORANGE_SMS_SENDER_ADDRESS: ${EDUSYNC_ORANGE_SMS_SENDER_ADDRESS:-}
+      EDUSYNC_ORANGE_SMS_SENDER_NAME: ${EDUSYNC_ORANGE_SMS_SENDER_NAME:-}
+      EDUSYNC_ORANGE_SMS_DR_SECRET: ${EDUSYNC_ORANGE_SMS_DR_SECRET:-}
+      EDUSYNC_ORANGE_SMS_DR_ALLOWED_IPS: ${EDUSYNC_ORANGE_SMS_DR_ALLOWED_IPS:-}
+      # 2 processus pour un VPS de 4 Go (Dockerfile) ; à augmenter seulement avec la mémoire.
+      WEB_CONCURRENCY: ${EDUSYNC_WEB_CONCURRENCY:-2}
+      # Chaîne Traefik → nginx → API : seuls des proxys sur les réseaux Docker privés sont crus pour X-Forwarded-For.
+      # uvicorn retient la première adresse NON privée en partant de la droite = le vrai client (le blocage des
+      # connexions par adresse IP reste par personne, jamais pour tout le monde). L'API ne publie aucun port.
+      FORWARDED_ALLOW_IPS: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        s() { test -s "/run/edusync/app/$$1" || { echo "secret manquant : $$1" >&2; return 1; }; cat "/run/edusync/app/$$1"; }
+        TENANT="$$(s tenant_password)"; PLATFORM="$$(s platform_password)"; JWT="$$(s jwt_secret)"; MFA="$$(s mfa_key)"
+        DOCLINK="$$(s document_link_secret)"; S3KEY="$$(s s3_access_key)"; S3SECRET="$$(s s3_secret_key)"
+        export EDUSYNC_TENANT_DATABASE_URL="postgresql+psycopg://edusync_tenant:$$TENANT@postgres:5432/edusync"
+        export EDUSYNC_PLATFORM_DATABASE_URL="postgresql+psycopg://edusync_platform:$$PLATFORM@postgres:5432/edusync"
+        export EDUSYNC_JWT_SECRET="$$JWT" EDUSYNC_MFA_ENCRYPTION_KEY="$$MFA" EDUSYNC_DOCUMENT_LINK_SECRET="$$DOCLINK"
+        export EDUSYNC_OBJECT_STORAGE_ACCESS_KEY="$$S3KEY" EDUSYNC_OBJECT_STORAGE_SECRET_KEY="$$S3SECRET"
+        exec uvicorn edusync.bootstrap.app:create_app --factory --host 0.0.0.0 --port 8000 --proxy-headers --no-server-header
+    volumes:
+      - secrets_app:/run/edusync/app:ro
+      - backup_status:/backup-status:ro
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      object-storage:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    logging: *logging
+
+  # Workers : rôle PostgreSQL edusync_worker (moindre privilège), jamais le propriétaire.
+  outbox-worker:
+    image: ghcr.io/danielkikunda/edusync-backend:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
+    environment:
+      <<: *app-env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        s() { test -s "/run/edusync/app/$$1" || { echo "secret manquant : $$1" >&2; return 1; }; cat "/run/edusync/app/$$1"; }
+        WORKER="$$(s worker_password)"; JWT="$$(s jwt_secret)"
+        export EDUSYNC_WORKER_DATABASE_URL="postgresql+psycopg://edusync_worker:$$WORKER@postgres:5432/edusync" EDUSYNC_JWT_SECRET="$$JWT"
+        exec python -m edusync.modules.sync.outbox_worker
+    volumes:
+      - secrets_app:/run/edusync/app:ro
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  communications-worker:
+    image: ghcr.io/danielkikunda/edusync-backend:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
+    environment:
+      <<: *app-env
+      # Secrets des fournisseurs : saisis dans Coolify seulement le jour où le canal est activé (README §6).
+      EDUSYNC_SMTP_USERNAME: ${EDUSYNC_SMTP_USERNAME:-}
+      EDUSYNC_SMTP_PASSWORD: ${EDUSYNC_SMTP_PASSWORD:-}
+      EDUSYNC_ORANGE_SMS_CLIENT_ID: ${EDUSYNC_ORANGE_SMS_CLIENT_ID:-}
+      EDUSYNC_ORANGE_SMS_CLIENT_SECRET: ${EDUSYNC_ORANGE_SMS_CLIENT_SECRET:-}
+      EDUSYNC_ORANGE_SMS_SENDER_ADDRESS: ${EDUSYNC_ORANGE_SMS_SENDER_ADDRESS:-}
+      EDUSYNC_ORANGE_SMS_SENDER_NAME: ${EDUSYNC_ORANGE_SMS_SENDER_NAME:-}
+      # Compte de service Firebase : de préférence un fichier monté sur CE service seul (README §6).
+      EDUSYNC_FCM_SERVICE_ACCOUNT_FILE: ${EDUSYNC_FCM_SERVICE_ACCOUNT_FILE:-}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        s() { test -s "/run/edusync/app/$$1" || { echo "secret manquant : $$1" >&2; return 1; }; cat "/run/edusync/app/$$1"; }
+        WORKER="$$(s worker_password)"; JWT="$$(s jwt_secret)"; MFA="$$(s mfa_key)"
+        export EDUSYNC_WORKER_DATABASE_URL="postgresql+psycopg://edusync_worker:$$WORKER@postgres:5432/edusync"
+        export EDUSYNC_JWT_SECRET="$$JWT" EDUSYNC_MFA_ENCRYPTION_KEY="$$MFA"
+        exec python -m edusync.modules.communications.worker
+    volumes:
+      - secrets_app:/run/edusync/app:ro
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  # Seul service exposé : Coolify y attache le domaine (https://app.myeducsync.com, port 80). nginx sert l'interface
+  # et relaie /api/ ; sa configuration de production ajoute HSTS et relaie le schéma HTTPS reçu de Traefik.
+  frontend:
+    image: ghcr.io/danielkikunda/edusync-frontend:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
+    volumes:
+      - ./deploy/coolify/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/version.json"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    logging: *logging
+
+  # Sauvegarde quotidienne (base + documents) avec restauration vérifiée ; copie hors serveur fortement conseillée.
+  backup:
+    image: ghcr.io/danielkikunda/edusync-backup:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
+    environment:
+      PGHOST: postgres
+      PGDATABASE: edusync
+      PGUSER: edusync_owner
+      BACKUP_INTERVAL_SECONDS: ${EDUSYNC_BACKUP_INTERVAL_SECONDS:-86400}
+      # Disque de 40 Go : 7 jours en local ; l'historique long va hors serveur.
+      BACKUP_KEEP_DAYS: ${EDUSYNC_BACKUP_KEEP_DAYS:-7}
+      BACKUP_SOURCE_BUCKET: edusync-documents
+      RCLONE_CONFIG_SRC_TYPE: s3
+      RCLONE_CONFIG_SRC_PROVIDER: Other
+      RCLONE_CONFIG_SRC_ENDPOINT: http://object-storage:8333
+      BACKUP_OFFSITE: ${EDUSYNC_BACKUP_OFFSITE:-}
+      RCLONE_CONFIG_OFFSITE_TYPE: ${EDUSYNC_BACKUP_OFFSITE_TYPE:-s3}
+      RCLONE_CONFIG_OFFSITE_PROVIDER: ${EDUSYNC_BACKUP_OFFSITE_PROVIDER:-Other}
+      RCLONE_CONFIG_OFFSITE_ENDPOINT: ${EDUSYNC_BACKUP_OFFSITE_ENDPOINT:-}
+      RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID: ${EDUSYNC_BACKUP_OFFSITE_ACCESS_KEY:-}
+      RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY: ${EDUSYNC_BACKUP_OFFSITE_SECRET_KEY:-}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        s() { test -s "/run/edusync/app/$$1" || { echo "secret manquant : $$1" >&2; return 1; }; cat "/run/edusync/app/$$1"; }
+        PGPASSWORD="$$(cat /run/edusync/owner/owner_password)"; S3KEY="$$(s s3_access_key)"; S3SECRET="$$(s s3_secret_key)"
+        export PGPASSWORD RCLONE_CONFIG_SRC_ACCESS_KEY_ID="$$S3KEY" RCLONE_CONFIG_SRC_SECRET_ACCESS_KEY="$$S3SECRET"
+        exec /bin/sh /usr/local/bin/edusync-backup
+    volumes:
+      - backups:/backups
+      - backup_status:/backup-status
+      - secrets_owner:/run/edusync/owner:ro
+      - secrets_app:/run/edusync/app:ro
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      object-storage:
+        condition: service_started
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  postgres_data:
+  redis_data:
+  object_data:
+  backups:
+  backup_status:
+  secrets_owner:
+  secrets_app:
