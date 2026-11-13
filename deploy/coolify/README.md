@@ -1,6 +1,11 @@
 # EduSync en production sur Coolify — app.myeducsync.com
 
-Fichiers : `docker-compose.coolify.yml` (racine du dépôt) et `deploy/coolify/nginx.conf`.
+Fichiers :
+- `docker-compose.coolify.yml` (racine du dépôt) ;
+- dans l'image backend : `backend/scripts/coolify_secrets.py` (génère les secrets) et `backend/scripts/coolify_run.py`
+  (démarre chaque service avec ses seuls secrets) ;
+- dans l'image frontend : `frontend/nginx.production.conf` ;
+- dans l'image de sauvegarde : `deploy/backup/backup.sh`, qui lit ses secrets depuis des fichiers (`*_FILE`).
 Serveur visé : VPS AMD64 de 4 Go, adresse 46.62.227.155, Coolify 4.4.6.
 
 Le staging n'est pas concerné. Il continue avec `docker-compose.yml`, `deploy/staging/` et son contrôleur à privilèges
@@ -9,8 +14,14 @@ limités. Ce dossier ne les modifie pas.
 Contrôle automatique de la configuration, avant chaque mise en production :
 
 ```bash
-python tools/ci/coolify_compose_check.py --render --shell
+python tools/ci/coolify_compose_check.py --render
 ```
+
+Le fichier est lisible tel quel par Coolify 4.4.6 :
+- aucune ancre YAML, aucun champ `x-` ;
+- aucun `$` dans les commandes, que Coolify pourrait interpréter ;
+- aucun fichier monté depuis le dépôt : l'option « Preserve repository » n'est **pas** nécessaire ;
+- la seule clé propre à Coolify est `exclude_from_hc`, sur les deux tâches ponctuelles.
 
 ## 1. Ce que fait ce Compose (audit du 12/11/2026)
 
@@ -38,7 +49,8 @@ d'en ajouter.
 3. **Coolify** : créez une **Application** de type **Docker Compose** depuis le dépôt `DANIELKIKUNDA/edusync-web`.
    - Branche : `main`.
    - **Docker Compose Location** : `/docker-compose.coolify.yml`.
-   - Cochez **Preserve repository during deployment** : `deploy/coolify/nginx.conf` est monté depuis le dépôt.
+   - Inutile de cocher **Preserve repository during deployment** : aucun fichier du dépôt n'est monté.
+   - Les images doivent être celles d'un commit de `main` : la CI ne publie les images qu'après une fusion.
 4. **Domaine** : dans **Domains**, attachez `https://app.myeducsync.com` au service **frontend**, port **80**. Laissez
    les autres services sans domaine.
 

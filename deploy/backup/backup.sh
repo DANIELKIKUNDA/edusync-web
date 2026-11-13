@@ -12,6 +12,15 @@
 #      for the platform health screen (the restore is timed on every run: a recovery time measured, not assumed).
 # The production database is only read. No secret is written to the logs or to the status file.
 set -u
+# Production Coolify (docker-compose.coolify.yml) : secrets lus depuis des fichiers montés (VAR_FILE), jamais depuis les
+# variables de Coolify, injectées dans tous les conteneurs. Sans *_FILE (staging, local), rien ne change.
+for v in PGPASSWORD RCLONE_CONFIG_SRC_ACCESS_KEY_ID RCLONE_CONFIG_SRC_SECRET_ACCESS_KEY; do
+  eval "f=\${${v}_FILE:-}"
+  if [ -n "$f" ]; then
+    [ -s "$f" ] || { echo "secret manquant : $f" >&2; exit 1; }
+    eval "$v=\$(cat \"\$f\")"; export "$v"
+  fi
+done
 : "${PGHOST:=postgres}" "${PGDATABASE:=edusync}" "${PGUSER:?PGUSER required}" "${PGPASSWORD:?PGPASSWORD required}"
 export PGHOST PGDATABASE PGUSER PGPASSWORD
 INTERVAL="${BACKUP_INTERVAL_SECONDS:-86400}"
