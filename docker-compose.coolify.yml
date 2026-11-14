@@ -144,6 +144,8 @@ services:
       EDUSYNC_OBJECT_STORAGE_REGION: us-east-1
       EDUSYNC_OBJECT_STORAGE_PATH_STYLE: "true"
       EDUSYNC_BACKUP_STATUS_FILE: /backup-status/last.json
+      # Signal de vie externe (README §9) : adresse https d'un service hors du serveur (Healthchecks.io). Vide = désactivé.
+      EDUSYNC_HEARTBEAT_URL: ${EDUSYNC_HEARTBEAT_URL:-}
       # Premier Manager Système depuis la page de connexion : jeton à usage unique, visible dans Coolify, inutile dès
       # qu'un manager existe (README §5).
       EDUSYNC_SETUP_TOKEN: ${SERVICE_PASSWORD_64_SETUPTOKEN}
@@ -286,6 +288,8 @@ services:
       RCLONE_CONFIG_SRC_PROVIDER: Other
       RCLONE_CONFIG_SRC_ENDPOINT: http://object-storage:8333
       BACKUP_OFFSITE: ${EDUSYNC_BACKUP_OFFSITE:-}
+      # Signal de la sauvegarde quotidienne vers un service externe (README §9). Vide = désactivé.
+      BACKUP_HEARTBEAT_URL: ${EDUSYNC_BACKUP_HEARTBEAT_URL:-}
       RCLONE_CONFIG_OFFSITE_TYPE: ${EDUSYNC_BACKUP_OFFSITE_TYPE:-s3}
       RCLONE_CONFIG_OFFSITE_PROVIDER: ${EDUSYNC_BACKUP_OFFSITE_PROVIDER:-Other}
       RCLONE_CONFIG_OFFSITE_ENDPOINT: ${EDUSYNC_BACKUP_OFFSITE_ENDPOINT:-}

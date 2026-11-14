@@ -7,8 +7,9 @@ Manager added in État du service (platform_alert_recipients). No address lives 
 
 Runs inside the API (one evaluation per minute, a PostgreSQL advisory lock elects one process at a time: several API
 processes never send the same alert twice). The e-mail goes through the transactional outbox (communications worker).
-Limits, documented: when PostgreSQL itself is down nothing can be recorded nor queued here; the external probe
-(.github/workflows/uptime.yml) covers that case and an unreachable server.
+Limits, documented: when PostgreSQL itself is down nothing can be recorded nor queued here; the external heartbeat
+(heartbeat.py, sent after every evaluation, independent of the database and of the e-mails) and the external probes
+(deploy/coolify/README.md §9) cover that case and an unreachable server.
 """
 from __future__ import annotations
 
@@ -115,11 +116,17 @@ def start_alert_loop(services) -> None:
 
     def loop():
         time.sleep(15)
+        from edusync.modules.platform_health.api.router import measure
+        from edusync.modules.platform_health.application.heartbeat import beat
         while True:
+            body = None
             try:
-                evaluate(services)
+                body = measure(services)
+                evaluate(services, body=body)
             except Exception:  # noqa: BLE001 — an evaluation failure is logged, the API keeps serving
                 log.exception("platform alert evaluation failed")
+            # External heartbeat (heartbeat.py): sent even when the database or the e-mails are down.
+            beat(services.settings, body)
             time.sleep(max(15, services.settings.platform_alert_interval_seconds))
 
     threading.Thread(target=loop, name="edusync-platform-alerts", daemon=True).start()

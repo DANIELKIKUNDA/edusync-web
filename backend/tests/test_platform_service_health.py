@@ -38,5 +38,5 @@ def test_frontend_freshness_cooldown_stale_protection_and_order():
               "ne dégrade pas l’état actuel", "Journal d’audit</dt><dd>Non disponible"):
         assert x in UI, x
     # phone priority (after the incident list): server, database, workers, backup, storage, messaging, errors, cache
-    assert "const ORDER = ['api', 'database', 'worker_outbox', 'worker_communications', 'backup', 'storage', 'messaging', 'errors', 'redis'];" in UI
+    assert "const ORDER = ['api', 'host', 'database', 'worker_outbox', 'worker_communications', 'backup', 'storage', 'messaging', 'errors', 'redis'];" in UI
     assert "Traceback" not in UI and "stack" not in UI.lower()

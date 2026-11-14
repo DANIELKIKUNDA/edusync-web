@@ -9,7 +9,10 @@
 #   4. optional off-site copy (rclone remote named in BACKUP_OFFSITE, for example offsite:edusync-backups/staging);
 #   5. retention: local backups older than BACKUP_KEEP_DAYS are deleted;
 #   6. /backup-status/last.json {"finished_at","ok","restore_verified","offsite","duration_seconds","restore_seconds"}
-#      for the platform health screen (the restore is timed on every run: a recovery time measured, not assumed).
+#      for the platform health screen (the restore is timed on every run: a recovery time measured, not assumed);
+#   7. optional external heartbeat (BACKUP_HEARTBEAT_URL, https, e.g. Healthchecks.io): <url>/start, then <url> on a
+#      verified backup or <url>/fail with the reason. No ping for a day = the external service alerts the owner, even
+#      when the server itself is down. The URL is never written to the logs.
 # The production database is only read. No secret is written to the logs or to the status file.
 set -u
 # Production Coolify (docker-compose.coolify.yml) : secrets lus depuis des fichiers montés (VAR_FILE), jamais depuis les
@@ -32,6 +35,12 @@ STATUS=/backup-status/last.json
 CHECK_DB=edusync_restore_check
 TABLES="schools users school_memberships rbac_roles rbac_assignments generated_documents audit_events finance_payments finance_charges enrollments students schema_migrations"
 
+HEARTBEAT="${BACKUP_HEARTBEAT_URL:-}"
+case "$HEARTBEAT" in https://*|"") ;; *) echo "BACKUP_HEARTBEAT_URL ignorée : https obligatoire" >&2; HEARTBEAT="" ;; esac
+heartbeat() { # suffix [message] — never fails the backup, never prints the URL
+  [ -n "$HEARTBEAT" ] || return 0
+  curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "${2:-}" "${HEARTBEAT%/}$1" 2>/dev/null || log "signal de vie externe non envoyé"
+}
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 counts() { for t in $TABLES; do printf '%s=%s\n' "$t" "$(psql -d "$1" -tAXc "SELECT count(*) FROM $t" 2>/dev/null || echo NA)"; done; }
 status() { # ok restore_verified offsite detail
@@ -41,6 +50,12 @@ status() { # ok restore_verified offsite detail
 }
 
 run_once() {
+  heartbeat /start
+  if run_backup; then heartbeat "" "sauvegarde vérifiée"; return 0; fi
+  heartbeat /fail "$(sed -n 's/.*"detail":"\([^"]*\)".*/\1/p' "$STATUS" 2>/dev/null)"; return 1
+}
+
+run_backup() {
   RUN_START=$(date +%s); RESTORE_SECONDS=null
   ts=$(date -u +%Y%m%dT%H%M%SZ); dir="$OUT/$ts"; mkdir -p "$dir/objects"
   counts "$PGDATABASE" > "$dir/counts.before"

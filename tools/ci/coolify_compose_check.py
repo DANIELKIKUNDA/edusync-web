@@ -121,6 +121,12 @@ def static_checks() -> None:
     check("app.myeducsync.com" in code, "domaine app.myeducsync.com")
     check("/etc/nginx/edusync/production.conf" in " ".join(services["frontend"]["command"]), "nginx de production activé sur le frontend")
     check(services["backup"]["environment"]["BACKUP_KEEP_DAYS"].endswith(":-7}"), "sauvegardes locales : 7 jours (disque 40 Go)")
+    # Supervision (README §9) : signaux de vie externes, facultatifs mais prévus, hors du serveur surveillé.
+    check(env.get("EDUSYNC_HEARTBEAT_URL") == "${EDUSYNC_HEARTBEAT_URL:-}", "signal de vie externe de l'API prévu (vide par défaut)")
+    check(services["backup"]["environment"].get("BACKUP_HEARTBEAT_URL") == "${EDUSYNC_BACKUP_HEARTBEAT_URL:-}",
+          "signal de vie externe de la sauvegarde prévu (vide par défaut)")
+    check(all(services[n].get("logging", {}).get("options", {}).get("max-file") == "3" for n in services),
+          "journaux limités partout : 3 fichiers de 10 Mo par service")
 
 
 def nginx_checks() -> None:

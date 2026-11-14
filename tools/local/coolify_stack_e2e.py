@@ -107,6 +107,13 @@ def main() -> int:
         logs = run(dc + ["logs", "--no-color", "backend"], env).stdout
         check("vraie adresse du client vue par l'API derrière Traefik + nginx", CLIENT_IP in logs)
 
+        # Supervision (README §9): host resources measured from the API container, curl present for the backup heartbeat.
+        host = ex("backend", "python", "-c", "from edusync.bootstrap.settings import Settings;"
+                  "from edusync.modules.platform_health.application.host import host_component as h;c=h(Settings());print(c['state'],c['detail'])")
+        check("ressources du serveur mesurées depuis l'API (mémoire, disque, charge)",
+              host.returncode == 0 and host.stdout.split()[:1] in (["OK"], ["DEGRADED"], ["DOWN"]), host.stdout.strip() or host.stderr[-300:])
+        check("image de sauvegarde : curl présent pour le signal de vie externe", ex("backup", "curl", "--version").returncode == 0)
+
         status = None
         for _ in range(40):
             out = ex("backend", "cat", "/backup-status/last.json")
