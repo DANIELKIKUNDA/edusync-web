@@ -92,7 +92,10 @@ def static_checks() -> None:
             text = " ".join(value) if isinstance(value, list) else str(value)
             check("$" not in text, f"{name} : {field} sans « $ » (rien à interpréter pour Coolify)")
         vols = [str(v) for v in svc.get("volumes", [])]
-        check(all(not v.startswith((".", "/")) for v in vols), f"{name} : volumes nommés seulement (aucun fichier du dépôt)")
+        # Exception strictement limitée au compte de service FCM : fichier de l’hôte, jamais du dépôt.
+        fcm_bind = "/opt/edusync/private/firebase.json:/run/secrets/firebase.json:ro"
+        check(all(not v.startswith((".", "/")) or (name == "communications-worker" and v == fcm_bind) for v in vols),
+              f"{name} : volumes nommés ou fichier Firebase hôte en lecture seule (aucun fichier du dépôt)")
         if any(v.startswith("secrets_owner:") for v in vols):
             check(name in OWNER_MOUNTS, f"{name} : autorisé à voir le mot de passe propriétaire")
         for v in vols:
