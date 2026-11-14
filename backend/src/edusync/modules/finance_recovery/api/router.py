@@ -221,3 +221,52 @@ def pilotage(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_ac
             recovery[cur]={'expected':str(t['expected']),'regularized':str(t['regularized_total']),'remaining':str(t['remaining']),'rate':str(t['recovery_rate'])}
     return {'academic_year':{'id':str(y['id']),'label':y['label'],'start_date':str(y['start_date'])},'today':str(today),
             'week_start':str(today.fromordinal(today.toordinal()-today.weekday())),'month_start':str(today.replace(day=1)),'cash':cash,'recovery':recovery}
+
+
+# ------------------------------------------------------------------ rapport de recouvrement de direction (owner, 2026-11-14)
+# « Le rapport d'octobre, mais produit par le système, par type de frais » : one fee and one period, one fee up to the
+# situation date, or every fee already due at that date. Same rights as the other recovery exports.
+from datetime import date as _date
+from edusync.modules.finance_recovery.domain.direction_report import build_direction_report as _build_direction_report
+from edusync.modules.finance_recovery.application.direction_report_document import direction_report_pdf as _direction_report_pdf
+
+
+def _direction_load(actor, services, year_id, currency, fee_type_id, period_order, as_of):
+    if period_order is not None and fee_type_id is None:
+        raise HTTPException(422, 'Choisissez d’abord le type de frais, puis la période')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        repo = PostgresFinanceRecoveryRepository(conn); y = repo.year(actor.school_id, year_id)
+        if not y: raise HTTPException(409, 'Année scolaire introuvable')
+        fee_label = period_label = None
+        if fee_type_id is not None:
+            fee_label, period_label = repo.fee_label(actor.school_id, fee_type_id, period_order)
+            if fee_label is None: raise HTTPException(404, 'Type de frais introuvable')
+        when = as_of or _date.today()
+        charges, exempt = repo.direction_report_rows(actor.school_id, y['id'], currency, as_of=when, fee_type_id=fee_type_id, period_order=period_order,
+                                                     scopes=actor.scopes_for('finance.recovery.monthly.read'))
+        school = repo.school_identity(actor.school_id)
+    report = _build_direction_report(charges, exempt, as_of=when, currency=currency, fee_label=fee_label, period_label=period_label)
+    return y, school, report
+
+
+@router.get('/direction-report')
+def direction_report(year_id: UUID | None = None, fee_type_id: UUID | None = None, period_order: int | None = Query(None, ge=1, le=99),
+                     as_of: _date | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
+                     actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.recovery.monthly.read')
+    y, _, report = _direction_load(actor, services, year_id, currency, fee_type_id, period_order, as_of)
+    return {'academic_year': {'id': str(y['id']), 'label': y['label']}, **report}
+
+
+@router.get('/direction-report.pdf')
+def direction_report_export(year_id: UUID | None = None, fee_type_id: UUID | None = None, period_order: int | None = Query(None, ge=1, le=99),
+                            as_of: _date | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
+                            actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.recovery.monthly.read'); need(actor, 'finance.views.vf01.export')
+    y, school, report = _direction_load(actor, services, year_id, currency, fee_type_id, period_order, as_of)
+    data = _direction_report_pdf(school=school, year_label=y['label'], report=report)
+    name = 'rapport_recouvrement_' + report['as_of'].isoformat()
+    archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='finance.recovery.monthly.read',
+                         document_code=f'finance.recovery.direction_report.{currency}', title=f"Rapport de recouvrement — {report['title']}",
+                         file_name=f'{name}.pdf', academic_year_id=y['id'])
+    return StreamingResponse(BytesIO(data), media_type='application/pdf', headers={'Content-Disposition': f'inline; filename="{name}.pdf"'})

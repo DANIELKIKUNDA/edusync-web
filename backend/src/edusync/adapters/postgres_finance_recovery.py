@@ -144,3 +144,79 @@ class PostgresFinanceRecoveryRepository:
         sql=f"""WITH b AS (SELECT sc.id class_id,sc.label class_label,sec.id section_id,sec.label section_label,e.id enrollment_id,fc.effective_net_amount net_amount,fc.paid_amount,fc.outside_cash_amount outside_cash FROM school_classes sc JOIN school_sections sec ON sec.id=sc.section_id JOIN enrollments e ON e.class_id=sc.id AND e.school_id=sc.school_id JOIN finance_charge_effective fc ON fc.enrollment_id=e.id AND fc.school_id=e.school_id WHERE sc.school_id=%s AND e.academic_year_id=%s AND fc.currency=%s AND fc.status='ACTIVE' {extra}), per_student AS (SELECT class_id,class_label,section_id,section_label,enrollment_id,sum(net_amount) expected,sum(paid_amount) cash_collected,sum(outside_cash) outside_cash FROM b GROUP BY class_id,class_label,section_id,section_label,enrollment_id) SELECT class_id,class_label,section_id,section_label,count(*) debtors,count(*) FILTER(WHERE cash_collected+outside_cash>=expected) in_order,count(*) FILTER(WHERE cash_collected+outside_cash<expected) not_in_order,sum(expected) expected,sum(cash_collected) cash_collected,sum(outside_cash) outside_cash,sum(cash_collected+outside_cash) regularized_total,sum(greatest(expected-cash_collected-outside_cash,0)) remaining,CASE WHEN sum(expected)>0 THEN round(sum(cash_collected+outside_cash)*100/sum(expected),1) ELSE 0 END recovery_rate FROM per_student GROUP BY class_id,class_label,section_id,section_label ORDER BY class_label"""
         with self.conn.cursor(row_factory=dict_row) as c:c.execute(sql,tuple(params));return [dict(r) for r in c.fetchall()]
 
+    # ------------------------------------------------------------ rapport de recouvrement de direction (14/11/2026)
+    @staticmethod
+    def _scope_filter(scopes):
+        """Same rule as monthly(): SCHOOL sees all; SECTION/CYCLE and CLASS grants are intersected, never widened."""
+        if not scopes or any(t=='SCHOOL' for t,_ in scopes): return 'TRUE',[]
+        sections=[str(v).upper() for t,v in scopes if t in ('SECTION','CYCLE') and v]
+        classes=[str(v).upper() for t,v in scopes if t=='CLASS' and v]
+        parts,args=[],[]
+        if sections: parts.append('upper(ss.code)=ANY(%s)'); args.append(sections)
+        if classes: parts.append('upper(sc.code)=ANY(%s)'); args.append(classes)
+        return ('('+' OR '.join(parts)+')' if parts else 'FALSE'),args
+
+    def direction_report_rows(self,school_id,year_id,currency,*,as_of,fee_type_id=None,period_order=None,scopes=()):
+        """Rows for the direction report: (charges in scope, pupils for whom the period is not due).
+        Without an explicit period, only obligations already due at `as_of` are kept. A charge after an abandon or a
+        transfer is not owed (same rule as the class register)."""
+        scope_sql,scope_args=self._scope_filter(scopes)
+        f_charge,f_args=[],[]
+        if fee_type_id is not None: f_charge.append('fc.fee_type_id=%s'); f_args.append(fee_type_id)
+        if period_order is not None: f_charge.append('fc.period_order=%s'); f_args.append(period_order)
+        else: f_charge.append('(fc.due_date IS NULL OR fc.due_date<=%s)'); f_args.append(as_of)
+        charge_filter=' AND '.join(f_charge)
+        common="""s.matricule,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student_name,e.enrolled_on,
+              sc.id class_id,sc.label class_label,ss.id section_id,ss.label section_label"""
+        sql=f"""SELECT e.id enrollment_id,{common},
+              coalesce(ft.label,fc.label) fee_label,coalesce(fc.period_label,fc.label) period_label,fc.period_order,fc.due_date,
+              fc.effective_net_amount net,fc.net_amount gross_net,fc.decision_amount,fc.paid_amount paid,fc.outside_cash_amount outside,
+              coalesce((SELECT sum(at.amount) FROM finance_advance_targets at WHERE at.school_id=fc.school_id AND at.charge_id=fc.id),0) advance,
+              coalesce(g.full_name,fa.display_name) contact_name,coalesce(nullif(g.phone,''),nullif(fa.phone,'')) contact_phone
+            FROM enrollments e JOIN students s ON s.id=e.student_id AND s.school_id=e.school_id
+            JOIN school_classes sc ON sc.id=e.class_id AND sc.school_id=e.school_id
+            JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=e.school_id
+            JOIN finance_charge_effective fc ON fc.enrollment_id=e.id AND fc.school_id=e.school_id
+            LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id AND ft.school_id=fc.school_id
+            LEFT JOIN families fa ON fa.id=s.family_id AND fa.school_id=s.school_id
+            LEFT JOIN LATERAL (SELECT gg.full_name,gg.phone FROM family_guardians fg JOIN guardians gg ON gg.id=fg.guardian_id AND gg.school_id=fg.school_id
+                                WHERE fg.school_id=s.school_id AND fg.family_id=s.family_id AND fg.active
+                                ORDER BY fg.is_primary DESC,(nullif(gg.phone,'') IS NOT NULL) DESC,fg.created_at LIMIT 1) g ON TRUE
+           WHERE e.school_id=%s AND e.academic_year_id=%s AND e.status<>'CANCELLED' AND fc.status='ACTIVE' AND fc.currency=%s
+             AND {charge_filter} AND {scope_sql}
+             AND NOT EXISTS (SELECT 1 FROM student_status_events ev WHERE ev.school_id=e.school_id AND ev.student_id=e.student_id
+                   AND ev.event_type IN ('ABANDON','TRANSFER') AND fc.due_date IS NOT NULL AND ev.effective_date<=fc.due_date
+                   AND ev.effective_date BETWEEN (SELECT start_date FROM academic_years WHERE id=e.academic_year_id)
+                                             AND (SELECT end_date FROM academic_years WHERE id=e.academic_year_id))"""
+        f_sched,fs_args=[],[]
+        if fee_type_id is not None: f_sched.append('fs.fee_type_id=%s'); fs_args.append(fee_type_id)
+        if period_order is not None: f_sched.append('fs.period_order=%s'); fs_args.append(period_order)
+        else: f_sched.append('(fs.due_date IS NULL OR fs.due_date<=%s)'); fs_args.append(as_of)
+        # Monthly periods the annual policy did not make due (arrival after the cut-off day): no charge exists for them.
+        arrivals=f"""SELECT DISTINCT e.id enrollment_id,{common},coalesce(fs.period_label,ft.label) period_label,fs.period_order,'ARRIVAL' reason
+            FROM finance_exigibility_assessments a JOIN fee_schedules fs ON fs.id=a.schedule_id AND fs.school_id=a.school_id
+            JOIN fee_types ft ON ft.id=fs.fee_type_id AND ft.school_id=fs.school_id
+            JOIN enrollments e ON e.id=a.enrollment_id AND e.school_id=a.school_id
+            JOIN students s ON s.id=e.student_id AND s.school_id=e.school_id
+            JOIN school_classes sc ON sc.id=e.class_id AND sc.school_id=e.school_id
+            JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=e.school_id
+           WHERE a.school_id=%s AND e.academic_year_id=%s AND e.status<>'CANCELLED' AND fs.currency=%s AND a.status IN ('NOT_APPLICABLE','NOT_EXIGIBLE')
+             AND {' AND '.join(f_sched)} AND {scope_sql}
+             AND NOT EXISTS (SELECT 1 FROM finance_charges c WHERE c.school_id=a.school_id AND c.enrollment_id=a.enrollment_id
+                               AND c.schedule_id=a.schedule_id AND c.status='ACTIVE' AND c.net_amount>0)"""
+        with self.conn.cursor(row_factory=dict_row) as c:
+            c.execute(sql,(school_id,year_id,currency,*f_args,*scope_args)); charges=[dict(r) for r in c.fetchall()]
+            c.execute(arrivals,(school_id,year_id,currency,*fs_args,*scope_args)); arrived=[dict(r) for r in c.fetchall()]
+        exempt=[{**{k:r[k] for k in ('enrollment_id','matricule','student_name','enrolled_on','class_id','class_label','section_id','section_label','period_label')},'reason':'EXEMPTION'}
+                for r in charges if r['net']<=0]
+        return charges,arrived+exempt
+
+    def fee_label(self,school_id,fee_type_id,period_order=None):
+        with self.conn.cursor(row_factory=dict_row) as c:
+            c.execute("SELECT label FROM fee_types WHERE school_id=%s AND id=%s",(school_id,fee_type_id)); f=c.fetchone()
+            if not f: return None,None
+            period=None
+            if period_order is not None:
+                c.execute("SELECT period_label FROM fee_schedules WHERE school_id=%s AND fee_type_id=%s AND period_order=%s AND period_label IS NOT NULL LIMIT 1",(school_id,fee_type_id,period_order))
+                p=c.fetchone(); period=p['period_label'] if p else f"Période {period_order}"
+            return f['label'],period
