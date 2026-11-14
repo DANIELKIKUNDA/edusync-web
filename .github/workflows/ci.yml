@@ -154,6 +154,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/alerts_postgres_integration.py
+      - name: Rapport de recouvrement de direction — par frais et période, élèves non concernés, sections (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/direction_report_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true
