@@ -27,6 +27,18 @@ class Settings(BaseSettings):
     platform_alerts_enabled: bool = True
     platform_alert_delay_seconds: int = 300
     platform_alert_interval_seconds: int = 60
+    # Signal de vie externe (2026-11-14, heartbeat.py): https URL of a dead man's switch (Healthchecks.io…), pinged about
+    # once a minute; <url>/fail when a component is down longer than the alert delay. Empty = disabled.
+    heartbeat_url: str = ""
+    heartbeat_interval_seconds: int = 60
+    # Ressources du serveur (host.py): warning / critical thresholds. Critical = an incident after the alert delay.
+    host_disk_path: str = "/"
+    host_memory_warn_percent: float = 85
+    host_memory_critical_percent: float = 95
+    host_disk_warn_percent: float = 80
+    host_disk_critical_percent: float = 90
+    host_load_warn_per_cpu: float = 1.5
+    host_load_critical_per_cpu: float = 3.0
     # Vigie EduSync: deterministic business supervision across active schools. One elected evaluator per interval.
     supervision_enabled: bool = True
     supervision_interval_seconds: int = 900

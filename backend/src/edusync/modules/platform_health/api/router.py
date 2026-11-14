@@ -43,7 +43,7 @@ MEASURE_TTL = 5.0
 _cache: dict = {"at": 0.0, "body": None}
 _lock = threading.Lock()
 # What each component relies on (known architecture, not a guess about business impact).
-DEPENDS = {"api": ["database", "redis"], "worker_outbox": ["database", "redis"], "worker_communications": ["database", "redis"],
+DEPENDS = {"host": [], "api": ["database", "redis"], "worker_outbox": ["database", "redis"], "worker_communications": ["database", "redis"],
            "storage": [], "errors": ["redis"], "backup": ["database", "storage"], "database": [], "redis": [], "messaging": ["worker_communications"]}
 P95_SLOW_MS = 2500        # p95 beyond the last latency bucket over 5 minutes: the API is slow (technical threshold, documented)
 CHANNELS = (("SMS", "sms", "SMS"), ("EMAIL", "email", "E-mail"), ("PUSH", "push", "Notifications push"))
@@ -136,6 +136,8 @@ def measure(services: AppServices) -> dict:
     api = {"key": "api", "label": "Serveur d’application", "state": "OK",
            "detail": f"En service depuis {_human_age(uptime).replace('il y a ', '')}", "measured_ms": 0, "started_at": STARTED_AT.isoformat()}
     components.append(api)
+    from edusync.modules.platform_health.application.host import host_component
+    components.append(host_component(services.settings))
 
     # PostgreSQL: real round trip + a few real figures.
     queue = {}

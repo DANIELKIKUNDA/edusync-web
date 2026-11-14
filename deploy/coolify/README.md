@@ -148,5 +148,135 @@ changez-les si un conteneur est compromis, et passez à Coolify v5 dès sa sorti
 ## 8. Ce qui reste manuel, et validé par le propriétaire
 
 - La mise en production elle-même : choix du SHA, puis **Deploy** dans Coolify. Rien ne part automatiquement.
+- La configuration de la supervision (§9) : canaux Coolify, Healthchecks.io, UptimeRobot, puis la liste du §9.5.
 - La reprise des données d'une école réelle (APN) : d'abord en local, puis sur le staging, et en production seulement
   après validation.
+
+## 9. Supervision de la production (14/11/2026)
+
+Objectif : être prévenu d'une panne, d'une saturation ou d'une sauvegarde manquée, **même quand le serveur lui-même
+est hors service**, sans alourdir un VPS de 4 Go. Aucun Prometheus, Grafana ni Loki n'est installé sur le serveur :
+ils consommeraient à eux seuls 0,5 à 1 Go de mémoire.
+
+La supervision repose sur trois couches. Les deux premières sont sur le serveur, la troisième est indépendante.
+
+| Couche | Où | Ce qu'elle voit | Qui est prévenu, et comment |
+|---|---|---|---|
+| 1. Coolify (natif) | sur le serveur | CPU et mémoire (historique), disque, conteneurs arrêtés ou redémarrés, déploiements | notifications Coolify (Telegram ou e-mail) |
+| 2. EduSync, État du service | dans l'API | base de données, Redis, workers, stockage, erreurs serveur, messagerie, sauvegarde, **Ressources du serveur** (mémoire, disque, charge) | e-mail aux Managers Système après 5 min de panne (nécessite SMTP, §6) |
+| 3. Externe | hors du serveur | serveur ou réseau injoignable, API arrêtée, panne de la couche 2, sauvegarde absente, certificat | Healthchecks.io et UptimeRobot : e-mail et Telegram, **indépendants du serveur** |
+
+### 9.1 Couche 1 — Coolify (aucune ressource en plus)
+
+1. **Servers › (le serveur) › Sentinel** :
+   - activez Sentinel, puis **Metrics** ;
+   - historique : **7 jours**, le compromis entre l'utilité et le disque.
+
+   Vous obtenez les courbes CPU et mémoire du serveur et de chaque conteneur.
+2. **Servers › (le serveur) › Configuration** : seuil d'alerte disque à **80 %**.
+3. **Notifications** : créez un canal **Telegram** (un bot et votre conversation), ou **E-mail** (SMTP). Cochez au
+   minimum les événements suivants :
+   - **Server Disk Usage** ;
+   - **Container Status Changes** (conteneur arrêté, redémarré ou bloqué en redémarrage) ;
+   - **Server Unreachable / Reachable** ;
+   - **Deployment Failed**.
+
+   Puis cliquez sur **Send test notification**.
+4. **Limite de Coolify** : il tourne sur le même serveur. Si le serveur s'arrête, Coolify se tait aussi. C'est le rôle de
+   la couche 3.
+
+Coolify n'alerte pas sur la saturation de la mémoire ni du processeur : la couche 2 le fait.
+
+### 9.2 Couche 2 — EduSync (État du service)
+
+- **Nouveau composant « Ressources du serveur »** : il mesure la mémoire, le disque et la charge du processeur depuis
+  l'API (lecture de `/proc` et du disque, sans agent supplémentaire).
+
+  | Mesure | Attention | Critique |
+  |---|---|---|
+  | Mémoire utilisée | 85 % | 95 % |
+  | Disque | 80 % | 90 % |
+  | Charge sur 5 min, par cœur | 1,5 | 3 |
+
+  Un état critique qui dure plus de 5 minutes ouvre un incident, comme les autres composants. Les seuils se changent
+  avec les variables `EDUSYNC_HOST_*` : `EDUSYNC_HOST_MEMORY_CRITICAL_PERCENT`, `EDUSYNC_HOST_DISK_CRITICAL_PERCENT`, etc.
+- **E-mails d'incident** : ils partent par la messagerie de l'application. **Sans SMTP configuré (§6), aucun e-mail
+  ne part.** Configurez SMTP avant l'ouverture, ajoutez vos adresses dans État du service › Destinataires, puis
+  utilisez **« Envoyer une alerte de test »**.
+- **Alertes métier** (Vigie, alertes entre rôles : caisse, annulations, abandons, dérogations) :
+  - elles arrivent toujours dans la cloche de l'application, sans aucun fournisseur ;
+  - l'e-mail exige SMTP, la notification push exige FCM.
+
+### 9.3 Couche 3 — Externe, indépendante du serveur
+
+**Signaux de vie (Healthchecks.io, offre gratuite de 20 contrôles).** Créez deux contrôles dont le nom contient
+« EduSync » :
+
+| Contrôle | Période | Grâce | Variable Coolify | Envoyé par |
+|---|---|---|---|---|
+| EduSync production — santé | 5 min | 5 min | `EDUSYNC_HEARTBEAT_URL` | l'API, environ une fois par minute |
+| EduSync production — sauvegarde | 1 jour | 3 h | `EDUSYNC_BACKUP_HEARTBEAT_URL` | le service `backup`, après chaque sauvegarde |
+
+**Fonctionnement du contrôle « santé » :**
+- tout va bien : un signal simple ;
+- un composant est hors service depuis plus de 5 minutes : un signal **/fail**, avec la raison en clair (base de
+  données injoignable, disque rempli à 92 %…) ;
+- le serveur, le réseau ou l'API s'arrêtent : plus aucun signal, et Healthchecks.io alerte.
+
+**Fonctionnement du contrôle « sauvegarde » :** un signal /start, puis un succès ou un /fail avec la raison. Aucun
+signal pendant 1 jour et 3 heures déclenche une alerte.
+
+**Réglages :**
+- Dans Healthchecks.io › Integrations, branchez votre **e-mail** et **Telegram**. Ces messages partent de chez
+  Healthchecks.io, jamais de votre serveur.
+- Les adresses de signal ne donnent qu'un droit : envoyer un signal à ce contrôle. Coolify les rend visibles à tous les
+  conteneurs (#7655) : risque faible, accepté. Si une adresse est exposée, recréez-la dans Healthchecks.io.
+
+**Sondes HTTP (UptimeRobot, offre gratuite, toutes les 5 min).** Elles voient ce qu'un signal sortant ne voit pas :
+DNS, Traefik, certificat, accès depuis Internet. Créez trois sondes :
+- **mot-clé** sur `https://app.myeducsync.com/health-api` (mot attendu `ok`) ;
+- **HTTP** sur `https://app.myeducsync.com/api/v1/setup/status` ;
+- **certificat** sur `app.myeducsync.com` (alerte 14 jours avant l'expiration).
+
+Alertes par e-mail et par l'application mobile ou Telegram.
+
+### 9.4 Conservation des métriques et des journaux
+
+| Donnée | Durée | Où |
+|---|---|---|
+| Journaux des conteneurs | 3 fichiers de 10 Mo par service, environ 300 Mo au maximum | serveur |
+| Métriques CPU et mémoire | 7 jours | Coolify (Sentinel) |
+| Incidents et erreurs serveur | historique (1 h / 24 h / 7 j) et incidents récents | État du service |
+| Signaux de vie | 100 derniers par contrôle | Healthchecks.io |
+| Sauvegardes | 7 jours en local, l'historique long hors serveur (§7) | serveur et stockage S3 |
+
+Le contrôle `tools/ci/coolify_compose_check.py` refuse un service sans limite de journaux.
+
+### 9.5 Avant l’ouverture de la première école (liste à cocher)
+
+1. **Couche 1 :** dans Coolify, **Send test notification** arrive sur Telegram ou par e-mail. Les courbes Sentinel
+   s'affichent. Le seuil disque est à 80 %.
+2. **Couche 2 :**
+   - SMTP est configuré ;
+   - État du service › **Envoyer une alerte de test** arrive ;
+   - « Ressources du serveur » affiche des chiffres réels.
+3. **Couche 3, signaux de vie :**
+   - les deux contrôles Healthchecks.io sont **verts** après le déploiement ;
+   - pour le contrôle « sauvegarde », lancez une sauvegarde : terminal Coolify du service `backup`, puis
+     `/bin/sh /usr/local/bin/edusync-backup once`.
+4. **Couche 3, sondes HTTP :** les trois sondes UptimeRobot sont vertes.
+5. **Vérification automatique**, depuis votre ordinateur. Toutes les lignes doivent être PASS :
+
+   ```bash
+   HEALTHCHECKS_API_KEY=<clé en lecture seule> python tools/local/verify_production_monitoring.py --sha <SHA déployé>
+   ```
+
+6. **Essai de panne réel**, hors des heures d'ouverture, quand aucune école n'utilise l'application :
+   - arrêtez le service `backend` dans Coolify pendant 12 minutes ;
+   - vous devez recevoir l'alerte Coolify (conteneur arrêté), Healthchecks.io (« santé » en panne) et UptimeRobot ;
+   - redémarrez-le : les trois annoncent la résolution.
+7. **Alertes métier**, dans l'école de démonstration :
+   - annulez un reçu de test, ou clôturez une caisse avec un écart ;
+   - le promoteur et le gestionnaire voient l'alerte dans la cloche (et par e-mail ou push si configurés).
+
+Notez la date et le résultat de chaque point. Tant qu'un point échoue, l'école n'ouvre pas.
