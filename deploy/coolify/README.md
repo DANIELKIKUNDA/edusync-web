@@ -17,6 +17,26 @@ Contrôle automatique de la configuration, avant chaque mise en production :
 python tools/ci/coolify_compose_check.py --render
 ```
 
+### Essai réel de la pile complète, sans aucune donnée réelle
+
+```bash
+python tools/local/coolify_stack_e2e.py <SHA des images>
+```
+
+Ce script démarre la pile comme Coolify, simule Traefik, vérifie tout, puis supprime la pile.
+
+Résultat du 14/11/2026, avec les images du commit `a96a518` construites localement, sur un Docker de 2,9 Go :
+**25/25 vérifications réussies**.
+- **Démarrage :** 144 s.
+- **Fonctionnement :**
+  - secrets et migrations sans erreur, rôles sans contournement du RLS ;
+  - l'API ne voit pas le mot de passe propriétaire ;
+  - HSTS est envoyé une seule fois, et la vraie adresse du client est vue par l'API ;
+  - la sauvegarde est faite et sa restauration vérifiée ;
+  - le second déploiement réussit et laisse les secrets inchangés.
+- **Mémoire au repos :** 565 Mio.
+- **Premier démarrage :** la création du premier Manager Système est disponible, avec jeton obligatoire.
+
 Le fichier est lisible tel quel par Coolify 4.4.6 :
 - aucune ancre YAML, aucun champ `x-` ;
 - aucun `$` dans les commandes, que Coolify pourrait interpréter ;
