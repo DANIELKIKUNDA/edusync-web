@@ -25,7 +25,7 @@ jobs:
     env:
       URL: ${{ vars.STAGING_PUBLIC_URL || 'https://staging.myeducsync.com' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Scan
         run: |
           mkdir -p zap && chmod 777 zap
