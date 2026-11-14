@@ -18,7 +18,7 @@ from edusync.modules.schooling.domain.models import Family,Guardian,Student,Enro
 from edusync.adapters.postgres_schooling import PostgresSchoolingRepository
 from edusync.modules.personnel.domain.models import StaffMember, StaffCategory, StaffStatus
 from edusync.adapters.postgres_personnel import PostgresPersonnelRepository
-from edusync.modules.migration_import.import_contract import build_template, read_official_xlsx, CONTRACTS, CONTRACT_VERSION
+from edusync.modules.migration_import.import_contract import build_template, read_official_xlsx, CONTRACTS, contract_version
 
 MAX_IMPORT_BYTES=10*1024*1024
 MAX_IMPORT_ROWS=5000
@@ -45,7 +45,7 @@ def _same_file_duplicates(parsed,key):
   if k and k in seen:out.add(rn)
   elif k:seen.add(k)
  return out
-HEADERS=['Nom*','Postnom*','Prénom*','Sexe*','Classe*','Date naissance','Lieu naissance','Nationalité','Adresse','Nom responsable','Téléphone responsable','E-mail responsable','École de provenance','Observation']
+HEADERS=['Nom*','Postnom*','Prénom*','Sexe*','Classe*','Date naissance','Lieu naissance','Nationalité','Adresse','Nom responsable','Téléphone responsable','E-mail responsable','École de provenance','Observation','Date inscription']
 
 def need(a,c):
  try:a.require(c)
@@ -71,7 +71,7 @@ def rows_from_csv(data:bytes):
  if not rd.fieldnames or [clean(x) for x in rd.fieldnames][:5]!=HEADERS[:5]:raise HTTPException(400,'En-têtes CSV EduSync invalides')
  return [(i,{h:r.get(h) for h in HEADERS}) for i,r in enumerate(rd,2)]
 
-def analyze_row(conn,sid,year,row):
+def analyze_row(conn,sid,year,row,period=None):
  issues=[]; n={}
  for src,dst in [('Nom*','last_name'),('Postnom*','middle_name'),('Prénom*','first_name'),('Sexe*','gender'),('Classe*','class_label'),('Lieu naissance','birth_place'),('Nationalité','nationality'),('Adresse','address'),('Nom responsable','guardian_name'),('Téléphone responsable','guardian_phone'),('E-mail responsable','guardian_email'),('École de provenance','previous_school'),('Observation','notes')]:n[dst]=clean(row.get(src)) or None
  for k,label in [('last_name','Nom'),('middle_name','Postnom'),('first_name','Prénom'),('gender','Sexe'),('class_label','Classe')]:
@@ -80,6 +80,13 @@ def analyze_row(conn,sid,year,row):
  else:n['gender']=(n['gender'] or '').upper() or None
  try:n['birth_date']=parse_date(row.get('Date naissance')).isoformat() if row.get('Date naissance') else None
  except ValueError as e:n['birth_date']=None;issues.append({'level':'ERROR','code':'DATE','field':'birth_date','message':str(e)})
+ # Contract 1.1: the real enrollment date (owner, 2026-11-01), never the import day when it is known. Checked against the
+ # year's enrollment period (pupils enrol before the school year starts), or the year's dates when no period is set.
+ try:enrolled=parse_date(row.get('Date inscription')) if row.get('Date inscription') else None
+ except ValueError:enrolled=None;issues.append({'level':'ERROR','code':'ENROLLMENT_DATE','field':'enrolled_on','message':"Date d'inscription invalide (JJ/MM/AAAA)"})
+ n['enrolled_on']=enrolled.isoformat() if enrolled else None
+ if enrolled and enrolled>date.today():issues.append({'level':'ERROR','code':'ENROLLMENT_DATE','field':'enrolled_on','message':"Date d'inscription dans le futur"})
+ elif enrolled and period and not (period[0]<=enrolled<=period[1]):issues.append({'level':'WARNING','code':'ENROLLMENT_DATE_OUTSIDE_YEAR','field':'enrolled_on','message':f"Date d'inscription hors de la période d'inscription de l'année ({period[0]:%d/%m/%Y} → {period[1]:%d/%m/%Y})"})
  cl=None
  if n['class_label']:
   cl=conn.execute(text("SELECT id,code,label FROM school_classes WHERE school_id=:sid AND academic_year_id=:y AND enabled AND (lower(code)=:q OR lower(label)=:q OR lower(coalesce(reference_code,''))=:q) ORDER BY CASE WHEN lower(code)=:q THEN 0 ELSE 1 END LIMIT 2"),{'sid':sid,'y':year,'q':norm(n['class_label'])}).all()
@@ -101,13 +108,13 @@ async def analyze_students(request:Request, filename:str=Query(...,min_length=1,
  if len(parsed)>MAX_IMPORT_ROWS:raise HTTPException(413,'Maximum 5 000 lignes par lot')
  bid=uuid4()
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-  yr=conn.execute(text('SELECT id FROM academic_years WHERE school_id=:sid AND id=:y'),{'sid':actor.school_id,'y':academic_year_id}).first()
+  yr=conn.execute(text('SELECT id,COALESCE(enrollment_start,start_date),COALESCE(enrollment_end,end_date) FROM academic_years WHERE school_id=:sid AND id=:y'),{'sid':actor.school_id,'y':academic_year_id}).first()
   if not yr:raise HTTPException(404,'Année scolaire introuvable')
   counts={'VALID':0,'WARNING':0,'ERROR':0}; previews=[]
   conn.execute(text("INSERT INTO student_import_batches(id,school_id,academic_year_id,filename,source_format,created_by) VALUES(:id,:sid,:y,:f,:fmt,:u)"),{'id':bid,'sid':actor.school_id,'y':academic_year_id,'f':filename,'fmt':ext.upper(),'u':actor.user_id})
   in_file=_same_file_duplicates(parsed,lambda r:tuple(norm(r.get(h)) for h in ('Nom*','Postnom*','Prénom*')) if all(clean(r.get(h)) for h in ('Nom*','Postnom*','Prénom*')) else None)
   for rn,row in parsed:
-   n,issues=analyze_row(conn,actor.school_id,academic_year_id,row)
+   n,issues=analyze_row(conn,actor.school_id,academic_year_id,row,(yr[1],yr[2]))
    if rn in in_file:issues.append({'level':'WARNING','code':'POSSIBLE_DUPLICATE','field':'student','message':'Même élève présent plusieurs fois dans le fichier'})
    status='ERROR' if any(x['level']=='ERROR' for x in issues) else ('WARNING' if issues else 'VALID');counts[status]+=1
    conn.execute(text("INSERT INTO student_import_rows(school_id,batch_id,row_number,payload,normalized_payload,status,issues) VALUES(:sid,:b,:rn,CAST(:p AS jsonb),CAST(:n AS jsonb),:s,CAST(:i AS jsonb))"),{'sid':actor.school_id,'b':bid,'rn':rn,'p':json.dumps({k:str(v) if v is not None else None for k,v in row.items()},ensure_ascii=False),'n':json.dumps(n,ensure_ascii=False),'s':status,'i':json.dumps(issues,ensure_ascii=False)})
@@ -148,7 +155,7 @@ def execute(batch_id:UUID,body:ExecuteBody,idempotency_key:str|None=Header(None,
    if n.get('guardian_name'):
     g=Guardian(school_id=actor.school_id,full_name=n['guardian_name'],phone=n.get('guardian_phone'),email=n.get('guardian_email'));repo.create_guardian(g);repo.link_guardian(actor.school_id,family_id=fid,guardian_id=g.id,role='TUTEUR',is_primary=True)
    sid=uuid4(); mat=f"IMP-{date.today().year}-{uuid4().hex[:8].upper()}"; st=Student(school_id=actor.school_id,id=sid,family_id=fid,matricule=mat,last_name=n['last_name'],middle_name=n['middle_name'],first_name=n['first_name'],gender=n['gender'],birth_date=date.fromisoformat(n['birth_date']) if n.get('birth_date') else None,birth_place=n.get('birth_place'),nationality=n.get('nationality'),address=n.get('address'),previous_school=n.get('previous_school'),notes=n.get('notes'));repo.create_student(st)
-   en=Enrollment(school_id=actor.school_id,student_id=sid,academic_year_id=b['academic_year_id'],class_id=UUID(n['class_id']),enrollment_kind='TRANSFER_IN' if n.get('previous_school') else 'NEW',origin_school=n.get('previous_school'),notes='Import EduSync');repo.create_enrollment(en)
+   en=Enrollment(school_id=actor.school_id,student_id=sid,academic_year_id=b['academic_year_id'],class_id=UUID(n['class_id']),enrollment_kind='TRANSFER_IN' if n.get('previous_school') else 'NEW',origin_school=n.get('previous_school'),notes='Import EduSync',**({'enrolled_on':date.fromisoformat(n['enrolled_on'])} if n.get('enrolled_on') else {}));repo.create_enrollment(en)
    conn.execute(text("UPDATE student_import_rows SET status='IMPORTED',imported_student_id=:s,imported_enrollment_id=:e WHERE id=:id"),{'s':sid,'e':en.id,'id':r['id']});imported.append(str(sid))
   conn.execute(text("UPDATE student_import_batches SET status='EXECUTED',executed_at=now(),version=version+1 WHERE id=:b"),{'b':batch_id})
   PostgresAuditRepository(conn).append(AuditRecord(action='STUDENT_IMPORT_EXECUTED',entity_type='student_import_batch',entity_id=batch_id,actor_user_id=actor.user_id,membership_id=actor.membership_id,school_id=actor.school_id,source=actor.source,new_data={'imported':len(imported),'accept_warnings':body.accept_warnings,'separate_households_confirmed':True},correlation_id=actor.correlation_id,idempotency_key=idempotency_key))
@@ -465,7 +472,7 @@ def import_contract_registry(actor:ActorContext=Depends(require_school_actor)):
  for kind,c in CONTRACTS.items():
   cap={'STUDENTS':'migration.students.analyze','STAFF':'migration.staff.analyze','FINANCE_HISTORY':'migration.finance_history.analyze'}[kind]
   if cap in actor.permissions:
-   kinds.append({'kind':kind,'contract_id':c['id'],'contract_version':CONTRACT_VERSION,'max_rows':MAX_IMPORT_ROWS,'max_bytes':MAX_IMPORT_BYTES,'format':'XLSX'})
+   kinds.append({'kind':kind,'contract_id':c['id'],'contract_version':contract_version(kind),'max_rows':MAX_IMPORT_ROWS,'max_bytes':MAX_IMPORT_BYTES,'format':'XLSX'})
  return {'contracts':kinds,'policy':'OFFICIAL_TEMPLATE_ONLY'}
 
 class CancelImportBody(BaseModel):
