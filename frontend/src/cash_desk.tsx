@@ -14,6 +14,7 @@ import {formatMoney} from './platform/format';
 import {NavGlyph} from './platform/nav_icons';
 import './cash_desk.css';
 import {useLive} from './platform/live';
+import {DateInput} from './platform/date_input';
 
 type Cur = 'CDF' | 'USD';
 const money = (v: string | number | null | undefined, c: Cur) => formatMoney(String(v ?? 0), c);
@@ -181,8 +182,8 @@ function PastSessions({token, can, schoolName, reloadKey}: {token: string; can: 
       {can('finance.cash.journal.export') && <button type="button" className="cd-btn" onClick={() => void exportPeriod()} disabled={!data?.total}><NavGlyph g="sheet" size={17}/>Exporter la période</button>}</header>
     <div className="cd-filters">
       <div className="cd-seg" role="group" aria-label="Période">{PRESETS.map(([k, l, f]) => <button key={k} type="button" aria-pressed={preset === k} className={preset === k ? 'on' : ''} onClick={() => { setPreset(k); setRange(f()); setPage(0); }}>{l}</button>)}</div>
-      <label className="cd-field inline"><span>Du</span><input type="date" value={range[0]} max={range[1]} onChange={e => { setPreset('custom'); setRange([e.target.value, range[1]]); setPage(0); }}/></label>
-      <label className="cd-field inline"><span>Au</span><input type="date" value={range[1]} min={range[0]} onChange={e => { setPreset('custom'); setRange([range[0], e.target.value]); setPage(0); }}/></label>
+      <label className="cd-field inline"><span>Du</span><DateInput value={range[0]} max={range[1]} onChange={e => { setPreset('custom'); setRange([e.target.value, range[1]]); setPage(0); }}/></label>
+      <label className="cd-field inline"><span>Au</span><DateInput value={range[1]} min={range[0]} onChange={e => { setPreset('custom'); setRange([range[0], e.target.value]); setPage(0); }}/></label>
       <label className="cd-field inline"><span>Statut</span><select value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}><option value="">Toutes</option><option value="OPEN">Ouvertes</option><option value="CLOSED">Clôturées</option></select></label>
       {data?.all_cashiers && <label className="cd-field inline"><span>Caissier</span><select value={cashier} onChange={e => { setCashier(e.target.value); setPage(0); }}><option value="">Tous</option>{cashiers.map(([id, n]) => <option key={id} value={id}>{n}</option>)}</select></label>}
     </div>
@@ -230,7 +231,7 @@ function Supervision({token, can}: {token: string; can: (p: string) => boolean})
     <td>{money(fromCents(cents(x.expenses) + cents(x.reversals) + cents(x.supervisor_reversals)), currency)}</td><td><b>{money(x.expected_cash, currency)}</b></td></tr>;
   return <section className="cd-card cd-superCard">
     <header className="cd-cardHead"><div><h4>Supervision des caisses</h4><small>Contrôle autorisé : toutes les caisses de l’école pour la journée choisie.</small></div>
-      <label className="cd-field inline"><span>Journée</span><input type="date" value={day} max={iso(new Date())} onChange={e => setDay(e.target.value)}/></label></header>
+      <label className="cd-field inline"><span>Journée</span><DateInput value={day} max={iso(new Date())} onChange={e => setDay(e.target.value)}/></label></header>
     {err && <div className="error" role="alert">{err}</div>}
     {can('finance.cash.other.read') && global && <div className="cashGlobal"><b>Situation globale des caisses</b> <small>{global.open_count} ouverte(s) · {global.closed_count} clôturée(s)</small>
       <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Devise</th><th>Fonds initiaux</th><th>Entrées</th><th>Sorties</th><th>Solde théorique global</th></tr></thead>

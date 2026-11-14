@@ -7,7 +7,7 @@ import {toast} from 'sonner';
 import {friendlyError} from './platform/errors';
 import {listClassSelector, listSections, listStudents} from './api';
 import {
-  CHANNEL_LABEL, STATE_LABEL, STATUS_LABEL, confirmSend, deliveries, history, previewSend, pushDevices, pushTest, readiness, retryDelivery,
+  CHANNEL_LABEL, STATE_LABEL, STATUS_LABEL, confirmSend, deliveries, deliveryErrorLabel, deliveryStatusLabel, history, previewSend, pushDevices, pushTest, readiness, retryDelivery,
   saveSettings, walletLedger, type Draft, type HistoryItem, type Preview, type Readiness,
 } from './messaging_api';
 import {disablePush, enablePush, pushSupport, rememberedSubscription} from './push_client';
@@ -174,18 +174,20 @@ function History({token, can}: {token: string; can: (p: string) => boolean}) {
   if (!items.length) return <p className="commEmpty">Aucune communication envoyée pour l’instant.</p>;
   return <ul className="commHistory">{items.map(m => {
     const statuses = Object.entries(m.counts);
+    const isInternalAlert = m.kind === 'ALERT' || m.kind === 'PUSH_TEST';
     return <li key={m.id}>
       <button className="commHistoryHead" onClick={() => void expand(m.id)} aria-expanded={open === m.id}>
         <span className="commChips">{m.channels.map(c => <em key={c}>{CHANNEL_LABEL[c] ?? c}</em>)}</span>
         <b>{m.subject || AUD_LABEL[m.audience_type as Draft['audience_type']] || m.audience_type}</b>
         <small>{fmt(m.created_at)} · {m.author ?? '—'} · {m.recipient_count} destinataire(s){m.sms_units_billed ? ` · ${m.sms_units_billed} unité(s) SMS` : ''}</small>
-        <span className="commStatuses">{statuses.length ? statuses.map(([k, n]) => { const [ch, st] = k.split(':'); return <i key={k} className={`st-${st}`}>{CHANNEL_LABEL[ch] ?? ch} · {STATUS_LABEL[st] ?? st} · {n}</i>; })
+        {isInternalAlert && <small className="commAvailable">Disponible dans EduSync pour les destinataires. Le push est seulement l’alerte externe sur leur appareil.</small>}
+        <span className="commStatuses">{statuses.length ? statuses.map(([k, n]) => { const [ch, st] = k.split(':'); return <i key={k} className={`st-${st}`}>{ch === 'PUSH' ? 'Push appareil' : (CHANNEL_LABEL[ch] ?? ch)} · {deliveryStatusLabel(ch, st)} · {n}</i>; })
           : <i className="st-QUEUED">{m.dispatched_at ? 'Aucun envoi externe' : 'En préparation'}</i>}</span>
-        {m.errors?.length ? <small className="commErr">Erreurs : {m.errors.join(', ')}</small> : null}
+        {m.errors?.length ? <small className="commErr">À vérifier : {m.errors.map(deliveryErrorLabel).join(' · ')}</small> : null}
       </button>
       {open === m.id && <ul className="commDeliveries">{rows.map(d => <li key={d.id}>
-        <span><b>{d.display_name ?? '—'}</b><small>{CHANNEL_LABEL[d.channel] ?? d.channel}{d.destination ? ` · ${d.destination}` : ''}</small></span>
-        <span className={`st-${d.status}`}>{STATUS_LABEL[d.status] ?? d.status}{d.last_error_code ? ` · ${d.last_error_code}` : ''}</span>
+        <span><b>{d.display_name ?? 'Destinataire'}</b><small>{d.channel === 'PUSH' ? 'Push sur appareil' : (CHANNEL_LABEL[d.channel] ?? d.channel)}{d.destination && d.destination !== 'appareil' ? ` · ${d.destination}` : ''}</small></span>
+        <span className={`st-${d.status}`}><b>{deliveryStatusLabel(d.channel, d.status, d.last_error_code)}</b>{d.last_error_code ? <small>{deliveryErrorLabel(d.last_error_code)}</small> : null}</span>
         {d.status === 'FAILED_PERMANENT' && can('communications.delivery.retry') && <button className="softBtn" onClick={() => void retry(d.id)}>Réessayer</button>}
       </li>)}{rows.length === 0 && <li><small>Chargement…</small></li>}</ul>}
     </li>;

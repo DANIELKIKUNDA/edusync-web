@@ -35,6 +35,7 @@ from edusync.modules.communications.api.router import router as communications_r
 from edusync.modules.migration_import.api.router import router as migration_import_router
 from edusync.modules.access.api.router import router as access_router
 from edusync.modules.setup.api.router import router as setup_router
+from edusync.modules.alerts.api.router import router as supervision_router
 from edusync.shared.infrastructure.observability import CorrelationLoggingMiddleware, configure_logging
 from edusync.shared.infrastructure.security_headers import SecurityHeadersMiddleware
 from edusync.shared.infrastructure.api_guard import ApiGuardMiddleware
@@ -74,6 +75,27 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         request.state.error_type, request.state.error_message = "Stockage indisponible", str(exc)
         return JSONResponse(status_code=503, headers={"Retry-After": "10"},
                             content={"detail": "Stockage des documents momentanément indisponible. Réessayez dans un instant."})
+
+    # Owner report 2026-11-06: every refusal reaches the school in French (« Positive due amount required… » was shown).
+    from fastapi.exception_handlers import http_exception_handler as _default_http_handler
+    from starlette.exceptions import HTTPException as _StarletteHTTPException
+    from edusync.shared.user_messages import to_french
+
+    @app.exception_handler(_StarletteHTTPException)
+    async def french_http_exception_handler(request, exc):
+        detail = exc.detail
+        if isinstance(detail, dict) and isinstance(detail.get("message"), str):
+            french = {**detail, "message": to_french(detail["message"])}
+        elif isinstance(detail, str):
+            french = to_french(detail)
+        else:
+            french = detail
+        if french != detail:
+            import json as _json, logging as _logging
+            _logging.getLogger("edusync").info(_json.dumps({"event": "user_message_translated", "path": request.url.path,
+                                                           "status": exc.status_code, "original": str(detail)[:300]}))
+            exc = _StarletteHTTPException(status_code=exc.status_code, detail=french, headers=getattr(exc, "headers", None))
+        return await _default_http_handler(request, exc)
 
     @app.exception_handler(CapabilityDenied)
     async def capability_denied_handler(request, exc):
@@ -116,6 +138,15 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         except Exception:  # noqa: BLE001 — alerts must never prevent startup
             pass
 
+    @app.on_event("startup")
+    def start_school_supervision() -> None:
+        """Vigie EduSync: capability-scoped business anomaly detection and lifecycle."""
+        from edusync.modules.alerts.application.supervision import start_supervision_loop
+        try:
+            start_supervision_loop(app.state.services)
+        except Exception:  # supervision must never prevent the school from opening
+            pass
+
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
         # POINT-5-DOCUMENTS-EXPORTS extends the certified Point 4D baseline without invalidating its health contract.
@@ -147,6 +178,7 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.include_router(notifications_router, prefix="/api/v1/notifications")
     app.include_router(sync_router, prefix="/api/v1/sync")
     app.include_router(communications_router, prefix="/api/v1/communications")
+    app.include_router(supervision_router, prefix="/api/v1")
     app.include_router(migration_import_router, prefix="/api/v1/import")
     app.include_router(access_router, prefix="/api/v1/access")
     app.include_router(setup_router, prefix="/api/v1/setup")

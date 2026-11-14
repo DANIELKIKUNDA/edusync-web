@@ -302,8 +302,9 @@ class PostgresFinanceCheckoutRepository:
  def sell_product(self,school_id:UUID,user_id:UUID,membership_id:UUID,student_id:UUID|None,enrollment_id:UUID|None,product_id:UUID,quantity:Decimal,idempotency_key:str):
   if quantity<=0:raise ValueError('Quantité invalide')
   self._lock_idempotency_key(school_id,idempotency_key)
-  existing=self.conn.execute(text("SELECT s.id,p.receipt_number,p.amount,p.currency FROM finance_product_sales s JOIN finance_payments p ON p.id=s.payment_id WHERE s.school_id=:sid AND p.idempotency_key=:k"),{'sid':str(school_id),'k':idempotency_key}).mappings().first()
-  if existing:return {**dict(existing),'replayed':True}
+  existing=self.conn.execute(text("""SELECT s.id,s.payment_id,p.receipt_number,p.amount,p.currency,s.quantity,pr.label AS product_label FROM finance_product_sales s
+      JOIN finance_payments p ON p.id=s.payment_id JOIN school_products pr ON pr.id=s.product_id WHERE s.school_id=:sid AND p.idempotency_key=:k"""),{'sid':str(school_id),'k':idempotency_key}).mappings().first()
+  if existing:return {**{k:(str(v) if v is not None and not isinstance(v,str) else v) for k,v in dict(existing).items()},'replayed':True}  # same sale replayed: same receipt (2026-11-08)
   session=self.conn.execute(text("SELECT id FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' ORDER BY opened_at DESC LIMIT 1 FOR UPDATE"),{'sid':str(school_id),'mid':str(membership_id)}).scalar_one_or_none()
   if not session:raise ValueError('Aucune caisse ouverte pour cet utilisateur')
   self._require_day_open(school_id,session)

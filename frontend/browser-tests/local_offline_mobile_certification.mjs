@@ -80,8 +80,8 @@ await step('04 hors ligne : inscription d’une famille', async () => {
   await w.getByLabel('Nom complet').fill(`Famille ${PUPIL}`); await w.getByLabel('Téléphone').fill('+243 97' + String(Date.now()).slice(-7));
   await w.getByRole('button', {name: 'Continuer'}).click();
   await w.getByLabel('Nom *', {exact: true}).fill(PUPIL); await w.getByLabel('Postnom *').fill('MOBILE'); await w.getByLabel('Prénom *').fill('Esther');
-  await w.locator('.kp-sections button').first().click(); await w.locator('.kp-classes button').first().click(); await w.getByLabel('Sexe *').selectOption({index: 1});
-  await w.getByRole('button', {name: 'Continuer'}).click();
+  await w.locator('.cs-trigger').first().click(); await p.locator('.cs-option').first().click(); await w.getByRole('radio', {name: 'Masculin'}).first().click();
+  await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByRole('button', {name: /^Valider \d+ inscription/}).click();
   await p.getByText(/Hors connexion|enregistrée sur cet appareil/).first().waitFor({timeout: 20000}); });
 
 await step('05 hors ligne : encaissement d’un élève retrouvé dans la copie locale', async () => {

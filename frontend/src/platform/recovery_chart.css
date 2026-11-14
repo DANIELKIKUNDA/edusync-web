@@ -45,3 +45,4 @@
 .rc-foot{display:flex;justify-content:flex-end}
 .rc-link{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--rc-series);cursor:pointer}
 @media (max-width:640px){.rc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rc-sep{stroke:var(--rc-axis,#98a2b3);stroke-width:1;stroke-dasharray:3 3}

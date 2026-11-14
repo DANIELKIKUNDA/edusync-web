@@ -215,7 +215,9 @@ def school_inbox(status: str | None = None, severity: str | None = None, limit: 
 
 @router.post("/notifications/inbox/read-all")
 def school_inbox_read_all(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
-    _need(actor, "notifications.internal.dismiss")
+    # Same ownership rule as the single-item endpoint: this only changes the signed-in user's read state.
+    if not ({"notifications.internal.read", "notifications.internal.dismiss"} & set(actor.permissions)):
+        _need(actor, "notifications.internal.read")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
         n = c.execute(text("UPDATE notifications SET read_at=now() WHERE user_id=:u AND school_id=:s AND read_at IS NULL"),
                       {"u": str(actor.user_id), "s": str(actor.school_id)}).rowcount

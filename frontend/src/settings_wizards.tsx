@@ -9,6 +9,7 @@ import {NavGlyph} from './platform/nav_icons';
 import {suggestNextYear} from './platform/format';
 import './settings_wizards.css';
 import {TariffAssistant} from './settings_tariff_assistant';
+import {DateInput} from './platform/date_input';
 
 /* Settings assistants (2026-10-24), ported from the desktop (configuration_wizard.py, settings_page.py):
    - the user never types an internal code: codes are generated from the label (autoCode) and kept unique;
@@ -35,6 +36,23 @@ export const RDC_OPTIONS:{code:string;label:string;group:'GENERAL'|'TECHNICAL'}[
   {code:'NUTRITION',label:'Nutrition',group:'TECHNICAL'},
 ];
 export const HUMANITIES=new Set(['H1','H2','H3','H4']);
+/** Sigles used by the schools to name a Humanités class (owner request 2026-11-06): « 1re HP », « 2e HSC A ». The option keeps
+    its full name (Pédagogie générale…); only the CLASS name is short. A school option without known sigle uses its code. */
+export const CLASS_SIGLES:Record<string,string>={HP:'HP',SC:'HSC',CG:'CG',LITTERAIRE:'LIT',MATH_PHYS:'MP',TCC:'TCC',ELEC:'ELEC',ELECTRONIQUE:'ELECTRO',
+  MG:'MG',MA:'MA',CONSTRUCTION:'CONSTRU',NUTRITION:'NUTRITION'};
+export function optionSigle(option:{code:string;label:string}):string{
+  const known=CLASS_SIGLES[option.code.toUpperCase()];if(known)return known;
+  const code=option.code.toUpperCase().replace(/_\d+$/,'');if(code.length<=8)return code.replace(/_/g,'-');
+  const words=option.label.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().split(/[^A-Z0-9]+/).filter(w=>w.length>2);
+  return (words.length>1?words.map(w=>w[0]).join(''):(words[0]??code).slice(0,7))||code.slice(0,7);
+}
+/** « 1re Humanités » → « 1re » (the level ordinal used before the sigle). */
+export function levelOrdinal(refLabel:string):string{return (refLabel.trim().split(/\s+/)[0])||refLabel}
+/** Name of a class to open: Humanités → « 1re HP A » ; any other level → « 1re primaire A ». */
+export function plannedClassLabel(ref:{code:string;label:string},option?:{code:string;label:string},suffix=''):string{
+  if(option&&HUMANITIES.has(ref.code.toUpperCase()))return [levelOrdinal(ref.label),optionSigle(option),suffix].filter(Boolean).join(' ');
+  return [ref.label,option?.label,suffix].filter(Boolean).join(' ');
+}
 export const OPTIONS_SECTION='SECONDAIRE';
 
 /** Desktop fee presets mapped to the web periodicities (ONE_TIME, MONTHLY, PERIODIC, OPTIONAL). */
@@ -80,8 +98,20 @@ export function planClasses({sections,refs,options,picked,parallels,optionIds,ex
       for(const suffix of suffixes){
       const c=[ref.code,option?.code,suffix].filter(Boolean).join('_').slice(0,64);
       if(existing.has(c.toUpperCase()))continue;
-      out.push({key:c,section,reference:ref,option,suffix,code:c,label:[ref.label,option?.label,suffix].filter(Boolean).join(' ')});
+      out.push({key:c,section,reference:ref,option,suffix,code:c,label:plannedClassLabel(ref,option,suffix)});
     }}}
+  return out;
+}
+
+/** Humanités classes still named in full (« 1re Humanités Pédagogie générale B ») that can take the school sigle (« 1re HP B »).
+    Only classes of a Humanités level with an option are proposed; the parallel letter is kept; archived classes are left alone. */
+export function sigleRenames(classes:SchoolClass[],refs:{code:string;label:string}[],options:SchoolOption[]):{cls:SchoolClass;label:string}[]{
+  const out:{cls:SchoolClass;label:string}[]=[];
+  for(const c of classes){const refCode=(c.reference_code??'').toUpperCase();if(!HUMANITIES.has(refCode)||!c.option_id)continue;
+    if((c.status??(c.enabled?'ACTIVE':'INACTIVE'))==='ARCHIVED'||c.academic_year_status==='CLOSED'||c.academic_year_status==='ARCHIVED')continue;
+    const ref=refs.find(r=>r.code===refCode);const option=options.find(o=>o.id===c.option_id);if(!ref||!option)continue;
+    const letter=/\s([A-J])$/.exec(c.label.trim())?.[1]??'';const label=plannedClassLabel(ref,option,letter);
+    if(label!==c.label.trim())out.push({cls:c,label})}
   return out;
 }
 
@@ -175,7 +205,7 @@ export function ClassBatchDialog({token,year,sections,refs,options,classes,onClo
       :<p className="error">Aucune option ouverte en Secondaire : ouvrez d’abord les options (Commerciale et gestion, Scientifique…) dans la section Secondaire.</p>}</div>}
     <div className="sw-field"><span>Niveaux et classes parallèles</span>
       <ParallelsGrid levels={refList} picked={picked} setPicked={setPicked} counts={parallels} setCounts={setParallels} options={secOptions.filter(o=>optionIds.includes(o.id))}/>
-      <small className="sw-hint">Exemple : 2 en 1re, 2e et 3e primaire ouvre « 1re primaire A » et « 1re primaire B »… ; les autres niveaux restent à une seule classe. Les classes déjà ouvertes ne sont jamais recréées : passer de 2 à 3 ajoute seulement la classe C.</small></div>
+      <small className="sw-hint">Exemple : 2 en 1re primaire ouvre « 1re primaire A » et « 1re primaire B » ; en Humanités, les classes prennent le sigle de l’option (« 1re HP », « 2e HSC A », « 3e MA »…) ; les autres niveaux restent à une seule classe. Les classes déjà ouvertes ne sont jamais recréées : passer de 2 à 3 ajoute seulement la classe C.</small></div>
     <div className="sw-preview"><b>Aperçu</b>{plan.length?<ul>{plan.slice(0,40).map(p=><li key={p.key}>{p.label}</li>)}{plan.length>40&&<li>… et {plan.length-40} autres</li>}</ul>:<p className="sw-hint">Toutes les classes cochées sont déjà ouvertes pour {year.label}.</p>}</div>
   </Modal>;
 }
@@ -238,8 +268,8 @@ export function SetupAssistant({token,overview,refs,can,onClose,onDone}:{token:s
     {step===0&&<div className="sw-grid">{field('name','Nom officiel *')}{field('phone','Téléphone','tel')}{field('email','E-mail','email')}{field('address','Adresse')}{field('city','Ville')}{field('province','Province')}
       <div className="sw-wide-cell">{active?<p className="sw-ok"><NavGlyph g="checkCircle" size={16}/> Année {active.label} {active.status==='ACTIVE'?'en cours':'préparée'}.</p>:year&&<div className="sw-grid">
         <label className="sw-input"><span>Année scolaire</span><input value={year.label} onChange={e=>setYear({...year,label:e.target.value})}/></label>
-        <label className="sw-input"><span>Rentrée</span><input type="date" value={year.start} onChange={e=>setYear({...year,start:e.target.value})}/></label>
-        <label className="sw-input"><span>Fin d’année</span><input type="date" value={year.end} onChange={e=>setYear({...year,end:e.target.value})}/></label></div>}</div></div>}
+        <label className="sw-input"><span>Rentrée</span><DateInput value={year.start} onChange={e=>setYear({...year,start:e.target.value})}/></label>
+        <label className="sw-input"><span>Fin d’année</span><DateInput value={year.end} onChange={e=>setYear({...year,end:e.target.value})}/></label></div>}</div></div>}
     {step===1&&<div className="sw-field"><span>Sections organisées par l’école</span><div className="sw-chips">{refs.sections.map(r=>{const on=wantedSections.includes(r.code);return <button key={r.code} type="button" className={`sw-chip big ${on?'on':''}`} aria-pressed={on} onClick={()=>setWantedSections(p=>on?p.filter(x=>x!==r.code):[...p,r.code])}>{on?<NavGlyph g="check" size={15}/>:<NavGlyph g="plus" size={15}/>}{r.label}</button>})}</div>
       <small className="sw-hint">Une section décochée n’efface rien : ses classes existantes restent dans l’historique.</small></div>}
     {step===2&&(sec?<OptionCatalog token={token} section={sec} options={options} canManage={can('settings.options.manage')} onChanged={async()=>{await reload()}}/>

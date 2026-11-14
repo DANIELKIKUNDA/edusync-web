@@ -1,7 +1,7 @@
 import {OnlineActionButton} from './online_action';
 import React, {useEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
-import {useForm} from 'react-hook-form';
+import {useForm, type UseFormRegisterReturn} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {toast} from 'sonner';
@@ -129,6 +129,18 @@ const passwordSchema = z.object({
 }).refine(v => v.next === v.confirm, {message: 'Les deux nouveaux mots de passe ne correspondent pas.', path: ['confirm']});
 type PasswordForm = z.infer<typeof passwordSchema>;
 
+function VisiblePassword({id, autoComplete, registration, label, error}: {id: string; autoComplete: 'current-password' | 'new-password'; registration: UseFormRegisterReturn; label: string; error?: string}) {
+  const [shown, setShown] = useState(false);
+  return <label className={`formField ${error ? 'invalid' : ''}`} htmlFor={id}><span>{label}</span>
+    <div className="es-password-input">
+      <input id={id} type={shown ? 'text' : 'password'} autoComplete={autoComplete} aria-invalid={!!error} aria-describedby={error ? `${id}-err` : undefined} {...registration}/>
+      <button type="button" onClick={() => setShown(value => !value)} aria-label={`${shown ? 'Masquer' : 'Afficher'} ${label.toLowerCase()}`} aria-pressed={shown} title={shown ? 'Masquer' : 'Afficher'}>
+        <NavGlyph g={shown ? 'eyeOff' : 'eye'} size={18}/>
+      </button>
+    </div>{error && <small id={`${id}-err`} className="fieldError" role="alert">{error}</small>}
+  </label>;
+}
+
 function relative(iso: string) {
   const d = new Date(iso); const mins = Math.round((Date.now() - d.getTime()) / 60000);
   if (mins < 2) return 'à l’instant';
@@ -183,9 +195,9 @@ export function SecurityDialog({token, onClose, onPasswordChanged, platform}: {t
     {tab === 'mfa' && platform && <MfaPanel token={token}/>}
     {tab === 'password' && <form className="es-form" onSubmit={save} noValidate>
       <p className="es-hint">Changer votre mot de passe déconnecte immédiatement tous vos appareils.</p>
-      <FormField label="Mot de passe actuel *" error={form.formState.errors.current?.message}><input type="password" autoComplete="current-password" {...form.register('current')}/></FormField>
-      <FormField label="Nouveau mot de passe *" error={form.formState.errors.next?.message}><input type="password" autoComplete="new-password" {...form.register('next')}/></FormField>
-      <FormField label="Confirmer le nouveau mot de passe *" error={form.formState.errors.confirm?.message}><input type="password" autoComplete="new-password" {...form.register('confirm')}/></FormField>
+      <VisiblePassword id="security-current-password" label="Mot de passe actuel *" autoComplete="current-password" registration={form.register('current')} error={form.formState.errors.current?.message}/>
+      <VisiblePassword id="security-new-password" label="Nouveau mot de passe *" autoComplete="new-password" registration={form.register('next')} error={form.formState.errors.next?.message}/>
+      <VisiblePassword id="security-confirm-password" label="Confirmer le nouveau mot de passe *" autoComplete="new-password" registration={form.register('confirm')} error={form.formState.errors.confirm?.message}/>
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
         <OnlineActionButton className="es-btn es-btn-primary" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? 'Modification…' : 'Modifier le mot de passe'}</OnlineActionButton></div>
     </form>}

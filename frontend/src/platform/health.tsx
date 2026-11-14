@@ -42,9 +42,9 @@ const STATE: Record<State, {label: string; cls: string; icon: string}> = {
 };
 const OVERALL: Record<State, string> = {OK: 'Tous les services fonctionnent normalement', DEGRADED: 'Certains services sont dégradés',
   DOWN: 'Incident en cours : au moins un service est hors service', NOT_CONFIGURED: 'Aucun service mesurable'};
-const ICON: Record<string, string> = {api: 'cockpit', database: 'database', redis: 'layers', worker_outbox: 'sync', worker_communications: 'message', storage: 'folder', errors: 'alert', backup: 'cloudUp', messaging: 'bell'};
-/** Priority order (also the phone order, after the incident): server, database, workers, backup, storage, messaging, errors, cache. */
-const ORDER = ['api', 'database', 'worker_outbox', 'worker_communications', 'backup', 'storage', 'messaging', 'errors', 'redis'];
+const ICON: Record<string, string> = {host: 'pulse', api: 'cockpit', database: 'database', redis: 'layers', worker_outbox: 'sync', worker_communications: 'message', storage: 'folder', errors: 'alert', backup: 'cloudUp', messaging: 'bell'};
+/** Priority order (also the phone order, after the incident): server, its resources (memory, disk, CPU), database, workers, backup, storage, messaging, errors, cache. */
+const ORDER = ['api', 'host', 'database', 'worker_outbox', 'worker_communications', 'backup', 'storage', 'messaging', 'errors', 'redis'];
 const LABEL: Record<string, string> = {api: 'Serveur d’application', database: 'Base de données', redis: 'Cache et files rapides', storage: 'Stockage des documents'};
 const PROVIDER: Record<string, string> = {CONFIGURED: 'Configuré', SIMULATED: 'Simulation (hors production)', INCOMPLETE: 'Configuration incomplète', DISABLED: 'Désactivé', REFUSED: 'Refusé (simulation interdite en production)'};
 const COOLDOWN_MS = 10_000;

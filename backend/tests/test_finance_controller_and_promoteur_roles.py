@@ -1,8 +1,8 @@
 """Certification Responsable chargé des finances + Promoteur (2026-10-28).
 
 Both roles READ, follow, print and export; neither collects money, opens a cash desk, enrolls, changes the settings,
-manages people or writes into the accounts. Owner decision 2026-10-28: they may ANALYSE the financial history import,
-never EXECUTE it (migration 0097). Computed from the canonical registry, not a hand-copied list.
+manages people or writes into the accounts. Owner decision 2026-11-09: historical import is hidden by default and may
+only be delegated explicitly for a planned migration (migration 0110). Computed from the canonical registry.
 """
 from __future__ import annotations
 
@@ -33,15 +33,16 @@ def active(role: str) -> set[str]:
 
 
 @pytest.mark.parametrize("role", ROLES)
-def test_history_import_is_analysed_never_executed(role):
+def test_history_import_is_hidden_from_daily_supervision_roles(role):
     caps = set(REG["standard_roles"][role]["capabilities"])
-    assert "migration.finance_history.analyze" in caps
+    assert "migration.finance_history.analyze" not in caps
     assert "migration.finance_history.execute" not in caps
-    # the import can still be executed in the school
-    assert "migration.finance_history.execute" in REG["standard_roles"]["GESTIONNAIRE"]["capabilities"]
+    assert "migration.finance_history.analyze" not in REG["standard_roles"]["GESTIONNAIRE"]["capabilities"]
+    assert "migration.finance_history.execute" not in REG["standard_roles"]["GESTIONNAIRE"]["capabilities"]
+    # the specialised migration capability still exists and can be delegated explicitly.
     assert "migration.finance_history.execute" in REG["standard_roles"]["CAISSIER"]["capabilities"]
-    sql = (ROOT / "backend/migrations/0097_promoteur_finance_no_history_execute.sql").read_text(encoding="utf-8")
-    assert "DELETE FROM rbac_role_capabilities" in sql and "'migration.finance_history.execute'" in sql
+    sql = (ROOT / "backend/migrations/0110_finance_history_import_explicit_delegation.sql").read_text(encoding="utf-8")
+    assert "DELETE FROM rbac_role_capabilities" in sql and "'migration.finance_history.analyze'" in sql
 
 
 @pytest.mark.parametrize("role", ROLES)

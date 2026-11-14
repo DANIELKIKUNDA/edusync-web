@@ -69,3 +69,23 @@
 .docScopeTabs{display:flex;gap:6px;margin:0 0 10px;padding:4px;border-radius:10px;background:#edf2f8;width:max-content;max-width:100%}
 .docScopeTabs button{min-height:38px;padding:7px 12px;border:0;border-radius:8px;background:transparent;color:#465873;font-weight:750;cursor:pointer}
 .docScopeTabs button.active{background:#fff;color:#0b3f9c;box-shadow:0 1px 6px rgba(20,48,85,.12)}
+/* Generated documents as folders: module › document type › files (owner request 2026-11-08). */
+.docViewTabs{display:inline-flex;gap:4px;padding:3px;border:1px solid #e4e7ec;border-radius:10px;background:#f9fafb;margin:4px 0 10px}
+.docViewTabs button{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:8px;background:transparent;padding:7px 12px;font:inherit;font-size:13px;font-weight:600;color:#475467;cursor:pointer}
+.docViewTabs button.active{background:#fff;color:#1149b8;box-shadow:0 1px 3px rgba(16,24,40,.12)}
+.docCrumbs{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;font-size:13.5px}
+.docCrumbs button{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:4px 6px;border-radius:7px;font:inherit;color:#1557d6;font-weight:600;cursor:pointer}
+.docCrumbs button.on{color:#101828;cursor:default}
+.docCrumbs span{color:#98a2b3}
+.docFolders{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.docFolder{display:grid;grid-template-columns:44px 1fr;column-gap:12px;row-gap:2px;align-items:center;text-align:left;padding:14px;border:1px solid #e4e7ec;border-radius:14px;background:#fff;font:inherit;cursor:pointer;color:#101828;transition:border-color .15s,box-shadow .15s,transform .15s}
+.docFolder:hover{border-color:#b2ccff;box-shadow:0 4px 14px rgba(16,24,40,.08);transform:translateY(-1px)}
+.docFolderIcon{grid-row:1/4;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:#fef0c7;color:#b54708}
+.docFolder.sub .docFolderIcon{background:#eff4ff;color:#1557d6}
+.docFolder b{font-size:14.5px;line-height:1.3}
+.docFolder small{font-size:12.5px;color:#475467}
+.docFolder em{font-style:normal;font-size:11.5px;color:#667085}
+.docMoreHint{font-size:12.5px;color:#667085;margin:10px 0 0}
+@media (max-width:640px){.docFolders{grid-template-columns:1fr}}
+.docViewTabs{justify-self:start;width:max-content}
+.docFolder b{color:#101828}

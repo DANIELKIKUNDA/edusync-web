@@ -32,6 +32,9 @@ export type HistoryItem = {
   id: string; kind: string; subject: string | null; audience_type: string; channels: string[]; recipient_count: number; sms_segments_reserved: number;
   created_at: string; dispatched_at: string | null; author: string | null; counts: Record<string, number>; sms_units_billed: number; errors: string[] | null;
 };
+export type SupervisionIncident = {id:string;rule_code:string;domain:string;severity:'INFO'|'WARNING'|'CRITICAL';condition_status:'OPEN'|'RESOLVED';
+  response_status:'NEW'|'ACKNOWLEDGED'|'IN_PROGRESS'|'CLOSED';title:string;summary:string;explanation:string;recommendation:string;
+  metric_json:Record<string,unknown>;target_path:string|null;opened_at:string;last_seen_at:string;resolved_at:string|null;reminder_count:number};
 
 export const readiness = (t: string) => call<Readiness>(t, '/communications/readiness');
 export const saveSettings = (t: string, s: {enabled: boolean; sms_enabled: boolean; email_enabled: boolean; push_enabled: boolean; sms_low_balance_threshold: number; expected_version: number}) =>
@@ -43,6 +46,9 @@ export const confirmSend = (t: string, d: Draft, key: string, fingerprint?: stri
 export const history = (t: string) => call<{items: HistoryItem[]}>(t, '/communications/history');
 export const deliveries = (t: string, id: string) => call<{items: any[]}>(t, `/communications/history/${id}/deliveries`);
 export const retryDelivery = (t: string, id: string) => post<{requeued: boolean}>(t, `/communications/deliveries/${id}/retry`, {});
+export const supervisionIncidents = (t:string, state='active', domain='') => call<{items:SupervisionIncident[];counts:{active:number;critical:number;new:number}}>(t, `/supervision/incidents?state=${encodeURIComponent(state)}&domain=${encodeURIComponent(domain)}`);
+export const supervisionAction = (t:string,id:string,action:'acknowledge'|'start'|'close') => post<{id:string;action:string}>(t, `/supervision/incidents/${id}/${action}`, {});
+export const supervisionEvaluate = (t:string) => post<{findings:number;opened:number;notified:number;resolved:number}>(t, '/supervision/evaluate', {});
 
 // Push devices (this browser) ------------------------------------------------------------------------------------
 export type PushConfig = {provider: 'fcm' | 'fake' | 'disabled'; web_config: Record<string, string> | null; vapid_public_key: string | null};
@@ -77,6 +83,31 @@ export const STATUS_LABEL: Record<string, string> = {
   FAILED_PERMANENT: 'Échec', CANCELLED: 'Non envoyé',
 };
 export const CHANNEL_LABEL: Record<string, string> = {SMS: 'SMS', EMAIL: 'E-mail', PUSH: 'Notification', IN_APP: 'Dans l’application'};
+export const DELIVERY_ERROR_LABEL: Record<string, string> = {
+  NO_PUSH_DEVICE: 'Aucun appareil du destinataire n’a activé les notifications',
+  CHANNEL_DISABLED: 'Ce canal est désactivé pour l’école',
+  PUSH_DISABLED_FOR_SCHOOL: 'Les notifications externes sont désactivées pour l’école',
+  EMAIL_DISABLED_FOR_SCHOOL: 'Les e-mails sont désactivés pour l’école',
+  SMS_DISABLED_FOR_SCHOOL: 'Les SMS sont désactivés pour l’école',
+  NO_EMAIL_ADDRESS: 'Aucune adresse e-mail enregistrée',
+  NO_VALID_PHONE: 'Aucun numéro de téléphone valide enregistré',
+  INVALID_DESTINATION: 'Coordonnée du destinataire invalide',
+  PROVIDER_NOT_CONFIGURED: 'Service d’envoi non configuré',
+  PUSH_DEVICE_REVOKED: 'Notifications retirées sur cet appareil',
+  PUSH_TOKEN_INVALID: 'Inscription de l’appareil expirée',
+  PUSH_TOKEN_UNREGISTERED: 'Cet appareil n’est plus inscrit aux notifications',
+  PUSH_PROVIDER_UNAVAILABLE: 'Service de notifications temporairement indisponible',
+  PROVIDER_TIMEOUT: 'Le service d’envoi ne répond pas pour le moment',
+  PROVIDER_RATE_LIMITED: 'Service momentanément saturé',
+};
+
+export const deliveryErrorLabel = (code?: string | null) => code ? (DELIVERY_ERROR_LABEL[code] ?? 'Incident technique à vérifier') : '';
+
+export function deliveryStatusLabel(channel: string, status: string, errorCode?: string | null) {
+  if (channel === 'PUSH' && status === 'CANCELLED' && errorCode === 'NO_PUSH_DEVICE') return 'Push non remis';
+  if (channel === 'PUSH' && status === 'CANCELLED') return 'Push non envoyé';
+  return STATUS_LABEL[status] ?? 'État à vérifier';
+}
 export const STATE_LABEL: Record<ChannelState, string> = {
   DISABLED: 'Non activé sur la plateforme', SIMULATED: 'Mode développement (simulé)', CONFIGURED: 'Disponible', INCOMPLETE: 'Configuration incomplète',
   REFUSED: 'Refusé (simulation interdite)',

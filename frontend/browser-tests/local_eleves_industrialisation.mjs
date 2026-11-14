@@ -40,14 +40,11 @@ await step('10 inscription : section puis classe filtrée', async () => { await 
   await w.getByLabel('Nom complet').fill(`Tshibola ${RUN}`); await w.getByLabel('Téléphone').fill('+243 98' + String(Date.now()).slice(-7));
   await w.getByRole('button', {name: 'Continuer'}).click();
   await w.getByLabel('Nom *', {exact: true}).fill(PUPIL); await w.getByLabel('Postnom *').fill('TSHIBOLA'); await w.getByLabel('Prénom *').fill('Grâce');
-  const secs = w.locator('.kp-sections button'); const nSec = await secs.count(); if (nSec < 1) throw new Error('aucune puce de section');
-  const allBefore = await w.locator('.kp-classes button').count();
-  await secs.nth(nSec - 1).click(); await p.waitForTimeout(200);
-  const filtered = await w.locator('.kp-classes button').count(); if (!filtered) throw new Error('aucune classe après le choix de la section');
-  if (nSec > 1 && allBefore && filtered >= allBefore) throw new Error('les classes ne sont pas filtrées par section');
-  await w.locator('.kp-classes button').first().click(); await w.locator('.kp-chosen').waitFor();
-  await w.getByLabel('Sexe *').selectOption({index: 2});
-  await w.getByRole('button', {name: 'Continuer'}).click(); await w.waitFor({state: 'detached', timeout: 30000});
+  await w.locator('.cs-trigger').first().click(); const all = await p.locator('.cs-option').count(); if (all < 1) throw new Error('aucune classe proposée');
+  await p.getByLabel('Rechercher une classe').fill('1re'); const filtered = await p.locator('.cs-option').count(); if (!filtered || filtered > all) throw new Error('la recherche de classe ne filtre pas');
+  await p.locator('.cs-option').first().click(); await w.locator('.cs-trigger:not(.cs-unset)').waitFor();
+  await w.getByRole('radio', {name: 'Féminin'}).first().click();
+  await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByRole('button', {name: /^Valider \d+ inscription/}).click(); await w.waitFor({state: 'detached', timeout: 30000});
   await p.getByText(PUPIL).first().waitFor({timeout: 15000}); });
 
 await step('20 annuaire : filtres section / classe / sexe', async () => { await tab('Annuaire élèves');

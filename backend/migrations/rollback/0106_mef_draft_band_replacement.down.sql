@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS finance_exigibility_day_bands_draft_delete ON finance_exigibility_day_bands;
+REVOKE DELETE ON finance_exigibility_day_bands FROM edusync_tenant;

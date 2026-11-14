@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto';
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
-import {cachedPlatformRead, cacheablePlatformPath, clearPlatformContext, getPlatformAuthState, knownPlatform, rememberPlatformContext, rememberPlatformRead, restorePlatformContext, setPlatformAuthState} from '../src/platform/offline_session';
+import {cachedPlatformRead, cacheablePlatformPath, cacheableSchoolPath, clearPlatformContext, getPlatformAuthState, knownPlatform, rememberPlatformContext, rememberPlatformRead, restorePlatformContext, setPlatformAuthState} from '../src/platform/offline_session';
 import type {PlatformMe} from '../src/api';
 
 const me:PlatformMe={user:{id:'owner',email:'owner@example.test',full_name:'Owner'},roles:[],permissions:['platform.audit.read'],menu:[{key:'audit',label:'Journal',capability:'platform.audit.read'}]};
@@ -19,6 +19,13 @@ it('stores display context without a bearer token and restores the same scoped i
 it('only caches approved reads and never credentials, MFA, exports or streams',()=>{
   expect(cacheablePlatformPath('/api/v1/platform/schools')).toBe(true);
   for(const path of ['/api/v1/auth/platform/mfa','/api/v1/platform/inbox/push/config','/api/v1/platform/audit/export','/api/v1/platform/inbox/stream'])expect(cacheablePlatformPath(path)).toBe(false);
+});
+
+it('school roles can consult their essential modules offline, but never credentials or exported files',()=>{
+  for(const path of ['/api/v1/schooling/students','/api/v1/personnel','/api/v1/finance/recovery/monthly','/api/v1/effectifs/overview','/api/v1/stewardship/stock','/api/v1/communications/history','/api/v1/audit/events','/api/v1/documents/catalog','/api/v1/documents/history'])
+    expect(cacheableSchoolPath(path),path).toBe(true);
+  for(const path of ['/api/v1/auth/sessions','/api/v1/access/members','/api/v1/documents/history/file.pdf','/api/v1/finance/recovery/monthly.xlsx'])
+    expect(cacheableSchoolPath(path),path).toBe(false);
 });
 
 it('returns only already-read snapshots, with age, isolated from another identity',async()=>{

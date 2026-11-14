@@ -10,7 +10,7 @@ from edusync.bootstrap.services import AppServices
 from sqlalchemy import text
 from uuid import UUID
 from edusync.shared.application.context import ActorContext
-from edusync.modules.documents.domain.catalog import visible_catalog
+from edusync.modules.documents.domain.catalog import CATALOG, visible_catalog
 from edusync.modules.documents.application.templates import student_import_template_xlsx
 
 router=APIRouter(tags=["documents"])
@@ -21,7 +21,11 @@ def _need(actor,cap):
 @router.get("/catalog")
 def catalog(actor:ActorContext=Depends(require_school_actor)):
     items=visible_catalog(actor.permissions)
-    return {"items":items,"canonical_count":16,"visible_count":len(items),"doctrine":"COPIER_COMPARER_CERTIFIER_ENRICHIR"}
+    # Folders of the generated documents (owner, 2026-11-08): every archived document goes to the folder named after its
+    # catalog family, even when the reader cannot PRODUCE that document himself (a promoteur reads the pupils' directory
+    # archived by the secretariat) — names and folders only, no content, no right granted.
+    families=[{"code":d.code,"label":d.label,"module":d.module,"archive_codes":list(d.archive_codes)} for d in CATALOG]
+    return {"items":items,"families":families,"canonical_count":16,"visible_count":len(items),"doctrine":"COPIER_COMPARER_CERTIFIER_ENRICHIR"}
 
 @router.get("/student-import-template.xlsx")
 def student_import_template(academic_year_id:UUID|None=Query(None),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):

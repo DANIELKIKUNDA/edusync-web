@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 F = ROOT / "frontend"
 APP = (F / "src/App.tsx").read_text(encoding="utf-8")
+CONNECTIVITY = (F / "src/platform/connectivity.ts").read_text(encoding="utf-8")
 MAIN = (F / "src/main.tsx").read_text(encoding="utf-8")
 LINKS = (F / "src/account_links.tsx").read_text(encoding="utf-8")
 LOGIN = (F / "src/login.tsx").read_text(encoding="utf-8")
@@ -34,7 +35,8 @@ def test_restoration_never_returns_without_releasing_the_boot_screen():
     restore = APP.split("async function restore(){", 1)[1].split("const online=", 1)[0]
     assert "#(reset|invitation)=" not in restore                       # the endless early return is gone
     assert "if(initialLink){if(alive)setRestoring(false);return}" in restore
-    assert "ctl.abort(),10000" in restore and "signal:ctl.signal" in restore      # no endless wait for /auth/refresh
+    assert "ctl.abort(),10000" in restore and "refreshAccessSession(ctl.signal)" in restore
+    assert "signal}" in CONNECTIVITY and "credentials:'include'" in CONNECTIVITY  # no endless wait for /auth/refresh
 
 
 def test_already_open_pwa_receives_links():

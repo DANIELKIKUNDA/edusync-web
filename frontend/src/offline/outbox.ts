@@ -39,6 +39,8 @@ async function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectS
 // ---------------------------------------------------------------- what may be recorded offline
 const OFFLINE_WRITES: Array<[RegExp, string, string]> = [
   [/^\/api\/v1\/schooling\/enrollments\/family$/, 'ENROLLMENT', 'Inscription'],
+  // 2026-11-08: a dossier « en attente de paiement » recorded offline (its Idempotency-Key gives one dossier only)
+  [/^\/api\/v1\/schooling\/enrollment-dossiers$/, 'ENROLLMENT', 'Dossier d’inscription en attente'],
   [/^\/api\/v1\/finance\/checkout\/collect$/, 'PAYMENT', 'Encaissement'],
   [/^\/api\/v1\/finance\/checkout\/collect-plan$/, 'PAYMENT', 'Encaissement (plan anticipé)'],
   [/^\/api\/v1\/finance\/checkout\/family-collect$/, 'PAYMENT', 'Encaissement familial'],

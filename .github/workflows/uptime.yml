@@ -18,12 +18,12 @@ permissions:
 
 concurrency:
   group: uptime-staging
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   probe:
     name: Disponibilité externe de staging
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
     timeout-minutes: 5
     env:
       URL: ${{ vars.STAGING_PUBLIC_URL || 'https://staging.myeducsync.com' }}

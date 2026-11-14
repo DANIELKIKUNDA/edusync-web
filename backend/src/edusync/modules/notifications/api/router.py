@@ -21,7 +21,10 @@ def list_notifications(actor:ActorContext=Depends(require_school_actor),services
 
 @router.post('/{notification_id}/dismiss')
 def dismiss(notification_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
-    need(actor,'notifications.internal.dismiss')
+    # Reading one's own notification is not an administrative dismissal. Anyone who may read the inbox may mark
+    # their own item as read; the UPDATE remains restricted by both user_id and school_id.
+    if not ({'notifications.internal.read','notifications.internal.dismiss'} & set(actor.permissions)):
+        need(actor,'notifications.internal.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
         row=c.execute(text('UPDATE notifications SET read_at=coalesce(read_at,now()) WHERE id=:id AND school_id=:sid AND user_id=:uid RETURNING id,read_at'),{'id':str(notification_id),'sid':str(actor.school_id),'uid':str(actor.user_id)}).first()
         if row is None:raise HTTPException(404,'Notification introuvable')

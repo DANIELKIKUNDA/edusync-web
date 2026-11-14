@@ -44,6 +44,11 @@ def plan_charge_application(
         raise ValueError("Payments cannot exist without a charge")
     if obligation.status in (ObligationStatus.NOT_APPLICABLE, ObligationStatus.NOT_EXIGIBLE):
         return ChargeDecision("SKIP", Decimal("0.00"), obligation.status.value)
-    if obligation.exigible <= 0:
+    if obligation.exigible < 0:
         raise ValueError("Positive due amount required for a new charge")
+    if obligation.exigible == 0:
+        # Owner report 2026-11-06: a month fully covered by a benefit (large family « gratuit », staff child 100 %) is
+        # due but costs nothing. The charge is still created at 0 with its 100 % discount, so the free month stays
+        # visible and traced; refusing it blocked the whole enrollment.
+        return ChargeDecision("CREATE", Decimal("0.00"), "Fully covered by a benefit")
     return ChargeDecision("CREATE", obligation.exigible, "New obligation")

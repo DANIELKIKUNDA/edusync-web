@@ -7,6 +7,7 @@ import {CheckoutPerson, checkoutSearch, createDecision, setChargeResponsibility,
 import {friendlyError} from './platform/errors';
 import {formatMoney} from './platform/format';
 import {openStudentAccountPdf} from './reports_ui';
+import {DateInput} from './platform/date_input';
 
 export const KIND_LABEL: Record<string, string> = {DISCOUNT: 'Réduction', EXEMPTION: 'Exonération', INDIVIDUAL_FREE: 'Gratuité individuelle',
   COLLECTIVE_EXEMPTION: 'Exonération collective', DIRECTION_EXCEPTION: 'Exception de la direction', THIRD_PARTY_COVERAGE: 'Prise en charge par un tiers',
@@ -88,9 +89,9 @@ function DecisionForm({token, person, charges, onDone}: {token: string; person: 
           {valueType === 'FIXED' && <label>Devise<select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">FC</option><option value="USD">USD</option></select></label>}</>}
         <label>Priorité (plus petit = appliqué d’abord)<input inputMode="numeric" value={priority} onChange={e => setPriority(e.target.value)}/></label>
         <label className="checkField"><input type="checkbox" checked={cumulative} onChange={e => setCumulative(e.target.checked)}/> Cumulable avec les autres décisions</label>
-        <label>Période : du (facultatif)<input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)}/></label>
-        <label>au<input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)}/></label>
-        <label>Applicable aux échéances à partir du<input type="date" value={effective} onChange={e => setEffective(e.target.value)}/></label>
+        <label>Période : du (facultatif)<DateInput value={periodStart} onChange={e => setPeriodStart(e.target.value)}/></label>
+        <label>au<DateInput value={periodEnd} onChange={e => setPeriodEnd(e.target.value)}/></label>
+        <label>Applicable aux échéances à partir du<DateInput value={effective} onChange={e => setEffective(e.target.value)}/></label>
         <label>Motif *<input value={reason} maxLength={500} onChange={e => setReason(e.target.value)}/></label>
         <label>Référence (facultatif)<input value={reference} maxLength={120} onChange={e => setReference(e.target.value)}/></label>
       </div>

@@ -39,8 +39,8 @@ await step('10 inscription puis « Encaisser maintenant »', async () => { await
   await w.getByLabel('Nom complet').fill(`Lusamba ${RUN}`); await w.getByLabel('Téléphone').fill('+243 99' + String(Date.now()).slice(-7));
   await w.getByRole('button', {name: 'Continuer'}).click();
   await w.getByLabel('Nom *', {exact: true}).fill(PUPIL); await w.getByLabel('Postnom *').fill('LUSAMBA'); await w.getByLabel('Prénom *').fill('Divine');
-  await w.locator('.kp-sections button').first().click(); await w.locator('.kp-classes button').first().click(); await w.getByLabel('Sexe *').selectOption({index: 2});
-  await w.getByRole('button', {name: 'Continuer'}).click(); await w.waitFor({state: 'detached', timeout: 30000});
+  await w.locator('.cs-trigger').first().click(); await p.locator('.cs-option').first().click(); await w.getByRole('radio', {name: 'Féminin'}).first().click();
+  await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByRole('button', {name: /^Valider \d+ inscription/}).click(); await w.waitFor({state: 'detached', timeout: 30000});
   await p.getByText(/Inscription enregistrée/).first().waitFor({timeout: 10000});
   await p.getByRole('button', {name: 'Encaisser maintenant'}).first().click();
   await p.locator('.checkoutHits button', {hasText: PUPIL}).first().click({timeout: 15000});

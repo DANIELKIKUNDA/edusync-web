@@ -41,6 +41,8 @@ def test_product_stock_is_traced_and_never_negative():
     assert "reason='Stock initial'" in create
     stock = ROUTER.split("def product_stock_move", 1)[1].split("\n@router", 1)[0]
     assert "'inventory.stock.receive' if body.movement_type=='RECEIPT' else 'inventory.stock.adjust'" in stock
+    # owner request 2026-11-06: the catalogue administrator may also count the articles (school without intendant)
+    assert "if 'settings.products.manage' not in actor.permissions:_need(actor,stock_capability)" in stock
 
 
 def test_plans_match_any_of_their_targets():

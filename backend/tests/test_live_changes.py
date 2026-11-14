@@ -50,3 +50,38 @@ def test_wired_once_for_the_whole_api_and_open_to_every_member():
     assert "request.state.live_school_id = school_id" in deps
     stream = nc.split('@router.get("/live/stream")', 1)[1].split("@router.get(", 1)[0]
     assert "require_school_actor" in stream and "_need(" not in stream     # signals carry no data: any member listens
+
+
+def test_alert_bells_ring_right_after_a_successful_request_only(monkeypatch):
+    """Owner, 2026-11-08: the bell of the people alerted must ring at once — after the commit, never for a failed request."""
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+    from edusync.shared.infrastructure import live_changes
+
+    rung = []
+    monkeypatch.setattr(live_changes, "publish_inbox_changed", lambda url, people: rung.append(sorted(people)) or len(people))
+    app = FastAPI()
+    app.add_middleware(live_changes.LiveChangesMiddleware, redis_url="redis://x")
+
+    @app.post("/ok")
+    def ok():                                   # sync route → runs in a worker thread, like the business routes
+        realtime.note_inbox_changed("u-gest", "s-1"); realtime.note_inbox_changed("u-gest", "s-1"); realtime.note_inbox_changed("u-prom", "s-1")
+        return {}
+
+    @app.post("/fails")
+    def fails():
+        realtime.note_inbox_changed("u-gest", "s-1")
+        raise HTTPException(409, "refusé")
+
+    with TestClient(app) as c:
+        assert c.post("/ok").status_code == 200
+        assert c.post("/fails").status_code == 409
+    import time; time.sleep(0.2)
+    assert rung == [[("u-gest", "s-1"), ("u-prom", "s-1")]]      # once per person, and nothing for the refused request
+    realtime.note_inbox_changed("u", "s")                         # outside a request: silently ignored
+    assert realtime.PENDING_INBOX.get() is None
+
+
+def test_automatic_alerts_register_their_bells():
+    src = (ROOT / "backend/src/edusync/modules/alerts/application/school_alerts.py").read_text(encoding="utf-8")
+    assert "note_inbox_changed(p[\"user_id\"], school_id)" in src

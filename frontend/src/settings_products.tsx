@@ -1,5 +1,5 @@
 // Articles scolaires (administrator finishing pass 2026-10-24) — a real stock catalogue: unit sale price, opening stock,
-// low-stock alert, traced receipts and counted corrections (inventory_stock_movements, same capabilities as the
+// low-stock alert, traced receipts and counted corrections (recorded by the intendant or the catalogue administrator) (inventory_stock_movements, same capabilities as the
 // Intendance stock). A sale is recorded by the cash desk only and lowers the stock there; nothing here can sell.
 import React, {useMemo, useState} from 'react';
 import {toast} from 'sonner';
@@ -93,21 +93,23 @@ function ProductForm({token, items, preset, onCancel, onSaved}: {token: string; 
 function ProductCard({token, p, can, onDone}: {token: string; p: SettingsProduct; can: (x: string) => boolean; onDone: () => Promise<void>}) {
   const [panel, setPanel] = useState<'' | 'edit' | 'receipt' | 'adjust'>('');
   const st = stockState(p);
-  const canReceive = can('inventory.stock.receive') && p.stock_tracking && p.enabled;
-  const canAdjust = can('inventory.stock.adjust') && p.stock_tracking && p.enabled;
   const manage = can('settings.products.manage');
+  // Owner request 2026-11-06: the catalogue administrator records the quantities too (schools without intendant); traced the same way.
+  const canReceive = (can('inventory.stock.receive') || manage) && p.stock_tracking && p.enabled;
+  const canAdjust = (can('inventory.stock.adjust') || manage) && p.stock_tracking && p.enabled;
   return <article className={`productCard ${p.enabled ? '' : 'muted'}`}>
     <button type="button" className="productMain" onClick={() => setPanel(x => x ? '' : manage ? 'edit' : canReceive ? 'receipt' : '')} aria-expanded={!!panel}>
       <span className="productIcon" aria-hidden="true"><NavGlyph g="cart" size={20}/></span>
       <span className="productText"><b>{p.label}</b><small>{formatMoney(p.unit_price, p.currency)} l’unité</small></span>
-      <span className="productStock"><b>{p.stock_tracking ? fmtQty(p.quantity) : '—'}</b><em className={`pill tone-${st.tone}`}>{p.enabled ? st.label : 'Inactif'}</em></span>
+      <span className="productStock"><b>{p.stock_tracking ? fmtQty(p.quantity) : '—'}</b>{p.stock_tracking && <small>en stock</small>}<em className={`pill tone-${st.tone}`}>{p.enabled ? st.label : 'Inactif'}</em></span>
     </button>
-    {p.stock_tracking && qty(p.low_threshold) > 0 && <small className="productHint">Alerte sous {fmtQty(p.low_threshold)}</small>}
+    {p.stock_tracking && <small className="productHint">{qty(p.low_threshold) > 0 ? `Alerte « stock bas » à ${fmtQty(p.low_threshold)} ou moins` : 'Aucun seuil d’alerte : seule la rupture (0) est signalée'}{p.enabled && qty(p.quantity) <= 0 && canReceive ? ' · ajoutez la quantité reçue avec « + Entrée de stock »' : ''}</small>}
+    {!p.stock_tracking && <small className="productHint">Quantité non suivie : la caisse vend sans contrôle de stock. Activez « Suivre le stock » dans Prix &amp; réglages pour compter les quantités.</small>}
     {p.stock_tracking && p.enabled && !canReceive && qty(p.quantity) <= qty(p.low_threshold) && <small className="productHint">Les entrées de stock sont enregistrées par l’Intendance (rôle Intendant).</small>}
     {(manage || canReceive || canAdjust) && <div className="productActions">
       {manage && <button type="button" className={panel === 'edit' ? 'on' : ''} onClick={() => setPanel(x => x === 'edit' ? '' : 'edit')}>Prix & réglages</button>}
-      {canReceive && <button type="button" className={panel === 'receipt' ? 'on' : ''} onClick={() => setPanel(x => x === 'receipt' ? '' : 'receipt')}>+ Entrée de stock</button>}
-      {canAdjust && <button type="button" className={panel === 'adjust' ? 'on' : ''} onClick={() => setPanel(x => x === 'adjust' ? '' : 'adjust')}>Correction</button>}
+      {canReceive && <button type="button" className={`${panel === 'receipt' ? 'on' : ''} ${qty(p.quantity) <= 0 ? 'primaryAction' : ''}`} onClick={() => setPanel(x => x === 'receipt' ? '' : 'receipt')}>+ Entrée de stock</button>}
+      {canAdjust && <button type="button" className={panel === 'adjust' ? 'on' : ''} onClick={() => setPanel(x => x === 'adjust' ? '' : 'adjust')}>Correction d’inventaire</button>}
     </div>}
     {panel === 'edit' && <EditPanel token={token} p={p} can={can} onDone={async () => { setPanel(''); await onDone(); }}/>}
     {(panel === 'receipt' || panel === 'adjust') && <StockPanel token={token} p={p} kind={panel} onDone={async () => { setPanel(''); await onDone(); }}/>}
@@ -132,6 +134,8 @@ function EditPanel({token, p, can, onDone}: {token: string; p: SettingsProduct; 
       {tracking && <FormField label="Seuil d’alerte"><input inputMode="decimal" value={low} onChange={e => setLow(e.target.value)}/></FormField>}
     </div>
     <label className="checkField"><input type="checkbox" checked={tracking} onChange={e => setTracking(e.target.checked)}/> Suivre le stock</label>
+    {tracking && p.stock_tracking && <p className="policyHint">Quantité en stock : <b>{fmtQty(p.quantity)}</b>. Elle change par « + Entrée de stock » (livraison), par « Correction d’inventaire » (comptage) et à chaque vente de la caisse : chaque mouvement est tracé.</p>}
+    {tracking && !p.stock_tracking && <p className="policyHint">Après l’enregistrement, ajoutez la quantité disponible avec « + Entrée de stock ».</p>}
     <p className="policyHint">Un nouveau prix s’applique aux prochaines ventes ; les reçus déjà émis gardent leur prix.</p>
     <div className="formActions">
       {(p.enabled ? can('settings.products.activate') || can('settings.products.manage') : can('settings.products.manage')) &&

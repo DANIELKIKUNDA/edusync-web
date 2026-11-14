@@ -234,6 +234,13 @@ class PostgresPersonnelRepository:
                             teachers=int(r['teachers']),administrative=int(r['administrative']),workers=int(r['workers']),other=int(r['other']),
                             active_assignments=int(r['active_assignments']),linked_accounts=int(r['linked_accounts']) if full else 0,staff_children=int(r['staff_children']) if full else 0)
 
+    def next_employee_no(self, school_id: UUID) -> str:
+        """Next automatic school number « AG-0001 » (owner report 2026-11-08: private-school agents often have none)."""
+        self.connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('staff_employee_no:'||CAST(:sid AS text)))"),{"sid":school_id})
+        n=self.connection.execute(text("""SELECT coalesce(max(CAST(substring(employee_no FROM 4) AS integer)),0) FROM staff_members
+            WHERE school_id=:sid AND employee_no ~ '^AG-[0-9]{1,9}$'"""),{"sid":school_id}).scalar_one()
+        return f"AG-{int(n)+1:04d}"
+
     def create_staff(self, member: StaffMember) -> dict[str, Any]:
         row=self.connection.execute(text("""
           INSERT INTO staff_members(id,school_id,employee_no,last_name,first_name,middle_name,gender,birth_date,phone,email,address,category,qualification,specialty,hire_date,status,photo_url,notes,version)

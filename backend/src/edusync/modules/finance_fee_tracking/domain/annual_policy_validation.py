@@ -22,3 +22,10 @@ def validate_policy_rules(rules):
             Decimal(str(rule["prior_percent"])) if rule.get("prior_percent") is not None else None,
         )
     return len(seen)
+
+
+# Messages shown to a school administrator: one French catalogue for the whole API (edusync.shared.user_messages).
+def french_policy_error(exc: Exception) -> ValueError:
+    """The same error, worded for the school administrator."""
+    from edusync.shared.user_messages import to_french
+    return ValueError(to_french(str(exc)))

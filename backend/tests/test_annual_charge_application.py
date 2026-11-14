@@ -40,3 +40,13 @@ def test_orphan_payment_rejected():
     with pytest.raises(ValueError):
         plan_charge_application(obligation(ObligationStatus.DUE, "10"), existing_charge=False,
                                 paid_amount=Decimal("5"))
+
+
+def test_month_fully_covered_by_a_benefit_is_created_at_zero_not_refused():
+    # Owner report 2026-11-06: « Positive due amount required for a new charge » blocked a large-family free child.
+    result = plan_charge_application(obligation(ObligationStatus.DUE, "0"), existing_charge=False)
+    assert (result.action, result.proposed_amount) == ("CREATE", Decimal("0.00"))
+
+def test_negative_due_amount_still_refused():
+    with pytest.raises(ValueError):
+        plan_charge_application(obligation(ObligationStatus.DUE, "-1"), existing_charge=False)

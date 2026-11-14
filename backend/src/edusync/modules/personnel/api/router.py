@@ -228,7 +228,9 @@ def _authorize_staff_update(conn, actor:ActorContext, staff_id:UUID)->None:
 
 
 class StaffCreate(BaseModel):
-    employee_no:str=Field(min_length=1,max_length=48)
+    # Owner report 2026-11-08: agents of a private school often have no registration number; left empty, the server
+    # gives the next school number (AG-0001, AG-0002…). An official number can still be typed or added later.
+    employee_no:str|None=Field(default=None,max_length=48)
     last_name:str=Field(min_length=1,max_length=120)
     first_name:str|None=Field(default=None,max_length=120)
     middle_name:str|None=Field(default=None,max_length=120)
@@ -384,8 +386,10 @@ def create_staff(body:ScopedStaffCreate,response:Response,idempotency_key:str|No
         raise HTTPException(status_code=403,detail='Une affectation initiale dans votre section est obligatoire')
     try:
         def action(conn,request_actor):
-            member=StaffMember(school_id=actor.school_id,**body.model_dump(exclude={'initial_assignment'}))
             repo=PostgresPersonnelRepository(conn)
+            data=body.model_dump(exclude={'initial_assignment'})
+            if not (data.get('employee_no') or '').strip():data['employee_no']=repo.next_employee_no(actor.school_id)
+            member=StaffMember(school_id=actor.school_id,**data)
             assignment_body=None
             if body.initial_assignment is not None:
                 assignment_body=AssignmentCreate(
@@ -411,7 +415,7 @@ def update_staff(staff_id:UUID,body:StaffUpdate,if_match:str|None=Header(default
     try:
         def action(conn,request_actor):
             _authorize_staff_update(conn,request_actor,staff_id)
-            repo=PostgresPersonnelRepository(conn);old=repo.get_staff(actor.school_id,staff_id,scopes=_scopes(request_actor,'personnel.update'));out=repo.update_staff(actor.school_id,staff_id,expected_version=expected,fields=body.model_dump());payload=_jsonable(out);_audit_outbox(conn,request_actor,action='STAFF_UPDATED',entity_type='StaffMember',entity_id=staff_id,old=_jsonable(old),new=payload);return 200,payload
+            repo=PostgresPersonnelRepository(conn);old=repo.get_staff(actor.school_id,staff_id,scopes=_scopes(request_actor,'personnel.update'));out=repo.update_staff(actor.school_id,staff_id,expected_version=expected,fields={k:v for k,v in body.model_dump().items() if k!='employee_no' or (v or '').strip()});payload=_jsonable(out);_audit_outbox(conn,request_actor,action='STAFF_UPDATED',entity_type='StaffMember',entity_id=staff_id,old=_jsonable(old),new=payload);return 200,payload
         return _mutate(services=services,actor=actor,key=key,operation='PERSONNEL_UPDATE_STAFF',payload={**body.model_dump(mode='json'),'id':str(staff_id),'expected':expected},action=action).body
     except Exception as exc:_error(exc)
 

@@ -231,22 +231,25 @@ class PostgresFeeScheduleRepository:
         if e is None or e._mapping["status"] != "ACTIVE":
             return []
         m = e._mapping
-        rows = self.connection.execute(text("""SELECT a.scope_type,a.scope_ref,f.code AS fee_code FROM school_admission_conditions a
+        rows = self.connection.execute(text("""SELECT a.scope_type,a.scope_ref,a.scope_refs,f.code AS fee_code FROM school_admission_conditions a
               LEFT JOIN fee_types f ON f.id=a.fee_type_id
              WHERE a.school_id=:sid AND a.academic_year_id=:y AND a.active AND a.required AND a.payment_timing='AT_ENROLLMENT'
              ORDER BY a.sort_order,a.label"""), {"sid": school_id, "y": m["academic_year_id"]}).all()
         month = self.settings.get_billing_policy(school_id).get("month_due_at_enrollment")
         out: list[tuple[str, str | None]] = []
         for r in rows:
-            scope, ref, code = r._mapping["scope_type"], r._mapping["scope_ref"], r._mapping["fee_code"]
-            hit = (scope == "SCHOOL" or (scope == "SECTION" and ref == str(m["section_id"])) or (scope == "ACADEMIC_CLASS" and ref == m["level"])
-                   or (scope == "CLASS" and ref == str(m["class_id"])))
+            scope, code = r._mapping["scope_type"], r._mapping["fee_code"]
+            refs = set(r._mapping["scope_refs"] or [r._mapping["scope_ref"]])   # several targets since 0109 (2026-11-08)
+            hit = (scope == "SCHOOL" or (scope == "SECTION" and str(m["section_id"]) in refs) or (scope == "ACADEMIC_CLASS" and m["level"] in refs)
+                   or (scope == "CLASS" and str(m["class_id"]) in refs))
             if not hit or not code:
                 continue
             item = (code, month) if is_tuition_code(code) and month else (code, None)
             if item not in out:
                 out.append(item)
-        if out:
+        # The school has its own conditions: a class none of them targets has nothing to pay at enrollment. The Desktop
+        # historical bundle only stands in for a school that never set any condition (owner report 2026-11-08).
+        if out or rows:
             return out
         if self.settings.admission_review(school_id)["reviewed_at"] is not None:
             return []
@@ -260,19 +263,34 @@ class PostgresFeeScheduleRepository:
         rows = self.connection.execute(text("""SELECT fc.id,f.code AS fee_code,s.period_code,fc.label,fc.currency,fc.net_amount,fc.paid_amount
               FROM finance_charges fc JOIN fee_types f ON f.id=fc.fee_type_id LEFT JOIN fee_schedules s ON s.id=fc.schedule_id
              WHERE fc.school_id=:sid AND fc.enrollment_id=:e AND fc.status='ACTIVE'"""), {"sid": school_id, "e": enrollment_id}).all()
-        items = []
+        items, missing, absent = [], [], 0
         for code, month in bundle:
+            found = False
             for r in rows:
                 rm = r._mapping
-                if canonical_fee_code(rm["fee_code"]) == canonical_fee_code(code) and (month is None or rm["period_code"] == month):
+                # same_fee: a class may bill the tuition under « MINERVAL_SECONDAIRE » etc. (owner report 2026-11-08).
+                if same_fee(code, rm["fee_code"]) and (month is None or rm["period_code"] == month):
+                    found = True
                     items.append({"charge_id": str(rm["id"]), "fee_code": code, "label": rm["label"], "currency": rm["currency"],
                                   "balance": str(max(Decimal("0"), _money(rm["net_amount"]) - _money(rm["paid_amount"])))})
-        present = {canonical_fee_code(i["fee_code"]) for i in items}
+            if not found:
+                absent += 1
+                # Required at enrollment, billed by the school for other classes, but not for this class: never read as
+                # « nothing to pay ». A school that bills this fee nowhere (nothing configured yet) is not blocked.
+                billed = [r._mapping["code"] for r in self.connection.execute(text("""SELECT DISTINCT f.code FROM fee_schedules s JOIN fee_types f ON f.id=s.fee_type_id
+                      JOIN enrollments e ON e.school_id=s.school_id AND e.id=:e AND e.academic_year_id=s.academic_year_id
+                     WHERE s.school_id=:sid AND s.active AND s.amount>0"""), {"sid": school_id, "e": enrollment_id}).all()]
+                if not any(same_fee(code, b) for b in billed):
+                    continue
+                fee = self.connection.execute(text("SELECT code,label FROM fee_types WHERE school_id=:sid ORDER BY code"), {"sid": school_id}).all()
+                label = next((f._mapping["label"] for f in fee if canonical_fee_code(f._mapping["code"]) == canonical_fee_code(code)), None) \
+                    or next((f._mapping["label"] for f in fee if same_fee(code, f._mapping["code"])), None) or code.title()
+                missing.append({"fee_code": code, "month": month, "label": f"{label} — {MONTH_LABELS.get(month or '', month)}" if month else label})
         totals: dict[str, Decimal] = {}
         for i in items:
             totals[i["currency"]] = totals.get(i["currency"], Decimal("0")) + Decimal(i["balance"])
-        return {"bundle": [{"fee_code": c, "month": mo} for c, mo in bundle], "items": items,
-                "totals": {k: str(v) for k, v in totals.items()}, "ready": bool(bundle) and {canonical_fee_code(c) for c, _ in bundle} <= present}
+        return {"bundle": [{"fee_code": c, "month": mo} for c, mo in bundle], "items": items, "missing": missing,
+                "totals": {k: str(v) for k, v in totals.items()}, "ready": bool(bundle) and absent == 0}
 
     def list_schedules(self, school_id: UUID, academic_year_id: UUID) -> list[dict[str, Any]]:
         rows = self.connection.execute(text("""SELECT s.id,s.class_id,c.label AS class_label,s.fee_type_id,f.label AS fee_label,s.period_code,

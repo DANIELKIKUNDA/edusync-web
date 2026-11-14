@@ -7,7 +7,8 @@ def test_monthly_scope_filter_is_sql_side_and_exported():
     api=text('frontend/src/api.ts')
     ui=text('frontend/src/recovery.tsx')
     assert 'period_order=None' in repo
-    assert 'COALESCE(fc.period_order,EXTRACT(MONTH FROM fc.due_date)::int,0)=%s' in repo
+    # same school-year order as the monthly table, and only monthly fees carry a month (owner, 2026-11-08: no duplicate September)
+    assert "fc.periodicity='MONTHLY' AND COALESCE(fc.period_order,((EXTRACT(MONTH FROM fc.due_date)::int+3)%%12)+1,0)=%s" in repo
     assert 'period_order:int|None=Query(None,ge=1,le=12)' in router
     assert 'period_order:periodOrder' in api
     assert 'Mois de synthèse' in ui and 'Toute l’année' in ui

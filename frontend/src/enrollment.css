@@ -1,0 +1,75 @@
+/* Enrollment form, modernised (owner report 2026-11-06): readable labels, 44 px fields, compact class choice,
+   sex in two buttons, benefits written in words. Scoped to the enrollment wizard. */
+.enrollmentWizard .wizardBody{gap:16px}
+.enrollmentWizard .callout b{font-size:13px}
+.enrollmentWizard .callout span{font-size:12.5px;line-height:1.45}
+.enrollmentWizard .childBlock{padding:16px 18px;border-radius:16px;border-color:#e4e7ec;background:#fff}
+.enrollmentWizard .childTitle b{font-size:15px}
+.enrollmentWizard .childTitle>span{width:28px;height:28px;font-size:12px}
+.enrollmentWizard .childTitle button{font-size:13px;font-weight:600}
+.enrollmentWizard .formGrid{gap:14px 14px}
+.enrollmentWizard .formGrid label,.enrollmentWizard .formGrid .formField{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#344054;min-width:0}
+.enrollmentWizard .formGrid .formField>small:not(.fieldError){font-size:12px;font-weight:400;color:#667085}
+.enrollmentWizard .formGrid input:not([type=checkbox]):not(.dateInputNative),.enrollmentWizard .formGrid select{min-height:44px;padding:9px 12px;font-size:14.5px;border-color:#d0d5dd;border-radius:10px;color:#101828}
+.enrollmentWizard .formGrid input:focus,.enrollmentWizard .formGrid select:focus{border-color:#1557d6;box-shadow:0 0 0 4px rgba(21,87,214,.12)}
+.enrollmentWizard .fieldError{font-size:12.5px;font-weight:500;color:#b42318}
+.enr-class{grid-column:span 2;min-width:0}
+.enr-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:3px;border:1px solid #d0d5dd;border-radius:10px;background:#f9fafb;min-height:44px}
+.enr-seg button{border:0;border-radius:8px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:#475467;cursor:pointer;min-height:36px}
+.enr-seg button:hover{background:#fff}
+.enr-seg button.on{background:#fff;color:#1149b8;box-shadow:0 1px 3px rgba(16,24,40,.12),inset 0 0 0 1.5px #1557d6}
+.enr-gender.invalid .enr-seg{border-color:#f04438}
+.enrollmentWizard .childBenefits{gap:10px;padding:12px 14px;border-radius:12px;margin-top:14px}
+.enrollmentWizard .childBenefits>b{font-size:11.5px}
+.enrollmentWizard .childBenefits label.checkField,.enrollmentWizard .childBenefits .formGrid label.checkField{display:flex;flex-direction:row;align-items:flex-start;gap:10px;font-size:14px;font-weight:400;color:#101828;cursor:pointer}
+.enrollmentWizard .childBenefits .checkField input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;accent-color:#1557d6}
+.enrollmentWizard .childBenefits .checkField>span{display:flex;flex-direction:column;gap:2px;color:#101828}
+.enrollmentWizard .childBenefits .checkField>span>span{display:block;color:#101828;font-weight:400}
+.enrollmentWizard .formGrid .formField>span{color:#344054;font-weight:600}
+.enrollmentWizard .formGrid .cs span{color:inherit}
+.enrollmentWizard .childBenefits .checkField small{font-size:12.5px;color:#667085}
+.enrollmentWizard .childBenefits .formGrid.two{align-items:center}
+.enrollmentWizard .reviewChildren b{font-size:13.5px}
+.enrollmentWizard .reviewChildren small{font-size:12px}
+.enrollmentWizard .wizardSteps i span{font-size:11.5px}
+@media (max-width:760px){
+  .enr-class{grid-column:1/-1}
+  .enrollmentWizard .childBlock{padding:14px}
+  .enrollmentWizard .formGrid input:not([type=checkbox]):not(.dateInputNative),.enrollmentWizard .formGrid select{font-size:16px}
+}
+/* Benefits driven by the school's policy (owner request 2026-11-06). */
+.enr-benefit{border:1px solid #abefc6;background:linear-gradient(180deg,#f6fef9,#fff);border-radius:16px;padding:14px 16px;display:grid;gap:12px;animation:enrIn .2s ease-out}
+@keyframes enrIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.enr-benefit>header{display:flex;gap:12px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:0;border:0;background:none}
+.enr-benefit>header b{display:block;font-size:14.5px;color:#05603a}
+.enr-benefit>header small{display:block;font-size:12.5px;line-height:1.45;color:#475467;margin-top:2px}
+.enr-benefitIcon{display:grid;place-items:center;width:36px;height:36px;flex:0 0 auto;border-radius:10px;background:#dcfae6;color:#067647;font-size:17px}
+.enr-benefitKids{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.enr-kid{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e4e7ec;border-radius:12px;background:#fff;cursor:pointer}
+.enr-kid input{width:18px;height:18px;accent-color:#079455;flex:0 0 auto}
+.enr-kid span{display:flex;flex-direction:column;min-width:0}
+.enr-kid b{font-size:13.5px;color:#101828;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.enr-kid small{font-size:12px;color:#667085}
+.enr-kid.on{border-color:#079455;background:#f6fef9;box-shadow:0 0 0 3px rgba(7,148,85,.12)}
+.enr-kid.on small{color:#067647;font-weight:600}
+.enr-kid.off{opacity:.55;cursor:not-allowed}
+.enrollmentWizard .enr-staff .checkField.off{opacity:.6}
+.enr-badge{display:inline-block;font-style:normal;font-size:11.5px;font-weight:700;color:#067647;background:#ecfdf3;border-radius:999px;padding:2px 9px;margin:2px 0}
+/* « Ajouter un enfant » always visible in the footer; the class of each candidate beneficiary (owner report 2026-11-06). */
+.enrollmentWizard .wizardActions{align-items:center;gap:10px}
+.enr-addKid{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
+.enrollmentWizard .wizardActions .enr-addKid+.primaryBtn{margin-left:0}
+.enr-kidClass{font-style:normal;font-size:12px;font-weight:700;color:#1149b8}
+@media (max-width:640px){.enr-addKid{padding:9px 10px}.enr-addKid{font-size:13px}}
+/* Large-family choice pinned at the bottom of step 2 (owner report 2026-11-08): always visible while adding children. */
+.enr-benefit.compact{position:sticky;bottom:-1px;z-index:4;gap:8px;padding:10px 14px;border-radius:14px;background:#f6fef9;box-shadow:0 -8px 24px rgba(16,24,40,.10);animation:none}
+.enr-benefit.compact>header b{font-size:13.5px}
+.enr-benefit.compact>header small{font-size:12px;margin-top:0}
+.enr-benefit.compact .enr-benefitIcon{width:28px;height:28px;border-radius:8px}
+.enr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.enr-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border:1px solid #d0d5dd;border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:600;color:#344054;cursor:pointer}
+.enr-chip small{font-size:11.5px;font-weight:500;color:#667085}
+.enr-chip.on{border-color:#079455;background:#dcfae6;color:#05603a}
+.enr-chip.on small{color:#067647}
+.enr-chip:disabled{opacity:.5;cursor:not-allowed}
+@media (max-width:640px){.enr-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}.enr-chip{flex:0 0 auto}}

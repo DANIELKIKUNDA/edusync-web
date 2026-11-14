@@ -1,0 +1,63 @@
+/* Types de frais as cards (owner request 2026-11-08). */
+.fe-page .panelHead{align-items:flex-start;gap:12px}
+.fe-page .panelHead h3 small{font-weight:500;color:#667085}
+.fe-addBtn{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.fe-group{display:grid;gap:10px;margin-top:16px}
+.fe-groupHead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding-bottom:6px;border-bottom:1px solid #eaecf0}
+.fe-groupHead b{font-size:14.5px;color:#101828}
+.fe-groupHead small{font-size:12.5px;color:#667085}
+.fe-groupHead em{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;color:#344054;background:#f2f4f7;border-radius:999px;padding:2px 9px}
+.fe-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.fe-card{display:grid;gap:10px;align-content:start;padding:14px;border:1px solid #e4e7ec;border-radius:14px;background:#fff;min-width:0;transition:border-color .15s,box-shadow .15s}
+.fe-card:hover{border-color:#b2ccff;box-shadow:0 2px 8px rgba(16,24,40,.06)}
+.fe-card.off{background:#f9fafb;opacity:.75}
+.fe-top{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.fe-top>div{min-width:0}
+.fe-top b{display:block;font-size:14.5px;color:#101828;line-height:1.3}
+.fe-top small{display:block;font-size:12.5px;color:#667085;margin-top:2px}
+.fe-icon{display:grid;place-items:center;width:36px;height:36px;flex:0 0 auto;border-radius:10px;background:#eff4ff;color:#1557d6}
+.fe-icon.p-PERIODIC{background:#fef6ee;color:#b93815}
+.fe-icon.p-ONE_TIME{background:#ecfdf3;color:#067647}
+.fe-icon.p-OPTIONAL{background:#f4f3ff;color:#5925dc}
+.fe-tags{display:flex;flex-wrap:wrap;gap:6px}
+.fe-tags span{font-size:11.5px;font-weight:600;color:#475467;background:#f2f4f7;border-radius:999px;padding:3px 9px}
+.fe-tags span.reg{background:#fffaeb;color:#b54708}
+.fe-tags span.ok{background:#ecfdf3;color:#067647}
+.fe-tags span.muted{background:#fef3f2;color:#b42318}
+.fe-actions{display:flex;gap:8px}
+.fe-btn{border:1px solid #d0d5dd;border-radius:9px;background:#fff;padding:7px 12px;font:inherit;font-size:13px;font-weight:600;color:#344054;cursor:pointer}
+.fe-btn.danger{color:#b42318;border-color:#fecdca}
+.fe-btn:disabled{opacity:.5;cursor:not-allowed}
+.fe-dialog{width:min(760px,100%)}
+.fe-section{display:grid;gap:8px;padding:14px 0;border-top:1px solid #eaecf0}
+.fe-section:first-of-type{border-top:0}
+.fe-section>b{font-size:14.5px;color:#101828}
+.fe-section>small{font-size:12.5px;color:#667085;margin-top:-4px}
+.fe-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
+.fe-preset{display:grid;grid-template-columns:16px 1fr;column-gap:8px;align-items:center;text-align:left;padding:8px 10px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;font:inherit;cursor:pointer;color:#344054}
+.fe-preset span{font-size:13px;font-weight:600;line-height:1.3}
+.fe-preset small{grid-column:2;font-size:11.5px;color:#667085}
+.fe-preset svg{color:#1557d6}
+.fe-preset.on{background:#ecfdf3;border-color:#abefc6;color:#05603a;cursor:default}
+.fe-preset.on svg{color:#067647}
+.fe-preset:disabled:not(.on){opacity:.6}
+.fe-form{gap:12px}
+.fe-field{display:grid;gap:6px}
+.fe-field>span{font-size:13px;font-weight:600;color:#344054}
+.fe-field input{min-height:44px;padding:9px 12px;font:inherit;font-size:14.5px;border:1px solid #d0d5dd;border-radius:10px;color:#101828}
+.fe-field input:focus{outline:0;border-color:#1557d6;box-shadow:0 0 0 4px rgba(21,87,214,.12)}
+.fe-period{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.fe-period button{display:grid;gap:2px;text-align:left;padding:10px 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;font:inherit;cursor:pointer}
+.fe-period button b{font-size:13.5px;color:#101828}
+.fe-period button small{font-size:11.5px;color:#667085;line-height:1.35}
+.fe-period button.on{border-color:#1557d6;background:#eff4ff;box-shadow:inset 0 0 0 1px #1557d6}
+.fe-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:3px;border:1px solid #d0d5dd;border-radius:10px;background:#f9fafb}
+.fe-seg button{min-height:38px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:13.5px;font-weight:600;color:#475467;cursor:pointer}
+.fe-seg button.on{background:#fff;color:#1149b8;box-shadow:0 1px 3px rgba(16,24,40,.12),inset 0 0 0 1.5px #1557d6}
+.fe-check{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.fe-check input{width:18px;height:18px;margin:2px 0 0;accent-color:#1557d6}
+.fe-check b{display:block;font-size:13.5px;color:#101828}
+.fe-check small{display:block;font-size:12px;color:#667085}
+.fe-warn{display:flex;gap:8px;align-items:flex-start;margin:0;padding:10px 12px;border-radius:10px;background:#fffaeb;color:#93370d;font-size:12.5px}
+.fe-foot{display:flex;justify-content:flex-end;gap:8px;padding-top:6px}
+@media (max-width:640px){.fe-page .panelHead{flex-direction:column}.fe-grid,.fe-presets,.fe-period{grid-template-columns:1fr}.fe-field input{font-size:16px}}

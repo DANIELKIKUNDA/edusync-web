@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from edusync.modules.access.domain.titles import role_title
 from edusync.modules.access.application import policies, projection
 from edusync.modules.iam.application import account_links
 from edusync.adapters.postgres_idempotency import PostgresIdempotencyRepository
@@ -146,6 +147,16 @@ def _role_caps(conn, role_id) -> list[str]:
     return [r[0] for r in conn.execute(text("SELECT capability_code FROM rbac_role_capabilities WHERE role_id=:r ORDER BY 1"), {"r": str(role_id)})]
 
 
+def _section_labels(conn, school_id) -> dict[str, str]:
+    return {r[0]: r[1] for r in conn.execute(text("SELECT upper(code),label FROM school_sections WHERE school_id=:s"), {"s": str(school_id)})}
+
+
+def _titled(code, kind, label, civility, scopes, labels: dict[str, str]) -> str:
+    """Title of one role for one member (civility + sections of a section-bound role) — words only, never rights."""
+    secs = [(str(s.get("value") or ""), labels.get(str(s.get("value") or "").upper())) for s in (scopes or []) if s.get("type") == "SECTION"]
+    return role_title(code, kind, label, civility, secs)
+
+
 # --------------------------------------------------------------------------------------- reads
 @router.get("/catalog")
 def catalog(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
@@ -184,21 +195,24 @@ def roles(actor: ActorContext = Depends(require_school_actor), services: AppServ
 def members(q: str | None = Query(None, max_length=120), actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     _need(actor, "access.roles.read")
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
-        rows = conn.execute(text("""SELECT m.id membership_id,m.user_id,m.active,
-              coalesce(json_agg(json_build_object('assignment_id',a.id,'role_id',r.id,'role_label',r.label,'role_kind',r.kind,
+        rows = conn.execute(text("""SELECT m.id membership_id,m.user_id,m.active,m.civility,
+              coalesce(json_agg(json_build_object('assignment_id',a.id,'role_id',r.id,'role_label',r.label,'role_kind',r.kind,'role_code',r.code,
                  'valid_until',a.valid_until,'scopes',(SELECT coalesce(json_agg(json_build_object('type',s.scope_type,'value',s.scope_value)),'[]')
                                                         FROM rbac_assignment_scopes s WHERE s.assignment_id=a.id)) ORDER BY r.label)
                  FILTER (WHERE a.id IS NOT NULL),'[]') roles
               FROM school_memberships m
               LEFT JOIN rbac_assignments a ON a.membership_id=m.id AND a.school_id=m.school_id AND a.active=true AND (a.valid_until IS NULL OR a.valid_until>now())
               LEFT JOIN rbac_roles r ON r.id=a.role_id
-              WHERE m.school_id=:sid GROUP BY m.id,m.user_id,m.active"""), {"sid": str(actor.school_id)}).mappings().all()
+              WHERE m.school_id=:sid GROUP BY m.id,m.user_id,m.active,m.civility"""), {"sid": str(actor.school_id)}).mappings().all()
+        labels = _section_labels(conn, actor.school_id)
     cards = _user_cards(services, {str(r["user_id"]) for r in rows}, actor.school_id)
     needle = (q or "").strip().lower()
     items = []
     for r in rows:
         card = cards.get(str(r["user_id"]), {"full_name": "Compte inconnu", "email": ""})
         item = {**_json(dict(r)), **card, "is_me": str(r["membership_id"]) == str(actor.membership_id)}
+        item["roles"] = [{**x, "title": _titled(x.get("role_code"), x.get("role_kind"), x.get("role_label") or "", r["civility"], x.get("scopes"), labels)}
+                         for x in (item.get("roles") or [])]
         item.pop("user_id", None)
         hay = f"{card['full_name']} {card['email']} {' '.join(x['role_label'] for x in r['roles'])}".lower()
         if not needle or needle in hay:
@@ -487,11 +501,15 @@ class MemberCreate(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
     # INVITATION: a single-use link e-mailed to the person (no password shown or sent); needs platform e-mail.
     delivery: str = Field(default="TEMPORARY_PASSWORD", pattern="^(TEMPORARY_PASSWORD|INVITATION)$")
+    # Monsieur / Madame (owner, 2026-11-09): titles in the feminine (« Promotrice », « Directrice de la maternelle »).
+    civility: str | None = Field(default=None, pattern="^(M|MME)$")
 
 
 class MemberUpdate(BaseModel):
     full_name: str = Field(min_length=3, max_length=180)
     reason: str = Field(min_length=3, max_length=500)
+    # M / MME, or NONE to clear; omitted = unchanged.
+    civility: str | None = Field(default=None, pattern="^(M|MME|NONE)$")
 
 
 def _member_caps(conn, school_id: UUID, membership_id) -> set[str]:
@@ -604,8 +622,8 @@ def create_member(b: MemberCreate, idempotency_key: str | None = Header(None, al
                 VALUES(:e,:n,:p,true,false,1,:must,'SCHOOL') RETURNING id"""), {"e": email, "n": b.full_name.strip(), "p": hash_password(secret_pw),
                                                                        "must": not invite}).scalar_one()
             created = True
-        mid = conn.execute(text("INSERT INTO school_memberships(id,school_id,user_id,active,created_at,version) VALUES(gen_random_uuid(),:s,:u,true,now(),1) RETURNING id"),
-                           {"s": str(actor.school_id), "u": str(uid)}).scalar_one()
+        mid = conn.execute(text("INSERT INTO school_memberships(id,school_id,user_id,active,created_at,version,civility) VALUES(gen_random_uuid(),:s,:u,true,now(),1,:c) RETURNING id"),
+                           {"s": str(actor.school_id), "u": str(uid), "c": b.civility}).scalar_one()
         role_label = None
         if b.role_id:
             role = _role(conn, b.role_id)
@@ -649,12 +667,20 @@ def update_member(membership_id: UUID, b: MemberUpdate, idempotency_key: str | N
 
     def action(conn):
         m = _target(conn, actor, membership_id)
-        if _account_shared(conn, m["user_id"], actor.school_id):
-            raise HTTPException(409, "Compte partagé avec un autre espace EduSync : seul son titulaire peut modifier son nom")
         old = conn.execute(text("SELECT full_name FROM users WHERE id=:u"), {"u": str(m["user_id"])}).scalar_one()
-        conn.execute(text("UPDATE users SET full_name=:n WHERE id=:u"), {"n": b.full_name.strip(), "u": str(m["user_id"])})
+        renamed = (old or "").strip() != b.full_name.strip()
+        # the civility belongs to this school's membership: it may be set even for an account shared with another space
+        if renamed and _account_shared(conn, m["user_id"], actor.school_id):
+            raise HTTPException(409, "Compte partagé avec un autre espace EduSync : seul son titulaire peut modifier son nom")
+        if renamed:
+            conn.execute(text("UPDATE users SET full_name=:n WHERE id=:u"), {"n": b.full_name.strip(), "u": str(m["user_id"])})
         out = {"membership_id": str(membership_id), "full_name": b.full_name.strip()}
-        _audit(conn, actor, "ACCESS_MEMBER_UPDATED", "school_membership", membership_id, out, reason=b.reason, old={"full_name": old})
+        oldc = conn.execute(text("SELECT civility FROM school_memberships WHERE id=:m AND school_id=:s"), {"m": str(membership_id), "s": str(actor.school_id)}).scalar()
+        if b.civility is not None:
+            newc = None if b.civility == "NONE" else b.civility
+            conn.execute(text("UPDATE school_memberships SET civility=:c WHERE id=:m AND school_id=:s"), {"c": newc, "m": str(membership_id), "s": str(actor.school_id)})
+            out["civility"] = newc
+        _audit(conn, actor, "ACCESS_MEMBER_UPDATED", "school_membership", membership_id, out, reason=b.reason, old={"full_name": old, "civility": oldc})
         return 200, out
 
     return _idempotent_iam(services, actor, idempotency_key, "ACCESS_MEMBER_UPDATE", {"membership": str(membership_id), **b.model_dump()}, action)
@@ -1073,11 +1099,16 @@ def access_me(actor: ActorContext = Depends(require_school_actor), services: App
             ORDER BY CASE r.kind WHEN 'SCHOOL_STANDARD' THEN 0 ELSE 1 END, r.label"""),
                              {"m": str(actor.membership_id), "s": str(actor.school_id)}).mappings().all()
         lifecycle = {r[0]: r[1] for r in conn.execute(text("SELECT code, lifecycle FROM capability_catalog"))}
+        civility = conn.execute(text("SELECT civility FROM school_memberships WHERE id=:m AND school_id=:s"),
+                                {"m": str(actor.membership_id), "s": str(actor.school_id)}).scalar()
+        labels = _section_labels(conn, actor.school_id)
+    titles = [_titled(r["code"], r["kind"], r["label"], civility, r["scopes"] if isinstance(r["scopes"], list) else [], labels) for r in roles]
     caps = set(actor.permissions)
     scoped = sorted({(c, t, v) for c, t, v in actor.capability_scopes if t != "SCHOOL" and lifecycle.get(c) == "ACTIVE"})
     return {"membership_id": str(actor.membership_id), "school_id": str(actor.school_id),
-            "roles": [{**_json(dict(r)), "standard": r["kind"] == "SCHOOL_STANDARD", "adjusted": r["adjustments"] > 0} for r in roles],
-            "role_label": " · ".join(r["label"] for r in roles) or "Membre",
+            "roles": [{**_json(dict(r)), "standard": r["kind"] == "SCHOOL_STANDARD", "adjusted": r["adjustments"] > 0, "title": t} for r, t in zip(roles, titles)],
+            # the words shown on the home page: « Promotrice », « Directrice de la maternelle »… (rights unchanged)
+            "role_label": " · ".join(dict.fromkeys(titles)) or "Membre", "civility": civility,
             "permissions": sorted(c for c in caps if lifecycle.get(c) in ("ACTIVE", "ALIAS")),
             "scoped": [{"capability": c, "type": t, "value": v} for c, t, v in scoped],
             "navigation": projection.navigation(caps), "widgets": projection.widgets(caps, {c for c, t, _ in actor.capability_scopes if t == "SCHOOL"}), "actions": projection.actions(caps)}

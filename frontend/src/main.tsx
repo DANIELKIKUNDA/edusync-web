@@ -33,6 +33,14 @@ if ('serviceWorker' in navigator) window.addEventListener('load',()=>{
     if('PerformanceObserver' in window){const observer=new PerformanceObserver(list=>cacheAssets(list.getEntries()));observer.observe({type:'resource',buffered:true});}
   }).catch(()=>{/* Offline shell unavailable on this device; the online app remains usable. */});
 });
+// Push click from the service worker: keep the restored session, then ask the school shell to open the exact module.
+// The event is also persisted briefly because Android can deliver it while session restoration is still running.
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{
+  if(e.data?.type==='edusync-push-open'&&typeof e.data.link==='string'){
+    try{sessionStorage.setItem('edusync.pending.push',e.data.link)}catch{/* private mode */}
+    window.dispatchEvent(new CustomEvent('edusync:navigate',{detail:{path:e.data.link}}));
+  }
+});
 const initialLink=takeAccountLink();
 createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><App initialLink={initialLink}/><Toaster position="top-right" richColors closeButton/></ErrorBoundary></React.StrictMode>);
 

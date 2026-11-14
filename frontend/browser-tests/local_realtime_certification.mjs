@@ -42,8 +42,8 @@ await step(cash, '01 caissier : caisse ouverte et élève inscrit', async () => 
   await w.getByRole('button', {name: 'Créer un nouveau foyer'}).click(); await w.getByLabel('Nom complet').fill(`Famille ${PUPIL}`); await w.getByLabel('Téléphone').fill('+243 97' + String(Date.now()).slice(-7));
   await w.getByRole('button', {name: 'Continuer'}).click();
   await w.getByLabel('Nom *', {exact: true}).fill(PUPIL); await w.getByLabel('Postnom *').fill('LIVE'); await w.getByLabel('Prénom *').fill('Grace');
-  await w.locator('.kp-sections button').first().click(); await w.locator('.kp-classes button').first().click(); await w.getByLabel('Sexe *').selectOption({index: 1});
-  await w.getByRole('button', {name: 'Continuer'}).click(); await w.waitFor({state: 'detached', timeout: 30000}); });
+  await w.locator('.cs-trigger').first().click(); await p.locator('.cs-option').first().click(); await w.getByRole('radio', {name: 'Masculin'}).first().click();
+  await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByRole('button', {name: /^Valider \d+ inscription/}).click(); await w.waitFor({state: 'detached', timeout: 30000}); });
 if (sec) await step(sec, '02 Secrétariat : le nouvel élève apparaît sans recharger', async () => {
   const ms = await waitFor(async () => (await pupils()) > before.pupils);
   if (ms < 0) throw new Error(`toujours ${await pupils()} élèves après 12 s`);

@@ -17,8 +17,9 @@
 .ff-kpis button{display:grid;justify-items:start;gap:2px;padding:14px 16px;border:1px solid #e4e7ec;border-radius:16px;background:#fff;font:inherit;color:inherit;text-align:left;cursor:pointer}
 .ff-kpis b{font-size:26px;font-variant-numeric:tabular-nums}.ff-kpis span{font-weight:750;font-size:13.5px}.ff-kpis small{color:#667085;font-size:12px}
 .ff-kpis .not b{color:#b42318}.ff-kpis .ok b{color:#05603a}.ff-kpis button.on{border-color:#1557d6;box-shadow:0 0 0 3px rgba(21,87,214,.12)}
-.ff-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.ff-bar>div{flex:1 1 260px;font-size:14px}.ff-bar small{color:#667085}
+.ff-bar{display:grid;grid-template-columns:minmax(220px,1fr) minmax(210px,320px);gap:10px;align-items:center;padding:12px;border:1px solid #e4e9f2;border-radius:14px;background:#fff}.ff-bar>div:first-child{font-size:14px}.ff-bar small{color:#667085}
 .ff-search{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 10px;border:1px solid #d0d5dd;border-radius:10px;color:#667085;background:#fff}.ff-search input{border:0;outline:0;font:inherit;font-size:13.5px;min-width:150px}
+.ff-actions{grid-column:1/-1;display:flex!important;flex:0 0 auto!important;flex-wrap:wrap;gap:8px;padding-top:2px}
 .ff-btn{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 14px;border:1px solid #d0d5dd;border-radius:11px;background:#fff;font:inherit;font-size:13.5px;font-weight:700;color:#344054;cursor:pointer}
 .ff-btn.primary{background:#1557d6;border-color:#1557d6;color:#fff}.ff-btn:disabled{opacity:.5;cursor:not-allowed}
 .ff-table{display:grid;border:1px solid #eaecf0;border-radius:14px;overflow:auto;max-height:620px;background:#fff}
@@ -33,3 +34,4 @@
 .ff-empty{display:grid;justify-items:center;gap:4px;padding:36px;border:1px dashed #d0d5dd;border-radius:16px;color:#667085;text-align:center}.ff-empty b{color:#344054}
 .ff-skel{display:grid;gap:8px}.ff-skel i{display:block;height:18px;border-radius:6px;background:linear-gradient(90deg,#f2f4f7 25%,#e4e7ec 50%,#f2f4f7 75%);background-size:200% 100%;animation:ff-sh 1.2s linear infinite}
 @keyframes ff-sh{to{background-position:-200% 0}}
+@media(max-width:720px){.ff-bar{grid-template-columns:1fr}.ff-search{width:100%;box-sizing:border-box}.ff-search input{min-width:0;width:100%}.ff-actions{display:grid!important;grid-template-columns:1fr}.ff-actions .ff-btn{width:100%;justify-content:center;min-height:44px}.ff-kpis{grid-template-columns:1fr 1fr}.ff-kpis button:last-child{grid-column:1/-1}.ff-periods{align-items:stretch}.ff-seg{display:grid;grid-template-columns:1fr 1fr;width:100%}}

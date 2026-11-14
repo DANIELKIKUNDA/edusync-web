@@ -1,0 +1,16 @@
+/* Staff creation form, readable and quick (owner report 2026-11-08): optional school number, sex in two buttons,
+   clear « poste » and « lieu de travail ». Scoped to the staff modal. */
+.staffModal .staffFormGrid{gap:14px}
+.staffModal .staffFormGrid label,.staffModal .staffFormGrid .formField{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#344054;min-width:0}
+.staffModal .staffFormGrid .formField>small:not(.fieldError){font-size:12px;font-weight:400;color:#667085;line-height:1.4}
+.staffModal .staffFormGrid input,.staffModal .staffFormGrid select{height:auto;min-height:44px;padding:9px 12px;font-size:14.5px;border-color:#d0d5dd;border-radius:10px;color:#101828}
+.staffModal .staffFormGrid input::placeholder{color:#98a2b3}
+.staffModal .modalHead p{font-size:13px;line-height:1.45;color:#667085}
+.staffModal .personnelAssignmentIntro span{font-size:12.5px}
+.st-gender>span{font-size:13px;font-weight:600;color:#344054}
+.st-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:3px;border:1px solid #d0d5dd;border-radius:10px;background:#f9fafb;min-height:44px}
+.st-seg button{border:0;border-radius:8px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:#475467;cursor:pointer;min-height:36px}
+.st-seg button.on{background:#fff;color:#1149b8;box-shadow:0 1px 3px rgba(16,24,40,.12),inset 0 0 0 1.5px #1557d6}
+.st-gender.invalid .st-seg{border-color:#f04438}
+.staffModal .fieldError{font-size:12.5px;font-weight:500;color:#b42318}
+@media (max-width:760px){.staffModal .staffFormGrid input,.staffModal .staffFormGrid select{font-size:16px}}

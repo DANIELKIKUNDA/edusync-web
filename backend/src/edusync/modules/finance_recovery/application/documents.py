@@ -94,6 +94,36 @@ def class_register_pdf(*,school,year_label,data):
     ft=Table(foot,colWidths=[150,100]);ft.setStyle(TableStyle([('GRID',(0,0),(-1,-1),.35,colors.HexColor('#94A3B8')),('FONTNAME',(0,0),(0,-1),'Helvetica-Bold'),('ALIGN',(1,0),(1,-1),'RIGHT'),('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#D9EAF7'))]))
     story += [t,Spacer(1,10),ft];doc.build(story);return out.getvalue()
 
+def class_register_bundle_pdf(*,school,year_label,registers):
+    """One printable PDF, one complete class register after another."""
+    from pypdf import PdfReader,PdfWriter
+    writer=PdfWriter()
+    for register in registers:
+        reader=PdfReader(BytesIO(class_register_pdf(school=school,year_label=year_label,data=register)))
+        for page in reader.pages:writer.add_page(page)
+    out=BytesIO();writer.write(out);return out.getvalue()
+
+def class_register_bundle_xlsx(*,school,year_label,registers):
+    """One workbook with one clearly named worksheet per class."""
+    from copy import copy
+    from openpyxl import load_workbook
+    wb=Workbook();wb.remove(wb.active)
+    for index,register in enumerate(registers,1):
+        source=load_workbook(BytesIO(class_register_xlsx(school=school,year_label=year_label,data=register))).active
+        title=(register.get('class_label') or f'Classe {index}')[:31]
+        base=title;suffix=2
+        while title in wb.sheetnames:title=f"{base[:27]} ({suffix})";suffix+=1
+        target=wb.create_sheet(title)
+        for row in source.iter_rows():
+            for cell in row:
+                new=target[cell.coordinate];new.value=cell.value
+                if cell.has_style:
+                    new.font=copy(cell.font);new.fill=copy(cell.fill);new.border=copy(cell.border);new.alignment=copy(cell.alignment);new.number_format=cell.number_format
+        for merged in source.merged_cells.ranges:target.merge_cells(str(merged))
+        for key,dimension in source.column_dimensions.items():target.column_dimensions[key].width=dimension.width
+        target.freeze_panes=source.freeze_panes;target.page_setup.orientation='landscape';target.page_setup.fitToWidth=1
+    neutralize_formulas(wb);out=BytesIO();wb.save(out);return out.getvalue()
+
 def summary_xlsx(*,school,title,year_label,currency,rows,total,first='Libellé'):
     wb=Workbook();ws=wb.active;ws.title='Synthèse';headers=[first,'Redevables','En ordre','Non en ordre','Attendu','Encaissé caisse','Régul. hors caisse','Régul. total','Reste','Taux']
     ws.merge_cells('A1:J1');ws['A1']=school.get('name','École');ws['A1'].font=Font(size=16,bold=True);ws['A1'].alignment=Alignment(horizontal='center')

@@ -8,14 +8,23 @@ class PostgresFeeTrackingRepository:
             if year_id:c.execute("SELECT id,label FROM academic_years WHERE school_id=%s AND id=%s",(school_id,year_id))
             else:c.execute("SELECT id,label FROM academic_years WHERE school_id=%s ORDER BY (status='ACTIVE') DESC,start_date DESC LIMIT 1",(school_id,))
             r=c.fetchone();return dict(r) if r else None
-    def taxonomy(self,school_id,year_id):
+    def taxonomy(self,school_id,year_id,class_id=None,section_id=None,currency=None):
         with self.conn.cursor(row_factory=dict_row) as c:
-            c.execute("""SELECT coalesce(cat.id::text,CASE WHEN ft.regulatory THEN 'REGULATORY' ELSE 'SCHOOL' END) category_id,
+            filters=["ft.school_id=%s","e.academic_year_id=%s","fc.status='ACTIVE'"];params=[school_id,year_id]
+            if class_id:filters.append("e.class_id=%s");params.append(class_id)
+            if section_id:filters.append("sc.section_id=%s");params.append(section_id)
+            if currency:filters.append("fc.currency=%s");params.append(currency)
+            c.execute(f"""SELECT coalesce(cat.id::text,CASE WHEN ft.regulatory THEN 'REGULATORY' ELSE 'SCHOOL' END) category_id,
               coalesce(cat.label,CASE WHEN ft.regulatory THEN 'Frais de l’État' ELSE 'Frais scolaires' END) category_label,
               ft.id fee_type_id,ft.code,ft.label,ft.regulatory
-              FROM fee_types ft LEFT JOIN fee_categories cat ON cat.id=ft.category_id
-              WHERE ft.school_id=%s AND ft.enabled AND EXISTS(SELECT 1 FROM tariffs t WHERE t.school_id=ft.school_id AND t.fee_type_id=ft.id AND t.academic_year_id=%s AND t.enabled)
-              ORDER BY coalesce(cat.sort_order,CASE WHEN ft.regulatory THEN 20 ELSE 10 END),category_label,ft.label""",(school_id,year_id));return [dict(r) for r in c.fetchall()]
+              FROM finance_charge_effective fc
+              JOIN enrollments e ON e.id=fc.enrollment_id
+              JOIN school_classes sc ON sc.id=e.class_id
+              JOIN fee_types ft ON ft.id=fc.fee_type_id
+              LEFT JOIN fee_categories cat ON cat.id=ft.category_id
+              WHERE {' AND '.join(filters)}
+              GROUP BY cat.id,cat.label,cat.sort_order,ft.id,ft.code,ft.label,ft.regulatory
+              ORDER BY coalesce(cat.sort_order,CASE WHEN ft.regulatory THEN 20 ELSE 10 END),category_label,ft.label""",params);return [dict(r) for r in c.fetchall()]
     def _base(self,school_id,year_id,currency,fee_type_id=None,category_id=None,class_id=None,section_id=None,status=None,q=None):
         filters=["fc.school_id=%s","e.academic_year_id=%s","fc.currency=%s","fc.status='ACTIVE'"];p=[school_id,year_id,currency]
         if fee_type_id:filters.append("fc.fee_type_id=%s");p.append(fee_type_id)
@@ -65,8 +74,8 @@ class PostgresFeeTrackingRepository:
             for k in ('total_rows','sum_net','sum_regularized','sum_remaining','sort_k1','sort_k2','sort_k3'):r.pop(k,None)
         self.last_totals={k:str(v) for k,v in sums.items()}  # exact decimals, never binary floats
         return rows,total
-    def overview(self,school_id,year_id,currency):
-        rows=self.students(school_id,year_id,currency)
+    def overview(self,school_id,year_id,currency,fee_type_id=None,category_id=None,class_id=None,section_id=None):
+        rows=self.students(school_id,year_id,currency,fee_type_id,category_id,class_id,section_id)
         groups={}
         for r in rows:
             k=r['category_label'];g=groups.setdefault(k,{'category_label':k,'net_expected':0,'regularized':0,'remaining':0,'students':set()})

@@ -63,11 +63,12 @@ await step('34 tarifs : appliquer les barèmes',async()=>{await p.getByRole('but
   await p.getByRole('button',{name:'Appliquer les barèmes',exact:true}).last().click();await toast(/échéance\(s\) appliquée\(s\)/)});
 
 // ---- benefit covering several fees
-await step('40 avantages : enfants du personnel sur deux frais',async()=>{await openTab('Avantages');const card=p.locator('form.benefitCard',{hasText:'Enfants du personnel'});
+await step('40 avantages : enfants du personnel sur deux frais',async()=>{await openTab('Avantages');const tile=p.locator('.benefitTile',{hasText:'Enfants du personnel'});
+  await tile.getByRole('button',{name:/^(Modifier|Configurer)$/}).click();const card=tile.locator('form.benefitCard');
   for(const f of ['Frais scolaires mensuels','Frais de l’État']){const c=card.getByLabel(f,{exact:true});if(!await c.isChecked())await c.check()}
   await card.getByRole('button',{name:'Enregistrer'}).click();await toast('Politique Enfants du personnel enregistrée')});
 await step('41 avantages : les deux frais restent cochés après rechargement',async()=>{await p.reload();await nav().getByRole('button',{name:'Paramètres',exact:true}).click().catch(()=>{});await openTab('Avantages');
-  const card=p.locator('form.benefitCard',{hasText:'Enfants du personnel'});for(const f of ['Frais scolaires mensuels','Frais de l’État'])if(!await card.getByLabel(f,{exact:true}).isChecked())throw new Error(`${f} non coché après rechargement`);
+  const tile=p.locator('.benefitTile',{hasText:'Enfants du personnel'});for(const f of ['Frais scolaires mensuels','Frais de l’État'])await tile.locator('.benefitFacts',{hasText:f}).waitFor({timeout:15000});
   await p.getByText('Exonérations individuelles').waitFor()});
 
 console.log(`\n${failures} échec(s) · erreurs HTTP : ${http.length ? http.join(', ') : 'aucune'} · console : ${consoleErr.length ? consoleErr.slice(0, 5).join(' | ') : 'aucune'}`);

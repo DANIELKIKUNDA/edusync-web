@@ -1,0 +1,2 @@
+ALTER TABLE school_admission_conditions DROP CONSTRAINT IF EXISTS school_admission_conditions_scope_refs_ck;
+ALTER TABLE school_admission_conditions DROP COLUMN IF EXISTS scope_refs;

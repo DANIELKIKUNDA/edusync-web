@@ -1,0 +1,15 @@
+/* Rapport de recouvrement de direction (2026-11-14) */
+.directionReport{display:grid;gap:12px}
+.directionScope{margin:0;color:#475467;font-weight:700}
+.directionReport .kpis{margin-bottom:0}
+.directionTable{overflow:auto;border:1px solid #e5e7eb;border-radius:14px}
+.directionRow{min-width:760px;display:grid;grid-template-columns:minmax(120px,1.4fr) repeat(3,minmax(64px,.7fr)) repeat(3,minmax(110px,1fr)) minmax(64px,.6fr);align-items:center;border-bottom:1px solid #eef2f7}
+.directionRow>*{padding:10px 9px;text-align:right;font-size:12px}
+.directionRow>*:first-child{text-align:left}
+.directionRow.head{background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:10px;font-weight:900}
+.directionRow.head>*{font-size:10px}
+.directionRow.total{background:#ecfdf5;border-top:2px solid #0f766e;border-bottom:0}
+.directionRow.total>*{font-weight:900}
+.directionRow strong{color:#0f766e}
+.registerControls input[type=date]{border:1px solid #dbe3ea;border-radius:11px;padding:8px 10px;background:#fff}
+@media(max-width:760px){.recoveryActions .registerControls{flex-wrap:wrap}}

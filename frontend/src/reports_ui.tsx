@@ -7,6 +7,7 @@ import {toast} from 'sonner';
 import {ProductSalesReport} from './schooling_parity_ui';
 import {friendlyError} from './platform/errors';
 import {formatMoney,formatDate} from './platform/format';
+import {DateInput} from './platform/date_input';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const auth = (token: string) => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
@@ -32,7 +33,7 @@ function bounds(type: string, ref: string): [string, string] {
   return [ref, ref];
 }
 
-export function PeriodicReports({token, can}: {token: string; can: (p: string) => boolean}) {
+export function PeriodicReports({token, can, official = true}: {token: string; can: (p: string) => boolean; official?: boolean}) {
   const today = iso(new Date());
   const [officialAllowed, setOfficialAllowed] = useState(false); const [historyAllowed, setHistoryAllowed] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]); const [profile, setProfile] = useState('CONSOLIDE'); const [type, setType] = useState('JOURNALIER');
@@ -70,15 +71,15 @@ export function PeriodicReports({token, can}: {token: string; can: (p: string) =
     <div className="reportControls">
       <label>Rapport<select value={profile} onChange={e => setProfile(e.target.value)}>{profiles.map(p => <option key={p.code} value={p.code}>{p.label}</option>)}</select></label>
       <label>Période<select value={type} onChange={e => setType(e.target.value)}><option value="JOURNALIER">Journalier</option><option value="HEBDOMADAIRE">Hebdomadaire</option><option value="MENSUEL">Mensuel</option><option value="PERSONNALISE">Personnalisée</option></select></label>
-      {type === 'PERSONNALISE' ? <><label>Du<input type="date" aria-label="Du" value={start} onChange={e => setStart(e.target.value)}/></label><label>Au<input type="date" aria-label="Au" value={end} onChange={e => setEnd(e.target.value)}/></label></>
-        : <label>Date de référence<input type="date" aria-label="Date de référence" value={ref} onChange={e => setRef(e.target.value)}/></label>}
+      {type === 'PERSONNALISE' ? <><label>Du<DateInput aria-label="Du" value={start} onChange={e => setStart(e.target.value)}/></label><label>Au<DateInput aria-label="Au" value={end} onChange={e => setEnd(e.target.value)}/></label></>
+        : <label>Date de référence<DateInput aria-label="Date de référence" value={ref} onChange={e => setRef(e.target.value)}/></label>}
       <button className="collectBtn" onClick={() => void run()}>Aperçu</button>
     </div>
     {error && <div className="error" role="alert">{error}</div>}
     {report ? <>
       <div className="reportTitle"><div><span className="eyebrow">{a === b ? formatDate(a) : `${formatDate(a)} → ${formatDate(b)}`} · {MODE_LABEL[report.partial_reporting_mode] ?? report.partial_reporting_mode}</span><h3>{report.profile.title}</h3><small>{report.profile.intro}</small></div>
         <b>{money(report.totals.CDF ?? 0, 'CDF')} · {money(report.totals.USD ?? 0, 'USD')}</b></div>
-      <div className="dayActions">{officialAllowed && can('finance.reports.periodic.generate') && <button className="collectBtn" disabled={busy} onClick={() => void officialPdf()}>Générer le rapport officiel</button>}
+      <div className="dayActions">{officialAllowed && can('finance.reports.periodic.generate') && official && <button className="collectBtn" disabled={busy} onClick={() => void officialPdf()}>Générer le rapport officiel</button>}
         {can('finance.reports.periodic.export') && <button className="softBtn" onClick={() => void excel()}>Excel (sans numéro)</button>}</div>
       <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>N°</th><th>Noms et post-noms</th><th>Classe</th><th>Observation</th><th>FC</th><th>USD</th></tr></thead>
         <tbody>{report.rows.map((r, i) => <tr key={r.payment_id}><td>{i + 1}</td><td><b>{[r.last_name, r.middle_name, r.first_name].filter(Boolean).join(' ') || '—'}</b></td><td>{r.class_label || '—'}</td><td>{r.observation}</td>

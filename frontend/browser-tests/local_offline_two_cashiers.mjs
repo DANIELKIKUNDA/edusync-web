@@ -48,8 +48,8 @@ await step(one.p, '01 en ligne : caisses ouvertes, élève cible inscrit', async
   await module(one.p, 'Élèves & inscriptions'); await one.p.getByRole('button', {name: 'Nouvelle inscription'}).first().click(); const w = one.p.locator('.enrollmentWizard');
   await w.getByRole('button', {name: 'Créer un nouveau foyer'}).click(); await w.getByLabel('Nom complet').fill(`Foyer ${RUN}`); await w.getByLabel('Téléphone').fill('+243 97' + String(Date.now()).slice(-7));
   await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByLabel('Nom *', {exact: true}).fill(TARGET); await w.getByLabel('Postnom *').fill('RESEAU'); await w.getByLabel('Prénom *').fill('Test');
-  await w.locator('.kp-sections button').first().click(); await w.locator('.kp-classes button').first().click(); await w.getByLabel('Sexe *').selectOption({index: 1});
-  await w.getByRole('button', {name: 'Continuer'}).click(); await w.waitFor({state: 'detached', timeout: 30000}); });
+  await w.locator('.cs-trigger').first().click(); await p.locator('.cs-option').first().click(); await w.getByRole('radio', {name: 'Masculin'}).first().click();
+  await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByRole('button', {name: /^Valider \d+ inscription/}).click(); await w.waitFor({state: 'detached', timeout: 30000}); });
 await step(one.p, '02 en ligne : paquet hors ligne téléchargé sur les deux appareils', async () => {
   for (const {p} of [one, two]) { await p.reload(); await p.locator('.es-shell').waitFor({timeout: 40000}); await p.waitForTimeout(4000);
     await module(p, 'Élèves & inscriptions'); await module(p, 'Centre financier'); }                       // screens read once online
@@ -65,8 +65,8 @@ await step(one.p, '12 hors ligne : C1 inscrit un nouvel élève', async () => {
   await module(one.p, 'Élèves & inscriptions'); await one.p.getByRole('button', {name: 'Nouvelle inscription'}).first().click(); const w = one.p.locator('.enrollmentWizard');
   await w.getByRole('button', {name: 'Créer un nouveau foyer'}).click(); await w.getByLabel('Nom complet').fill(`Foyer hors ligne ${RUN}`); await w.getByLabel('Téléphone').fill('+243 98' + String(Date.now()).slice(-7));
   await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByLabel('Nom *', {exact: true}).fill(NEWPUPIL); await w.getByLabel('Postnom *').fill('HORS'); await w.getByLabel('Prénom *').fill('Ligne');
-  await w.locator('.kp-sections button').first().click(); await w.locator('.kp-classes button').first().click(); await w.getByLabel('Sexe *').selectOption({index: 2});
-  await w.getByRole('button', {name: 'Continuer'}).click(); await one.p.getByText(/Hors connexion : inscription/).first().waitFor({timeout: 20000});
+  await w.locator('.cs-trigger').first().click(); await p.locator('.cs-option').first().click(); await w.getByRole('radio', {name: 'Féminin'}).first().click();
+  await w.getByRole('button', {name: 'Continuer'}).click(); await w.getByRole('button', {name: /^Valider \d+ inscription/}).click(); await one.p.getByText(/Hors connexion : inscription/).first().waitFor({timeout: 20000});
   await one.p.locator('.es-status').filter({hasText: /2 en attente/}).waitFor({timeout: 10000}); });
 await step(one.p, '13 hors ligne : la caisse montre les opérations en attente', async () => { await module(one.p, 'Centre financier'); await finTab(one.p, 'Caisse');
   await one.p.locator('.cd-pending').first().waitFor({timeout: 10000}); });

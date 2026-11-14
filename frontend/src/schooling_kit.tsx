@@ -1,6 +1,6 @@
 // Élèves & inscriptions — industrialised pieces (owner request 2026-10-25), Desktop golden master parity
 // (app/ui/schooling_page.py: student filters year / section / class / status / sex, « Réinscription rapide »):
-//  * ClassPicker: section first, then the classes of that section grouped by level (never one endless list);
+//  * ClassSelect (class_select.tsx): one compact field with search, sections and levels (never one endless list);
 //  * StudentDirectoryPro: filters (section, class, Humanités option, sex, status, year or whole history), modern table,
 //    exports with the same filters;
 //  * ReenrollWizard: a re-enrollment is NOT a new enrollment — find a known pupil, see the last class, the arrears and
@@ -9,42 +9,19 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 import {
   SchoolClass, SchoolOption, SchoolingStudent, StudentFilters, enrollFamily, listOptionSelector, listStudents, listYearSelector, studentDirectoryPdf, studentDirectoryXlsx, enrollmentRegister,
-  type AcademicYear,
+  type AcademicYear, type AdmissionPayment, type AdmissionPreview, type EnrollmentBatchInput, createEnrollmentDossier, previewFamilyEnrollment,
 } from './api';
 import {friendlyError} from './platform/errors';
 import {NavGlyph} from './platform/nav_icons';
 import {exportManaged, previewPdf} from './document_io';
 import './schooling_kit.css';
+import {ClassSelect} from './class_select';
+import {AdmissionSettlement, settlementAction} from './admission_settlement';
 
 export const STATUS_FR: Record<string, string> = {ACTIVE: 'Actif', ABANDON: 'Abandon', TRANSFERRED: 'Transféré', SUSPENDED: 'Suspendu', GRADUATED: 'Diplômé'};
 const fullName = (s: Pick<SchoolingStudent, 'last_name' | 'middle_name' | 'first_name'>) => [s.last_name, s.middle_name, s.first_name].filter(Boolean).join(' ');
 const initials = (s: Pick<SchoolingStudent, 'last_name' | 'first_name'>) => `${s.last_name?.[0] ?? ''}${s.first_name?.[0] ?? ''}`;
 const sections = (classes: SchoolClass[]) => [...new Map(classes.map(c => [c.section_id, {id: c.section_id, label: c.section_label ?? 'Section', code: c.section_code ?? ''}])).values()];
-const levelOf = (c: SchoolClass) => (c.reference_code ?? c.label).toUpperCase();
-
-/** Section first, then the classes of that section grouped by level; a search narrows long lists. */
-export function ClassPicker({classes, value, onChange, invalid, suggested, levelLabels = {}}: {classes: SchoolClass[]; value: string; onChange: (id: string) => void; invalid?: boolean; suggested?: string; levelLabels?: Record<string, string>}) {
-  const secs = useMemo(() => sections(classes), [classes]);
-  const current = classes.find(c => c.id === value);
-  const [section, setSection] = useState(current?.section_id ?? (secs.length === 1 ? secs[0].id : ''));
-  const [q, setQ] = useState('');
-  useEffect(() => { if (current && current.section_id !== section) setSection(current.section_id); }, [value]);
-  const inSection = classes.filter(c => c.section_id === section && (!q.trim() || c.label.toLowerCase().includes(q.trim().toLowerCase())));
-  const levels = [...new Map(inSection.map(c => [levelOf(c), c])).keys()];
-  return <div className={`kp-picker ${invalid ? 'invalid' : ''}`}>
-    <div className="kp-sections" role="radiogroup" aria-label="Section">{secs.map(s => <button key={s.id} type="button" role="radio" aria-checked={section === s.id} className={section === s.id ? 'on' : ''}
-      onClick={() => { setSection(s.id); setQ(''); }}>{s.label}<small>{classes.filter(c => c.section_id === s.id).length}</small></button>)}</div>
-    {section ? <>
-      {classes.filter(c => c.section_id === section).length > 12 && <div className="kp-search"><NavGlyph g="search" size={15}/><input aria-label="Filtrer les classes" placeholder="Filtrer : 1re, Scientifique, B…" value={q} onChange={e => setQ(e.target.value)}/></div>}
-      <div className="kp-levels">{levels.map(l => <div key={l} className="kp-level"><span>{levelLabels[l] ?? l}</span>
-        <div className="kp-classes" role="radiogroup" aria-label={`Classes ${l}`}>{inSection.filter(c => levelOf(c) === l).map(c => <button key={c.id} type="button" role="radio" aria-checked={value === c.id}
-          className={`${value === c.id ? 'on' : ''} ${suggested === c.id ? 'suggested' : ''}`} onClick={() => onChange(c.id)} title={c.label}>
-          {c.label}{suggested === c.id && <em>proposée</em>}</button>)}</div></div>)}
-        {levels.length === 0 && <p className="kp-empty">Aucune classe ne correspond.</p>}</div>
-    </> : <p className="kp-empty">Choisissez d’abord la section ; ses classes apparaissent ensuite.</p>}
-    {current && <p className="kp-chosen"><NavGlyph g="checkCircle" size={15}/> {current.section_label} · <b>{current.label}</b></p>}
-  </div>;
-}
 
 /** Directory with Desktop filters (+ Humanités option), modern table, filtered exports. */
 export function StudentDirectoryPro({token, schoolName, classes, filters, setFilters, students, loading, can, onSelect, page, hasMore, onPage}: {
@@ -118,14 +95,30 @@ export function ReenrollWizard({token, classes, refOrder, levelLabels, onClose, 
   const suggested = pupil ? proposeNextClass(pupil, yearClasses, refOrder) : '';
   const already = pupil && active && pupil.academic_year_id === active.id && pupil.enrollment_status !== 'CANCELLED';
   function choose(s: SchoolingStudent) { setPupil(s); setError(''); setClassId(proposeNextClass(s, yearClasses, refOrder)); }
+  // Atomic re-enrollment (owner report 2026-11-06): the conditions fixed by the school are paid in the same operation.
+  const [preview, setPreview] = useState<AdmissionPreview | null>(null); const [previewBusy, setPreviewBusy] = useState(false); const [previewError, setPreviewError] = useState('');
+  const [waivers, setWaivers] = useState<Record<number, string>>({}); const [payment, setPayment] = useState<AdmissionPayment>({mode: 'CASH', reference: ''});
+  const input = (withWaiver: boolean): EnrollmentBatchInput | null => !pupil || !classId || !pupil.gender || pupil.gender === 'X' ? null
+    : {family_id: pupil.family_id, household_confidence: 'CERTAIN', children: [{student_id: pupil.id, class_id: classId, gender: pupil.gender as 'M' | 'F', origin: 'REENROLLMENT',
+        condition_waiver: withWaiver && (waivers[0] ?? '').trim().length >= 5 ? waivers[0].trim() : null} as any]};
+  useEffect(() => {
+    const body = input(!!preview?.can_waive); if (!body || already) { setPreview(null); return; }
+    const t = window.setTimeout(async () => { setPreviewBusy(true); setPreviewError('');
+      try { setPreview(await previewFamilyEnrollment(token, body)); } catch (e) { setPreviewError(friendlyError(e)); setPreview(null); } finally { setPreviewBusy(false); } }, waivers[0] ? 450 : 150);
+    return () => window.clearTimeout(t);
+  }, [pupil?.id, classId, preview?.can_waive ? waivers[0] : '']);
+  const action = settlementAction(preview, 1);
   async function submit() {
     if (!pupil) return; if (!classId) { setError('Choisissez la nouvelle classe.'); return; }
     if (!pupil.gender || pupil.gender === 'X') { setError('Le sexe de l’élève est à compléter dans sa fiche avant la réinscription.'); return; }
+    if (!preview) return;
     try { setBusy(true); setError('');
-      const res = await enrollFamily(token, {family_id: pupil.family_id, household_confidence: 'CERTAIN', children: [{student_id: pupil.id, class_id: classId, gender: pupil.gender as 'M' | 'F', origin: 'REENROLLMENT'} as any]});
       const target = classes.find(c => c.id === classId)?.label ?? 'nouvelle classe';
+      if (action.kind === 'DOSSIER') { await createEnrollmentDossier(token, input(true)!); toast.success(`Dossier de réinscription de ${fullName(pupil)} enregistré en attente de paiement`, {description: 'Le caissier encaissera et la réinscription deviendra effective en une seule opération.'}); await onDone(); onClose(); return; }
+      const res = await enrollFamily(token, {...input(preview.can_waive)!, payment: action.kind === 'PAY' ? {mode: payment.mode, reference: (payment.reference ?? '').trim() || null} : null});
+      const receipts = (res?.admission_payment?.lines ?? []).map((l: any) => l.receipt_number).filter(Boolean);
       if (res?.offline_queued) toast.success(`Hors connexion : réinscription de ${fullName(pupil)} en ${target} enregistrée sur cet appareil`, {description: 'Envoyée automatiquement au retour de la connexion.'});
-      else toast.success(`${fullName(pupil)} est réinscrit(e) en ${target}`); await onDone(); onClose();
+      else toast.success(`${fullName(pupil)} est réinscrit(e) en ${target}`, receipts.length ? {description: `Conditions payées · reçu ${receipts.join(', ')}`} : undefined); await onDone(); onClose();
     } catch (e) { setError(friendlyError(e)); } finally { setBusy(false); }
   }
   return <div className="kp-backdrop" onClick={() => { if (!busy) onClose(); }}>
@@ -147,11 +140,13 @@ export function ReenrollWizard({token, classes, refOrder, levelLabels, onClose, 
           {pupil && pupil.status !== 'ACTIVE' && <div className="kp-note"><NavGlyph g="info" size={16}/> Statut actuel : {STATUS_FR[pupil.status] ?? pupil.status}. La réinscription le remet dans l’année en cours ; les dettes antérieures restent dues séparément.</div>}
         </section>
         {pupil && !already && <section><h4><span>2</span>Nouvelle classe {suggested && <small>la classe suivante est proposée</small>}</h4>
-          <ClassPicker classes={yearClasses} value={classId} onChange={setClassId} suggested={suggested} levelLabels={levelLabels}/></section>}
+          <ClassSelect classes={yearClasses} value={classId} onChange={setClassId} suggested={suggested} levelLabels={levelLabels} ariaLabel="Nouvelle classe"/></section>}
+        {pupil && !already && classId && <section><h4><span>3</span>Conditions de réinscription</h4>
+          <AdmissionSettlement preview={preview} loading={previewBusy} error={previewError} waivers={waivers} onWaiver={(i, r) => setWaivers(w => { const n = {...w}; if (r === null) delete n[i]; else n[i] = r; return n; })} payment={payment} onPayment={setPayment}/></section>}
         {error && <div className="error" role="alert">{error}</div>}
       </div>
       <footer className="kp-dfoot"><span className="kp-summary">{pupil && classId ? <>{fullName(pupil)} → <b>{classes.find(c => c.id === classId)?.label}</b></> : 'Retrouvez l’élève, puis choisissez sa nouvelle classe'}</span>
         <button type="button" className="kp-btn ghost" onClick={onClose} disabled={busy}>Annuler</button>
-        <button type="button" className="kp-btn primary" disabled={busy || !pupil || !!already || !classId} onClick={() => void submit()}><NavGlyph g="sync" size={16}/>{busy ? 'Réinscription…' : 'Réinscrire'}</button></footer>
+        <button type="button" className="kp-btn primary" disabled={busy || !pupil || !!already || !classId || previewBusy || !preview || action.kind === 'BLOCKED'} onClick={() => void submit()}><NavGlyph g="sync" size={16}/>{busy ? 'Réinscription…' : action.kind === 'ENROLL' ? 'Réinscrire' : action.label.replace('et inscrire', 'et réinscrire')}</button></footer>
     </div></div>;
 }

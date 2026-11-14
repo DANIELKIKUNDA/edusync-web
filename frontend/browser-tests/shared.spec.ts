@@ -15,6 +15,10 @@ for(const width of [320,390,480,768,1440]){
     await page.keyboard.type('56');await expect(page.getByRole('dialog')).toHaveCount(0);expect(requests).toBe(1);
     await expect.poll(()=>page.title()).toBe('Push — EduSync');
     await page.screenshot({path:`${process.env.EDUSYNC_TEST_OUTPUT||'test-results'}/trail-${width}.png`});
+    // Breadcrumb navigation starts with the hover/focus sidebar dismissed.
+    // At tablet width its peek overlay can otherwise intercept a real click.
+    await page.mouse.move(width-1,849);await page.keyboard.press('Escape');
+    await expect(page.locator('.es-side')).not.toHaveClass(/\bes-peek\b/);
     const back=width<768?page.getByRole('button',{name:'Retour : Messagerie'}):page.getByRole('button',{name:'Messagerie',exact:true});
     await back.click();await expect.poll(()=>page.title()).toBe('Messagerie — EduSync');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -32,6 +36,8 @@ test('single scroll control, inactivity, safe-area collision, rotation and reduc
   await page.evaluate(()=>{const b=document.createElement('button');b.id='business';b.textContent='Action métier';b.style.cssText='position:fixed;bottom:80px;left:calc(50% - 22px);width:44px;height:44px';document.body.append(b);dispatchEvent(new Event('resize'));});
   await expect(down).toBeHidden();await page.locator('#business').evaluate(e=>e.remove());
   await page.evaluate(()=>dispatchEvent(new Event('touchstart')));await expect(down).toBeVisible();
-  await page.waitForTimeout(3800);await expect(down).toBeHidden();
+  // At rest (no scroll for 3.5 s) the control is dimmed, never gone: ONE tap acts (owner, 2026-11-02).
+  await page.waitForTimeout(3800);await expect(down).toBeVisible();await expect(page.locator('.pf-vertical')).toHaveAttribute('data-idle','true');
+  await down.click();await expect(page.getByRole('button',{name:'Revenir en haut de la page'})).toBeVisible();await page.evaluate(()=>scrollTo(0,1000));
   await page.keyboard.press('PageDown');await expect(page.locator('.pf-vertical')).toBeVisible();
 });

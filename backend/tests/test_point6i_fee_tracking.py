@@ -19,3 +19,10 @@ def test_student_and_family_profiles_surface_same_fee_projection():
 def test_taxonomy_is_school_configurable():
     m=(ROOT/'backend/migrations/0023_fee_tracking.sql').read_text()
     assert 'fee_categories' in m and 'category_id' in m and 'FORCE ROW LEVEL SECURITY' in m
+def test_fee_filters_follow_real_class_obligations():
+    repo=(ROOT/'backend/src/edusync/adapters/postgres_fee_tracking.py').read_text()
+    api=(ROOT/'backend/src/edusync/modules/finance_fee_tracking/api/router.py').read_text()
+    ui=(ROOT/'frontend/src/finance.tsx').read_text()
+    assert 'FROM finance_charge_effective fc' in repo and 'e.class_id=%s' in repo and 'sc.section_id=%s' in repo
+    assert 'class_id:UUID|None=None' in api and 'section_id:UUID|None=None' in api
+    assert 'Tous les frais applicables' in ui and 'Section' in ui and 'Classe' in ui

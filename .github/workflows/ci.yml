@@ -16,12 +16,17 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Une nouvelle révision rend les contrôles de l'ancienne révision obsolètes.
+  # Les tags ont chacun une ref distincte et ne s'annulent donc jamais entre eux.
+  cancel-in-progress: true
 
 jobs:
+  # Machine d'exécution : runners GitHub (gratuits, dépôt public) par défaut. Pour revenir au PC (WSL) :
+  # variable de dépôt CI_RUNS_ON = ["self-hosted","linux","x64","volcano-ci"] (docs/CI_SANS_MINUTES_GITHUB.md).
   backend:
     name: Backend — tests et compilation
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,18 +53,11 @@ jobs:
 
   rbac-contract:
     name: RBAC — registre canonique, migration additive, droits identiques
-    runs-on: ubuntu-24.04
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: edusync_owner
-          POSTGRES_PASSWORD: ci-owner-only
-          POSTGRES_DB: edusync
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U edusync_owner" --health-interval 5s --health-timeout 5s --health-retries 20
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
+    timeout-minutes: 45
     env:
+      DOCKER_CONFIG: /tmp/edusync-docker-ci
+      PG_CONTAINER: edusync-postgres-ci
       PYTHONPATH: src
       PYTHONUTF8: "1"
       EDUSYNC_OWNER_DATABASE_URL: postgresql+psycopg://edusync_owner:ci-owner-only@127.0.0.1:5432/edusync
@@ -67,6 +65,29 @@ jobs:
       EDUSYNC_PLATFORM_DATABASE_URL: postgresql+psycopg://edusync_platform:ci-platform-only@127.0.0.1:5432/edusync
     steps:
       - uses: actions/checkout@v4
+      - name: PostgreSQL 16 isolé pour WSL
+        run: |
+          mkdir -p "$DOCKER_CONFIG"
+          printf '{"auths":{}}\n' > "$DOCKER_CONFIG/config.json"
+          docker rm -f "$PG_CONTAINER" 2>/dev/null || true
+          pulled=false
+          for attempt in 1 2 3 4 5; do
+            if docker pull postgres:16; then pulled=true; break; fi
+            echo "::warning::Téléchargement PostgreSQL interrompu (tentative $attempt/5)"
+            sleep $((attempt * 10))
+          done
+          [ "$pulled" = true ] || { echo "::error::Image PostgreSQL indisponible après 5 tentatives"; exit 1; }
+          docker run -d --name "$PG_CONTAINER" \
+            -e POSTGRES_USER=edusync_owner \
+            -e POSTGRES_PASSWORD=ci-owner-only \
+            -e POSTGRES_DB=edusync \
+            -p 5432:5432 postgres:16
+          for i in {1..30}; do
+            docker exec "$PG_CONTAINER" pg_isready -U edusync_owner && exit 0
+            sleep 2
+          done
+          docker logs "$PG_CONTAINER"
+          exit 1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -118,10 +139,34 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/mef_postgres_integration.py
+      - name: Avantages — politique de l'école de bout en bout (famille nombreuse, gratuité des mois, caisse)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/benefits_postgres_integration.py
+      - name: Inscription atomique — conditions payées dans la même opération, dossiers en attente, dérogations
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/admission_postgres_integration.py
+      - name: Alertes automatiques — caisse, annulations, abandons, dérogations (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/alerts_postgres_integration.py
+      - name: Rapport de recouvrement de direction — par frais et période, élèves non concernés, sections (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/direction_report_postgres_integration.py
+      - name: Arrêt PostgreSQL isolé
+        if: always()
+        run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true
 
   frontend:
     name: Frontend — typecheck et build
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -138,9 +183,16 @@ jobs:
       - name: Régressions plateforme (MFA, push, réseau, navigation)
         working-directory: frontend
         run: npm test
+      - name: Cache Chromium Playwright
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
       - name: Navigateur de certification
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install ${{ vars.CI_RUNS_ON == '' && '--with-deps' || '' }} chromium
       - name: Parcours plateforme dans Chromium (réponses serveur de test)
         working-directory: frontend
         run: npm run test:browser
@@ -165,7 +217,8 @@ jobs:
 
   security:
     name: Sécurité — dépendances, licences, secrets
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -179,12 +232,25 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Vulnérabilités Python (pip-audit sur requirements.lock)
+        env:
+          PIP_DEFAULT_TIMEOUT: "120"
+          PIP_RETRIES: "5"
         run: |
           pip install pip-audit==2.10.1
-          pip-audit -r backend/requirements.lock --progress-spinner off
+          audited=false
+          for attempt in 1 2 3; do
+            if pip-audit -r backend/requirements.lock --progress-spinner off; then audited=true; break; fi
+            echo "::warning::Audit PyPI interrompu (tentative $attempt/3)"
+            sleep $((attempt * 20))
+          done
+          [ "$audited" = true ] || { echo "::error::Audit PyPI indisponible après 3 tentatives"; exit 1; }
       - name: Vulnérabilités npm (exécution)
         working-directory: frontend
         run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm config set fetch-timeout 300000
           npm ci --ignore-scripts
           npm audit --omit=dev
       - name: Licences et SBOM
@@ -196,6 +262,8 @@ jobs:
 
   cd-privileged:
     name: CD privilégiée — installation Linux réelle (sshd, sudo, shebang, refus, verrou)
+    # Ce harnais modifie sshd/sudo et exige une VM jetable. Jamais sur le WSL personnel.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -207,12 +275,22 @@ jobs:
     name: Images Docker (amd64 + arm64) → GHCR
     needs: [backend, rbac-contract, frontend, security]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNS_ON && fromJSON(vars.CI_RUNS_ON) || 'ubuntu-24.04' }}
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Client Docker Linux isolé
+        # Le helper desktop.exe du profil Windows échoue depuis le runner WSL.
+        # La connexion GHCR utilise ensuite ce dossier temporaire propre au job.
+        run: |
+          umask 077
+          docker_config="$RUNNER_TEMP/docker-images"
+          mkdir -p "$docker_config"
+          printf '{"auths":{}}\n' > "$docker_config/config.json"
+          echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
