@@ -196,7 +196,7 @@ jobs:
       - name: Parcours plateforme dans Chromium (réponses serveur de test)
         working-directory: frontend
         run: npm run test:browser
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: platform-browser-components
@@ -209,7 +209,7 @@ jobs:
         env:
           EDUSYNC_TEST_BUILD: "1"
         run: npm run test:browser -- platform.spec.ts offline.spec.ts school_offline.spec.ts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: platform-browser-compiled
