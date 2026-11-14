@@ -39,3 +39,30 @@ def test_import_api_is_fail_closed_for_non_xlsx_and_contract_parser_is_shared():
  assert "read_official_xlsx(data,'STUDENTS')" in s
  assert "read_official_xlsx(data,'STAFF')" in s
  assert "read_official_xlsx(data,'FINANCE_HISTORY')" in s
+
+def test_students_contract_1_1_keeps_the_real_enrollment_date_and_still_reads_1_0_files():
+ # Owner, 2026-11-01: « la date d'inscription doit rester la date réelle » — optional last column « Date inscription ».
+ from edusync.modules.migration_import import import_contract as ic
+ assert CONTRACTS['STUDENTS']['headers'][-1]=='Date inscription' and ic.contract_version('STUDENTS')=='1.1'
+ b=build_template('STUDENTS',references={'Classe*':['1A']});wb=load_workbook(BytesIO(b));ws=wb['Import élèves'];ws.protection.sheet=False
+ assert wb[META_SHEET]['B3'].value=='1.1' and ws.cell(5,15).value=='Date inscription'
+ for j,v in enumerate(['KABEYA','MUKENDI','Grace','F','1A'],1):ws.cell(6,j,v)
+ ws.cell(6,15,'07/09/2026');bio=BytesIO();wb.save(bio)
+ rows=read_official_xlsx(bio.getvalue(),'STUDENTS')
+ assert rows[0][1]['Date inscription']=='07/09/2026' and rows[0][1]['Nom*']=='KABEYA'
+ # A 1.0 file (14 columns, former fingerprint) is still accepted: the date is simply absent.
+ saved=dict(CONTRACTS['STUDENTS'])
+ try:
+  CONTRACTS['STUDENTS'].update(version='1.0',headers=ic.STUDENTS_V1_0)
+  old=build_template('STUDENTS',references={'Classe*':['1A']})
+ finally:
+  CONTRACTS['STUDENTS'].clear();CONTRACTS['STUDENTS'].update(saved)
+ wb=load_workbook(BytesIO(old));ws=wb['Import élèves'];ws.protection.sheet=False
+ for j,v in enumerate(['KABEYA','MUKENDI','Grace','F','1A'],1):ws.cell(6,j,v)
+ bio=BytesIO();wb.save(bio);rows=read_official_xlsx(bio.getvalue(),'STUDENTS')
+ assert rows[0][1]['Prénom*']=='Grace' and 'Date inscription' not in rows[0][1]
+
+def test_student_import_stores_the_real_date_and_refuses_a_future_one():
+ s=(ROOT/'backend/src/edusync/modules/migration_import/api/router.py').read_text(encoding='utf-8')
+ assert "row.get('Date inscription')" in s and "Date d'inscription dans le futur" in s
+ assert "'enrolled_on':date.fromisoformat(n['enrolled_on'])" in s
