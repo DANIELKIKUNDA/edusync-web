@@ -238,6 +238,8 @@ services:
       EDUSYNC_FCM_SERVICE_ACCOUNT_FILE: ${EDUSYNC_FCM_SERVICE_ACCOUNT_FILE:-}
     volumes:
       - secrets_app:/run/edusync/app:ro
+      # Fichier du compte de service FCM provisionné sur l'hôte (jamais dans Git).
+      - /opt/edusync/private/firebase.json:/run/secrets/firebase.json:ro
     depends_on:
       migrator:
         condition: service_completed_successfully
