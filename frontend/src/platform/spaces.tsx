@@ -6,7 +6,7 @@ import {OnlineActionButton} from './online_action';
    recomputes the permissions and replaces the device session (the previous access token dies at once). The client
    only forgets the previous space and mounts the new one from the server's answer: nothing of the previous space
    (data, permissions, menu) survives the switch. */
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState,useSyncExternalStore} from 'react';
 import {Modal} from './account';
 import {NavGlyph} from './nav_icons';
 import {getConnectivity,nativeFetch,subscribeConnectivity,type ConnectivityState} from './connectivity';
@@ -14,7 +14,7 @@ import {hasUnsavedForms} from './mobile_back';
 import {confirmAction} from './dialogs';
 import {mfaVerify,MfaError,isMfaStep,type MfaStep} from '../api';
 import './spaces.css';
-import {getPlatformAuthState, platformLastRead} from './offline_session';
+import {getPlatformAuthState, getSessionCheckState, platformLastRead, subscribeSessionCheck} from './offline_session';
 
 export type Space={scope:'PLATFORM'|'SCHOOL';school_code:string|null;label:string;roles:string[];current:boolean};
 export type SpacesState={contexts:Space[];current:{scope:'PLATFORM'|'SCHOOL';school_code:string|null};current_valid:boolean};
@@ -150,8 +150,19 @@ export function OfflineAdminBanner({school=false}:{school?:boolean}){
   const [auth,setAuth]=useState(getPlatformAuthState);
   const [readAt,setReadAt]=useState(platformLastRead);
   useEffect(()=>{const authChange=()=>setAuth(getPlatformAuthState());const cache=()=>setReadAt(platformLastRead());window.addEventListener('edusync:platform-auth',authChange);window.addEventListener('edusync:platform-cache',cache);return()=>{window.removeEventListener('edusync:platform-auth',authChange);window.removeEventListener('edusync:platform-cache',cache)}},[]);
-  if(reachable&&auth!=='OFFLINE_AUTHENTICATED_CACHED')return null;
-  if(reachable)return <div className="es-alert sp-offline" role="status"><NavGlyph g="sync" size={16}/><span><b>Reconnexion à votre session…</b> Les données disponibles sur cet appareil restent accessibles pendant la vérification.</span><button type="button" className="es-btn es-btn-ghost" onClick={()=>window.dispatchEvent(new CustomEvent('edusync:session-retry'))}>Réessayer maintenant</button></div>;
+  const check=useSyncExternalStore(subscribeSessionCheck,getSessionCheckState);
+  const [showChecking,setShowChecking]=useState(false);
+  useEffect(()=>{
+    if(check!=='checking')return;
+    const timer=window.setTimeout(()=>setShowChecking(true),3_000);
+    return()=>{window.clearTimeout(timer);setShowChecking(false)};
+  },[check]);
+  if(reachable){
+    if(auth!=='OFFLINE_AUTHENTICATED_CACHED')return null;
+    if(check==='interrupted')return <div className="es-alert sp-offline" role="status"><NavGlyph g="sync" size={16}/><span><b>Impossible de vérifier votre session pour le moment.</b> Les données disponibles sur cet appareil restent accessibles.</span><button type="button" className="es-btn es-btn-ghost" onClick={()=>window.dispatchEvent(new CustomEvent('edusync:session-retry'))}>Réessayer</button></div>;
+    if(check==='checking'&&showChecking)return <div className="es-alert sp-offline" role="status"><NavGlyph g="sync" size={16}/><span><b>Vérification de votre session…</b> Les données disponibles sur cet appareil restent accessibles.</span></div>;
+    return null;
+  }
   if(school)return <div className="es-alert es-alert-warn sp-offline" role="status"><NavGlyph g="wifiOff" size={16}/><span><b>Hors connexion — vous pouvez continuer.</b> Ce que vous enregistrez est gardé sur cet appareil et envoyé automatiquement au retour du réseau. Seules quelques actions demandent le réseau : comptes et accès, imports, annulations et clôture de la journée de caisse. Les informations affichées peuvent dater de la dernière connexion.{readAt&&<small>Dernière mise à jour : {new Date(readAt).toLocaleString('fr-FR')}.</small>}</span></div>;
   return <div className="es-alert es-alert-warn sp-offline" role="status"><NavGlyph g="wifiOff" size={16}/><span><b>Hors connexion — lecture seule.</b> Seules les données déjà consultées sont disponibles ; elles peuvent être anciennes. Aucune modification n’est mise en attente.{readAt&&<small>Dernière synchronisation de la donnée consultée : {new Date(readAt).toLocaleString('fr-FR')}.</small>}</span></div>;
 }

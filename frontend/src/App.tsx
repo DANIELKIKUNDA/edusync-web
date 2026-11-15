@@ -3,7 +3,7 @@ import {lazyPage} from './platform/lazy_page';
 import {OutboxCenter,useEnrollmentReference,useSchoolOffline} from './offline/school_sync';
 import {setFinanceTarget} from './finance_nav';
 import {startLive} from './platform/live';
-import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS, SESSION_CHECK_MS} from './platform/offline_session';
+import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, setSessionCheckState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS, SESSION_CHECK_MS} from './platform/offline_session';
 import React,{Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {SecureLogin} from './login';
 import {takeAccountLink,type AccountLink} from './account_links';
@@ -388,6 +388,14 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   const [platformUser,setPlatformUser]=useState<PlatformUser>({full_name:'',email:''});
   const [schoolSession,setSchoolSession]=useState<SavedSchoolSession|null>(null);
   const [restoring,setRestoring]=useState(true);
+  const [signInRequired,setSignInRequired]=useState(false);
+  const sessionRevision=useRef(0);
+  const sessionCheck=useRef<AbortController|null>(null);
+  function invalidateSessionCheck(){
+    sessionRevision.current++;
+    sessionCheck.current?.abort();
+    setSessionCheckState('idle');
+  }
   // Spaces of the identity (server truth): the "Changer d’espace" entry only exists when there is more than one.
   const [spaces,setSpaces]=useState<SpacesState|null>(null);const [switching,setSwitching]=useState(false);const [recovery,setRecovery]=useState<SpacesState|null>(null);
   const activeKey=schoolSession?spaceKey({scope:'SCHOOL',school_code:schoolSession.school.code}):platformToken?'PLATFORM':'';
@@ -397,6 +405,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   function applySpace(r:any){
     setSwitching(false);setRecovery(null);
     if(!r){clear();return}
+    invalidateSessionCheck();
     try{if(activeKey)sessionStorage.setItem(`edusync.url.${activeKey}`,window.location.search)}catch{/* facultatif */}
     const next=r.scope==='SCHOOL'?spaceKey({scope:'SCHOOL',school_code:r.school?.code}):'PLATFORM';
     let saved='';try{saved=sessionStorage.getItem(`edusync.url.${next}`)||''}catch{/* facultatif */}
@@ -408,7 +417,18 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   // The token of the current space can no longer be renewed: either the session is over (sign-in screen) or only
   // this space was withdrawn (the identity picks another one without signing in again).
   const checking=useRef(false);
-  async function onRefused(){if(checking.current)return;checking.current=true;try{const st=await fetchSpaces();if(!st){clear();return}if(!st.current_valid)setRecovery(st)}catch{/* réseau : l’écran courant signale l’erreur */}finally{checking.current=false}}
+  async function onRefused(){
+    if(checking.current)return;
+    checking.current=true;
+    const revision=sessionRevision.current;
+    try{
+      const st=await fetchSpaces();
+      if(revision!==sessionRevision.current)return;
+      if(!st){clear();setSignInRequired(true);return}
+      if(!st.current_valid)setRecovery(st);
+    }catch{/* réseau : l’écran courant signale l’erreur */}
+    finally{checking.current=false}
+  }
   useEffect(()=>{const h=()=>{void onRefused()};window.addEventListener('edusync:space-check',h);return()=>window.removeEventListener('edusync:space-check',h)},[]);
   useEffect(()=>{
     let alive=true, running=false, first=true;
@@ -419,14 +439,20 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
       // (the former early return here never ended `restoring`: endless boot screen).
       if(initialLink){if(alive)setRestoring(false);return}
       running=true;
+      const revision=sessionRevision.current;
+      const isCurrent=()=>alive&&revision===sessionRevision.current;
+      setSessionCheckState('checking');
+      let interrupted=false;
       // Offline first (owner, 2026-11-15, slow network: Google itself took 5 s): when this device already knows the session,
       // the app opens AT ONCE on it and checks with the server in the background — never a boot screen waiting for the network.
       if(first){first=false;if(knownContext()){applyCachedContext();if(alive)setRestoring(false)}}
       // Never wait forever for the session service, but give a slow network its chance (30 s, was 10 s).
-      const ctl=new AbortController();const timer=window.setTimeout(()=>ctl.abort(),SESSION_CHECK_MS);
+      const ctl=new AbortController();
+      sessionCheck.current=ctl;
+      const timer=window.setTimeout(()=>ctl.abort(),SESSION_CHECK_MS);
       try{
         let r=await refreshAccessSession(ctl.signal);
-        if(!alive)return;
+        if(!isCurrent())return;
         let spacesAfterRefusal:SpacesState|null=null;
         if(r.status===401 || r.status===403){
           // Owner, 2026-11-15 (« obligé de se reconnecter ») : a renewal sent just before the phone slept can reach the server
@@ -434,24 +460,27 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
           // current session is valid, the renewal is tried ONCE more with the current key. A real end of session (password,
           // roles or access changed) fails again and signs out as before.
           spacesAfterRefusal=await fetchSpaces(ctl.signal);
-          if(!alive)return;
+          if(!isCurrent())return;
           if(spacesAfterRefusal?.current_valid){
             r=await refreshAccessSession(ctl.signal);
-            if(!alive)return;
+            if(!isCurrent())return;
             if(r.status===401||r.status===403)spacesAfterRefusal=await fetchSpaces(ctl.signal);
           }
         }
         if(!r.ok){
           if(r.status===401 || r.status===403){
             const st=spacesAfterRefusal;
-            if(!alive)return;
+            if(!isCurrent())return;
+            if(st?.current_valid)throw new Error('SESSION_SERVICE_UNAVAILABLE');
+            if(knownContext())setSignInRequired(true);
             clearPlatformContext();setPlatformToken('');setSchoolSession(null);
             if(st&&!st.current_valid&&st.contexts.length)setRecovery(st);
             return;
           }
           throw new Error('SESSION_SERVICE_UNAVAILABLE');
         }
-        const d=await r.json();if(!alive||!d.access_token)return;
+        const d=await r.json();if(!isCurrent())return;
+        if(!d.access_token)throw new Error('SESSION_SERVICE_UNAVAILABLE');
         if(d.scope==='SCHOOL'&&d.school&&d.user){setPlatformAuthState('ONLINE_AUTHENTICATED');setPlatformToken('');openSchool({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]});}
         else if(d.scope==='PLATFORM'){
           const previous=knownPlatform();
@@ -463,8 +492,18 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
         // A timeout is not proof of revocation. Restore display-only context,
         // never a cached bearer token or authority to perform a mutation.
         // Each context keeps its own offline policy (24 h platform, 7 days school: offline_session.ts).
+        if(!isCurrent())return;
+        interrupted=true;
         applyCachedContext();
-      }finally{clearTimeout(timer);running=false;if(alive)setRestoring(false);}
+      }finally{
+        clearTimeout(timer);
+        running=false;
+        if(sessionCheck.current===ctl)sessionCheck.current=null;
+        if(isCurrent()){
+          setSessionCheckState(interrupted?'interrupted':'idle');
+          setRestoring(false);
+        }
+      }
     }
     function applyCachedContext(){
       if(!alive)return;
@@ -487,10 +526,10 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     const retryNow=()=>{if(shouldRetryCachedSession())void restore()};   // « Réessayer maintenant » of the reconnection banner
     window.addEventListener('edusync:session-retry',retryNow);
     void restore();
-    return()=>{alive=false;window.clearInterval(retry);window.removeEventListener('edusync:session-retry',retryNow);window.removeEventListener('edusync:connectivity',probe)};
+    return()=>{alive=false;sessionCheck.current?.abort();window.clearInterval(retry);window.removeEventListener('edusync:session-retry',retryNow);window.removeEventListener('edusync:connectivity',probe)};
   },[]);
-  useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
-  function clear(){clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
+  useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(prev=>prev?d.token:prev)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
+  function clear(){invalidateSessionCheck();setSignInRequired(false);clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
   // A school session validated online becomes the school's offline context BEFORE its screens mount, so their first
   // reads (/access/me, settings…) are already kept for an offline reopening.
   function openSchool(next:SavedSchoolSession){if(next.token!==OFFLINE_SCHOOL_TOKEN)rememberSchoolContext(next);setSchoolSession(next)}
@@ -501,12 +540,12 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   if(restoring)return null;
   // A link received while a session is open (PWA already open): the link screen first, then back to the open space.
   if(pendingLink&&(schoolSession||platformToken))return <SecureLogin key={`link:${pendingLink.token.slice(0,8)}`} initialLink={pendingLink} onLinkHandled={()=>setPendingLink(null)}
-    onPlatform={(token,user)=>{setPendingLink(null);setSchoolSession(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{setPendingLink(null);setPlatformToken('');openSchool(s)}}/>;
+    onPlatform={(token,user)=>{invalidateSessionCheck();setPendingLink(null);setSchoolSession(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{invalidateSessionCheck();setPendingLink(null);setPlatformToken('');openSchool(s)}}/>;
   if(recovery)return <SpaceRecovery spaces={recovery} onSwitched={applySpace} onLogout={()=>{setRecovery(null);clear()}}/>;
   const switcher=switching&&<div className="es-stepup-layer es-space-layer"><SpaceSwitcher onClose={()=>setSwitching(false)} onSwitched={applySpace}/></div>;
   const openSwitcher=spaces&&spaces.contexts.length>1?()=>setSwitching(true):undefined;
   if(schoolSession)return <><SchoolApp key={`school:${schoolSession.school.id}`} session={schoolSession} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}<PdfPreviewHost/></>;
   if(platformToken)return <><AtelierPro key="platform" token={platformToken} user={platformUser} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}<PdfPreviewHost/></>;
-  return <SecureLogin key='login' initialLink={pendingLink} onLinkHandled={()=>setPendingLink(null)}
-    onPlatform={(token,user)=>{setPendingLink(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{setPendingLink(null);openSchool(s)}}/>;
+  return <SecureLogin key='login' signInRequired={signInRequired} initialLink={pendingLink} onLinkHandled={()=>setPendingLink(null)}
+    onPlatform={(token,user)=>{invalidateSessionCheck();setSignInRequired(false);setPendingLink(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{invalidateSessionCheck();setSignInRequired(false);setPendingLink(null);openSchool(s)}}/>;
 }

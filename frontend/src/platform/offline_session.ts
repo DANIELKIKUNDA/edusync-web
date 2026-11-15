@@ -72,6 +72,19 @@ export function clearPlatformContext(){known=null;lastRead=undefined;
 export const clearOfflineContext=clearPlatformContext;
 export function getPlatformAuthState(){return state;}
 export function setPlatformAuthState(next:PlatformAuthState){state=next;window.dispatchEvent(new CustomEvent('edusync:platform-auth',{detail:next}));}
+type SessionCheckState='idle'|'checking'|'interrupted';
+let sessionCheckState:SessionCheckState='idle';
+const sessionCheckListeners=new Set<()=>void>();
+export function getSessionCheckState(){return sessionCheckState;}
+export function subscribeSessionCheck(listener:()=>void){
+  sessionCheckListeners.add(listener);
+  return ()=>{sessionCheckListeners.delete(listener)};
+}
+export function setSessionCheckState(next:SessionCheckState){
+  if(sessionCheckState===next)return;
+  sessionCheckState=next;
+  sessionCheckListeners.forEach(listener=>listener());
+}
 export function platformLastRead(){return lastRead;}
 /** Session reopened from the device while the browser is online: it must be checked again with the server (2026-11-15). */
 export const CACHED_SESSION_RETRY_MS=20_000;
