@@ -1,6 +1,6 @@
 # EduSync — parcours de bout en bout contre STAGING après chaque déploiement réussi (lot 2026-10).
-# Lecture seule, compte plateforme de test dédié (jamais un Manager). Sans les secrets E2E_PLATFORM_*, seule
-# l'interface est vérifiée et le résumé indique comment créer le compte (docs/architecture/RUNBOOK_INCIDENT.md §6).
+# Lecture seule, compte plateforme de test dédié (jamais un Manager). Sans les secrets E2E_PLATFORM_*,
+# le contrôle de certification échoue (docs/architecture/RUNBOOK_INCIDENT.md §6).
 # Un échec rend le run rouge : la version déployée ne doit pas être promue (procédure production, PRODUCTION.md).
 name: E2E staging
 

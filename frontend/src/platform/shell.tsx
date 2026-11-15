@@ -52,7 +52,7 @@ export function StatusChip({compact = false}: {compact?: boolean}) {
   const recentFail = act.last === 'failed' && Date.now() - act.at < 60000;
   let tone = 'ok', icon = 'wifi', label = 'En ligne', detail = 'Connexion au serveur EduSync active.';
   if (state === 'OFFLINE') { tone = 'bad'; icon = 'wifiOff'; label = 'Hors ligne'; detail = 'Pas de connexion au serveur. Inscriptions, encaissements et dépenses sont gardés sur cet appareil et envoyés automatiquement au retour de la connexion.'; }
-  else if (state === 'SUSPECTED_OFFLINE' || state === 'DEGRADED') { tone = 'warn'; icon = 'wifi'; label = connectivityLabel(state); detail = 'Le réseau répond mal. EduSync réessaie automatiquement les opérations sûres.'; }
+  else if (state === 'SUSPECTED_OFFLINE' || state === 'DEGRADED') { tone = 'warn'; icon = 'wifi'; label = connectivityLabel(state); detail = 'Le serveur EduSync répond lentement ou renvoie une erreur. Les données locales restent disponibles.'; }
   else if (state === 'RECOVERING') { tone = 'warn'; icon = 'sync'; label = 'Reconnexion…'; detail = 'La connexion revient, vérification en cours.'; }
   if (act.pending > 0) { tone = act.retrying ? 'warn' : 'busy'; icon = act.retrying ? 'sync' : 'cloudUp'; label = act.retrying ? 'Nouvel essai d’envoi…' : 'Enregistrement…'; detail = `${act.pending} opération(s) en cours d’envoi au serveur.`; }
   else if (recentFail) { tone = 'bad'; icon = 'alert'; label = 'Envoi non confirmé'; detail = 'La dernière opération n’a pas pu être confirmée par le serveur. Réessayez : EduSync empêche les doublons.'; }

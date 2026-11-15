@@ -36,8 +36,8 @@ it('une session encore valide n’est jamais déconnectée pour une ancienne cl�
   const app = readFileSync('src/App.tsx', 'utf8');
   const conn = readFileSync('src/platform/connectivity.ts', 'utf8');
   // à l'ouverture : on demande au serveur, et si la session courante est valide on réessaie une fois avant toute déconnexion
-  expect(app).toContain('if(st?.current_valid){r=await refreshAccessSession(ctl.signal);if(!alive)return}');
-  expect(app.indexOf('if(st?.current_valid)')).toBeLessThan(app.indexOf("clearPlatformContext();setPlatformToken('');setSchoolSession(null);"));
+  expect(app).toMatch(/if\(spacesAfterRefusal\?\.current_valid\)\{\s*r=await refreshAccessSession\(ctl.signal\)/);
+  expect(app.indexOf('if(spacesAfterRefusal?.current_valid)')).toBeLessThan(app.indexOf("clearPlatformContext();setPlatformToken('');setSchoolSession(null);"));
   // pendant le travail : un 401 est retenté une fois avec la clé actuelle
   expect(conn).toContain('if(r.status===401)r=await refreshAccessSession();');
 });

@@ -42,3 +42,46 @@ it('a one-second network drop never switches the app offline; a real loss does, 
   expect(c.getConnectivity().state).toBe('ONLINE');
   vi.useRealTimers(); vi.unstubAllGlobals();
 });
+
+it('keeps display-only credentials off the network while the session is restored', async () => {
+  vi.resetModules();
+  const native = vi.fn(async () => new Response('{}'));
+  vi.stubGlobal('fetch', native);
+  try {
+    const {resilientFetch} = await import('../src/platform/connectivity');
+    const {OFFLINE_SCHOOL_TOKEN} = await import('../src/platform/offline_session');
+    const headers = {Authorization: `Bearer ${OFFLINE_SCHOOL_TOKEN}`};
+    const personnel = new URL('/api/v1/staff', window.location.origin);
+    await expect(resilientFetch(personnel, {headers})).rejects.toThrow('restauration de votre session');
+    await expect(resilientFetch(new Request(personnel, {method: 'POST', headers}))).rejects.toThrow('session restaurée');
+    expect(native).not.toHaveBeenCalled();
+    expect((await resilientFetch(personnel, {headers: {Authorization: 'Bearer active-token'}})).ok).toBe(true);
+    expect(native).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('accepts a slow health response and distinguishes an HTTP service outage from a disconnect', async () => {
+  vi.resetModules();
+  vi.useFakeTimers();
+  const healthResponse = () => new Response('{"status":"ok"}', {headers: {'Content-Type': 'application/json'}});
+  const native = vi.fn((_input: unknown, init: RequestInit) => new Promise<Response>((resolve, reject) => {
+    const timer = setTimeout(() => resolve(healthResponse()), 8_500);
+    init.signal?.addEventListener('abort', () => {clearTimeout(timer); reject(init.signal?.reason);});
+  }));
+  vi.stubGlobal('fetch', native);
+  try {
+    const c = await import('../src/platform/connectivity');
+    c.installResilientFetch();
+    await vi.advanceTimersByTimeAsync(13_600);
+    expect(c.getConnectivity().state).toBe('ONLINE');
+    expect(c.getConnectivity().lastSuccess).toBeGreaterThan(c.getConnectivity().since);
+    native.mockImplementation(async () => new Response('', {status: 503}));
+    await vi.advanceTimersByTimeAsync(45_000);
+    expect(c.getConnectivity().state).toBe('DEGRADED');
+  } finally {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});

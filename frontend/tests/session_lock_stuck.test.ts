@@ -56,3 +56,17 @@ it('réseau présent : le bandeau dit « Reconnexion à votre session… », jam
   expect(spaces.indexOf('if(reachable)return')).toBeLessThan(spaces.indexOf('Hors connexion — vous pouvez continuer'));
   expect(app).toContain("window.addEventListener('edusync:session-retry',retryNow)");
 });
+
+it('le renouvellement de fond abandonne aussi l’attente du verrou', async () => {
+  vi.useFakeTimers(); vi.resetModules();
+  vi.stubGlobal('fetch', vi.fn());
+  const locks = {request: (_name: string, {signal}: LockOptions) => new Promise((_resolve, reject) => {
+    signal?.addEventListener('abort', () => reject(new DOMException('délai', 'AbortError')));
+  })};
+  Object.defineProperty(navigator, 'locks', {configurable: true, value: locks});
+  const c = await import('../src/platform/connectivity');
+  const pending = c.refreshAccessSession().catch(e => e.name);
+  await vi.advanceTimersByTimeAsync(c.REFRESH_TIMEOUT_MS);
+  expect(await pending).toBe('AbortError');
+  expect(fetch).not.toHaveBeenCalled();
+});

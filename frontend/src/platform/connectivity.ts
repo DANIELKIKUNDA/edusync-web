@@ -1,4 +1,4 @@
-import {cachedPlatformRead, cacheablePath, getPlatformAuthState, knownContext, rememberPlatformRead, setPlatformAuthState} from './offline_session';
+import {cachedPlatformRead, cacheablePath, getPlatformAuthState, knownContext, OFFLINE_PLATFORM_TOKEN, rememberPlatformRead, setPlatformAuthState} from './offline_session';
 import {UserFacingError} from './errors';
 import {applyLocalPayment, enqueueWrite, loadPack, offlineWriteKind, searchPack} from '../offline/outbox';
 export type ConnectivityState='ONLINE'|'DEGRADED'|'SUSPECTED_OFFLINE'|'OFFLINE'|'RECOVERING';
@@ -12,17 +12,24 @@ const listeners=new Set<(s:Snapshot)=>void>();
    over at least OFFLINE_GRACE_MS. Coming back needs RECOVER_SUCCESSES answers in a row, so a single lucky probe on a dying
    network does not switch the app back and forth. During the check nothing is lost: payments keep their Idempotency-Key and
    go to the device outbox if the server cannot be reached. */
+const HEALTH_TIMEOUT_MS=15_000;
+const browserOffline=()=>typeof navigator!=='undefined'&&navigator.onLine===false;
 export const OFFLINE_GRACE_MS=10_000, OFFLINE_AFTER_FAILURES=3, RECOVER_SUCCESSES=2;
 function publish(next:Snapshot){const was=snap.state;snap=next;
   // Only a CONFIRMED loss puts the session in offline mode (cached reads, outbox); a suspicion does not.
   if(next.state==='OFFLINE'&&was!=='OFFLINE'&&knownContext()&&getPlatformAuthState()==='ONLINE_AUTHENTICATED')setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
-  listeners.forEach(fn=>fn({...snap}));window.dispatchEvent(new CustomEvent('edusync:connectivity',{detail:snap}))}
+  listeners.forEach(fn=>fn(getConnectivity()));window.dispatchEvent(new CustomEvent('edusync:connectivity',{detail:snap}))}
 function success(){const now=Date.now();
   // Never confirmed offline (DEGRADED / SUSPECTED): one answer is enough. Confirmed offline: wait for RECOVER_SUCCESSES in a row.
   const confirmed=snap.state==='OFFLINE'||snap.state==='RECOVERING';const successes=confirmed?snap.successes+1:Math.min(snap.successes+1,3);
   const state:ConnectivityState=confirmed?(successes>=RECOVER_SUCCESSES?'ONLINE':'RECOVERING'):'ONLINE';
   publish({state,failures:0,successes,since:state===snap.state?snap.since:now,lastSuccess:now,lastFailure:snap.lastFailure});
   if(state==='RECOVERING')probeSoon(1_500)}
+function serverUnavailable(){
+  const now=Date.now();
+  publish({state:'DEGRADED',failures:0,successes:0,since:snap.state==='DEGRADED'?snap.since:now,lastSuccess:snap.lastSuccess,lastFailure:now});
+  probeSoon(2_500);
+}
 function failure(){const now=Date.now();const failures=snap.failures+1;const failingSince=snap.failingSince??now;
   let state:ConnectivityState;
   if(snap.state==='OFFLINE'||snap.state==='RECOVERING')state='OFFLINE';            // already confirmed: a failed recovery goes straight back
@@ -32,15 +39,10 @@ function failure(){const now=Date.now();const failures=snap.failures+1;const fai
   if(state==='DEGRADED'||state==='SUSPECTED_OFFLINE')probeSoon(2_500)}
 /** True while the network is suspected but not yet confirmed lost: requests fail fast (no retry wait) and fall back to the device. */
 function suspected(){return (typeof navigator!=='undefined'&&navigator.onLine===false)||snap.state==='SUSPECTED_OFFLINE'||snap.state==='OFFLINE'}
-/** Offline mode for routing requests: only a confirmed loss (or a session reopened from the device). */
-/* 2026-11-15 (owner, slow network: « TikTok et YouTube marchent, EduSync dit hors connexion »): a session reopened from the
-   device no longer means « never ask the server ». The device answers alone only when the network is really gone (device
-   says offline, or the probes confirmed it) or while the server's answer is still in doubt. With a reachable server, even a
-   slow one, the server comes first and the device is the fallback (reads from the cache, operations to the outbox). */
+/** Local-only routing starts on an explicit browser disconnect or a confirmed service outage. */
 function confirmedOffline(){
   if(!knownContext())return false;
-  if(snap.state==='OFFLINE'||(typeof navigator!=='undefined'&&navigator.onLine===false))return true;
-  return getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&snap.state!=='ONLINE';
+  return snap.state==='OFFLINE'||browserOffline();
 }
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 function retryable(input:RequestInfo|URL,init?:RequestInit){const method=(init?.method||((input as Request)?.method)||'GET').toUpperCase();if(method==='GET'||method==='HEAD')return true;const h=new Headers(init?.headers);return h.has('Idempotency-Key')}
@@ -74,7 +76,9 @@ async function doRefresh(signal?:AbortSignal){
 export async function refreshAccessSession(signal?:AbortSignal):Promise<Response>{
   const locks=typeof navigator!=='undefined'?navigator.locks:undefined;
   if(!locks)return doRefresh(signal);
-  return signal?locks.request('edusync-session-refresh',{signal},()=>doRefresh(signal)):locks.request('edusync-session-refresh',()=>doRefresh());
+  const deadline=limited(signal);
+  try{return await locks.request('edusync-session-refresh',{signal:deadline.signal},()=>doRefresh(deadline.signal))}
+  finally{deadline.done()}
 }
 let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{let r=await refreshAccessSession();
   // A renewal sent before a sleep may carry an old session key (2026-11-15): one more try with the current key before
@@ -112,25 +116,34 @@ export async function resilientFetch(input:RequestInfo|URL,init?:RequestInit):Pr
   const read=method==='GET';
   const offline=confirmedOffline();
   const school=knownContext()?.kind==='SCHOOL';
-  const replay=new Headers(init?.headers).get('X-EduSync-Replay')==='outbox';
+  const replay=new Headers(init?.headers??(input instanceof Request?input.headers:undefined)).get('X-EduSync-Replay')==='outbox';
   // School space (owner decision 2026-10-25): enrollment, re-enrollment and payments do not depend on the network —
   // the write is kept in the device outbox with its Idempotency-Key and replayed later. The platform stays read-only.
-  const headers=new Headers(init?.headers);const hasKey=!!headers.get('Idempotency-Key');
+  const headers=new Headers(init?.headers??(input instanceof Request?input.headers:undefined));
+  const provisional=headers.get('Authorization')===`Bearer ${OFFLINE_PLATFORM_TOKEN}`;
+  const hasKey=!!headers.get('Idempotency-Key');
   // Only a JSON operation carrying its Idempotency-Key is kept: the replay must be recognised by the server (a file upload
   // or an operation without key cannot be replayed safely).
-  const queueable=school && !read && !replay && !!offlineWriteKind(url.pathname) && hasKey && (init?.body==null || typeof init.body==='string');
-  if(offline && queueable)return queueWrite(url,method,init);
+  const queueable=school && !read && !replay && !!offlineWriteKind(url.pathname) && hasKey && (typeof init?.body==='string' || (!(input instanceof Request)&&init?.body==null));
+  if((offline||provisional) && queueable)return queueWrite(url,method,init);
   if(offline && !['GET','HEAD','OPTIONS'].includes(method) && !/\/auth\/(refresh|logout)$/.test(url.pathname))
     throw new UserFacingError(school?'Hors connexion : cette action demande le réseau (comptes et accès, imports, annulations et clôture de la journée de caisse). Le reste de votre travail continue sans connexion.':'Hors connexion — lecture seule. Cette action nécessite une connexion au serveur.','OFFLINE_READ_ONLY');
-  if(offline && read && !/\/auth\//.test(url.pathname)){
+  if((offline||provisional) && read && !/\/auth\//.test(url.pathname)){
     const local=school?await packRead(url):null;if(local)return local;
     const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
+    if(provisional&&!offline)throw new UserFacingError('Cette donnée sera disponible après la restauration de votre session.','SESSION_RESTORING');
     throw new UserFacingError('Cette donnée n’est pas disponible hors connexion. Réessayez au retour du réseau.','OFFLINE_NOT_CACHED');
   }
+  if(provisional)throw new UserFacingError('Cette action demande une session restaurée.','SESSION_RESTORING');
   try{const response=await resilientApiFetch(input,init);
     // Session still being taken back (device context, renewal not yet through): a refused read is answered from the device
     // rather than shown as an error; the session check finishes in the background.
     if(read&&response.status===401&&getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&scope&&cacheablePath(url.pathname)){
+      const local=school?await packRead(url):null;if(local)return local;
+      const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
+    }
+    if([502,503,504].includes(response.status)&&queueable)return queueWrite(url,method,init);
+    if(read&&response.status>=500&&scope&&knownContext()?.scope===scope&&cacheablePath(url.pathname)){
       const local=school?await packRead(url):null;if(local)return local;
       const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
     }
@@ -172,21 +185,61 @@ async function packRead(url:URL):Promise<Response|null>{
       :{ready:false,reason:'Aucun frais payable dans la copie de cet appareil.',allocations:[],total:'0'});}
   return null;
 }
+async function fetchWithinBudget(input:RequestInfo|URL,init:RequestInit|undefined,ms:number):Promise<Response>{
+  const controller=new AbortController();
+  const caller=init?.signal??(input instanceof Request?input.signal:undefined);
+  const signal=caller?AbortSignal.any([caller,controller.signal]):controller.signal;
+  const timer=window.setTimeout(()=>controller.abort(),ms);
+  try{return await nativeFetch(input,{...init,credentials:init?.credentials??'include',signal})}
+  finally{clearTimeout(timer)}
+}
+
 async function attempt(input:RequestInfo|URL,init:RequestInit|undefined,write:boolean):Promise<Response>{
-// While the network is suspected, one try only: the cashier is not kept waiting through retries, the operation goes to the
-// device (outbox / local copy) at once and is replayed with the same Idempotency-Key.
-const max=retryable(input,init)&&!suspected()?3:1;let last:unknown;for(let i=0;i<max;i++){if(i>0&&write)setActivity({retrying:true});try{const controller=new AbortController();const timeout=window.setTimeout(()=>controller.abort(),12_000+8_000*i);let r=await nativeFetch(input,{...init,credentials:init?.credentials??'include',signal:init?.signal??controller.signal});clearTimeout(timeout);const url=typeof input==='string'?input:input instanceof URL?input.toString():input.url;if(r.status===401&&!url.includes('/auth/login')&&!url.includes('/auth/refresh')){const token=await renewAccess();if(token){const h=new Headers(init?.headers||(input instanceof Request?input.headers:undefined));h.set('Authorization',`Bearer ${token}`);r=await nativeFetch(input,{...init,headers:h,credentials:'include'})}}r=await withStepUp(r,input,init);if(r.status===403&&r.headers.get('X-EduSync-Space')==='WITHDRAWN')window.dispatchEvent(new CustomEvent('edusync:space-check'));if(r.status>=500){failure();if(i<max-1){await sleep([1200,2600,5200][i]+Math.random()*500);continue}}else success();return r}catch(e){last=e;failure();if(i<max-1){await sleep([1200,2600,5200][i]+Math.random()*500);continue}}}throw last instanceof Error?last:new Error('network')}
+  const max=retryable(input,init)&&!suspected()?3:1;
+  const caller=init?.signal??(input instanceof Request?input.signal:undefined);
+  const url=typeof input==='string'?input:input instanceof URL?input.href:input.url;
+  let last:unknown;
+  for(let i=0;i<max;i++){
+    if(i>0&&write)setActivity({retrying:true});
+    const ms=12_000+8_000*i;
+    try{
+      let requestInit=init;
+      let response=await fetchWithinBudget(input,requestInit,ms);
+      if(response.status===401&&!url.includes('/auth/login')&&!url.includes('/auth/refresh')){
+        const token=await renewAccess();
+        if(token){
+          const headers=new Headers(init?.headers??(input instanceof Request?input.headers:undefined));
+          headers.set('Authorization',`Bearer ${token}`);
+          requestInit={...init,headers,credentials:'include'};
+          response=await fetchWithinBudget(input,requestInit,ms);
+        }
+      }
+      response=await withStepUp(response,input,requestInit,ms);
+      if(response.status===403&&response.headers.get('X-EduSync-Space')==='WITHDRAWN')window.dispatchEvent(new CustomEvent('edusync:space-check'));
+      if(response.status<500){success();return response}
+      serverUnavailable();
+      if(i===max-1||[502,503,504].includes(response.status))return response;
+    }catch(error){
+      if(caller?.aborted)throw error;
+      last=error;
+      failure();
+      if(browserOffline())break;
+    }
+    if(i<max-1)await sleep([1200,2600][i]+Math.random()*500);
+  }
+  throw last instanceof Error?last:new Error('network');
+}
 /* Step-up (owner decision 2026-10-13): a sensitive platform action answered 403 MFA_STEP_UP_REQUIRED asks the user for a
    code (dialog registered by Atelier Pro), then the same request is sent again (same Idempotency-Key, nothing doubled). */
 type StepUpHandler=()=>Promise<boolean>;let stepUpHandler:StepUpHandler|null=null;let stepUpPending:Promise<boolean>|null=null;
 export function setStepUpHandler(h:StepUpHandler|null){stepUpHandler=h}
-async function withStepUp(r:Response,input:RequestInfo|URL,init:RequestInit|undefined):Promise<Response>{
+async function withStepUp(r:Response,input:RequestInfo|URL,init:RequestInit|undefined,ms:number):Promise<Response>{
   if(r.status!==403||!stepUpHandler)return r;
   let code='';try{code=(await r.clone().json())?.detail?.code||''}catch{return r}
   if(code!=='MFA_STEP_UP_REQUIRED')return r;
   stepUpPending??=stepUpHandler().finally(()=>{stepUpPending=null});
   if(!(await stepUpPending))return new Response(JSON.stringify({detail:'Action non effectuée : la confirmation par code a été annulée.'}),{status:403,headers:{'Content-Type':'application/json'}});
-  return nativeFetch(input,{...init,credentials:'include'});
+  return fetchWithinBudget(input,{...init,credentials:'include'},ms);
 }
 let installed=false;
 export function installResilientFetch(){
@@ -214,21 +267,27 @@ export function installResilientFetch(){
     if(navigator.onLine===false){failure();probeSoon(0)}
   }
 }
-export function getConnectivity(){return {...snap}}
-export function subscribeConnectivity(fn:(s:Snapshot)=>void){listeners.add(fn);fn({...snap});return()=>{listeners.delete(fn)}}
+export function getConnectivity():Snapshot{return {...snap,state:browserOffline()?'OFFLINE':snap.state}}
+export function subscribeConnectivity(fn:(s:Snapshot)=>void){listeners.add(fn);fn(getConnectivity());return()=>{listeners.delete(fn)}}
 /* Heartbeat: every 30 s when online; every 2.5 s while checking a suspicion (so the verdict comes in ~10 s); when offline,
    exponential backoff with jitter (5 s → 30 s) so a phone without network does not drain its battery. */
 let probeStarted=false,probeTimer:ReturnType<typeof setTimeout>|undefined,probing=false,offlineBeats=0;
 async function probe(){
   // The browser can announce `online` while an old offline probe is still waiting for its timeout. Keep retrying briefly
   // instead of losing that wake-up signal; otherwise the offline banner can remain visible for another full backoff cycle.
-  if(probing){probeSoon(250);return}probing=true;try{const c=new AbortController();const t=setTimeout(()=>c.abort(),6_000);const r=await nativeFetch('/health-api',{cache:'no-store',signal:c.signal});clearTimeout(t);
-  // The question is « is the server reachable? ». A JSON health answer must say ok; an origin without the health route (the
-  // dev server answers its index page) still proves the network is there. 5xx (backend down behind nginx) is a failure.
-  const json=r.headers.get('Content-Type')?.includes('application/json');const healthy=r.ok&&(json?(await r.json().catch(()=>null))?.status==='ok':true);healthy?success():failure()}catch{failure()}finally{probing=false;offlineBeats=snap.state==='OFFLINE'?offlineBeats+1:0;
+  if(probing){probeSoon(250);return}
+  probing=true;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),HEALTH_TIMEOUT_MS);
+  try{
+    const response=await nativeFetch('/health-api',{cache:'no-store',signal:controller.signal});
+    const json=response.headers.get('Content-Type')?.includes('application/json');
+    const healthy=response.ok&&(!json||(await response.json())?.status==='ok');
+    if(healthy)success();else serverUnavailable();
+  }catch{failure()}finally{clearTimeout(timer);probing=false;offlineBeats=snap.state==='OFFLINE'?offlineBeats+1:0;
   // Chrome/PWA does not always emit `online` after a laptop wake-up. Retry quickly at first (1 s, 2 s, 4 s…), then
   // progressively back off to 30 s so recovery is prompt without draining a phone that remains offline.
   if(probeTimer===undefined)probeSoon(snap.state==='ONLINE'?30_000:snap.state==='OFFLINE'?Math.min(30_000,1_000*2**Math.min(offlineBeats-1,5))+Math.random()*500:2_500)}}
 function probeSoon(ms:number){if(!probeStarted)return;if(probeTimer!==undefined)clearTimeout(probeTimer);probeTimer=setTimeout(()=>{probeTimer=undefined;void probe()},ms)}
 function startHealthProbe(){if(probeStarted)return;probeStarted=true;if(probeTimer===undefined)probeSoon(5_000)}
-export function connectivityLabel(s:ConnectivityState){return s==='ONLINE'?'En ligne':s==='DEGRADED'?'Connexion instable':s==='SUSPECTED_OFFLINE'?'Vérification du réseau…':s==='RECOVERING'?'Reconnexion…':'Hors ligne'}
+export function connectivityLabel(s:ConnectivityState){return s==='ONLINE'?'En ligne':s==='DEGRADED'?'Service EduSync instable':s==='SUSPECTED_OFFLINE'?'Vérification du service EduSync…':s==='RECOVERING'?'Reconnexion…':'Hors ligne'}

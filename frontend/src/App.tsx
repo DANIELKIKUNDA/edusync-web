@@ -427,18 +427,23 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
       try{
         let r=await refreshAccessSession(ctl.signal);
         if(!alive)return;
+        let spacesAfterRefusal:SpacesState|null=null;
         if(r.status===401 || r.status===403){
           // Owner, 2026-11-15 (« obligé de se reconnecter ») : a renewal sent just before the phone slept can reach the server
           // with an OLD session key and be refused although the device session is alive. The server is asked; when it says the
           // current session is valid, the renewal is tried ONCE more with the current key. A real end of session (password,
           // roles or access changed) fails again and signs out as before.
-          const st=await fetchSpaces(ctl.signal).catch(()=>{throw new Error('SESSION_SERVICE_UNAVAILABLE')});
+          spacesAfterRefusal=await fetchSpaces(ctl.signal);
           if(!alive)return;
-          if(st?.current_valid){r=await refreshAccessSession(ctl.signal);if(!alive)return}
+          if(spacesAfterRefusal?.current_valid){
+            r=await refreshAccessSession(ctl.signal);
+            if(!alive)return;
+            if(r.status===401||r.status===403)spacesAfterRefusal=await fetchSpaces(ctl.signal);
+          }
         }
         if(!r.ok){
           if(r.status===401 || r.status===403){
-            const st=await fetchSpaces(ctl.signal).catch(()=>null);
+            const st=spacesAfterRefusal;
             if(!alive)return;
             clearPlatformContext();setPlatformToken('');setSchoolSession(null);
             if(st&&!st.current_valid&&st.contexts.length)setRecovery(st);
