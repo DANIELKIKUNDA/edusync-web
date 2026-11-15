@@ -61,3 +61,27 @@ it('keeps display-only credentials off the network while the session is restored
     vi.unstubAllGlobals();
   }
 });
+
+it('accepts a slow health response and distinguishes an HTTP service outage from a disconnect', async () => {
+  vi.resetModules();
+  vi.useFakeTimers();
+  const healthResponse = () => new Response('{"status":"ok"}', {headers: {'Content-Type': 'application/json'}});
+  const native = vi.fn((_input: unknown, init: RequestInit) => new Promise<Response>((resolve, reject) => {
+    const timer = setTimeout(() => resolve(healthResponse()), 8_500);
+    init.signal?.addEventListener('abort', () => {clearTimeout(timer); reject(init.signal?.reason);});
+  }));
+  vi.stubGlobal('fetch', native);
+  try {
+    const c = await import('../src/platform/connectivity');
+    c.installResilientFetch();
+    await vi.advanceTimersByTimeAsync(13_600);
+    expect(c.getConnectivity().state).toBe('ONLINE');
+    expect(c.getConnectivity().lastSuccess).toBeGreaterThan(c.getConnectivity().since);
+    native.mockImplementation(async () => new Response('', {status: 503}));
+    await vi.advanceTimersByTimeAsync(45_000);
+    expect(c.getConnectivity().state).toBe('DEGRADED');
+  } finally {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});
