@@ -27,6 +27,7 @@ from edusync.shared.domain.fee_codes import canonical_fee_code, is_tuition_code,
 from edusync.adapters.postgres_annual_exigibility import PostgresAnnualExigibilityRepository
 from edusync.modules.finance_fee_tracking.domain.annual_charge_application import plan_charge_application
 from edusync.modules.finance_fee_tracking.domain.annual_exigibility import Obligation, ObligationStatus
+from edusync.adapters.charge_balance import outside_cash
 
 MONTH_LABELS = {"01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril", "05": "Mai", "06": "Juin", "07": "Juillet",
                 "08": "Août", "09": "Septembre", "10": "Octobre", "11": "Novembre", "12": "Décembre"}
@@ -260,7 +261,7 @@ class PostgresFeeScheduleRepository:
         bundle = self.registration_bundle(school_id, enrollment_id)
         if not bundle:
             return {"bundle": [], "items": [], "totals": {}, "ready": False}
-        rows = self.connection.execute(text("""SELECT fc.id,f.code AS fee_code,s.period_code,fc.label,fc.currency,fc.net_amount,fc.paid_amount
+        rows = self.connection.execute(text(f"""SELECT fc.id,f.code AS fee_code,s.period_code,fc.label,fc.currency,fc.net_amount,fc.paid_amount+{outside_cash('fc')} AS paid_amount
               FROM finance_charges fc JOIN fee_types f ON f.id=fc.fee_type_id LEFT JOIN fee_schedules s ON s.id=fc.schedule_id
              WHERE fc.school_id=:sid AND fc.enrollment_id=:e AND fc.status='ACTIVE'"""), {"sid": school_id, "e": enrollment_id}).all()
         items, missing, absent = [], [], 0

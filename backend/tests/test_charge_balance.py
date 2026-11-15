@@ -20,3 +20,14 @@ def test_alerts_and_old_debts_never_compare_net_with_cash_paid_only():
         s = (SRC / rel).read_text(encoding="utf-8")
         assert "net_amount>fc.paid_amount" not in s.replace(" ", "") or rel.endswith("checkout.py") and "fc.net_amount>fc.paid_amount" not in s, rel
         assert "still_owed('fc')" in s, rel
+
+
+def test_every_paid_figure_includes_what_was_settled_outside_the_cash_desk():
+    """Owner, 2026-11-16: « Qui est en ordre ? » showed pupils who had paid September and October as « Non payé »."""
+    reg = (SRC / "adapters/postgres_finance_recovery.py").read_text(encoding="utf-8")
+    assert "(fc.paid_amount+fc.outside_cash_amount) paid_amount" in reg       # class register → followup, printed registers
+    for rel, needle in (("adapters/postgres_periodic_reports.py", "sum(fc.paid_amount+{outside_cash('fc')}) AS paid"),
+                        ("adapters/postgres_periodic_reports.py", "fc.paid_amount - {outside_cash('fc')}, 0) AS balance"),
+                        ("adapters/postgres_staff_finance.py", "sum(fc.paid_amount+{outside_cash('fc')}) AS settled"),
+                        ("adapters/postgres_fee_schedules.py", "fc.paid_amount+{outside_cash('fc')} AS paid_amount")):
+        assert needle in (SRC / rel).read_text(encoding="utf-8"), rel
