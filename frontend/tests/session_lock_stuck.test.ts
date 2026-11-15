@@ -49,11 +49,11 @@ it('une vérification qui abandonne ne reste jamais en file derrière un verrou 
   expect(await check).toBe('AbortError');                                 // rendue tout de suite, pas d'attente infinie
 });
 
-it('réseau présent : le bandeau dit « Reconnexion à votre session… », jamais « Hors connexion »', () => {
+it('réseau présent : le bandeau dit « Vérification de votre session… » après un délai', () => {
   const spaces = readFileSync('src/platform/spaces.tsx', 'utf8');
   const app = readFileSync('src/App.tsx', 'utf8');
-  expect(spaces).toContain('Reconnexion à votre session…');
-  expect(spaces.indexOf('if(reachable)return')).toBeLessThan(spaces.indexOf('Hors connexion — vous pouvez continuer'));
+  expect(spaces).toContain('Vérification de votre session…');
+  expect(spaces.indexOf('if(reachable){')).toBeLessThan(spaces.indexOf('Hors connexion — vous pouvez continuer'));
   expect(app).toContain("window.addEventListener('edusync:session-retry',retryNow)");
 });
 
@@ -69,4 +69,35 @@ it('le renouvellement de fond abandonne aussi l’attente du verrou', async () =
   await vi.advanceTimersByTimeAsync(c.REFRESH_TIMEOUT_MS);
   expect(await pending).toBe('AbortError');
   expect(fetch).not.toHaveBeenCalled();
+});
+
+it('attend avant le bandeau et propose de réessayer seulement après une interruption', async () => {
+  const {createElement} = await import('react');
+  const {act, cleanup, fireEvent, render, screen} = await import('@testing-library/react/pure');
+  const session = await import('../src/platform/offline_session');
+  const {OfflineAdminBanner} = await import('../src/platform/spaces');
+  vi.useFakeTimers();
+  const retry = vi.fn();
+  window.addEventListener('edusync:session-retry', retry);
+  try {
+    session.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
+    session.setSessionCheckState('checking');
+    render(createElement(OfflineAdminBanner, {school: true}));
+    expect(screen.queryByRole('status')).toBeNull();
+    act(() => session.setSessionCheckState('idle'));
+    act(() => vi.advanceTimersByTime(3_000));
+    expect(screen.queryByRole('status')).toBeNull();
+    act(() => session.setSessionCheckState('checking'));
+    act(() => vi.advanceTimersByTime(3_000));
+    expect(screen.getByRole('status').textContent).toContain('Vérification de votre session…');
+    expect(screen.queryByRole('button', {name: 'Réessayer'})).toBeNull();
+    act(() => session.setSessionCheckState('interrupted'));
+    fireEvent.click(screen.getByRole('button', {name: 'Réessayer'}));
+    expect(retry).toHaveBeenCalledTimes(1);
+  } finally {
+    cleanup();
+    window.removeEventListener('edusync:session-retry', retry);
+    session.setSessionCheckState('idle');
+    session.setPlatformAuthState('AUTH_REQUIRED');
+  }
 });

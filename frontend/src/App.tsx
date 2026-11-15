@@ -3,7 +3,7 @@ import {lazyPage} from './platform/lazy_page';
 import {OutboxCenter,useEnrollmentReference,useSchoolOffline} from './offline/school_sync';
 import {setFinanceTarget} from './finance_nav';
 import {startLive} from './platform/live';
-import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS, SESSION_CHECK_MS} from './platform/offline_session';
+import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, setSessionCheckState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS, SESSION_CHECK_MS} from './platform/offline_session';
 import React,{Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {SecureLogin} from './login';
 import {takeAccountLink,type AccountLink} from './account_links';
@@ -388,6 +388,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   const [platformUser,setPlatformUser]=useState<PlatformUser>({full_name:'',email:''});
   const [schoolSession,setSchoolSession]=useState<SavedSchoolSession|null>(null);
   const [restoring,setRestoring]=useState(true);
+  const [signInRequired,setSignInRequired]=useState(false);
   // Spaces of the identity (server truth): the "Changer d’espace" entry only exists when there is more than one.
   const [spaces,setSpaces]=useState<SpacesState|null>(null);const [switching,setSwitching]=useState(false);const [recovery,setRecovery]=useState<SpacesState|null>(null);
   const activeKey=schoolSession?spaceKey({scope:'SCHOOL',school_code:schoolSession.school.code}):platformToken?'PLATFORM':'';
@@ -408,7 +409,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   // The token of the current space can no longer be renewed: either the session is over (sign-in screen) or only
   // this space was withdrawn (the identity picks another one without signing in again).
   const checking=useRef(false);
-  async function onRefused(){if(checking.current)return;checking.current=true;try{const st=await fetchSpaces();if(!st){clear();return}if(!st.current_valid)setRecovery(st)}catch{/* réseau : l’écran courant signale l’erreur */}finally{checking.current=false}}
+  async function onRefused(){if(checking.current)return;checking.current=true;try{const st=await fetchSpaces();if(!st){clear();setSignInRequired(true);return}if(!st.current_valid)setRecovery(st)}catch{/* réseau : l’écran courant signale l’erreur */}finally{checking.current=false}}
   useEffect(()=>{const h=()=>{void onRefused()};window.addEventListener('edusync:space-check',h);return()=>window.removeEventListener('edusync:space-check',h)},[]);
   useEffect(()=>{
     let alive=true, running=false, first=true;
@@ -419,6 +420,8 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
       // (the former early return here never ended `restoring`: endless boot screen).
       if(initialLink){if(alive)setRestoring(false);return}
       running=true;
+      setSessionCheckState('checking');
+      let interrupted=false;
       // Offline first (owner, 2026-11-15, slow network: Google itself took 5 s): when this device already knows the session,
       // the app opens AT ONCE on it and checks with the server in the background — never a boot screen waiting for the network.
       if(first){first=false;if(knownContext()){applyCachedContext();if(alive)setRestoring(false)}}
@@ -445,13 +448,16 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
           if(r.status===401 || r.status===403){
             const st=spacesAfterRefusal;
             if(!alive)return;
+            if(st?.current_valid)throw new Error('SESSION_SERVICE_UNAVAILABLE');
+            if(knownContext())setSignInRequired(true);
             clearPlatformContext();setPlatformToken('');setSchoolSession(null);
             if(st&&!st.current_valid&&st.contexts.length)setRecovery(st);
             return;
           }
           throw new Error('SESSION_SERVICE_UNAVAILABLE');
         }
-        const d=await r.json();if(!alive||!d.access_token)return;
+        const d=await r.json();if(!alive)return;
+        if(!d.access_token)throw new Error('SESSION_SERVICE_UNAVAILABLE');
         if(d.scope==='SCHOOL'&&d.school&&d.user){setPlatformAuthState('ONLINE_AUTHENTICATED');setPlatformToken('');openSchool({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]});}
         else if(d.scope==='PLATFORM'){
           const previous=knownPlatform();
@@ -463,8 +469,16 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
         // A timeout is not proof of revocation. Restore display-only context,
         // never a cached bearer token or authority to perform a mutation.
         // Each context keeps its own offline policy (24 h platform, 7 days school: offline_session.ts).
+        interrupted=true;
         applyCachedContext();
-      }finally{clearTimeout(timer);running=false;if(alive)setRestoring(false);}
+      }finally{
+        clearTimeout(timer);
+        running=false;
+        if(alive){
+          setSessionCheckState(interrupted?'interrupted':'idle');
+          setRestoring(false);
+        }
+      }
     }
     function applyCachedContext(){
       if(!alive)return;
@@ -490,7 +504,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     return()=>{alive=false;window.clearInterval(retry);window.removeEventListener('edusync:session-retry',retryNow);window.removeEventListener('edusync:connectivity',probe)};
   },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
-  function clear(){clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
+  function clear(){setSignInRequired(false);clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
   // A school session validated online becomes the school's offline context BEFORE its screens mount, so their first
   // reads (/access/me, settings…) are already kept for an offline reopening.
   function openSchool(next:SavedSchoolSession){if(next.token!==OFFLINE_SCHOOL_TOKEN)rememberSchoolContext(next);setSchoolSession(next)}
@@ -507,6 +521,6 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   const openSwitcher=spaces&&spaces.contexts.length>1?()=>setSwitching(true):undefined;
   if(schoolSession)return <><SchoolApp key={`school:${schoolSession.school.id}`} session={schoolSession} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}<PdfPreviewHost/></>;
   if(platformToken)return <><AtelierPro key="platform" token={platformToken} user={platformUser} onLogout={clear} onSwitchSpace={openSwitcher}/>{switcher}<PdfPreviewHost/></>;
-  return <SecureLogin key='login' initialLink={pendingLink} onLinkHandled={()=>setPendingLink(null)}
-    onPlatform={(token,user)=>{setPendingLink(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{setPendingLink(null);openSchool(s)}}/>;
+  return <SecureLogin key='login' signInRequired={signInRequired} initialLink={pendingLink} onLinkHandled={()=>setPendingLink(null)}
+    onPlatform={(token,user)=>{setSignInRequired(false);setPendingLink(null);setPlatformUser(user);setPlatformToken(token)}} onSchool={s=>{setSignInRequired(false);setPendingLink(null);openSchool(s)}}/>;
 }

@@ -203,7 +203,7 @@ function PasswordChangeScreen({token,email,onChanged,onRestart}:{token:string;em
  </form>
 }
 
-export function SecureLogin({onPlatform,onSchool,initialLink,onLinkHandled}:{onPlatform:(token:string,user:PlatformIdentity)=>void;onSchool:(s:Saved)=>void;initialLink?:AccountLink|null;onLinkHandled?:()=>void}){
+export function SecureLogin({onPlatform,onSchool,initialLink,onLinkHandled,signInRequired=false}:{onPlatform:(token:string,user:PlatformIdentity)=>void;onSchool:(s:Saved)=>void;initialLink?:AccountLink|null;onLinkHandled?:()=>void;signInRequired?:boolean}){
  const [serverError,setServerError]=useState('');
  const [setup,setSetup]=useState<SetupStatus|null>(null);const [created,setCreated]=useState('');
  const [choice,setChoice]=useState<LoginContext[]|null>(null);const [busy,setBusy]=useState('');const [atelier,setAtelier]=useState(false);
@@ -247,6 +247,7 @@ export function SecureLogin({onPlatform,onSchool,initialLink,onLinkHandled}:{onP
    mfa?(mfa.mfa_enrollment_required?<MfaEnrollment step={mfa} onDone={finish} onRestart={back}/>:<MfaChallenge step={mfa} onDone={finish} onRestart={back}/>):
    choice?<ContextChooser contexts={choice} busy={busy} error={serverError} onPick={pick} onBack={back}/>:
    <form className="lg-card" onSubmit={submit} noValidate aria-labelledby="lg-title">
+    {signInRequired&&<p role="status">Votre session a pris fin. Connectez-vous pour retrouver votre espace.</p>}
     <div className="lg-head"><img className="lg-card-mark" src="/icons/edusync-mark.svg" alt="" width={44} height={44}/>{atelier&&<span className="lg-step">Plateforme EduSync</span>}<h1 id="lg-title">{atelier?'Accès plateforme':'Connexion'}</h1><p>{atelier?'Réservé à l’administration de la plateforme EduSync.':'Utilisez l’adresse e-mail de votre compte EduSync.'}</p></div>
     {created&&<div className="lg-ok" role="status"><NavGlyph g="checkCircle" size={16}/>{created.includes('@')?`Manager Système créé. Connectez-vous avec ${created}.`:created}</div>}
     <Field id="lg-email" label="Adresse e-mail" error={errors.email?.message}><input id="lg-email" type="email" autoComplete="username" inputMode="email" autoFocus aria-invalid={!!errors.email} aria-describedby={errors.email?'lg-email-err':undefined} {...register('email')} placeholder="nom@ecole.cd"/></Field>
