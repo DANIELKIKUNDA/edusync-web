@@ -56,7 +56,9 @@ async function doRefresh(signal?:AbortSignal){
     if(r.status===409&&r.headers.get('X-EduSync-Session')==='STALE_REFRESH'){
       await sleep(120);r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal:t.signal});
     }
-    return r;
+    // The body is read INSIDE the time limit: a response whose headers arrived but whose body stalls must not hang the caller.
+    const body=await r.text();
+    return new Response(body,{status:r.status,statusText:r.statusText,headers:r.headers});
   }finally{t.done()}
 }
 /** One refresh at a time across Chrome tabs and the installed PWA (Web Locks is origin-wide). The caller's signal also
@@ -66,7 +68,10 @@ export async function refreshAccessSession(signal?:AbortSignal):Promise<Response
   if(!locks)return doRefresh(signal);
   return signal?locks.request('edusync-session-refresh',{signal},()=>doRefresh(signal)):locks.request('edusync-session-refresh',()=>doRefresh());
 }
-let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{const r=await refreshAccessSession();if(!r.ok){/* the space of the session may have been withdrawn: the app checks the other spaces of the identity */if(r.status===401)window.dispatchEvent(new CustomEvent('edusync:space-check'));return null}const data=await r.json();const token=String(data.access_token||'');if(token){setPlatformAuthState('ONLINE_AUTHENTICATED');window.dispatchEvent(new CustomEvent('edusync:token-refreshed',{detail:{token,scope:data.scope}}));return token}return null}catch{return null}finally{refreshing=null}})();return refreshing}
+let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{let r=await refreshAccessSession();
+  // A renewal sent before a sleep may carry an old session key (2026-11-15): one more try with the current key before
+  // concluding anything; a real end of session fails again.
+  if(r.status===401)r=await refreshAccessSession();if(!r.ok){/* the space of the session may have been withdrawn: the app checks the other spaces of the identity */if(r.status===401)window.dispatchEvent(new CustomEvent('edusync:space-check'));return null}const data=await r.json();const token=String(data.access_token||'');if(token){setPlatformAuthState('ONLINE_AUTHENTICATED');window.dispatchEvent(new CustomEvent('edusync:token-refreshed',{detail:{token,scope:data.scope}}));return token}return null}catch{return null}finally{refreshing=null}})();return refreshing}
 /* Write activity (POST/PUT/PATCH/DELETE to the API): what the status chip reports to the user.
    Nothing is queued offline here; a failed write is reported as not sent. */
 export type WriteActivity={pending:number;retrying:boolean;last:'none'|'ok'|'failed';at:number};

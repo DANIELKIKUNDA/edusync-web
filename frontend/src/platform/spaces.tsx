@@ -26,12 +26,18 @@ export function lastSpace():string{try{return localStorage.getItem(LAST_SPACE)||
 class SwitchError extends Error{constructor(public status:number,message:string){super(message)}}
 
 /** Spaces open to this identity now (null: no live session in this browser). */
-export async function fetchSpaces():Promise<SpacesState|null>{
-  const r=await nativeFetch('/api/v1/auth/contexts',{credentials:'include',cache:'no-store'});
-  if(r.status===401)return null;
-  if(!r.ok)throw new SwitchError(r.status,'Liste des espaces indisponible.');
-  return r.json();
+export async function fetchSpaces(signal?:AbortSignal):Promise<SpacesState|null>{
+  // Never without a time limit (2026-11-15): the session restoration waits for this answer.
+  const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),SPACES_TIMEOUT_MS);
+  const stop=()=>ctl.abort();signal?.addEventListener('abort',stop,{once:true});if(signal?.aborted)ctl.abort();
+  try{
+    const r=await nativeFetch('/api/v1/auth/contexts',{credentials:'include',cache:'no-store',signal:ctl.signal});
+    if(r.status===401)return null;
+    if(!r.ok)throw new SwitchError(r.status,'Liste des espaces indisponible.');
+    return await r.json();
+  }finally{clearTimeout(timer);signal?.removeEventListener('abort',stop)}
 }
+export const SPACES_TIMEOUT_MS=15_000;
 
 export async function switchSpace(target:{scope:'PLATFORM'|'SCHOOL';school_code?:string|null}):Promise<any>{
   let r:Response;
