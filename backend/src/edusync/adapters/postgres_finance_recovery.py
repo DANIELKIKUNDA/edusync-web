@@ -82,9 +82,11 @@ class PostgresFinanceRecoveryRepository:
         with self.conn.cursor(row_factory=dict_row) as c:
             c.execute("""SELECT sc.label class_label FROM school_classes sc WHERE sc.school_id=%s AND sc.id=%s""",(school_id,class_id)); cr=c.fetchone()
             if not cr:return None
+            # Paid = cash + outside cash (payments taken over from the previous system, regularizations) — owner, 2026-11-16:
+            # « Qui est en ordre ? » showed APN pupils who had paid September and October as « Non payé ».
             # One charge = one financial obligation. We never manufacture an 'inscription' value from an enrollment payment aimed at June.
             c.execute("""SELECT e.id enrollment_id,e.enrolled_on,s.id student_id,s.matricule,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student_name,
-              fc.id charge_id,fc.label,fc.effective_net_amount net_amount,fc.paid_amount,fc.due_date,fc.periodicity,fc.period_label,fc.period_order,fc.sequence_group,fc.sequence_order,
+              fc.id charge_id,fc.label,fc.effective_net_amount net_amount,(fc.paid_amount+fc.outside_cash_amount) paid_amount,fc.due_date,fc.periodicity,fc.period_label,fc.period_order,fc.sequence_group,fc.sequence_order,
               coalesce(ft.code,CASE WHEN fc.periodicity='MONTHLY' THEN 'MINERVAL' ELSE 'OTHER' END) fee_code,
               coalesce(ft.label,fc.label) fee_label,coalesce(ft.regulatory,false) regulatory,
               coalesce((SELECT sum(at.amount) FROM finance_advance_targets at WHERE at.school_id=fc.school_id AND at.charge_id=fc.id),0) advance_amount

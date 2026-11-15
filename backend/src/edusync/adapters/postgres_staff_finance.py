@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from edusync.adapters.postgres_finance_checkout import PostgresFinanceCheckoutRepository
+from edusync.adapters.charge_balance import outside_cash
 
 CENT = Decimal("0.01")
 
@@ -66,8 +67,8 @@ class PostgresStaffFinanceRepository:
             row = {**dict(link), "enrollment_id": str(enr) if enr else None, "finance_mode": "PAYROLL_DEDUCTION" if self._payroll_mode(dict(link)) else "SCHOOL_PAYMENT",
                    "totals": {}}
             if enr:
-                for r in self.c.execute(text("""SELECT fc.currency, sum(fc.net_amount - finance_charge_decision_amount(fc.id)) AS expected,
-                        sum(fc.paid_amount) AS settled,
+                for r in self.c.execute(text(f"""SELECT fc.currency, sum(fc.net_amount - finance_charge_decision_amount(fc.id)) AS expected,
+                        sum(fc.paid_amount+{outside_cash('fc')}) AS settled,
                         COALESCE(sum((SELECT sum(ns.amount) FROM finance_noncash_settlements ns WHERE ns.charge_id=fc.id
                           AND NOT EXISTS (SELECT 1 FROM finance_noncash_cancellations nc WHERE nc.settlement_id=ns.id))),0) AS payroll_deducted
                       FROM finance_charges fc WHERE fc.school_id=:s AND fc.enrollment_id=:e AND fc.status='ACTIVE' GROUP BY fc.currency"""),

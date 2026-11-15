@@ -23,6 +23,7 @@ from sqlalchemy.engine import Connection
 from edusync.adapters.postgres_settings import PostgresSettingsRepository
 from edusync.shared.domain.fee_codes import canonical_fee_code, is_tuition_code
 from edusync.modules.finance_reports.domain.periodic import MONTH_CODE_NAMES, PERIOD_LABELS, REPORT_PROFILES
+from edusync.adapters.charge_balance import outside_cash
 
 CENT = Decimal("0.01")
 LOCAL_DAY = "(p.created_at AT TIME ZONE 'Africa/Lubumbashi')::date"
@@ -247,7 +248,7 @@ class PostgresPeriodicReportsRepository:
         rows = self.c.execute(self._scoped_sql(f"""SELECT upper(coalesce(ft.code,'')) AS fee_code, coalesce(ft.label, 'Autres frais') AS fee_name, fc.currency,
                 count(DISTINCT fc.enrollment_id) AS students, sum(coalesce(fc.gross_amount, fc.net_amount)) AS gross_expected,
                 sum(coalesce(fc.discount_amount,0)) + sum(finance_charge_decision_amount(fc.id)) AS discounts,
-                sum(fc.net_amount - finance_charge_decision_amount(fc.id)) AS net_expected, sum(fc.paid_amount) AS paid
+                sum(fc.net_amount - finance_charge_decision_amount(fc.id)) AS net_expected, sum(fc.paid_amount+{outside_cash('fc')}) AS paid
               FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id LEFT JOIN school_classes sc_scope ON sc_scope.id=e.class_id LEFT JOIN school_sections ss_scope ON ss_scope.id=sc_scope.section_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
              WHERE fc.school_id=:s AND e.academic_year_id=:y AND e.status='VALIDATED' AND fc.status='ACTIVE'
              AND {scope_where} GROUP BY 1,2,3 ORDER BY 2,3""", scope_params), {"s": school_id, "y": y, **scope_params}).mappings().all()
@@ -301,9 +302,9 @@ class PostgresPeriodicReportsRepository:
              WHERE s.school_id=:sch AND s.id=:st AND {scope_where} ORDER BY (y.status='ACTIVE') DESC, y.start_date DESC LIMIT 1""", scope_params), {"sch": school_id, "st": student_id, **scope_params}).mappings().first()
         if not st:
             raise LookupError("Élève introuvable")
-        charges = [dict(r) for r in self.c.execute(text("""SELECT fc.id, coalesce(fc.period_label, fc.label) AS fee_name, fc.label, fc.currency,
-                (fc.net_amount - finance_charge_decision_amount(fc.id)) AS net_amount, fc.paid_amount AS paid,
-                GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount, 0) AS balance, fc.due_date
+        charges = [dict(r) for r in self.c.execute(text(f"""SELECT fc.id, coalesce(fc.period_label, fc.label) AS fee_name, fc.label, fc.currency,
+                (fc.net_amount - finance_charge_decision_amount(fc.id)) AS net_amount, fc.paid_amount+{outside_cash('fc')} AS paid,
+                GREATEST(fc.net_amount - finance_charge_decision_amount(fc.id) - fc.paid_amount - {outside_cash('fc')}, 0) AS balance, fc.due_date
               FROM finance_charges fc WHERE fc.school_id=:s AND fc.enrollment_id=:e AND fc.status='ACTIVE'
              ORDER BY fc.due_date NULLS FIRST, fc.created_at"""), {"s": school_id, "e": st["enrollment_id"]}).mappings().all()]
         payments = [dict(r) for r in self.c.execute(text("""SELECT CAST(p.id AS text) AS payment_id, p.receipt_number AS receipt_no, p.created_at AS paid_at, p.payment_mode AS mode, p.amount, p.currency,
