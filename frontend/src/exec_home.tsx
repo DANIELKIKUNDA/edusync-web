@@ -29,7 +29,7 @@ export function MoneyPilotage({common,token,yearId,sectionCount=1}:{common:Commo
   const periods:[keyof PilotagePeriodsT,string,string][]=d&&d.cash?[['today','Aujourd’hui',new Date(d.today).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})],
     ['week','Cette semaine',`depuis le ${new Date(d.week_start).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`],
     ['month','Ce mois',new Date(d.month_start).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})],
-    ['year','Depuis la rentrée',`depuis le ${new Date(d.academic_year.start_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`]]:[];
+    ['year','Depuis la rentrée',`depuis le ${new Date(d.academic_year.period_start||d.academic_year.start_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`]]:[];
   const cash=d?.cash;
   return <Card level="info" wide icon={common.icon} title={d&&!cash?(sectionCount>1?'Les finances de vos sections':'Les finances de votre section'):common.title} index={common.index} className="ex-money">
     {s.loading&&!d?<Skeleton lines={3}/>:s.error?<ScreenError compact error={s.error} onRetry={s.retry}/>:d&&!cash?<SectionMoney d={d} open={common.onClick} plural={sectionCount>1}/>:d&&cash&&<>
@@ -37,6 +37,7 @@ export function MoneyPilotage({common,token,yearId,sectionCount=1}:{common:Commo
       <div className="ex-money-grid">
         {periods.map(([k,label,when])=><button type="button" key={k} className="ex-tile" onClick={common.onClick} aria-label={`${label} : ${money(cash.CDF[k])} FC${hasValue(cash.USD[k])?` et ${money(cash.USD[k])} USD`:''}`}>
           <small>{label}</small><strong>{money(cash.CDF[k])} <em>FC</em></strong>{hasValue(cash.USD[k])?<b>{money(cash.USD[k])} USD</b>:<b className="ex-muted">0 USD</b>}<span>{when}</span>
+          {k==='year'&&hasValue(cash.CDF.year_history)&&<span className="ex-detail">dont {money(cash.CDF.year_history)} FC repris de l’ancien système</span>}
           {k==='today'&&hasValue(cash.CDF.today_cancellations)&&<span className="ex-detail">reçus {money(cash.CDF.today_receipts)} − annulés {money(cash.CDF.today_cancellations)}</span>}</button>)}
         <button type="button" className="ex-tile ex-tile-due" onClick={common.onClick} aria-label={`Reste à recouvrer : ${money(d.recovery.CDF.remaining)} FC`}>
           <small>Reste à recouvrer</small><strong>{money(d.recovery.CDF.remaining)} <em>FC</em></strong>
@@ -44,7 +45,7 @@ export function MoneyPilotage({common,token,yearId,sectionCount=1}:{common:Commo
           <span>{Number(d.recovery.CDF.rate||0).toLocaleString('fr-FR')} % recouvré sur l’année</span>
           <i aria-hidden="true"><em style={{width:`${Math.min(100,Number(d.recovery.CDF.rate||0))}%`}}/></i></button>
       </div>
-      <p className="ex-how">Calcul : <b>reçus de toutes les caisses − annulations et remboursements</b>, par jour de caisse. Le fond de caisse et les dépenses n’en font pas partie : ils sont dans le solde théorique de « Situation des caisses ». Semaine = depuis lundi, mois = depuis le 1er, rentrée = depuis le début de l’année scolaire.</p></>}
+      <p className="ex-how">Calcul : <b>reçus de toutes les caisses − annulations et remboursements</b>, par jour de caisse, <b>plus les paiements repris de l’ancien système</b> à leur date réelle (ils n’entrent dans le solde d’aucune caisse). Le fond de caisse et les dépenses n’en font pas partie : ils sont dans le solde théorique de « Situation des caisses ». Semaine = depuis lundi, mois = depuis le 1er, rentrée = depuis l’ouverture des inscriptions de l’année.</p></>}
   </Card>;
 }
 

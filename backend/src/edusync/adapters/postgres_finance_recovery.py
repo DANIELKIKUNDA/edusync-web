@@ -6,8 +6,8 @@ class PostgresFinanceRecoveryRepository:
     def __init__(self,conn): self.conn=conn.connection.driver_connection
     def year(self,school_id:UUID,year_id:UUID|None):
         with self.conn.cursor(row_factory=dict_row) as c:
-            if year_id:c.execute("SELECT id,label,start_date,end_date,status FROM academic_years WHERE school_id=%s AND id=%s",(school_id,year_id))
-            else:c.execute("SELECT id,label,start_date,end_date,status FROM academic_years WHERE school_id=%s ORDER BY (status='ACTIVE') DESC,start_date DESC LIMIT 1",(school_id,))
+            if year_id:c.execute("SELECT id,label,start_date,end_date,status,enrollment_start FROM academic_years WHERE school_id=%s AND id=%s",(school_id,year_id))
+            else:c.execute("SELECT id,label,start_date,end_date,status,enrollment_start FROM academic_years WHERE school_id=%s ORDER BY (status='ACTIVE') DESC,start_date DESC LIMIT 1",(school_id,))
             r=c.fetchone();return dict(r) if r else None
     def school_identity(self,school_id):
         with self.conn.cursor(row_factory=dict_row) as c:

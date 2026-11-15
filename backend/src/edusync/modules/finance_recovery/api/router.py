@@ -179,14 +179,21 @@ mv AS (
    WHERE r.school_id=%(sid)s AND r.business_date >= (SELECT least(y, w) FROM b)
   UNION ALL
   SELECT c.business_date, f.currency, -c.amount, 'C' FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id
-   WHERE c.school_id=%(sid)s AND c.business_date >= (SELECT least(y, w) FROM b) AND c.closure_type IN ('ANNULATION','REMBOURSEMENT'))
+   WHERE c.school_id=%(sid)s AND c.business_date >= (SELECT least(y, w) FROM b) AND c.closure_type IN ('ANNULATION','REMBOURSEMENT')
+  UNION ALL
+  -- Owner, 2026-11-15: the payments taken over from the previous system are real money received by the school, at their
+  -- real date. Counted here (kind 'H', one ledger line per source payment) but never in a cash desk balance.
+  SELECT l.historical_paid_on, l.currency, l.amount, 'H' FROM financial_history_import_ledger l
+   JOIN finance_charges fc ON fc.id=l.charge_id AND fc.school_id=l.school_id JOIN enrollments e ON e.id=fc.enrollment_id
+   WHERE l.school_id=%(sid)s AND e.academic_year_id=%(yid)s AND l.historical_paid_on >= (SELECT least(y, w) FROM b))
 SELECT mv.currency,
        COALESCE(sum(amount) FILTER (WHERE bday = b.d),0) AS today,
        COALESCE(sum(amount) FILTER (WHERE bday >= b.w AND bday <= b.d),0) AS week,
        COALESCE(sum(amount) FILTER (WHERE bday >= b.m AND bday <= b.d),0) AS month,
        COALESCE(sum(amount) FILTER (WHERE bday >= b.y AND bday <= b.d),0) AS year,
        COALESCE(sum(amount) FILTER (WHERE bday = b.d AND kind='R'),0) AS today_receipts,
-       COALESCE(-sum(amount) FILTER (WHERE bday = b.d AND kind='C'),0) AS today_cancellations
+       COALESCE(-sum(amount) FILTER (WHERE bday = b.d AND kind='C'),0) AS today_cancellations,
+       COALESCE(sum(amount) FILTER (WHERE bday >= b.y AND bday <= b.d AND kind='H'),0) AS year_history
   FROM mv, b GROUP BY mv.currency"""
 
 
@@ -203,23 +210,25 @@ def pilotage(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_ac
         with repo.conn.cursor() as c:
             c.execute("SELECT CURRENT_DATE");today=c.fetchone()[0]
         if not y:raise HTTPException(409,'Année scolaire introuvable')
-        start=min(y['start_date'],today)
+        # « Depuis la rentrée » starts when enrolment opens (owner, 2026-11-15): enrolment money (June paid at enrolment in
+        # July and August) belongs to the year.
+        start=min(y['start_date'],y.get('enrollment_start') or y['start_date'],today)
         cash=None
         if sees_cash:
             with repo.conn.cursor(row_factory=_dr) as c:
-                c.execute(PILOTAGE_SQL,{'sid':actor.school_id,'today':today,'start':start});rows={r['currency']:r for r in c.fetchall()}
+                c.execute(PILOTAGE_SQL,{'sid':actor.school_id,'yid':y['id'],'today':today,'start':start});rows={r['currency']:r for r in c.fetchall()}
                 # today's detail, so that the figure reconciles with the cash desks: receipts − cancellations = today;
                 # expenses are NOT deducted from the money received (they are in the theoretical balance of the desks).
                 c.execute("""SELECT e.currency AS cur, COALESCE(sum(e.amount),0) AS amt FROM finance_cash_expenses e JOIN finance_cash_sessions s ON s.id=e.cash_session_id
                              WHERE s.school_id=%(sid)s AND s.business_date=%(today)s GROUP BY e.currency""",{'sid':actor.school_id,'today':today})
                 expenses={r['cur']:r['amt'] for r in c.fetchall()}
-            keys=('today','week','month','year','today_receipts','today_cancellations')
+            keys=('today','week','month','year','today_receipts','today_cancellations','year_history')
             cash={cur:{**{k:str(rows.get(cur,{}).get(k,0) or 0) for k in keys},'today_expenses':str(expenses.get(cur,0) or 0)} for cur in ('CDF','USD')}
         scopes=actor.scopes_for('finance.recovery.monthly.read');recovery={}
         for cur in ('CDF','USD'):
             items=repo.monthly(actor.school_id,y['id'],cur,scopes=scopes);t=monthly_total(items)
             recovery[cur]={'expected':str(t['expected']),'regularized':str(t['regularized_total']),'remaining':str(t['remaining']),'rate':str(t['recovery_rate'])}
-    return {'academic_year':{'id':str(y['id']),'label':y['label'],'start_date':str(y['start_date'])},'today':str(today),
+    return {'academic_year':{'id':str(y['id']),'label':y['label'],'start_date':str(y['start_date']),'period_start':str(start)},'today':str(today),
             'week_start':str(today.fromordinal(today.toordinal()-today.weekday())),'month_start':str(today.replace(day=1)),'cash':cash,'recovery':recovery}
 
 
