@@ -175,8 +175,7 @@ def settled_outside_cash(A: dict) -> None:
     """Owner, 2026-11-16: after the APN import every class was « en risque financier » although most pupils had paid —
     the alerts only looked at the cash paid. A month settled outside the cash desk (payments taken over, regularization)
     or exempted by a decision is no longer owed."""
-    print("
-== Reste dû : la reprise et les régularisations hors caisse comptent")
+    print("\n== Reste dû : la reprise et les régularisations hors caisse comptent")
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend" / "src"))
     from edusync.adapters.charge_balance import still_owed
     owed = lambda cid: float(one(f"SELECT {still_owed('fc')} FROM finance_charges fc WHERE fc.id=:c", c=cid)[0])
