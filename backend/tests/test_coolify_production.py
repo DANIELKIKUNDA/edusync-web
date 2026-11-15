@@ -30,7 +30,7 @@ def _load(name: str):
 def test_coolify_production_compose_passes_every_contract():
     args = [sys.executable, str(CHECK)] + (["--render"] if shutil.which("docker") else [])
     out = subprocess.run(args, capture_output=True, text=True, cwd=ROOT)
-    assert out.returncode == 0 and "COOLIFY_COMPOSE_CHECK=PASS" in out.stdout, out.stdout[-3000:] + out.stderr[-1000:]
+    assert out.returncode == 0 and "COOLIFY_COMPOSE_CHECK=PASS" in out.stderr, out.stdout[-3000:] + out.stderr[-1000:]
 
 
 def test_secrets_are_generated_once_with_the_expected_shape_and_never_replaced(tmp_path):
@@ -109,7 +109,7 @@ def test_production_never_reuses_the_staging_entry_points():
 def test_release_gate_refuses_unvalidated_versions_without_network():
     out = subprocess.run([sys.executable, str(ROOT / "tools/ci/production_release_gate.py"), "pas-un-sha"],
                          capture_output=True, text=True, cwd=ROOT)
-    assert out.returncode == 1 and "40 caractères" in out.stdout
+    assert out.returncode == 1 and "40 caractères" in out.stderr
     gate = (ROOT / "tools/ci/production_release_gate.py").read_text(encoding="utf-8")
     assert all(w in gate for w in ("ci.yml", "deploy-staging.yml", "e2e-staging.yml"))
 

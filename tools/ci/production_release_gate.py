@@ -1,54 +1,85 @@
-"""Porte de mise en production Coolify : une version ne part que si elle a réussi CI, déploiement staging et E2E staging.
-
-Mêmes contrôles que .github/workflows/deploy-production.yml (job « gates »), à lancer AVANT de saisir
-EDUSYNC_RELEASE_SHA dans Coolify. Ne change rien nulle part (lecture de l'API GitHub avec `gh`).
-
-    python tools/ci/production_release_gate.py <SHA complet de 40 caractères>
-Code 0 = version autorisée (affiche la valeur à saisir) ; 1 = refusée, avec la raison.
-"""
+"""Select a main-branch build with complete, SHA-bound staging evidence."""
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import subprocess
-import sys
 
 REPO = "DANIELKIKUNDA/edusync-web"
-WORKFLOWS = ("ci.yml", "deploy-staging.yml", "e2e-staging.yml")
+SHA = re.compile(r"[0-9a-f]{40}")
+EVIDENCE = (
+    ("ci.yml", {"push"}, "Images Docker (amd64 + arm64) → GHCR", ()),
+    ("deploy-staging.yml", {"workflow_run"}, "Staging — deploy <SHA> (commande forcée)",
+     ("deploy <SHA>", "Vérification externe (HTTPS public)")),
+    ("e2e-staging.yml", {"workflow_run", "workflow_dispatch"}, "Certification authentifiée plateforme et école",
+     ("Parcours plateforme authentifié du SHA staging", "Parcours école authentifié du SHA staging dans Chromium")),
+)
 
 
-def gh(path: str) -> dict:
+def gh(path: str):
     out = subprocess.run(["gh", "api", path], capture_output=True, text=True)
-    if out.returncode != 0:
-        raise SystemExit(f"Refusé : lecture GitHub impossible ({out.stderr.strip()[:200]})")
+    if out.returncode:
+        raise RuntimeError("Lecture de l’API GitHub impossible.")
     return json.loads(out.stdout)
 
 
-def succeeded(workflow: str, sha: str) -> bool:
-    runs = gh(f"repos/{REPO}/actions/workflows/{workflow}/runs?head_sha={sha}&status=success&per_page=1")
-    if runs.get("total_count", 0):
-        return True
-    # deploy-staging / e2e-staging lancés à la main tournent sur la branche par défaut : le SHA est dans leur titre.
-    recent = gh(f"repos/{REPO}/actions/workflows/{workflow}/runs?status=success&per_page=50")
-    return any(r.get("head_sha") == sha or sha in (r.get("display_title") or "") for r in recent.get("workflow_runs", []))
+def runs(workflow: str, query: str) -> list[dict]:
+    url = f"repos/{REPO}/actions/workflows/{workflow}/runs?branch=main&per_page=50&{query}"
+    return gh(url)["workflow_runs"]
 
 
-def main(argv: list[str]) -> int:
-    if len(argv) != 2 or not re.fullmatch(r"[0-9a-f]{40}", argv[1]):
-        print("Usage : python tools/ci/production_release_gate.py <SHA complet, 40 caractères hexadécimaux>")
-        return 1
-    sha = argv[1]
-    ok = True
-    for wf in WORKFLOWS:
-        good = succeeded(wf, sha)
-        ok = ok and good
-        print(f"{'PASS' if good else 'FAIL'}  {wf} réussi pour {sha[:8]}")
-    if not ok:
-        print("\nRefusé : cette version n'a pas passé toutes les étapes (CI, déploiement staging, E2E staging).")
-        return 1
-    print(f"\nAutorisé. Dans Coolify : EDUSYNC_RELEASE_SHA={sha}")
-    return 0
+def has_evidence(sha: str) -> bool:
+    for workflow, events, job_name, required_steps in EVIDENCE:
+        eligible = [
+            run for run in runs(workflow, f"head_sha={sha}")
+            if run["event"] in events and run["head_sha"] == sha
+            and run.get("head_repository", {}).get("full_name", "").lower() == REPO.lower()
+        ]
+        if not eligible or eligible[0]["conclusion"] != "success":
+            return False
+        run = eligible[0]
+        jobs = gh(f"repos/{REPO}/actions/runs/{run['id']}/attempts/{run['run_attempt']}/jobs?per_page=100")["jobs"]
+        if not any(job["name"] == job_name and job["conclusion"] == "success"
+                   and set(required_steps) <= {s["name"] for s in job["steps"] if s["conclusion"] == "success"}
+                   for job in jobs):
+            return False
+    return True
+
+
+def select(requested: str | None) -> str:
+    if requested and not SHA.fullmatch(requested):
+        raise RuntimeError("SHA attendu : 40 caractères hexadécimaux minuscules.")
+    if requested:
+        candidates = [requested]
+    else:
+        candidates = dict.fromkeys(run["head_sha"] for run in runs("ci.yml", "event=push&status=success"))
+    for sha in candidates:
+        if SHA.fullmatch(sha) and has_evidence(sha):
+            return sha
+    raise RuntimeError("Aucun SHA avec CI, déploiement réel et deux parcours authentifiés réussis.")
+
+
+def require_owner_approval(run_id: str, attempt: str) -> None:
+    if not run_id.isdecimal() or attempt != "1":
+        raise RuntimeError("Lancer une nouvelle exécution pour obtenir une approbation.")
+    approvals = gh(f"repos/{REPO}/actions/runs/{run_id}/approvals")
+    if not any(review["state"] == "approved"
+               and review["user"]["login"].lower() == REPO.split("/")[0].lower()
+               and any(env["name"] == "production" for env in review["environments"])
+               for review in approvals):
+        raise RuntimeError("Approbation explicite du propriétaire pour l’environnement production absente.")
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    cli = argparse.ArgumentParser()
+    cli.add_argument("sha", nargs="?")
+    cli.add_argument("--approval", nargs=2, metavar=("RUN_ID", "ATTEMPT"))
+    args = cli.parse_args()
+    try:
+        if args.approval:
+            require_owner_approval(*args.approval)
+        else:
+            print(select(args.sha))
+    except (RuntimeError, KeyError, ValueError) as exc:
+        cli.exit(1, f"Refusé : {exc}\n")

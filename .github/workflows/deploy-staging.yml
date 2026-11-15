@@ -48,9 +48,8 @@ jobs:
           USER_: ${{ secrets.STAGING_SSH_USER }}
         run: |
           if [[ -z "$HOST" || -z "$KEY" || -z "$KNOWN" || -z "$USER_" ]]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Staging non configuré (secrets STAGING_SSH_* absents) : aucun déploiement."
-            echo "### Staging non configuré — aucun déploiement (secrets STAGING_SSH_* absents)" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Secrets de déploiement staging manquants."
+            exit 1
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
@@ -99,16 +98,19 @@ jobs:
           echo "### Staging $SHA : $msg" >> "$GITHUB_STEP_SUMMARY"
           exit $code
       - name: Vérification externe (HTTPS public)
-        if: steps.cfg.outputs.configured == 'true' && vars.STAGING_PUBLIC_URL != ''
         env:
-          URL: ${{ vars.STAGING_PUBLIC_URL }}
+          URL: https://staging.myeducsync.com
         run: |
           for i in $(seq 1 12); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/health-api" || true)
-            [[ "$code" == "200" ]] && { echo "HTTPS public : $URL/health-api → 200"; exit 0; }
+            if curl -fsS --max-time 20 "$URL/health-api" | jq -e '.status == "ok"' >/dev/null &&
+               curl -fsS --max-time 20 "$URL/version.json" | jq -e --arg sha "$SHA" '.build == $sha' >/dev/null; then
+              echo "HTTPS public : santé et SHA $SHA vérifiés."
+              exit 0
+            fi
             sleep 10
           done
-          echo "HTTPS public injoignable ($URL/health-api → $code)"; exit 1
+          echo "::error::Santé publique ou SHA servi incorrect."
+          exit 1
       - name: Nettoyage de la clé
         if: always()
         run: rm -f ~/.ssh/staging_key

@@ -44,6 +44,8 @@ jobs:
       - name: Compilation Python
         working-directory: backend
         run: python -m compileall -q src
+      - name: Contrats de livraison certifiée
+        run: python -m unittest discover -s tools/ci -p test_certified_delivery.py
       - name: Tests backend
         working-directory: backend
         env:

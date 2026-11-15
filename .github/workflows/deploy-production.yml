@@ -30,6 +30,7 @@ concurrency:
 
 jobs:
   gates:
+    if: github.ref == 'refs/heads/main' && github.run_attempt == 1
     name: Contrôles avant production (aucun changement)
     runs-on: ubuntu-24.04
     env:
@@ -41,19 +42,11 @@ jobs:
         run: |
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "SHA invalide"; exit 1; }
           [[ "$CONFIRM" == "PRODUCTION ${SHA:0:8}" ]] || { echo "Confirmation incorrecte : tapez « PRODUCTION ${SHA:0:8} »"; exit 1; }
-      - name: Version validée sur staging (CI, déploiement, E2E)
-        run: |
-          repo="${{ github.repository }}"
-          for wf in ci.yml deploy-staging.yml e2e-staging.yml; do
-            ok=$(gh api "repos/$repo/actions/workflows/$wf/runs?head_sha=$SHA&status=success&per_page=1" --jq '.total_count')
-            if [[ "$ok" == "0" ]]; then
-              # deploy-staging / e2e-staging dispatched by hand run on the default branch: also accept a run whose inputs carry the SHA
-              ok=$(gh api "repos/$repo/actions/workflows/$wf/runs?status=success&per_page=50" --jq "[.workflow_runs[] | select(.head_sha==\"$SHA\" or (.display_title|contains(\"$SHA\")))] | length")
-            fi
-            [[ "$ok" != "0" ]] || { echo "Refusé : $wf n'a pas réussi pour $SHA"; exit 1; }
-            echo "$wf : réussi pour $SHA"
-          done
-          echo "### Contrôles avant production réussis pour $SHA" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Version validée sur staging (ci.yml, deploy-staging.yml, e2e-staging.yml)
+        run: python tools/ci/production_release_gate.py "$SHA"
 
   deploy:
     name: Production — deploy <SHA> (relecteur obligatoire)
@@ -63,6 +56,15 @@ jobs:
     env:
       SHA: ${{ inputs.sha }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirmer l’approbation et les preuves du SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python tools/ci/production_release_gate.py --approval "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+          python tools/ci/production_release_gate.py "$SHA"
       - name: Production configurée ?
         id: cfg
         env:

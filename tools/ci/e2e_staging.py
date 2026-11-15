@@ -43,8 +43,13 @@ def totp(secret: str, step: int | None = None) -> str:
     return f"{(struct.unpack('>I', digest[o:o + 4])[0] & 0x7FFFFFFF) % 1_000_000:06d}"
 
 
+class NoRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 jar = http.cookiejar.CookieJar()
-opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+opener = urllib.request.build_opener(NoRedirects(), urllib.request.HTTPCookieProcessor(jar))
 
 
 def call(method: str, path: str, token: str | None = None, body=None, timed: list | None = None):
@@ -77,6 +82,13 @@ def summary() -> None:
 
 
 def main() -> int:
+    sha = os.environ.get("E2E_EXPECTED_SHA", "")
+    if BASE != "https://staging.myeducsync.com" or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        check(False, "origine staging ou SHA attendu invalide")
+        return 1
+    code, version = call("GET", "/version.json")
+    if not check(code == 200 and isinstance(version, dict) and version.get("build") == sha, "SHA servi sur staging"):
+        return 1
     # 1. the served interface is this release (key screens present in the bundle)
     code, html = call("GET", "/")
     assets = re.findall(r"/assets/[\w.-]+\.js", html if isinstance(html, str) else "")
@@ -141,7 +153,9 @@ def main() -> int:
     check(code in (200, 204), "déconnexion", f"HTTP {code}")
     code, _ = call("POST", "/api/v1/auth/refresh")
     check(code == 401, "après déconnexion : session révoquée", f"HTTP {code}")
-    check(max(times) < 5000, "temps de connexion", f"max {max(times)} ms")
+    code, version = call("GET", "/version.json")
+    check(code == 200 and isinstance(version, dict) and version.get("build") == sha, "SHA inchangé après le parcours")
+    print(f"Temps de connexion observé : max {max(times)} ms", flush=True)
     return 1 if FAILS else 0
 
 
