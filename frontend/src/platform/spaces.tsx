@@ -26,12 +26,18 @@ export function lastSpace():string{try{return localStorage.getItem(LAST_SPACE)||
 class SwitchError extends Error{constructor(public status:number,message:string){super(message)}}
 
 /** Spaces open to this identity now (null: no live session in this browser). */
-export async function fetchSpaces():Promise<SpacesState|null>{
-  const r=await nativeFetch('/api/v1/auth/contexts',{credentials:'include',cache:'no-store'});
-  if(r.status===401)return null;
-  if(!r.ok)throw new SwitchError(r.status,'Liste des espaces indisponible.');
-  return r.json();
+export async function fetchSpaces(signal?:AbortSignal):Promise<SpacesState|null>{
+  // Never without a time limit (2026-11-15): the session restoration waits for this answer.
+  const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),SPACES_TIMEOUT_MS);
+  const stop=()=>ctl.abort();signal?.addEventListener('abort',stop,{once:true});if(signal?.aborted)ctl.abort();
+  try{
+    const r=await nativeFetch('/api/v1/auth/contexts',{credentials:'include',cache:'no-store',signal:ctl.signal});
+    if(r.status===401)return null;
+    if(!r.ok)throw new SwitchError(r.status,'Liste des espaces indisponible.');
+    return await r.json();
+  }finally{clearTimeout(timer);signal?.removeEventListener('abort',stop)}
 }
+export const SPACES_TIMEOUT_MS=15_000;
 
 export async function switchSpace(target:{scope:'PLATFORM'|'SCHOOL';school_code?:string|null}):Promise<any>{
   let r:Response;
@@ -140,10 +146,16 @@ export function SpaceRecovery({spaces,onSwitched,onLogout}:{spaces:SpacesState;o
  *  keeps working offline (owner decision 2026-10-25): its banner says what continues and what waits for the network. */
 export function OfflineAdminBanner({school=false}:{school?:boolean}){
   const online=useOnline();
+  const [net,setNet]=useState(getConnectivity().state);useEffect(()=>subscribeConnectivity(x=>setNet(x.state)),[]);
+  const reachable=net==='ONLINE'&&(typeof navigator==='undefined'||navigator.onLine!==false);
   const [auth,setAuth]=useState(getPlatformAuthState);
   const [readAt,setReadAt]=useState(platformLastRead);
   useEffect(()=>{const authChange=()=>setAuth(getPlatformAuthState());const cache=()=>setReadAt(platformLastRead());window.addEventListener('edusync:platform-auth',authChange);window.addEventListener('edusync:platform-cache',cache);return()=>{window.removeEventListener('edusync:platform-auth',authChange);window.removeEventListener('edusync:platform-cache',cache)}},[]);
   if(online&&auth!=='OFFLINE_AUTHENTICATED_CACHED')return null;
+  // Owner, 2026-11-15: the network is there, only the session is being taken back — never say « Hors connexion » then.
+  // « There » means the device reports a network AND the server answers (connectivity ONLINE): in airplane mode the device
+  // says offline at once, and the reopened app must show « Hors connexion » immediately (browser proofs, CI 2026-11-15).
+  if(reachable)return <div className="es-alert sp-offline" role="status"><NavGlyph g="sync" size={16}/><span><b>Reconnexion à votre session…</b> Vous pouvez continuer à travailler ; EduSync termine la vérification tout seul.</span><button type="button" className="es-btn es-btn-ghost" onClick={()=>window.dispatchEvent(new CustomEvent('edusync:session-retry'))}>Réessayer maintenant</button></div>;
   if(school)return <div className="es-alert es-alert-warn sp-offline" role="status"><NavGlyph g="wifiOff" size={16}/><span><b>Hors connexion — vous pouvez continuer.</b> Ce que vous enregistrez est gardé sur cet appareil et envoyé automatiquement au retour du réseau. Seules quelques actions demandent le réseau : comptes et accès, imports, annulations et clôture de la journée de caisse. Les informations affichées peuvent dater de la dernière connexion.{readAt&&<small>Dernière mise à jour : {new Date(readAt).toLocaleString('fr-FR')}.</small>}</span></div>;
   return <div className="es-alert es-alert-warn sp-offline" role="status"><NavGlyph g="wifiOff" size={16}/><span><b>Hors connexion — lecture seule.</b> Seules les données déjà consultées sont disponibles ; elles peuvent être anciennes. Aucune modification n’est mise en attente.{readAt&&<small>Dernière synchronisation de la donnée consultée : {new Date(readAt).toLocaleString('fr-FR')}.</small>}</span></div>;
 }

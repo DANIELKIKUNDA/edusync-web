@@ -422,11 +422,20 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
       // Never wait forever for the session service: after 10 s the cached context or the sign-in screen is shown.
       const ctl=new AbortController();const timer=window.setTimeout(()=>ctl.abort(),10000);
       try{
-        const r=await refreshAccessSession(ctl.signal);
+        let r=await refreshAccessSession(ctl.signal);
         if(!alive)return;
+        if(r.status===401 || r.status===403){
+          // Owner, 2026-11-15 (« obligé de se reconnecter ») : a renewal sent just before the phone slept can reach the server
+          // with an OLD session key and be refused although the device session is alive. The server is asked; when it says the
+          // current session is valid, the renewal is tried ONCE more with the current key. A real end of session (password,
+          // roles or access changed) fails again and signs out as before.
+          const st=await fetchSpaces(ctl.signal).catch(()=>{throw new Error('SESSION_SERVICE_UNAVAILABLE')});
+          if(!alive)return;
+          if(st?.current_valid){r=await refreshAccessSession(ctl.signal);if(!alive)return}
+        }
         if(!r.ok){
           if(r.status===401 || r.status===403){
-            const st=await fetchSpaces();
+            const st=await fetchSpaces(ctl.signal).catch(()=>null);
             if(!alive)return;
             clearPlatformContext();setPlatformToken('');setSchoolSession(null);
             if(st&&!st.current_valid&&st.contexts.length)setRecovery(st);
@@ -463,8 +472,10 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     // timed out stayed cached for good when the network itself never dropped (no OFFLINE → ONLINE transition to wait for).
     // While the session is cached and the browser is online, it is revalidated every CACHED_SESSION_RETRY_MS.
     const retry=window.setInterval(()=>{if(shouldRetryCachedSession())void restore()},CACHED_SESSION_RETRY_MS);
+    const retryNow=()=>{if(shouldRetryCachedSession())void restore()};   // « Réessayer maintenant » of the reconnection banner
+    window.addEventListener('edusync:session-retry',retryNow);
     void restore();
-    return()=>{alive=false;window.clearInterval(retry);window.removeEventListener('edusync:connectivity',probe)};
+    return()=>{alive=false;window.clearInterval(retry);window.removeEventListener('edusync:session-retry',retryNow);window.removeEventListener('edusync:connectivity',probe)};
   },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
   function clear(){clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
