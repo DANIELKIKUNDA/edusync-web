@@ -53,6 +53,6 @@ it('réseau présent : le bandeau dit « Reconnexion à votre session… », jam
   const spaces = readFileSync('src/platform/spaces.tsx', 'utf8');
   const app = readFileSync('src/App.tsx', 'utf8');
   expect(spaces).toContain('Reconnexion à votre session…');
-  expect(spaces.indexOf('if(online)return')).toBeLessThan(spaces.indexOf('Hors connexion — vous pouvez continuer'));
+  expect(spaces.indexOf('if(reachable)return')).toBeLessThan(spaces.indexOf('Hors connexion — vous pouvez continuer'));
   expect(app).toContain("window.addEventListener('edusync:session-retry',retryNow)");
 });
