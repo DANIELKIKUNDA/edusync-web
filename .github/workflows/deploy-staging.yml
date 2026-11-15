@@ -48,7 +48,7 @@ jobs:
           USER_: ${{ secrets.STAGING_SSH_USER }}
         run: |
           if [[ -z "$HOST" || -z "$KEY" || -z "$KNOWN" || -z "$USER_" ]]; then
-            echo "::error::Secrets de déploiement staging manquants."
+            echo "::error::Staging non configuré : secrets de déploiement manquants."
             exit 1
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
