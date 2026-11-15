@@ -3,14 +3,15 @@ from decimal import Decimal
 from uuid import UUID,uuid4
 from sqlalchemy import text
 from edusync.modules.finance_checkout.domain.models import DueCharge,sequential_eligibility
+from edusync.adapters.charge_balance import still_owed
 
 class PostgresFinanceCheckoutRepository:
  def __init__(self,conn):self.conn=conn
  def search(self,school_id:UUID,q:str,limit:int=12):
   term=f"%{q.strip()}%"
-  rows=self.conn.execute(text('''SELECT s.id student_id,s.family_id,s.matricule,s.last_name,s.middle_name,s.first_name,f.display_name family_name,f.phone,
+  rows=self.conn.execute(text(f'''SELECT s.id student_id,s.family_id,s.matricule,s.last_name,s.middle_name,s.first_name,f.display_name family_name,f.phone,
    e.id enrollment_id,c.label class_label,y.label academic_year,y.status academic_year_status,
-   EXISTS(SELECT 1 FROM enrollments oe JOIN academic_years oy ON oy.id=oe.academic_year_id JOIN finance_charges fc ON fc.enrollment_id=oe.id AND fc.school_id=oe.school_id AND fc.status='ACTIVE' AND fc.net_amount>fc.paid_amount WHERE oe.school_id=s.school_id AND oe.student_id=s.id AND oy.status IN ('CLOSED','ARCHIVED')) has_old_debt
+   EXISTS(SELECT 1 FROM enrollments oe JOIN academic_years oy ON oy.id=oe.academic_year_id JOIN finance_charges fc ON fc.enrollment_id=oe.id AND fc.school_id=oe.school_id AND fc.status='ACTIVE' AND {still_owed('fc')}>0 WHERE oe.school_id=s.school_id AND oe.student_id=s.id AND oy.status IN ('CLOSED','ARCHIVED')) has_old_debt
    FROM students s JOIN families f ON f.id=s.family_id
    JOIN LATERAL (SELECT ee.* FROM enrollments ee JOIN academic_years yy ON yy.id=ee.academic_year_id WHERE ee.school_id=s.school_id AND ee.student_id=s.id ORDER BY (yy.status='ACTIVE') DESC,yy.start_date DESC LIMIT 1) e ON true
    JOIN academic_years y ON y.id=e.academic_year_id JOIN school_classes c ON c.id=e.class_id
@@ -282,11 +283,11 @@ class PostgresFinanceCheckoutRepository:
   return f"{prefix}-{year}-{int(n):06d}"
 
  def historical_debts(self,school_id:UUID,student_id:UUID):
-  rows=self.conn.execute(text("""SELECT e.id enrollment_id,y.id academic_year_id,y.label academic_year,c.label class_label,
-   fc.id charge_id,fc.label,fc.currency,fc.net_amount,fc.paid_amount,(fc.net_amount-fc.paid_amount) remaining,
+  rows=self.conn.execute(text(f"""SELECT e.id enrollment_id,y.id academic_year_id,y.label academic_year,c.label class_label,
+   fc.id charge_id,fc.label,fc.currency,fc.net_amount,fc.paid_amount,{still_owed('fc')} remaining,
    fc.period_label,fc.periodicity
    FROM enrollments e JOIN academic_years y ON y.id=e.academic_year_id JOIN school_classes c ON c.id=e.class_id
-   JOIN finance_charges fc ON fc.enrollment_id=e.id AND fc.school_id=e.school_id AND fc.status='ACTIVE' AND fc.net_amount>fc.paid_amount
+   JOIN finance_charges fc ON fc.enrollment_id=e.id AND fc.school_id=e.school_id AND fc.status='ACTIVE' AND {still_owed('fc')}>0
    WHERE e.school_id=:sid AND e.student_id=:student AND y.status IN ('CLOSED','ARCHIVED')
    ORDER BY y.start_date DESC,fc.due_date NULLS LAST,fc.label"""),{'sid':str(school_id),'student':str(student_id)}).mappings().all()
   return [dict(r) for r in rows]

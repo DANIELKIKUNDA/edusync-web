@@ -171,12 +171,38 @@ def titles(A: dict) -> None:
     check("Madame → « Promotrice »", as_(prom).get("/api/v1/access/me").json().get("role_label") == "Promotrice")
 
 
+def settled_outside_cash(A: dict) -> None:
+    """Owner, 2026-11-16: after the APN import every class was « en risque financier » although most pupils had paid —
+    the alerts only looked at the cash paid. A month settled outside the cash desk (payments taken over, regularization)
+    or exempted by a decision is no longer owed."""
+    print("
+== Reste dû : la reprise et les régularisations hors caisse comptent")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend" / "src"))
+    from edusync.adapters.charge_balance import still_owed
+    owed = lambda cid: float(one(f"SELECT {still_owed('fc')} FROM finance_charges fc WHERE fc.id=:c", c=cid)[0])
+    rows = sql("""SELECT fc.id, fc.net_amount - fc.paid_amount FROM finance_charges fc WHERE fc.school_id=:s AND fc.status='ACTIVE'
+                  AND fc.net_amount > fc.paid_amount ORDER BY fc.created_at LIMIT 2""", s=A["id"]).all()
+    check("des frais encore dus existent pour l'essai", len(rows) == 2, rows)
+    user = one("SELECT user_id FROM school_memberships WHERE school_id=:s LIMIT 1", s=A["id"])[0]
+    cid, rest = rows[0]
+    before = owed(cid)
+    sql("""INSERT INTO finance_charge_regularizations(school_id,charge_id,amount,reason,actor_user_id)
+           VALUES(:s,:c,:a,'Reprise historique importée — hors caisse',:u)""", s=A["id"], c=cid, a=rest, u=user)
+    check("un mois réglé par la reprise (hors caisse) n'est plus dû", before == float(rest) and owed(cid) == 0, (before, owed(cid)))
+    cid2, rest2 = rows[1]
+    half = round(float(rest2) / 2, 2)
+    sql("""INSERT INTO finance_charge_regularizations(school_id,charge_id,amount,reason,actor_user_id)
+           VALUES(:s,:c,:a,'Régularisation partielle',:u)""", s=A["id"], c=cid2, a=half, u=user)
+    check("une régularisation partielle laisse le reste exact", abs(owed(cid2) - (float(rest2) - half)) < 0.01, owed(cid2))
+
+
 def main() -> int:
     A = school("F")
     run(A)
     section_scopes(A)
     offline_enrollment(A)
     titles(A)
+    settled_outside_cash(A)
     H.CLIENT.__exit__(None, None, None)
     fails = [r for r in H.RESULTS if r[0] == "FAIL"]
     print(f"\n{len(H.RESULTS) - len(fails)}/{len(H.RESULTS)} PASS · {len(fails)} FAIL")

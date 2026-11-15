@@ -17,6 +17,7 @@ from decimal import Decimal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import text
+from edusync.adapters.charge_balance import still_owed
 
 log = logging.getLogger("edusync.alerts")
 
@@ -187,8 +188,8 @@ def cash_day_closed(conn, *, services=None, school_id: UUID, report: dict, actor
     # day_report totals: [{currency, entries, outflows, net}]
     parts = [f"{money_text(t['entries'], t['currency'])} encaissés (net {money_text(t['net'], t['currency'])})"
              for t in (report.get("totals") or []) if Decimal(str(t.get("entries") or 0))]
-    arrears = conn.execute(text("""SELECT count(*) FROM (SELECT fc.enrollment_id FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id
-        WHERE fc.school_id=:s AND fc.status='ACTIVE' AND fc.periodicity='MONTHLY' AND fc.due_date < CURRENT_DATE AND fc.net_amount > fc.paid_amount
+    arrears = conn.execute(text(f"""SELECT count(*) FROM (SELECT fc.enrollment_id FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id
+        WHERE fc.school_id=:s AND fc.status='ACTIVE' AND fc.periodicity='MONTHLY' AND fc.due_date < CURRENT_DATE AND {still_owed('fc')} > 0
           AND e.status='VALIDATED' GROUP BY fc.enrollment_id HAVING count(*) >= 3) x"""), {"s": str(school_id)}).scalar_one()
     body = f"Journée de caisse du {report.get('day')} clôturée : {', '.join(parts) or 'aucun encaissement'}."
     if arrears:

@@ -16,6 +16,7 @@ from uuid import UUID
 from sqlalchemy import text
 
 from edusync.modules.alerts.application.school_alerts import capability_alert
+from edusync.adapters.charge_balance import still_owed
 
 log = logging.getLogger("edusync.supervision")
 LOCK_KEY = 7_202_611_009
@@ -42,7 +43,7 @@ class Finding:
 def measure(conn, school_id: UUID) -> list[Finding]:
     findings: list[Finding] = []
     # A class is unusual when at least 3 pupils and 35% of its validated enrolments have >=2 overdue monthly charges.
-    rows = conn.execute(text("""
+    rows = conn.execute(text(f"""
       WITH enrolled AS (
         SELECT e.class_id, count(*)::int total
           FROM enrollments e WHERE e.school_id=:s AND e.status='VALIDATED' GROUP BY e.class_id
@@ -50,7 +51,7 @@ def measure(conn, school_id: UUID) -> list[Finding]:
         SELECT e.class_id, fc.enrollment_id
           FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id
          WHERE fc.school_id=:s AND e.status='VALIDATED' AND fc.status='ACTIVE'
-           AND fc.periodicity='MONTHLY' AND fc.due_date<CURRENT_DATE AND fc.net_amount>fc.paid_amount
+           AND fc.periodicity='MONTHLY' AND fc.due_date<CURRENT_DATE AND {still_owed('fc')}>0
          GROUP BY e.class_id, fc.enrollment_id HAVING count(*)>=2
       )
       SELECT c.id, c.label, sec.code section_code, en.total, count(l.enrollment_id)::int late,
