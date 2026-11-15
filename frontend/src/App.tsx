@@ -463,8 +463,10 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     // timed out stayed cached for good when the network itself never dropped (no OFFLINE → ONLINE transition to wait for).
     // While the session is cached and the browser is online, it is revalidated every CACHED_SESSION_RETRY_MS.
     const retry=window.setInterval(()=>{if(shouldRetryCachedSession())void restore()},CACHED_SESSION_RETRY_MS);
+    const retryNow=()=>{if(shouldRetryCachedSession())void restore()};   // « Réessayer maintenant » of the reconnection banner
+    window.addEventListener('edusync:session-retry',retryNow);
     void restore();
-    return()=>{alive=false;window.clearInterval(retry);window.removeEventListener('edusync:connectivity',probe)};
+    return()=>{alive=false;window.clearInterval(retry);window.removeEventListener('edusync:session-retry',retryNow);window.removeEventListener('edusync:connectivity',probe)};
   },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
   function clear(){clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}

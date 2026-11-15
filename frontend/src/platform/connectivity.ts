@@ -36,19 +36,35 @@ function suspected(){return (typeof navigator!=='undefined'&&navigator.onLine===
 function confirmedOffline(){return !!knownContext()&&(getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'||snap.state==='OFFLINE')}
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 function retryable(input:RequestInfo|URL,init?:RequestInit){const method=(init?.method||((input as Request)?.method)||'GET').toUpperCase();if(method==='GET'||method==='HEAD')return true;const h=new Headers(init?.headers);return h.has('Idempotency-Key')}
-async function doRefresh(signal?:AbortSignal){
-  let r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal});
-  // A request frozen by Chrome may resume with the preceding cookie after another tab/PWA has rotated it. The server
-  // deliberately keeps the device session alive; retry once so the browser sends its current cookie.
-  if(r.status===409&&r.headers.get('X-EduSync-Session')==='STALE_REFRESH'){
-    await sleep(120);r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal});
-  }
-  return r;
+/* Owner, 2026-11-15: « Hors connexion » shown while online, cleared only by signing out. Root cause: the background renewal
+   called refreshAccessSession() WITHOUT any time limit. On a network that silently stops answering (or a tab frozen by
+   Chrome) that request never settled while HOLDING the origin-wide lock, so every later session check waited for the lock
+   forever. Every renewal now has its own time limit, and waiting for the lock can be abandoned by the caller. */
+export const REFRESH_TIMEOUT_MS=15_000;
+function limited(signal?:AbortSignal){
+  const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),REFRESH_TIMEOUT_MS);
+  const stop=()=>ctl.abort();
+  if(signal){if(signal.aborted)ctl.abort();else signal.addEventListener('abort',stop,{once:true})}
+  return {signal:ctl.signal,done:()=>{clearTimeout(timer);signal?.removeEventListener('abort',stop)}};
 }
-/** One refresh at a time across Chrome tabs and the installed PWA (Web Locks is origin-wide). */
+async function doRefresh(signal?:AbortSignal){
+  const t=limited(signal);
+  try{
+    let r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal:t.signal});
+    // A request frozen by Chrome may resume with the preceding cookie after another tab/PWA has rotated it. The server
+    // deliberately keeps the device session alive; retry once so the browser sends its current cookie.
+    if(r.status===409&&r.headers.get('X-EduSync-Session')==='STALE_REFRESH'){
+      await sleep(120);r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal:t.signal});
+    }
+    return r;
+  }finally{t.done()}
+}
+/** One refresh at a time across Chrome tabs and the installed PWA (Web Locks is origin-wide). The caller's signal also
+ *  abandons the WAIT for the lock: a check that gives up never stays queued behind a stuck renewal. */
 export async function refreshAccessSession(signal?:AbortSignal):Promise<Response>{
   const locks=typeof navigator!=='undefined'?navigator.locks:undefined;
-  return locks?locks.request('edusync-session-refresh',()=>doRefresh(signal)):doRefresh(signal);
+  if(!locks)return doRefresh(signal);
+  return signal?locks.request('edusync-session-refresh',{signal},()=>doRefresh(signal)):locks.request('edusync-session-refresh',()=>doRefresh());
 }
 let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{const r=await refreshAccessSession();if(!r.ok){/* the space of the session may have been withdrawn: the app checks the other spaces of the identity */if(r.status===401)window.dispatchEvent(new CustomEvent('edusync:space-check'));return null}const data=await r.json();const token=String(data.access_token||'');if(token){setPlatformAuthState('ONLINE_AUTHENTICATED');window.dispatchEvent(new CustomEvent('edusync:token-refreshed',{detail:{token,scope:data.scope}}));return token}return null}catch{return null}finally{refreshing=null}})();return refreshing}
 /* Write activity (POST/PUT/PATCH/DELETE to the API): what the status chip reports to the user.
