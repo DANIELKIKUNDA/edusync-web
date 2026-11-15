@@ -3,7 +3,7 @@ import {lazyPage} from './platform/lazy_page';
 import {OutboxCenter,useEnrollmentReference,useSchoolOffline} from './offline/school_sync';
 import {setFinanceTarget} from './finance_nav';
 import {startLive} from './platform/live';
-import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState} from './platform/offline_session';
+import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS} from './platform/offline_session';
 import React,{Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {SecureLogin} from './login';
 import {takeAccountLink,type AccountLink} from './account_links';
@@ -456,11 +456,15 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     // Every time the server answers again after a doubt (even a short one), the session is revalidated: a revocation decided
     // meanwhile is obeyed, and a session reopened from the device becomes online again.
     let lastNet='ONLINE';
-    const probe=(e:Event)=>{const s=(e as CustomEvent).detail?.state;const back=s==='ONLINE'&&lastNet!=='ONLINE';lastNet=s||lastNet;
+    const probe=(e:Event)=>{const s=(e as CustomEvent).detail?.state;const back=s==='ONLINE'&&(lastNet!=='ONLINE'||shouldRetryCachedSession());lastNet=s||lastNet;
       if(back&&knownContext())void restore()};
     window.addEventListener('edusync:connectivity',probe);
+    // Owner, 2026-11-15: « En ligne » next to « Hors connexion ». A session reopened from the device because the first check
+    // timed out stayed cached for good when the network itself never dropped (no OFFLINE → ONLINE transition to wait for).
+    // While the session is cached and the browser is online, it is revalidated every CACHED_SESSION_RETRY_MS.
+    const retry=window.setInterval(()=>{if(shouldRetryCachedSession())void restore()},CACHED_SESSION_RETRY_MS);
     void restore();
-    return()=>{alive=false;window.removeEventListener('edusync:connectivity',probe)};
+    return()=>{alive=false;window.clearInterval(retry);window.removeEventListener('edusync:connectivity',probe)};
   },[]);
   useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail||{};if(!d.token)return;if(d.scope==='SCHOOL')setSchoolSession(prev=>prev?{...prev,token:d.token}:prev);else setPlatformToken(d.token)};window.addEventListener('edusync:token-refreshed',h);return()=>window.removeEventListener('edusync:token-refreshed',h)},[]);
   function clear(){clearAllCashierBaskets();clearPlatformContext();setRecovery(null);setSwitching(false);void fetch('/api/v1/auth/logout',{method:'POST',credentials:'include'}).catch(()=>{});localStorage.removeItem(PLATFORM_TOKEN);localStorage.removeItem(SCHOOL_SESSION);setPlatformToken('');setSchoolSession(null)}
