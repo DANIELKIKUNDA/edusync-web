@@ -68,6 +68,8 @@ def run(A: dict) -> None:
     check("tableau du promoteur : l'argent du jour = les encaissements réels de la journée",
           pil.status_code == 200 and float(pil.json()["cash"]["CDF"]["today"]) == float(paid) > 0
           and pil.json()["cash"]["CDF"]["today"] == pil.json()["cash"]["CDF"]["year"], (pil.status_code, pil.text[:300], paid))
+    check("tableau du promoteur : sans reprise, rien n'est compté comme repris de l'ancien système ; l'année part de l'ouverture des inscriptions",
+          pil.json()["cash"]["CDF"]["year_history"] == "0" and pil.json()["academic_year"]["period_start"] <= pil.json()["academic_year"]["start_date"], pil.text[:300])
     as_(cashier_actor)
     pay = one("""SELECT p.id FROM finance_payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN students s ON s.id=e.student_id
                  WHERE s.family_id=:f ORDER BY p.created_at LIMIT 1""", f=r.json()["family_id"])[0]
