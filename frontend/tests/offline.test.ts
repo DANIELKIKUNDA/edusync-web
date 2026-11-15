@@ -7,10 +7,11 @@ import type {PlatformMe} from '../src/api';
 const me:PlatformMe={user:{id:'owner',email:'owner@example.test',full_name:'Owner'},roles:[],permissions:['platform.audit.read'],menu:[{key:'audit',label:'Journal',capability:'platform.audit.read'}]};
 const network=vi.fn();
 beforeEach(()=>{network.mockReset().mockRejectedValue(new TypeError('network'));vi.stubGlobal('fetch',network);});
+afterEach(()=>{Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true})});
 afterEach(()=>{clearPlatformContext();sessionStorage.clear();localStorage.clear();vi.unstubAllGlobals();});
 
 it('stores display context without a bearer token and restores the same scoped identity',()=>{
-  rememberPlatformContext(me);setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
+  rememberPlatformContext(me);setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false}); /* vraie coupure : l'appareil n'a plus de réseau */
   expect(restorePlatformContext()?.me.user.id).toBe('owner');
   expect(getPlatformAuthState()).toBe('OFFLINE_AUTHENTICATED_CACHED');
   expect(localStorage.getItem('edusync.platform.readonly-context')).not.toMatch(/access_token|Bearer|refresh_token/);
@@ -39,7 +40,7 @@ it('returns only already-read snapshots, with age, isolated from another identit
 });
 
 it('blocks sensitive writes before any network call and never queues them',async()=>{
-  rememberPlatformContext(me);setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
+  rememberPlatformContext(me);setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false}); /* vraie coupure : l'appareil n'a plus de réseau */
   const {resilientFetch}=await import('../src/platform/connectivity');
   await expect(resilientFetch('/api/v1/platform/schools',{method:'POST',body:'{}'})).rejects.toMatchObject({code:'OFFLINE_READ_ONLY'});
   await expect(resilientFetch('/api/v1/auth/platform/mfa',{method:'POST',body:'{}'})).rejects.toMatchObject({code:'OFFLINE_READ_ONLY'});

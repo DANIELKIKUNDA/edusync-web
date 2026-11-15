@@ -12,13 +12,14 @@ async function setup() {
   vi.resetModules();
   const session = await import('../src/platform/offline_session');
   session.rememberSchoolContext(school as any);
-  session.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');                       // no network
+  session.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false}); /* vraie coupure : l'appareil n'a plus de réseau */                       // no network
   const outbox = await import('../src/offline/outbox');
   outbox.configureOutbox(`sch-1:u-1:${Math.random()}`, () => token);
   const {resilientFetch} = await import('../src/platform/connectivity');
   return {session, outbox, resilientFetch};
 }
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); network.mockReset().mockRejectedValue(new TypeError('network')); vi.stubGlobal('fetch', network); });
+afterEach(()=>{Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true})});
 afterEach(async () => { (await import('../src/platform/offline_session')).clearPlatformContext(); vi.unstubAllGlobals(); });
 
 it('offline: a payment and an enrollment are kept on the device with their key, the caller is told « queued »', async () => {
@@ -40,7 +41,7 @@ it('back online: replayed in order with the SAME key; a server refusal is kept �
   const {session, outbox, resilientFetch} = await setup();
   await resilientFetch('/api/v1/finance/checkout/collect', {method: 'POST', headers: {'Idempotency-Key': 'pay-A'}, body: JSON.stringify({amount: '15000', currency: 'CDF'})});
   await resilientFetch('/api/v1/finance/checkout/collect', {method: 'POST', headers: {'Idempotency-Key': 'pay-B'}, body: JSON.stringify({amount: '15000', currency: 'CDF'})});
-  session.setPlatformAuthState('AUTHENTICATED' as any);
+  session.setPlatformAuthState('AUTHENTICATED' as any); Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true}); /* le réseau revient */
   const seen: string[] = [];
   network.mockReset().mockImplementation(async (_url: string, init: RequestInit) => {
     const h = new Headers(init.headers); seen.push(h.get('Idempotency-Key')!);
@@ -58,7 +59,7 @@ it('back online: replayed in order with the SAME key; a server refusal is kept �
 it('still no network during the replay: nothing is lost and the order is kept for the next try', async () => {
   const {session, outbox, resilientFetch} = await setup();
   await resilientFetch('/api/v1/finance/cash/expenses', {method: 'POST', headers: {'Idempotency-Key': 'exp-1'}, body: JSON.stringify({amount: '1000', currency: 'CDF'})});
-  session.setPlatformAuthState('AUTHENTICATED' as any);
+  session.setPlatformAuthState('AUTHENTICATED' as any); Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true}); /* le réseau revient */
   await outbox.syncOutbox();                                                           // fetch rejects (network)
   expect((await outbox.listOutbox()).map(r => [r.idempotencyKey, r.status])).toEqual([['exp-1', 'PENDING']]);
 });
@@ -79,7 +80,7 @@ it('the platform stays read-only offline (only the school works without network)
   vi.resetModules();
   const session = await import('../src/platform/offline_session');
   session.rememberPlatformContext({user: {id: 'p', email: 'o@example.test', full_name: 'O'}, roles: [], permissions: [], menu: []} as any);
-  session.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
+  session.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false}); /* vraie coupure : l'appareil n'a plus de réseau */
   const {resilientFetch} = await import('../src/platform/connectivity');
   await expect(resilientFetch('/api/v1/finance/checkout/collect', {method: 'POST', body: '{}'})).rejects.toMatchObject({code: 'OFFLINE_READ_ONLY'});
 });

@@ -75,6 +75,8 @@ export function setPlatformAuthState(next:PlatformAuthState){state=next;window.d
 export function platformLastRead(){return lastRead;}
 /** Session reopened from the device while the browser is online: it must be checked again with the server (2026-11-15). */
 export const CACHED_SESSION_RETRY_MS=20_000;
+/** How long the session check waits for the server before using the device (slow networks, 2026-11-15). */
+export const SESSION_CHECK_MS=30_000;
 export function shouldRetryCachedSession(){return state==='OFFLINE_AUTHENTICATED_CACHED'&&!!known&&(typeof navigator==='undefined'||navigator.onLine!==false);}
 export function knownPlatform(){return known?.kind==='PLATFORM'?known:null;}
 export function knownSchool(){return known?.kind==='SCHOOL'?known:null;}

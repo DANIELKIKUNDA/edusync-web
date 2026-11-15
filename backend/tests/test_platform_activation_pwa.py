@@ -35,7 +35,9 @@ def test_restoration_never_returns_without_releasing_the_boot_screen():
     restore = APP.split("async function restore(){", 1)[1].split("const online=", 1)[0]
     assert "#(reset|invitation)=" not in restore                       # the endless early return is gone
     assert "if(initialLink){if(alive)setRestoring(false);return}" in restore
-    assert "ctl.abort(),10000" in restore and "refreshAccessSession(ctl.signal)" in restore
+    # 2026-11-15 (slow network): 30 s for the check, and a session known by the device opens at once (boot released first).
+    assert "ctl.abort(),SESSION_CHECK_MS" in restore and "refreshAccessSession(ctl.signal)" in restore
+    assert "if(first){first=false;if(knownContext()){applyCachedContext();if(alive)setRestoring(false)}}" in restore
     assert "signal}" in CONNECTIVITY and "credentials:'include'" in CONNECTIVITY  # no endless wait for /auth/refresh
 
 

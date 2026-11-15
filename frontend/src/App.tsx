@@ -3,7 +3,7 @@ import {lazyPage} from './platform/lazy_page';
 import {OutboxCenter,useEnrollmentReference,useSchoolOffline} from './offline/school_sync';
 import {setFinanceTarget} from './finance_nav';
 import {startLive} from './platform/live';
-import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS} from './platform/offline_session';
+import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS, SESSION_CHECK_MS} from './platform/offline_session';
 import React,{Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {SecureLogin} from './login';
 import {takeAccountLink,type AccountLink} from './account_links';
@@ -411,7 +411,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   async function onRefused(){if(checking.current)return;checking.current=true;try{const st=await fetchSpaces();if(!st){clear();return}if(!st.current_valid)setRecovery(st)}catch{/* réseau : l’écran courant signale l’erreur */}finally{checking.current=false}}
   useEffect(()=>{const h=()=>{void onRefused()};window.addEventListener('edusync:space-check',h);return()=>window.removeEventListener('edusync:space-check',h)},[]);
   useEffect(()=>{
-    let alive=true, running=false;
+    let alive=true, running=false, first=true;
     restoreOfflineContext();
     async function restore(){
       if(running)return;
@@ -419,8 +419,11 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
       // (the former early return here never ended `restoring`: endless boot screen).
       if(initialLink){if(alive)setRestoring(false);return}
       running=true;
-      // Never wait forever for the session service: after 10 s the cached context or the sign-in screen is shown.
-      const ctl=new AbortController();const timer=window.setTimeout(()=>ctl.abort(),10000);
+      // Offline first (owner, 2026-11-15, slow network: Google itself took 5 s): when this device already knows the session,
+      // the app opens AT ONCE on it and checks with the server in the background — never a boot screen waiting for the network.
+      if(first){first=false;if(knownContext()){applyCachedContext();if(alive)setRestoring(false)}}
+      // Never wait forever for the session service, but give a slow network its chance (30 s, was 10 s).
+      const ctl=new AbortController();const timer=window.setTimeout(()=>ctl.abort(),SESSION_CHECK_MS);
       try{
         let r=await refreshAccessSession(ctl.signal);
         if(!alive)return;
@@ -455,10 +458,14 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
         // A timeout is not proof of revocation. Restore display-only context,
         // never a cached bearer token or authority to perform a mutation.
         // Each context keeps its own offline policy (24 h platform, 7 days school: offline_session.ts).
-        const cached=knownContext();
-        if(alive&&cached?.kind==='PLATFORM'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setPlatformUser(cached.me.user);setPlatformToken(t=>t||OFFLINE_PLATFORM_TOKEN);}
-        else if(alive&&cached?.kind==='SCHOOL'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setSchoolSession(s=>s||{token:OFFLINE_SCHOOL_TOKEN,...cached.session});}
+        applyCachedContext();
       }finally{clearTimeout(timer);running=false;if(alive)setRestoring(false);}
+    }
+    function applyCachedContext(){
+      if(!alive)return;
+      const cached=knownContext();
+      if(cached?.kind==='PLATFORM'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setPlatformUser(cached.me.user);setPlatformToken(t=>t||OFFLINE_PLATFORM_TOKEN);}
+      else if(cached?.kind==='SCHOOL'){setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');setSchoolSession(s=>s||{token:OFFLINE_SCHOOL_TOKEN,...cached.session});}
     }
     // The browser's online/offline events are only hints (networks drop for a second or two): connectivity.ts verifies with
     // the server and publishes OFFLINE (→ offline mode) or ONLINE (→ the session is restored here) once confirmed.

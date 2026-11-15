@@ -8,13 +8,14 @@ const E = '11111111-1111-1111-1111-111111111111';
 async function setup() {
   vi.resetModules();
   const session = await import('../src/platform/offline_session');
-  session.rememberSchoolContext(school as any); session.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
+  session.rememberSchoolContext(school as any); session.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false}); /* vraie coupure : l'appareil n'a plus de réseau */
   const outbox = await import('../src/offline/outbox');
   outbox.configureOutbox(`sch-1:u-1:${Math.random()}`, () => 'token');
   const {resilientFetch} = await import('../src/platform/connectivity');
   return {outbox, resilientFetch};
 }
 beforeEach(() => { localStorage.clear(); vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network'))); });
+afterEach(()=>{Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true})});
 afterEach(async () => { (await import('../src/platform/offline_session')).clearPlatformContext(); vi.unstubAllGlobals(); });
 
 it('« Action conseillée » offline: the oldest payable charge of the device copy, as the server orders it', async () => {

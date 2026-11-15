@@ -33,14 +33,22 @@ function failure(){const now=Date.now();const failures=snap.failures+1;const fai
 /** True while the network is suspected but not yet confirmed lost: requests fail fast (no retry wait) and fall back to the device. */
 function suspected(){return (typeof navigator!=='undefined'&&navigator.onLine===false)||snap.state==='SUSPECTED_OFFLINE'||snap.state==='OFFLINE'}
 /** Offline mode for routing requests: only a confirmed loss (or a session reopened from the device). */
-function confirmedOffline(){return !!knownContext()&&(getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'||snap.state==='OFFLINE')}
+/* 2026-11-15 (owner, slow network: « TikTok et YouTube marchent, EduSync dit hors connexion »): a session reopened from the
+   device no longer means « never ask the server ». The device answers alone only when the network is really gone (device
+   says offline, or the probes confirmed it) or while the server's answer is still in doubt. With a reachable server, even a
+   slow one, the server comes first and the device is the fallback (reads from the cache, operations to the outbox). */
+function confirmedOffline(){
+  if(!knownContext())return false;
+  if(snap.state==='OFFLINE'||(typeof navigator!=='undefined'&&navigator.onLine===false))return true;
+  return getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&snap.state!=='ONLINE';
+}
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 function retryable(input:RequestInfo|URL,init?:RequestInit){const method=(init?.method||((input as Request)?.method)||'GET').toUpperCase();if(method==='GET'||method==='HEAD')return true;const h=new Headers(init?.headers);return h.has('Idempotency-Key')}
 /* Owner, 2026-11-15: « Hors connexion » shown while online, cleared only by signing out. Root cause: the background renewal
    called refreshAccessSession() WITHOUT any time limit. On a network that silently stops answering (or a tab frozen by
    Chrome) that request never settled while HOLDING the origin-wide lock, so every later session check waited for the lock
    forever. Every renewal now has its own time limit, and waiting for the lock can be abandoned by the caller. */
-export const REFRESH_TIMEOUT_MS=15_000;
+export const REFRESH_TIMEOUT_MS=30_000;   // slow networks: a TLS handshake alone took 8 s (2026-11-15)
 function limited(signal?:AbortSignal){
   const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),REFRESH_TIMEOUT_MS);
   const stop=()=>ctl.abort();
@@ -119,7 +127,14 @@ export async function resilientFetch(input:RequestInfo|URL,init?:RequestInit):Pr
     const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
     throw new UserFacingError('Cette donnée n’est pas disponible hors connexion. Réessayez au retour du réseau.','OFFLINE_NOT_CACHED');
   }
-  try{const response=await resilientApiFetch(input,init);if(read)await rememberPlatformRead(url,response,scope);return response;}
+  try{const response=await resilientApiFetch(input,init);
+    // Session still being taken back (device context, renewal not yet through): a refused read is answered from the device
+    // rather than shown as an error; the session check finishes in the background.
+    if(read&&response.status===401&&getPlatformAuthState()==='OFFLINE_AUTHENTICATED_CACHED'&&scope&&cacheablePath(url.pathname)){
+      const local=school?await packRead(url):null;if(local)return local;
+      const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
+    }
+    if(read)await rememberPlatformRead(url,response,scope);return response;}
   catch(error){
     // Connection lost during the write: the server may or may not have it — replaying the SAME key later is safe.
     // One failed request is not a lost network: the operation is kept / the read is answered from the device, but the whole

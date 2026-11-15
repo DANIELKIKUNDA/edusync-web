@@ -37,7 +37,7 @@ export async function fetchSpaces(signal?:AbortSignal):Promise<SpacesState|null>
     return await r.json();
   }finally{clearTimeout(timer);signal?.removeEventListener('abort',stop)}
 }
-export const SPACES_TIMEOUT_MS=15_000;
+export const SPACES_TIMEOUT_MS=30_000;
 
 export async function switchSpace(target:{scope:'PLATFORM'|'SCHOOL';school_code?:string|null}):Promise<any>{
   let r:Response;
