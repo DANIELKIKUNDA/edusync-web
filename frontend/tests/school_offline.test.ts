@@ -11,6 +11,7 @@ const DAY=24*3600_000;
 const network=vi.fn();
 async function fresh(){vi.resetModules();return import('../src/platform/offline_session');}  // a closed then reopened app
 beforeEach(()=>{localStorage.clear();sessionStorage.clear();network.mockReset().mockRejectedValue(new TypeError('network'));vi.stubGlobal('fetch',network);});
+afterEach(()=>{Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true})});
 afterEach(async()=>{(await import('../src/platform/offline_session')).clearPlatformContext();vi.useRealTimers();vi.unstubAllGlobals();localStorage.clear();});
 
 it('explicit policy per context: platform 24 h, school 7 days', async()=>{
@@ -68,7 +69,7 @@ it('offline in a school: consulted pages come from the cache, writes are refused
   m.rememberSchoolContext(school);
   const url=new URL('/api/v1/schooling/students',location.origin);
   await m.rememberPlatformRead(url,new Response(JSON.stringify({items:[{name:'Élève déjà consulté'}]}),{headers:{'Content-Type':'application/json'}}));
-  m.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');
+  m.setPlatformAuthState('OFFLINE_AUTHENTICATED_CACHED');Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false}); /* vraie coupure : l'appareil n'a plus de réseau */
   const {resilientFetch}=await import('../src/platform/connectivity');
   expect(await (await resilientFetch('/api/v1/schooling/students')).json()).toEqual({items:[{name:'Élève déjà consulté'}]});
   await expect(resilientFetch('/api/v1/finance/cash/payments',{method:'POST',body:'{}'})).rejects.toMatchObject({code:'OFFLINE_READ_ONLY'});
