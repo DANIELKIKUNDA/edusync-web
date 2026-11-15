@@ -82,9 +82,9 @@ def main() -> int:
     assets = re.findall(r"/assets/[\w.-]+\.js", html if isinstance(html, str) else "")
     check(code == 200 and bool(assets), "interface servie", f"{len(assets)} script(s)")
     if not (EMAIL and PASSWORD and SECRET):
-        check(True, "compte de test absent : parcours connecté non exécuté",
+        check(False, "compte de test absent : parcours connecté non exécuté",
               "secrets E2E_PLATFORM_* à créer (docs/architecture/RUNBOOK_INCIDENT.md §6)")
-        return 0
+        return 1
 
     # 2. sign-in with the second factor (one TOTP step is single-use: wait for a fresh step if needed)
     times: list[int] = []

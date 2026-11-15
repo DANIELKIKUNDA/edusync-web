@@ -1,4 +1,4 @@
-import {cachedPlatformRead, cacheablePath, getPlatformAuthState, knownContext, rememberPlatformRead, setPlatformAuthState} from './offline_session';
+import {cachedPlatformRead, cacheablePath, getPlatformAuthState, knownContext, OFFLINE_PLATFORM_TOKEN, rememberPlatformRead, setPlatformAuthState} from './offline_session';
 import {UserFacingError} from './errors';
 import {applyLocalPayment, enqueueWrite, loadPack, offlineWriteKind, searchPack} from '../offline/outbox';
 export type ConnectivityState='ONLINE'|'DEGRADED'|'SUSPECTED_OFFLINE'|'OFFLINE'|'RECOVERING';
@@ -74,7 +74,9 @@ async function doRefresh(signal?:AbortSignal){
 export async function refreshAccessSession(signal?:AbortSignal):Promise<Response>{
   const locks=typeof navigator!=='undefined'?navigator.locks:undefined;
   if(!locks)return doRefresh(signal);
-  return signal?locks.request('edusync-session-refresh',{signal},()=>doRefresh(signal)):locks.request('edusync-session-refresh',()=>doRefresh());
+  const deadline=limited(signal);
+  try{return await locks.request('edusync-session-refresh',{signal:deadline.signal},()=>doRefresh(deadline.signal))}
+  finally{deadline.done()}
 }
 let refreshing:Promise<string|null>|null=null;async function renewAccess(){if(refreshing)return refreshing;refreshing=(async()=>{try{let r=await refreshAccessSession();
   // A renewal sent before a sleep may carry an old session key (2026-11-15): one more try with the current key before
@@ -115,18 +117,22 @@ export async function resilientFetch(input:RequestInfo|URL,init?:RequestInit):Pr
   const replay=new Headers(init?.headers).get('X-EduSync-Replay')==='outbox';
   // School space (owner decision 2026-10-25): enrollment, re-enrollment and payments do not depend on the network —
   // the write is kept in the device outbox with its Idempotency-Key and replayed later. The platform stays read-only.
-  const headers=new Headers(init?.headers);const hasKey=!!headers.get('Idempotency-Key');
+  const headers=new Headers(init?.headers??(input instanceof Request?input.headers:undefined));
+  const provisional=headers.get('Authorization')===`Bearer ${OFFLINE_PLATFORM_TOKEN}`;
+  const hasKey=!!headers.get('Idempotency-Key');
   // Only a JSON operation carrying its Idempotency-Key is kept: the replay must be recognised by the server (a file upload
   // or an operation without key cannot be replayed safely).
   const queueable=school && !read && !replay && !!offlineWriteKind(url.pathname) && hasKey && (init?.body==null || typeof init.body==='string');
-  if(offline && queueable)return queueWrite(url,method,init);
+  if((offline||provisional) && queueable)return queueWrite(url,method,init);
   if(offline && !['GET','HEAD','OPTIONS'].includes(method) && !/\/auth\/(refresh|logout)$/.test(url.pathname))
     throw new UserFacingError(school?'Hors connexion : cette action demande le réseau (comptes et accès, imports, annulations et clôture de la journée de caisse). Le reste de votre travail continue sans connexion.':'Hors connexion — lecture seule. Cette action nécessite une connexion au serveur.','OFFLINE_READ_ONLY');
-  if(offline && read && !/\/auth\//.test(url.pathname)){
+  if((offline||provisional) && read && !/\/auth\//.test(url.pathname)){
     const local=school?await packRead(url):null;if(local)return local;
     const cached=await cachedPlatformRead(url,scope);if(cached)return cached;
+    if(provisional&&!offline)throw new UserFacingError('Cette donnée sera disponible après la restauration de votre session.','SESSION_RESTORING');
     throw new UserFacingError('Cette donnée n’est pas disponible hors connexion. Réessayez au retour du réseau.','OFFLINE_NOT_CACHED');
   }
+  if(provisional)throw new UserFacingError('Cette action demande une session restaurée.','SESSION_RESTORING');
   try{const response=await resilientApiFetch(input,init);
     // Session still being taken back (device context, renewal not yet through): a refused read is answered from the device
     // rather than shown as an error; the session check finishes in the background.

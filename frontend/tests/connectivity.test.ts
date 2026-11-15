@@ -42,3 +42,22 @@ it('a one-second network drop never switches the app offline; a real loss does, 
   expect(c.getConnectivity().state).toBe('ONLINE');
   vi.useRealTimers(); vi.unstubAllGlobals();
 });
+
+it('keeps display-only credentials off the network while the session is restored', async () => {
+  vi.resetModules();
+  const native = vi.fn(async () => new Response('{}'));
+  vi.stubGlobal('fetch', native);
+  try {
+    const {resilientFetch} = await import('../src/platform/connectivity');
+    const {OFFLINE_SCHOOL_TOKEN} = await import('../src/platform/offline_session');
+    const headers = {Authorization: `Bearer ${OFFLINE_SCHOOL_TOKEN}`};
+    const personnel = new URL('/api/v1/staff', window.location.origin);
+    await expect(resilientFetch(personnel, {headers})).rejects.toThrow('restauration de votre session');
+    await expect(resilientFetch(new Request(personnel, {method: 'POST', headers}))).rejects.toThrow('session restaurée');
+    expect(native).not.toHaveBeenCalled();
+    expect((await resilientFetch(personnel, {headers: {Authorization: 'Bearer active-token'}})).ok).toBe(true);
+    expect(native).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

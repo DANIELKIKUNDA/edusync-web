@@ -13,7 +13,7 @@ it('serialise le renouvellement et reprend une requête Chrome figée sans déco
       status: 200, headers: {'Content-Type': 'application/json'},
     }));
   vi.stubGlobal('fetch', native);
-  const lock = vi.fn(async (_name: string, callback: () => Promise<Response>) => callback());
+  const lock = vi.fn(async (_name: string, _options: LockOptions, callback: () => Promise<Response>) => callback());
   Object.defineProperty(navigator, 'locks', {configurable: true, value: {request: lock}});
 
   const {refreshAccessSession} = await import('../src/platform/connectivity');
@@ -21,7 +21,7 @@ it('serialise le renouvellement et reprend une requête Chrome figée sans déco
 
   expect(response.status).toBe(200);
   expect((await response.json()).access_token).toBe('access-after-wake');
-  expect(lock).toHaveBeenCalledWith('edusync-session-refresh', expect.any(Function));
+  expect(lock).toHaveBeenCalledWith('edusync-session-refresh', {signal: expect.any(AbortSignal)}, expect.any(Function));
   expect(native).toHaveBeenCalledTimes(2);
   expect(native.mock.calls.every(([, init]) => (init as RequestInit).credentials === 'include')).toBe(true);
 });
