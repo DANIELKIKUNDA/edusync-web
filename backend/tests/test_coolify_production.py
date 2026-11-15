@@ -30,7 +30,7 @@ def _load(name: str):
 def test_coolify_production_compose_passes_every_contract():
     args = [sys.executable, str(CHECK)] + (["--render"] if shutil.which("docker") else [])
     out = subprocess.run(args, capture_output=True, text=True, cwd=ROOT)
-    assert out.returncode == 0 and "COOLIFY_COMPOSE_CHECK=PASS" in out.stderr, out.stdout[-3000:] + out.stderr[-1000:]
+    assert out.returncode == 0 and "COOLIFY_COMPOSE_CHECK=PASS" in out.stdout, out.stdout[-3000:] + out.stderr[-1000:]
 
 
 def test_secrets_are_generated_once_with_the_expected_shape_and_never_replaced(tmp_path):
