@@ -40,7 +40,7 @@ def test_withdrawn_space_is_signalled_to_the_client():
     assert 'SPACE_WITHDRAWN = {"X-EduSync-Space": "WITHDRAWN"}' in DEPS
     for d in ("Appartenance école révoquée", "École inactive ou inaccessible", "Accès à la plateforme EduSync suspendu"):
         assert f'detail="{d}", headers=SPACE_WITHDRAWN' in DEPS
-    assert "r.headers.get('X-EduSync-Space')==='WITHDRAWN'" in CONN and "edusync:space-check" in CONN
+    assert ".headers.get('X-EduSync-Space')==='WITHDRAWN'" in CONN and "edusync:space-check" in CONN
 
 
 def test_frontend_switcher_contract():
