@@ -46,3 +46,13 @@ def test_personnel_ui_can_end_an_assignment_without_deleting_history():
     text=PAGE
     assert "endStaffAssignment(" in text
     assert "Motif de fin d’affectation" in text
+
+
+def test_personnel_cards_open_the_filtered_directory():
+    """Owner, 2026-11-16: « rendre les cartes du module personnel cliquables »."""
+    s = (Path(__file__).resolve().parents[2] / "frontend/src/personnel.tsx").read_text(encoding="utf-8")
+    assert "className={`personMetric tone-${tone} clickable`} onClick={onOpen}" in s
+    for call in ("onOpen={openList()}", "onOpen={openList('ACTIVE')}", "onOpen={openList('','ENSEIGNANT')}", "onOpen={openList('','ADMINISTRATIF')}",
+                 "onOpen={openList('','OUVRIER')}", "onOpen={openList('','','assigned')}", "onOpen={openList('','','linked')}", "onOpen={openList('','','children')}"):
+        assert call in s, call
+    assert "<PersonnelTable items={shown}" in s and "Retirer ce filtre" in s
