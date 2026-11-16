@@ -60,7 +60,17 @@ session, déconnexion. Il lui faut un compte **dédié, en lecture** :
    clé manuelle** affichée (groupes de 4 caractères).
 3. GitHub → Settings → Environments → **staging** → ajouter 3 secrets : `E2E_PLATFORM_EMAIL`,
    `E2E_PLATFORM_PASSWORD`, `E2E_PLATFORM_TOTP_SECRET` (la clé manuelle, sans espaces).
-4. Actions → *E2E staging* → **Run workflow** : tout doit être PASS.
+4. Créer une école de recette dédiée sur staging, avec des données fictives et un compte scolaire
+   distinct en lecture. Attribuer uniquement `personnel.read` via un rôle scolaire dédié,
+   et vérifier la visibilité de Personnel. Finaliser la première connexion avant la recette.
+   Le parcours scolaire automatisé utilise un compte sans étape MFA interactive.
+5. Dans l’environnement GitHub **staging**, ajouter les secrets `E2E_SCHOOL_EMAIL`
+   et `E2E_SCHOOL_PASSWORD`. Ne transmettre aucun secret dans les journaux, tickets ou PR.
+6. Actions → *E2E staging* → **Run workflow** sur `main`, uniquement lorsque le SHA
+   de `main` est effectivement servi sur staging. Vérifier les deux étapes authentifiées.
+   Chromium vérifie les appels réels de Personnel et la restauration du cookie, puis
+   simule une réponse lente et une interruption avant de tester la reprise sur la vraie API.
+   Une configuration absente ou un SHA discordant fait échouer le contrôle.
 
 ## 7. Après l'incident
 

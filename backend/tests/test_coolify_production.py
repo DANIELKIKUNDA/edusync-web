@@ -109,7 +109,7 @@ def test_production_never_reuses_the_staging_entry_points():
 def test_release_gate_refuses_unvalidated_versions_without_network():
     out = subprocess.run([sys.executable, str(ROOT / "tools/ci/production_release_gate.py"), "pas-un-sha"],
                          capture_output=True, text=True, cwd=ROOT)
-    assert out.returncode == 1 and "40 caractères" in out.stdout
+    assert out.returncode == 1 and "40 caractères" in out.stderr
     gate = (ROOT / "tools/ci/production_release_gate.py").read_text(encoding="utf-8")
     assert all(w in gate for w in ("ci.yml", "deploy-staging.yml", "e2e-staging.yml"))
 

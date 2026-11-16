@@ -1,0 +1,73 @@
+name: Production Coolify
+on:
+  workflow_dispatch:
+    inputs:
+      rollback_sha:
+        description: "Retour arrière uniquement · SHA certifié à restaurer"
+        required: false
+        type: string
+      rollback_from:
+        description: "Retour arrière uniquement · SHA actuellement servi"
+        required: false
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  select:
+    name: Choisir le SHA à approuver
+    if: github.ref == 'refs/heads/main' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.gate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROLLBACK_SHA: ${{ inputs.rollback_sha }}
+          ROLLBACK_FROM: ${{ inputs.rollback_from }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$ROLLBACK_SHA" || -n "$ROLLBACK_FROM" ]]; then
+            [[ "$ROLLBACK_SHA" =~ ^[0-9a-f]{40}$ && "$ROLLBACK_FROM" =~ ^[0-9a-f]{40}$ ]]
+            sha=$(python tools/ci/production_release_gate.py "$ROLLBACK_SHA")
+          else
+            sha=$(python tools/ci/production_release_gate.py)
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "SHA à approuver : `$sha`" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Production Coolify — ${{ needs.select.outputs.sha }}
+    needs: select
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: production
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ needs.select.outputs.sha }}
+      ROLLBACK_FROM: ${{ inputs.rollback_from }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirmer l’approbation et les preuves du SHA
+        run: |
+          python tools/ci/production_release_gate.py --approval "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+          python tools/ci/production_release_gate.py "$SHA"
+      - name: Transmettre le SHA à Coolify et vérifier
+        env:
+          COOLIFY_API_ORIGIN: ${{ secrets.COOLIFY_API_ORIGIN }}
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: python tools/ci/deploy_coolify.py "$SHA" "$ROLLBACK_FROM"
