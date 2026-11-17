@@ -111,6 +111,12 @@ export function browserReceiptPrint(blob: Blob, onError: () => void) {
   document.body.appendChild(frame);
 }
 
+async function prepareReceiptPdf(loadPdf: (format?: ReceiptFormat) => Promise<Blob>, format?: ReceiptFormat) {
+  const start = performance.now();
+  try { return await loadPdf(format); }
+  finally { performance.measure('edusync-receipt-pdf', {start, end: performance.now()}); }
+}
+
 export async function printReceiptOnWorkstation(
   loadPdf: (format?: ReceiptFormat) => Promise<Blob>,
   onBrowserError: () => void,
@@ -118,23 +124,23 @@ export async function printReceiptOnWorkstation(
   const key = receiptPrintKey();
   const format = receiptWorkstationFormat();
   if (!key) {
-    browserReceiptPrint(await loadPdf(format), onBrowserError);
+    browserReceiptPrint(await prepareReceiptPdf(loadPdf, format), onBrowserError);
     return null;
   }
   if (submitting) throw new Error('Une impression est déjà en cours sur ce poste.');
   submitting = true;
   try {
-    let printer: string;
-    try { printer = await checkReceiptPrinter(key); }
-    catch { throw new Error('Agent de caisse indisponible. Lancez-le ou utilisez l’aperçu pour imprimer.'); }
-    const pdf = await loadPdf(format);
+    const pdf = await prepareReceiptPdf(loadPdf, format);
     let response: Response;
+    const start = performance.now();
     try { response = await agentRequest('/print', key, pdf); }
     catch { throw new Error('Envoi non confirmé. Vérifiez l’imprimante avant de réessayer.'); }
+    finally { performance.measure('edusync-receipt-spool', {start, end: performance.now()}); }
+    if (response.status === 401 || response.status === 403) throw new Error('La liaison avec l’agent est refusée. Vérifiez l’association de ce poste.');
     if (response.status === 409) throw new Error('L’agent traite déjà une impression sur ce poste.');
     if (!response.ok) throw new Error('Envoi non confirmé. Vérifiez l’imprimante avant de réessayer.');
     const result = await response.json().catch(() => null);
     if (result?.status !== 'submitted') throw new Error('Envoi non confirmé. Vérifiez l’imprimante avant de réessayer.');
-    return `Reçu envoyé à « ${printer} ». Vérifiez la sortie papier.`;
+    return `Reçu envoyé à « ${typeof result.printer === 'string' ? result.printer : 'imprimante du poste'} ». Vérifiez la sortie papier.`;
   } finally { submitting = false; }
 }

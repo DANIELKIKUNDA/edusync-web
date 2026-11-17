@@ -6,7 +6,7 @@ import Recovery from './recovery';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {CheckoutCharge,CheckoutPerson,OldDebt,SaleProduct,CashSession,checkoutBalance,checkoutCollect,checkoutFamily,checkoutOldDebts,checkoutProducts,checkoutSearch,checkoutSellProduct,cashCurrent,cashOpen,cashClose,cashHistory,cashJournal,cashDaySummary,financeReportTemplates,financeReportPreview,FinanceReportTemplate,financeDecisions,financeResponsibilities,financeCredits,FinanceDecision,FinanceResponsibility,FinanceCredit,feeTrackingTaxonomy,feeTrackingOverview,feeTrackingStudents,FeeTrackingRow,financeHistoryImportTemplate,analyzeFinanceHistoryImport,executeFinanceHistoryImport,paymentOptions,checkoutCollectWithFund,advanceFundReceipt,checkoutRegistrationBundle,listClassSelector,type SchoolClass,type RegistrationBundleDue,type PaymentOptions} from './api';
 const PAY_MODE_LABEL:Record<string,string>={CASH:'Espèces',MOBILE_MONEY:'Mobile Money',BANQUE:'Banque',AUTRE:'Autre'};
-import {checkoutPlans,checkoutPlanMembership,checkoutPlanPreview,checkoutCollectPlan,type ApplicablePlan,type PlanPreview,familyCollect,getPrintSettings,printBasketReceipts,printReceipt,type BasketResult,type PrintSettings,type ReceiptFormat} from './api';
+import {checkoutPlans,checkoutPlanMembership,checkoutPlanPreview,checkoutCollectPlan,type ApplicablePlan,type PlanPreview,familyCollect,getPrintSettings,printBasketReceipts,printReceipt,receiptQueueBatchStatus,type BasketResult,type PrintSettings,type ReceiptFormat} from './api';
 import {toast} from 'sonner';
 import {CashExpenseForm,SchoolDayPanel,useReversal} from './cash_controls';
 import {CashDeskPro} from './cash_desk';
@@ -59,6 +59,16 @@ function ReceiptPreview({url,title,onClose}:{url:string;title:string;onClose:()=
 const takeCheckoutQuery=()=>{try{const v=sessionStorage.getItem('edusync.checkout.query')||'';sessionStorage.removeItem('edusync.checkout.query');return v}catch{return ''}};
 /** Computer layout of the desk (side panel visible): same breakpoint as checkout.css. */
 const isDesk=()=>typeof window!=='undefined'&&!!window.matchMedia?.('(min-width:900px)').matches;
+async function registerReceiptSubmission(token:string, ids:string[], notice:string):Promise<string>{
+  try {
+    await receiptQueueBatchStatus(token,ids,'SUBMITTED');
+    window.dispatchEvent(new Event('edusync:receipt-created'));
+    return notice;
+  } catch {
+    return `${notice} La file n’a pas été mise à jour. Vérifiez la sortie papier avant toute réimpression.`;
+  }
+}
+
 function QuickCheckout({token,can,onOpenCash}:{token:string;can:(p:string)=>boolean;onOpenCash:()=>void}){const collectAttempt=useRef<{sig:string;key:string}|null>(null);const [advOpen,setAdvOpen]=useState(false);const [planFollowed,setPlanFollowed]=useState(false);const [q,setQ]=useState(takeCheckoutQuery);const [hits,setHits]=useState<CheckoutPerson[]>([]);const [cart,setCart]=useState<CheckoutPerson[]>([]);const [active,setActive]=useState<CheckoutPerson|null>(null);useEffect(()=>{setPlanFollowed(false);setAdvOpen(false)},[active?.enrollment_id]);const [charges,setCharges]=useState<CheckoutCharge[]>([]);const [selected,setSelected]=useState<string[]>([]);const [busy,setBusy]=useState(false);const [msg,setMsg]=useState('');const [amount,setAmount]=useState('');const [oldDebts,setOldDebts]=useState<OldDebt[]>([]);const [requiredByEnrollment,setRequiredByEnrollment]=useState<Record<string,RegistrationBundleDue>>({});const timer=useRef<number | undefined>(undefined);const searchRef=useRef<HTMLInputElement>(null);const [hitIndex,setHitIndex]=useState(0);const [transactionOpen,setTransactionOpen]=useState(false);
  const [basket,setBasket]=useState<BasketLine[]>(()=>loadCashierBasket(token));const [basketNeedsReview,setBasketNeedsReview]=useState(()=>loadCashierBasket(token).length>0);const [basketBusy,setBasketBusy]=useState(false);const [basketActionError,setBasketActionError]=useState('');const [initialBasketRequest]=useState(()=>loadCashierBasketRequest(token));const basketRequest=useRef<{signature:string;key:string}|null>(initialBasketRequest);const [basketDone,setBasketDone]=useState<BasketResult|null>(null);const [lastPay,setLastPay]=useState<{id:string;receipt:string}|null>(null);const [lastFund,setLastFund]=useState<{id:string;receipt:string}|null>(null);const [printCfg,setPrintCfg]=useState<PrintSettings|null>(null);const [preview,setPreview]=useState<{url:string;title:string}|null>(null);
  useEffect(()=>{if(can('finance.receipts.read'))getPrintSettings(token).then(setPrintCfg).catch(()=>setPrintCfg(null))},[token]);
@@ -66,20 +76,20 @@ function QuickCheckout({token,can,onOpenCash}:{token:string;can:(p:string)=>bool
  useEffect(()=>{saveCashierBasket(token,basket);if(!basket.length){basketRequest.current=null;saveCashierBasketRequest(token,null)}},[token,basket]);
  async function showReceipt(paymentId:string,label:string){try{const b=await printReceipt(token,paymentId,receiptWorkstationFormat()??printCfg?.receipt_format);setPreview({url:URL.createObjectURL(b),title:`Reçu ${label}`})}catch(e){setMsg(friendlyError(e))}}
  async function showBasketReceipts(r:BasketResult){try{const b=await printBasketReceipts(token,r.basket_id,receiptWorkstationFormat()??printCfg?.receipt_format);setPreview({url:URL.createObjectURL(b),title:'Reçus du panier familial'})}catch(e){setMsg(friendlyError(e))}}
- async function printNow(loadPdf:(format?:ReceiptFormat)=>Promise<Blob>,browserError:string){
+ async function printNow(loadPdf:(format?:ReceiptFormat)=>Promise<Blob>,browserError:string,ids?:string[]){
    try{
      const notice=await printReceiptOnWorkstation(loadPdf,()=>setMsg(browserError));
-     if(notice)setMsg(notice);
+     if(notice)setMsg(ids ? await registerReceiptSubmission(token,ids,notice) : notice);
    }catch(e){setMsg(friendlyError(e))}
  }
  async function printReceiptNow(paymentId:string,label:string){
-   await printNow(format=>printReceipt(token,paymentId,format??printCfg?.receipt_format),`Impossible d’ouvrir le dialogue d’impression pour ${label}. Ouvrez le reçu pour réessayer.`);
+   await printNow(format=>printReceipt(token,paymentId,format??printCfg?.receipt_format),`Impossible d’ouvrir le dialogue d’impression pour ${label}. Ouvrez le reçu pour réessayer.`,[paymentId]);
  }
  async function printFundNow(id:string){
    await printNow(()=>advanceFundReceipt(token,id),'Impossible d’ouvrir le dialogue d’impression du reçu du fonds.');
  }
  async function printBasketNow(r:BasketResult){
-   await printNow(format=>printBasketReceipts(token,r.basket_id,format??printCfg?.receipt_format),'Impossible d’ouvrir le dialogue d’impression. Ouvrez les reçus pour réessayer.');
+   await printNow(format=>printBasketReceipts(token,r.basket_id,format??printCfg?.receipt_format),'Impossible d’ouvrir le dialogue d’impression. Ouvrez les reçus pour réessayer.',r.lines.map(line=>line.payment_id));
  }
 
  const canBasket=can('finance.checkout.family.collect')&&can('finance.checkout.collect');
@@ -328,7 +338,7 @@ function OtherCollections({token,can}:{token:string;can:(p:string)=>boolean}){co
    try{
      const notice=await printReceiptOnWorkstation(format=>printReceipt(token,id,format??printCfg?.receipt_format),
        ()=>setMsg('Le dialogue d’impression ne s’est pas ouvert. Réessayez.'));
-     if(notice)setMsg(notice);
+     if(notice)setMsg(await registerReceiptSubmission(token,[id],notice));
    }catch(e){setMsg(friendlyError(e))}
  }
  return <section className="checkoutWorkspace saleDesk"><div className="checkoutWelcome"><b>Vente d’articles</b><p>Choisissez l’élève, puis l’article. Le prix et le stock viennent du catalogue de l’école : aucune référence technique n’est à saisir au guichet.</p></div>

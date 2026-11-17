@@ -91,3 +91,28 @@ def test_school_specific_profiles_are_not_global_defaults():
     codes={p['code'] for p in result['profiles']}
     assert 'CONSOLIDE' in codes
     assert 'INSCRIPTION_JUIN' not in codes and 'JOURNAL_ECUSSON' not in codes
+
+
+def test_batch_submission_tracks_two_receipts_without_recording_paper(monkeypatch):
+    second = UUID('00000000-0000-0000-0000-000000000005')
+    writes = []
+
+    class Conn:
+        def execute(self, sql, params):
+            if 'SELECT j.status,p.actor_user_id' in str(sql):
+                return Result({'status': 'PENDING', 'actor_user_id': UID})
+            assert "status='SUBMITTED'" in str(sql)
+            writes.append(params['pid'])
+            return Result()
+
+    def unexpected(*_):
+        raise AssertionError('Sending to the spooler does not prove paper output')
+
+    monkeypatch.setattr(checkout, '_audit_print', unexpected)
+    monkeypatch.setattr(checkout, 'PostgresFinanceCheckoutRepository', unexpected)
+    db = DB(Conn())
+    body = checkout.ReceiptQueueBatchStatusBody(payment_ids=[second, PID], status='SUBMITTED')
+    result = checkout.receipt_queue_batch_status(body, actor=actor(), services=SimpleNamespace(tenant_db=db))
+    assert db.committed
+    assert writes == [str(PID), str(second)]
+    assert {row['status'] for row in result['items']} == {'SUBMITTED'}

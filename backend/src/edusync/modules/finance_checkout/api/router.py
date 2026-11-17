@@ -271,9 +271,11 @@ def print_receipt(payment_id:UUID,format:str|None=Query(None,pattern='^(A4|A5|80
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   repo=PostgresFinanceCheckoutRepository(conn);facts=repo.receipt_facts(actor.school_id,payment_id)
   if not facts:raise HTTPException(404,'Reçu introuvable')
-  if repo.receipt_copies(actor.school_id,payment_id)>=1:need(actor,'finance.receipts.reprint')
-  copy=repo.receipt_copies(actor.school_id,payment_id)+1  # PDF access does not prove paper output
-  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=[{**_with_cashier(services,facts),'copy_no':copy}],fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
+  count=repo.receipt_copies(actor.school_id,payment_id)
+  if count>=1:need(actor,'finance.receipts.reprint')
+  copy=count+1  # PDF access does not prove paper output
+  settings=repo.print_settings(actor.school_id)
+  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=[{**_with_cashier(services,facts),'copy_no':copy}],fmt=format or settings['receipt_format'],copies=settings.get('receipt_copies') or 1)
  return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':f'inline; filename="recu_{facts["receipt_number"]}.pdf"'})
 @router.post('/family-baskets/{basket_id}/receipts/print')
 def print_basket_receipts(basket_id:UUID,format:str|None=Query(None,pattern='^(A4|A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -285,52 +287,75 @@ def print_basket_receipts(basket_id:UUID,format:str|None=Query(None,pattern='^(A
   receipts=[]
   for line in basket['lines']:
    pid=UUID(line['payment_id'])
-   if repo.receipt_copies(actor.school_id,pid)>=1:need(actor,'finance.receipts.reprint')
-   copy=repo.receipt_copies(actor.school_id,pid)+1  # only explicit cashier confirmation records printing
+   count=repo.receipt_copies(actor.school_id,pid)
+   if count>=1:need(actor,'finance.receipts.reprint')
+   copy=count+1  # only explicit cashier confirmation records printing
    receipts.append({**_with_cashier(services,repo.receipt_facts(actor.school_id,pid)),'copy_no':copy})
-  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=receipts,fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
+  settings=repo.print_settings(actor.school_id)
+  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=receipts,fmt=format or settings['receipt_format'],copies=settings.get('receipt_copies') or 1)
  return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':'inline; filename="recus_panier_familial.pdf"'})
 class ReceiptQueueStatusBody(BaseModel):
- status:str=Field(pattern='^(PENDING|PRINTED|FAILED)$')
+ status:str=Field(pattern='^(PENDING|SUBMITTED|PRINTED|FAILED)$')
  reason:str|None=Field(default=None,max_length=240)
 
 @router.get('/receipt-queue')
 def receipt_queue(status:str=Query('PENDING',pattern='^(PENDING|PRINTED|FAILED|ALL)$'),limit:int=Query(50,ge=1,le=200),
-                  actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+                  offset:int=Query(0,ge=0),q:str=Query('',max_length=120),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.receipts.read')
  own='' if 'finance.cash.other.read' in actor.permissions else ' AND p.actor_user_id=:uid'
- params={'sid':str(actor.school_id),'uid':str(actor.user_id),'status':status,'limit':limit}
+ params={'sid':str(actor.school_id),'uid':str(actor.user_id),'status':status,'limit':limit+1,'offset':offset}
  base="FROM finance_receipt_print_jobs j JOIN finance_payments p ON p.id=j.payment_id LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students s ON s.id=e.student_id WHERE j.school_id=:sid"+own
+ search=''
+ for index, term in enumerate(q.split()):
+  name=f'q{index}'
+  params[name]=term.lower()
+  search+=f" AND strpos(lower(concat_ws(' ',p.receipt_number,s.last_name,s.middle_name,s.first_name)),:{name})>0"
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   counts=conn.execute(text('SELECT j.status,count(*) total '+base+' GROUP BY j.status'),params).all()
-  rows=conn.execute(text("SELECT j.payment_id,j.status,j.queued_at,j.printed_at,j.failed_at,j.failure_reason,j.attempts,p.receipt_number,p.amount,p.currency,p.actor_user_id,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student "+base+" AND (:status='ALL' OR j.status=:status) ORDER BY j.queued_at DESC,j.payment_id LIMIT :limit"),params).mappings().all()
- return {'counts':{key:next((int(n) for state,n in counts if state==key),0) for key in ('PENDING','PRINTED','FAILED')},'items':[_jsonable_any(dict(row)) for row in rows]}
+  rows=conn.execute(text("SELECT j.payment_id,j.status,j.queued_at,j.printed_at,j.failed_at,j.failure_reason,j.attempts,p.receipt_number,p.amount,p.currency,p.actor_user_id,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student "+base+search+" AND (:status='ALL' OR j.status=:status) ORDER BY j.queued_at DESC,j.payment_id LIMIT :limit OFFSET :offset"),params).mappings().all()
+ return {'counts':{key:next((int(n) for state,n in counts if state==key),0) for key in ('PENDING','SUBMITTED','PRINTED','FAILED')},'items':[_jsonable_any(dict(row)) for row in rows[:limit]],'has_more':len(rows)>limit}
 
 @router.post('/receipt-queue/{payment_id}/status')
 def receipt_queue_status(payment_id:UUID,body:ReceiptQueueStatusBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.receipts.print')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-  row=conn.execute(text('SELECT j.status,p.actor_user_id FROM finance_receipt_print_jobs j JOIN finance_payments p ON p.id=j.payment_id WHERE j.school_id=:sid AND j.payment_id=:pid FOR UPDATE OF j'),{'sid':str(actor.school_id),'pid':str(payment_id)}).mappings().first()
-  if not row or (str(row['actor_user_id'])!=str(actor.user_id) and 'finance.cash.other.read' not in actor.permissions):
-   raise HTTPException(404,'Reçu introuvable dans la file')
-  if row['status']=='PRINTED':
-   if body.status=='PRINTED':
-    return {'payment_id':str(payment_id),'status':'PRINTED'}
-   raise HTTPException(409,'Reçu déjà confirmé imprimé')
-  if body.status=='PRINTED':
-   repo=PostgresFinanceCheckoutRepository(conn)
-   if repo.receipt_copies(actor.school_id,payment_id)>=1:need(actor,'finance.receipts.reprint')
-   copy=repo.record_receipt_print(actor.school_id,payment_id,actor.user_id)
-   _audit_print(conn,actor,payment_id,copy)
-   conn.execute(text("UPDATE finance_receipt_print_jobs SET status='PRINTED',printed_at=now(),printed_by=:uid,failed_at=NULL,failure_reason=NULL,attempts=attempts+1,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'uid':str(actor.user_id),'sid':str(actor.school_id),'pid':str(payment_id)})
-  elif body.status=='FAILED':
-   conn.execute(text("UPDATE finance_receipt_print_jobs SET status='FAILED',failed_at=now(),failure_reason=:reason,attempts=attempts+1,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'reason':(body.reason or 'Impression non confirmée').strip(),'sid':str(actor.school_id),'pid':str(payment_id)})
-  else:
-   conn.execute(text("UPDATE finance_receipt_print_jobs SET status='PENDING',failed_at=NULL,failure_reason=NULL,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'sid':str(actor.school_id),'pid':str(payment_id)})
+  return _change_receipt_queue_status(conn,actor,payment_id,body)
+
+def _change_receipt_queue_status(conn,actor,payment_id,body):
+ row=conn.execute(text('SELECT j.status,p.actor_user_id FROM finance_receipt_print_jobs j JOIN finance_payments p ON p.id=j.payment_id WHERE j.school_id=:sid AND j.payment_id=:pid FOR UPDATE OF j'),{'sid':str(actor.school_id),'pid':str(payment_id)}).mappings().first()
+ if not row or (str(row['actor_user_id'])!=str(actor.user_id) and 'finance.cash.other.read' not in actor.permissions):
+  raise HTTPException(404,'Reçu introuvable dans la file')
+ if row['status']=='PRINTED':
+  if body.status in ('PRINTED','SUBMITTED'):
+   return {'payment_id':str(payment_id),'status':'PRINTED'}
+  raise HTTPException(409,'Reçu déjà confirmé imprimé')
+ if body.status=='PRINTED':
+  repo=PostgresFinanceCheckoutRepository(conn)
+  if repo.receipt_copies(actor.school_id,payment_id)>=1:need(actor,'finance.receipts.reprint')
+  copy=repo.record_receipt_print(actor.school_id,payment_id,actor.user_id)
+  _audit_print(conn,actor,payment_id,copy)
+  conn.execute(text("UPDATE finance_receipt_print_jobs SET status='PRINTED',printed_at=now(),printed_by=:uid,failed_at=NULL,failure_reason=NULL,attempts=attempts+CASE WHEN status='SUBMITTED' THEN 0 ELSE 1 END,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'uid':str(actor.user_id),'sid':str(actor.school_id),'pid':str(payment_id)})
+ elif body.status=='SUBMITTED':
+  if row['status']!='SUBMITTED':
+   conn.execute(text("UPDATE finance_receipt_print_jobs SET status='SUBMITTED',failed_at=NULL,failure_reason=NULL,attempts=attempts+1,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'sid':str(actor.school_id),'pid':str(payment_id)})
+ elif body.status=='FAILED':
+  conn.execute(text("UPDATE finance_receipt_print_jobs SET status='FAILED',failed_at=now(),failure_reason=:reason,attempts=attempts+1,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'reason':(body.reason or 'Impression non confirmée').strip(),'sid':str(actor.school_id),'pid':str(payment_id)})
+ else:
+  conn.execute(text("UPDATE finance_receipt_print_jobs SET status='PENDING',failed_at=NULL,failure_reason=NULL,updated_at=now() WHERE school_id=:sid AND payment_id=:pid"),{'sid':str(actor.school_id),'pid':str(payment_id)})
  return {'payment_id':str(payment_id),'status':body.status}
 
 class ReceiptQueueBundleBody(BaseModel):
  payment_ids:list[UUID]=Field(min_length=1,max_length=50)
+
+class ReceiptQueueBatchStatusBody(ReceiptQueueBundleBody, ReceiptQueueStatusBody):
+ pass
+
+@router.post('/receipt-queue/status')
+def receipt_queue_batch_status(body:ReceiptQueueBatchStatusBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ need(actor,'finance.receipts.print')
+ if len(set(body.payment_ids))!=len(body.payment_ids):raise HTTPException(422,'Sélection de reçus invalide')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  return {'items':[_change_receipt_queue_status(conn,actor,pid,body) for pid in sorted(body.payment_ids)]}
 
 @router.post('/receipt-queue/pdf')
 def receipt_queue_pdf(body:ReceiptQueueBundleBody,format:str|None=Query(None,pattern='^(A4|A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -347,7 +372,8 @@ def receipt_queue_pdf(body:ReceiptQueueBundleBody,format:str|None=Query(None,pat
    count=repo.receipt_copies(actor.school_id,pid)
    if count>=1:need(actor,'finance.receipts.reprint')
    receipts.append({**_with_cashier(services,facts),'copy_no':count+1})
-  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=receipts,fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
+  settings=repo.print_settings(actor.school_id)
+  data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=receipts,fmt=format or settings['receipt_format'],copies=settings.get('receipt_copies') or 1)
  return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':'inline; filename="recus_selection.pdf"'})
 
 @router.get('/print-settings')

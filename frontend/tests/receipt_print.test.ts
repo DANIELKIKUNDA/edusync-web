@@ -6,37 +6,33 @@ afterEach(() => { localStorage.clear(); vi.unstubAllGlobals(); });
 const key = '1a'.repeat(32);
 const pdf = new Blob(['%PDF-'], {type: 'application/pdf'});
 
-it('checks the configured workstation and sends one PDF without opening the browser dialog', async () => {
+it('sends one PDF without a separate agent status request without opening the browser dialog', async () => {
   saveReceiptPrintKey(key);
   const fetchAgent = vi.fn()
-    .mockResolvedValueOnce(Response.json({status: 'ready', printer: 'Ticket 80'}))
-    .mockResolvedValueOnce(Response.json({status: 'submitted'}));
+    .mockResolvedValueOnce(Response.json({status: 'submitted', printer: 'Ticket 80'}));
   vi.stubGlobal('fetch', fetchAgent);
   saveReceiptWorkstationFormat('80MM');
   const loadPdf = vi.fn(async () => pdf);
   const fallback = vi.fn();
   expect(await printReceiptOnWorkstation(loadPdf, fallback)).toContain('Vérifiez la sortie papier');
   expect(fetchAgent.mock.calls.map(([path]) => path)).toEqual([
-    'http://127.0.0.1:47319/v1/status', 'http://127.0.0.1:47319/v1/print',
+    'http://127.0.0.1:47319/v1/print',
   ]);
-  expect(fetchAgent.mock.calls[1][1]).toMatchObject({method: 'POST', body: pdf, redirect: 'error'});
+  expect(fetchAgent.mock.calls[0][1]).toMatchObject({method: 'POST', body: pdf, redirect: 'error'});
   expect(loadPdf).toHaveBeenCalledExactlyOnceWith('80MM');
   expect(fallback).not.toHaveBeenCalled();
   expect(document.querySelector('iframe')).toBeNull();
 });
 
-it('does not request a receipt if the configured agent is unavailable', async () => {
+it('reports rejected workstation authentication', async () => {
   saveReceiptPrintKey(key);
-  const loadPdf = vi.fn(async () => pdf);
-  vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new TypeError()));
-  await expect(printReceiptOnWorkstation(loadPdf, vi.fn())).rejects.toThrow('Agent de caisse indisponible');
-  expect(loadPdf).not.toHaveBeenCalled();
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(null, {status: 401})));
+  await expect(printReceiptOnWorkstation(async () => pdf, vi.fn())).rejects.toThrow('liaison avec l’agent est refusée');
 });
 
 it('reports an unknown submission without falling back and risking a second print', async () => {
   saveReceiptPrintKey(key);
   vi.stubGlobal('fetch', vi.fn()
-    .mockResolvedValueOnce(Response.json({status: 'ready', printer: 'Ticket 80'}))
     .mockRejectedValueOnce(new TypeError()));
   const fallback = vi.fn();
   await expect(printReceiptOnWorkstation(async () => pdf, fallback)).rejects.toThrow('Envoi non confirmé');
