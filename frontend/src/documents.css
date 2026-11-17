@@ -49,6 +49,12 @@
 .receiptNumbering legend{font-weight:700;font-size:13px;margin-bottom:4px}
 .receiptNumbering label{display:grid;gap:4px;font-size:13px;font-weight:600}
 .receiptNumbering input,.receiptNumbering select{min-height:40px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px}
+.receiptPrintKey{display:grid;gap:4px;min-width:0}
+.receiptPrintKeyField{display:flex;position:relative;min-width:0}
+.receiptNumbering .receiptPrintKeyField input{width:100%;min-width:0;padding-inline-end:44px}
+.receiptPrintKeyField button{position:absolute;inset-inline-end:2px;top:2px;bottom:2px;width:38px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:inherit;cursor:pointer}
+.receiptPrintKeyField button:hover{background:#eef2f8}
+.receiptPrintKeyField button:focus-visible{outline:2px solid #1554d1;outline-offset:-2px}
 .receiptNumbering small{font-weight:400;color:#64748b}
 @media(max-width:720px){.receiptNumbering{grid-template-columns:1fr}}
 
