@@ -25,9 +25,23 @@ if ($LASTEXITCODE -ne 0) { throw 'La compilation du connecteur a échoué.' }
 
 $innoArgs = @()
 if ($SignToolCommand) {
+    if (-not $SignToolCommand.Contains('$f')) {
+        throw 'La commande Inno Setup doit contenir le paramètre $f.'
+    }
     $innoArgs += '/DSignStaging'
     $innoArgs += "/Sedusync=$SignToolCommand"
 }
 $innoArgs += (Join-Path $PSScriptRoot 'installer.iss')
 & $compiler @innoArgs
 if ($LASTEXITCODE -ne 0) { throw "La création de l’installateur a échoué." }
+
+if ($SignToolCommand) {
+    $setup = Join-Path $PSScriptRoot 'dist\EduSync-Print-Setup-Staging-Signed.exe'
+    foreach ($file in @($launcher, $setup)) {
+        $signature = Get-AuthenticodeSignature -LiteralPath $file
+        if ($signature.Status -ne 'Valid' -or -not $signature.TimeStamperCertificate) {
+            Remove-Item -LiteralPath $setup -ErrorAction SilentlyContinue
+            throw "Signature Authenticode horodatée invalide : $file ($($signature.Status))"
+        }
+    }
+}
