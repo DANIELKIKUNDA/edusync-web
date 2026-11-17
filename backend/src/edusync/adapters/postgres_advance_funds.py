@@ -51,13 +51,14 @@ class PostgresAdvanceFundsRepository:
             raise LookupError("Fonds anticipé introuvable")
         return dict(r)
 
-    def list(self, school_id: UUID, *, enrollment_id: UUID | None = None, student_id: UUID | None = None, include_closed: bool = True) -> list[dict[str, Any]]:
+    def list(self, school_id: UUID, *, enrollment_id: UUID | None = None, student_id: UUID | None = None, include_closed: bool = True, class_ids=None) -> list[dict[str, Any]]:
         rows = self.c.execute(text("""SELECT f.*, s.matricule, s.last_name, s.middle_name, s.first_name, sc.label AS class_label
               FROM finance_advance_fund_state f JOIN students s ON s.id=f.student_id JOIN enrollments e ON e.id=f.enrollment_id
               JOIN school_classes sc ON sc.id=e.class_id
              WHERE f.school_id=:s AND (CAST(:e AS uuid) IS NULL OR f.enrollment_id=CAST(:e AS uuid)) AND (CAST(:st AS uuid) IS NULL OR f.student_id=CAST(:st AS uuid))
-               AND (:all OR f.status='ACTIF') ORDER BY f.received_at DESC"""),
-            {"s": school_id, "e": str(enrollment_id) if enrollment_id else None, "st": str(student_id) if student_id else None, "all": include_closed}).mappings().all()
+               AND (:all OR f.status='ACTIF') AND (CAST(:scope_all AS boolean) OR e.class_id=ANY(CAST(:scope_cids AS uuid[]))) ORDER BY f.received_at DESC"""),
+            {"s": school_id, "e": str(enrollment_id) if enrollment_id else None, "st": str(student_id) if student_id else None, "all": include_closed,
+             "scope_all": class_ids is None, "scope_cids": [str(x) for x in (class_ids or ())]}).mappings().all()
         return [dict(r) for r in rows]
 
     # ---------- receive ----------

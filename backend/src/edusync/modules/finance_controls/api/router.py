@@ -13,12 +13,26 @@ def need(a,c):
  try:a.require(c)
  except PermissionError as e:raise HTTPException(403,str(e))
 def rows(c,sql,p):return [dict(x) for x in c.execute(text(sql),p).mappings().all()]
+# Owner, 2026-11-17: « l'interface ne doit jamais afficher une classe qui n'est pas de son périmètre » — a section-scoped
+# actor (préfet, directeur de section, des études, de discipline) sees only the pupils of his classes, unless the role is
+# given « toute l'école » in Accès & rôles.
+from edusync.adapters.class_scope import visible_class_ids
+def scope(c,actor,cap):
+ v=visible_class_ids(c.connection.driver_connection,actor.school_id,actor.scopes_for(cap))
+ return {'scope_all':v is None,'scope_cids':[str(x) for x in (v or ())]}
+def guard_student(c,actor,cap,student_id=None,charge_id=None):
+ sc=scope(c,actor,cap)
+ if sc['scope_all']:return
+ sql=("SELECT 1 FROM enrollments e WHERE e.school_id=:s AND e.student_id=:x AND e.class_id=ANY(CAST(:scope_cids AS uuid[]))" if student_id else
+      "SELECT 1 FROM finance_charges fc JOIN enrollments e ON e.id=fc.enrollment_id WHERE fc.school_id=:s AND fc.id=:x AND e.class_id=ANY(CAST(:scope_cids AS uuid[]))")
+ if c.execute(text(sql),{'s':str(actor.school_id),'x':str(student_id or charge_id),'scope_cids':sc['scope_cids']}).first() is None:
+  raise HTTPException(403,'Cet élève est hors de votre périmètre')
 
 @router.get('/decisions')
 def decisions(status:str='ACTIVE',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.decisions.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-  return {'items':rows(c,"""SELECT d.*,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label,COALESCE(ft.label,CASE WHEN d.scope_type='FEE_CODE' THEN (SELECT f2.label FROM fee_types f2 WHERE f2.school_id=d.school_id AND upper(f2.code)=upper(d.scope_ref) LIMIT 1) WHEN d.scope_type='FEE_CATEGORY' THEN (SELECT fcat.label FROM fee_categories fcat WHERE fcat.school_id=d.school_id AND upper(fcat.code)=upper(d.scope_ref) LIMIT 1) END) fee_label FROM finance_decisions d JOIN enrollments e ON e.id=d.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN finance_charges ch ON ch.id=d.charge_id LEFT JOIN fee_types ft ON ft.id=ch.fee_type_id WHERE d.school_id=:s AND (:st='ALL' OR d.status=:st) ORDER BY d.effective_date DESC,d.created_at DESC""",{'s':str(actor.school_id),'st':status})}
+  return {'items':rows(c,"""SELECT d.*,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label,COALESCE(ft.label,CASE WHEN d.scope_type='FEE_CODE' THEN (SELECT f2.label FROM fee_types f2 WHERE f2.school_id=d.school_id AND upper(f2.code)=upper(d.scope_ref) LIMIT 1) WHEN d.scope_type='FEE_CATEGORY' THEN (SELECT fcat.label FROM fee_categories fcat WHERE fcat.school_id=d.school_id AND upper(fcat.code)=upper(d.scope_ref) LIMIT 1) END) fee_label FROM finance_decisions d JOIN enrollments e ON e.id=d.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id LEFT JOIN finance_charges ch ON ch.id=d.charge_id LEFT JOIN fee_types ft ON ft.id=ch.fee_type_id WHERE d.school_id=:s AND (:st='ALL' OR d.status=:st) AND (CAST(:scope_all AS boolean) OR e.class_id=ANY(CAST(:scope_cids AS uuid[]))) ORDER BY d.effective_date DESC,d.created_at DESC""",{'s':str(actor.school_id),'st':status,**scope(c,actor,'finance.decisions.read')})}
 from edusync.adapters.postgres_financial_decisions import PostgresFinancialDecisionsRepository
 import json as _json
 def _audit(c,actor,action,entity_type,entity_id,old,new,reason=None):
@@ -66,6 +80,7 @@ def charge_explanation(charge_id:UUID,actor:ActorContext=Depends(require_school_
  need(actor,'finance.decisions.read')
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+   guard_student(c,actor,'finance.decisions.read',charge_id=charge_id)
    return _plain(PostgresFinancialDecisionsRepository(c).explanation(actor.school_id,charge_id))
  except LookupError as e:raise HTTPException(404,str(e)) from e
 @router.get('/students/{student_id}/view')
@@ -74,6 +89,7 @@ def operator_view(student_id:UUID,year_id:UUID|None=None,actor:ActorContext=Depe
  need(actor,'finance.decisions.read')
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+   guard_student(c,actor,'finance.decisions.read',student_id=student_id)
    return _plain(PostgresFinancialDecisionsRepository(c).operator_view(actor.school_id,student_id,year_id))
  except LookupError as e:raise HTTPException(404,str(e)) from e
 @router.get('/follow-up')
@@ -81,7 +97,7 @@ def follow_up(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_a
  """G-DEC-4 — Desktop financial_operator_follow_up (decisions with their applications, planned responsibilities)."""
  need(actor,'finance.decisions.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-  return _plain(PostgresFinancialDecisionsRepository(c).follow_up(actor.school_id,year_id))
+  return _plain(PostgresFinancialDecisionsRepository(c).follow_up(actor.school_id,year_id,scope(c,actor,'finance.decisions.read')))
 class ChargeResponsibilityBody(BaseModel):
  responsibility_type:str=Field(pattern='^(FAMILY_CASH|PAYROLL_DEDUCTION|THIRD_PARTY)$');planned_amount:Decimal=Field(gt=0,max_digits=18,decimal_places=2)
  responsible_name:str|None=Field(default=None,max_length=160);reference:str|None=Field(default=None,max_length=120);reason:str=Field(min_length=3,max_length=500)
@@ -101,7 +117,7 @@ def set_charge_responsibility(charge_id:UUID,b:ChargeResponsibilityBody,actor:Ac
 def responsibilities(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.responsibility.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-  return {'items':rows(c,"""SELECT DISTINCT ON(r.enrollment_id) r.*,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label FROM finance_responsibilities r JOIN enrollments e ON e.id=r.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id WHERE r.school_id=:s ORDER BY r.enrollment_id,r.effective_from DESC,r.created_at DESC""",{'s':str(actor.school_id)})}
+  return {'items':rows(c,"""SELECT DISTINCT ON(r.enrollment_id) r.*,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label FROM finance_responsibilities r JOIN enrollments e ON e.id=r.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id WHERE r.school_id=:s AND (CAST(:scope_all AS boolean) OR e.class_id=ANY(CAST(:scope_cids AS uuid[]))) ORDER BY r.enrollment_id,r.effective_from DESC,r.created_at DESC""",{'s':str(actor.school_id),**scope(c,actor,'finance.responsibility.read')})}
 class ResponsibilityBody(BaseModel):
  enrollment_id:UUID;responsibility_mode:str;responsible_label:str|None=Field(default=None,max_length=160);effective_from:date;effective_until:date|None=None;notes:str|None=Field(default=None,max_length=500)
 @router.post('/responsibilities')
@@ -121,4 +137,4 @@ def credits(status:str=Query('OPEN',pattern='^(OPEN|CONSUMED|REFUNDED|CANCELLED|
   return {'items':rows(c,"""SELECT f.id,f.enrollment_id,f.currency,f.amount original_amount,f.allocated_amount consumed_amount,f.available_amount remaining,
      f.origin_type origin,f.status,f.receipt_number,f.received_at created_at,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label
      FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id
-     WHERE f.school_id=:s AND (:st='ALL' OR f.status=:st) ORDER BY f.received_at DESC""",{'s':str(actor.school_id),'st':st}),'read_only':True}
+     WHERE f.school_id=:s AND (:st='ALL' OR f.status=:st) AND (CAST(:scope_all AS boolean) OR e.class_id=ANY(CAST(:scope_cids AS uuid[]))) ORDER BY f.received_at DESC""",{'s':str(actor.school_id),'st':st,**scope(c,actor,'finance.credits.read')}),'read_only':True}

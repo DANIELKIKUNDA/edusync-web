@@ -210,18 +210,19 @@ class PostgresFinancialDecisionsRepository:
         return {"student": {k: (str(v) if isinstance(v, UUID) else v) for k, v in dict(enr).items()}, "charges": rows, "events": events,
                 "summary": {cur: {k: str(v) for k, v in b.items()} for cur, b in summary.items()}}
 
-    def follow_up(self, school_id: UUID, year_id: UUID | None = None) -> dict[str, Any]:
+    def follow_up(self, school_id: UUID, year_id: UUID | None = None, scope: dict | None = None) -> dict[str, Any]:
+        scope = scope or {'scope_all': True, 'scope_cids': []}
         y = self.c.execute(text("""SELECT id FROM academic_years WHERE school_id=:s AND (CAST(:y AS uuid) IS NULL OR id=CAST(:y AS uuid))
             ORDER BY (status='ACTIVE') DESC, start_date DESC LIMIT 1"""), {"s": school_id, "y": str(year_id) if year_id else None}).scalar_one_or_none()
         decisions = [dict(r) for r in self.c.execute(text("""SELECT d.*, s.matricule, concat_ws(' ', s.last_name, s.middle_name, s.first_name) AS student,
                 sc.label AS class_label, (SELECT count(*) FROM finance_decision_applications a WHERE a.decision_id=d.id) AS application_count
               FROM finance_decisions d JOIN enrollments e ON e.id=d.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id
-             WHERE d.school_id=:s AND e.academic_year_id=:y ORDER BY (d.status='ACTIVE') DESC, d.created_at DESC"""), {"s": school_id, "y": y}).mappings().all()]
+             WHERE d.school_id=:s AND e.academic_year_id=:y AND (CAST(:scope_all AS boolean) OR e.class_id=ANY(CAST(:scope_cids AS uuid[]))) ORDER BY (d.status='ACTIVE') DESC, d.created_at DESC"""), {"s": school_id, "y": y, **scope}).mappings().all()]
         responsibilities = [dict(r) for r in self.c.execute(text("""SELECT cr.*, s.matricule, concat_ws(' ', s.last_name, s.middle_name, s.first_name) AS student,
                 fc.label AS fee_label, fc.due_date
               FROM finance_charge_responsibilities cr JOIN finance_charges fc ON fc.id=cr.charge_id JOIN enrollments e ON e.id=fc.enrollment_id
-              JOIN students s ON s.id=e.student_id WHERE cr.school_id=:s AND e.academic_year_id=:y
-             ORDER BY (cr.status='PLANNED') DESC, fc.due_date, cr.created_at DESC"""), {"s": school_id, "y": y}).mappings().all()]
+              JOIN students s ON s.id=e.student_id WHERE cr.school_id=:s AND e.academic_year_id=:y AND (CAST(:scope_all AS boolean) OR e.class_id=ANY(CAST(:scope_cids AS uuid[])))
+             ORDER BY (cr.status='PLANNED') DESC, fc.due_date, cr.created_at DESC"""), {"s": school_id, "y": y, **scope}).mappings().all()]
         return {"year_id": str(y) if y else None, "decisions": decisions, "responsibilities": responsibilities}
 
     # ---------- Desktop set_charge_responsibility ----------

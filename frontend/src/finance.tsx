@@ -361,7 +361,7 @@ function FeeTracking({token}:{token:string}){
  const [currency,setCurrency]=useState('CDF');const [classes,setClasses]=useState<SchoolClass[]>([]);const [section,setSection]=useState('');const [classId,setClassId]=useState('');
  const [tax,setTax]=useState<any[]>([]);const [overview,setOverview]=useState<any[]>([]);const [rows,setRows]=useState<FeeTrackingRow[]>([]);const [category,setCategory]=useState('');const [fee,setFee]=useState('');const [status,setStatus]=useState('');const [msg,setMsg]=useState('');
  const [total,setTotal]=useState(0);const [more,setMore]=useState(false);const [search,setSearch]=useState('');const [q,setQ]=useState('');const [sums,setSums]=useState<{net_expected:string;regularized:string;remaining:string}|null>(null);const [loading,setLoading]=useState(true);const gen=useRef(0);
- useEffect(()=>{listClassSelector(token).then(setClasses).catch(e=>setMsg(friendlyError(e)))},[token]);
+ useEffect(()=>{listClassSelector(token,undefined,'finance.analysis.by_fee.read').then(setClasses).catch(e=>setMsg(friendlyError(e)))},[token]);
  const sections=useMemo(()=>Array.from(new Map(classes.map(c=>[c.section_id,c.section_label??'Section'])).entries()),[classes]);
  const classChoices=classes.filter(c=>!section||c.section_id===section);
  const scope={currency,classId:classId||undefined,sectionId:classId?undefined:section||undefined};
