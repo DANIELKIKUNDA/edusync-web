@@ -1,0 +1,65 @@
+name: Print Connector Windows
+
+on:
+  pull_request:
+    paths:
+      - 'tools/print-agent/**'
+      - '.github/workflows/print-connector-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-installer:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          architecture: x64
+      - name: Build and smoke-test staging installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $node = Split-Path (Get-Command node.exe).Source
+          node --test tools/print-agent/server.test.mjs
+          $sumatra = Join-Path $env:RUNNER_TEMP 'edusync-sumatra'
+          $zip = Join-Path $env:RUNNER_TEMP 'edusync-sumatra.zip'
+          Invoke-WebRequest 'https://www.sumatrapdfreader.org/dl/rel/3.6.1/SumatraPDF-3.6.1-64.zip' -OutFile $zip
+          Expand-Archive -LiteralPath $zip -DestinationPath $sumatra
+          $portable = Get-ChildItem -LiteralPath $sumatra -Filter '*.exe' -File
+          if (@($portable).Count -ne 1) { throw 'Archive SumatraPDF inattendue.' }
+          $signature = Get-AuthenticodeSignature -FilePath $portable.FullName
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Kowalczyk|Sumatra') {
+            throw "Signature SumatraPDF inattendue : $($signature.Status) $($signature.SignerCertificate.Subject)"
+          }
+          if ($portable.Name -cne 'SumatraPDF.exe') {
+            Rename-Item -LiteralPath $portable.FullName -NewName 'SumatraPDF.exe'
+          }
+          Invoke-WebRequest 'https://raw.githubusercontent.com/sumatrapdfreader/sumatrapdf/16c59fde8b824ab54c56f23aef910a6fdd874ad0/COPYING' -OutFile (Join-Path $sumatra 'COPYING')
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc)) {
+            choco install innosetup --yes --no-progress
+            $iscc = (Get-Command iscc.exe).Source
+          }
+          & ./tools/print-agent/windows/build.ps1 -NodeDist $node -SumatraDist $sumatra -InnoCompiler $iscc
+          $setup = Get-Item 'tools/print-agent/windows/dist/EduSync-Print-Setup-Staging.exe'
+          $install = Start-Process -FilePath $setup.FullName -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Installation échouée : $($install.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\EduSync Print Connector Staging'
+          foreach ($file in @('EduSyncPrintConnector.exe', 'node.exe', 'SumatraPDF.exe', 'server.mjs')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $app $file))) { throw "Fichier absent : $file" }
+          }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $setup.FullName).Hash
+          "$hash  $($setup.Name)" | Set-Content -Encoding ascii (Join-Path $setup.DirectoryName 'SHA256SUMS.txt')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: edusync-print-setup-staging-unsigned
+          path: |
+            tools/print-agent/windows/dist/EduSync-Print-Setup-Staging.exe
+            tools/print-agent/windows/dist/SHA256SUMS.txt
+          if-no-files-found: error
