@@ -266,7 +266,7 @@ def _with_cashier(services,facts):
    facts['cashier']=pc.execute(_t("SELECT full_name FROM users WHERE id=:id"),{'id':str(facts['actor_user_id'])}).scalar_one_or_none()
  return facts
 @router.post('/receipts/{payment_id}/print')
-def print_receipt(payment_id:UUID,format:str|None=Query(None,pattern='^(A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def print_receipt(payment_id:UUID,format:str|None=Query(None,pattern='^(A4|A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.receipts.print')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   repo=PostgresFinanceCheckoutRepository(conn);facts=repo.receipt_facts(actor.school_id,payment_id)
@@ -276,7 +276,7 @@ def print_receipt(payment_id:UUID,format:str|None=Query(None,pattern='^(A5|80MM|
   data=receipt_pdf(school=_school_for_receipt(conn,actor.school_id),receipts=[{**_with_cashier(services,facts),'copy_no':copy}],fmt=format or repo.print_settings(actor.school_id)['receipt_format'],copies=repo.print_settings(actor.school_id).get('receipt_copies') or 1)
  return Response(data,media_type='application/pdf',headers={**_PDF_HEADERS,'Content-Disposition':f'inline; filename="recu_{facts["receipt_number"]}.pdf"'})
 @router.post('/family-baskets/{basket_id}/receipts/print')
-def print_basket_receipts(basket_id:UUID,format:str|None=Query(None,pattern='^(A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def print_basket_receipts(basket_id:UUID,format:str|None=Query(None,pattern='^(A4|A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'documents.receipts.bundle.print');need(actor,'finance.receipts.print')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   repo=PostgresFinanceCheckoutRepository(conn)
@@ -333,7 +333,7 @@ class ReceiptQueueBundleBody(BaseModel):
  payment_ids:list[UUID]=Field(min_length=1,max_length=50)
 
 @router.post('/receipt-queue/pdf')
-def receipt_queue_pdf(body:ReceiptQueueBundleBody,format:str|None=Query(None,pattern='^(A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def receipt_queue_pdf(body:ReceiptQueueBundleBody,format:str|None=Query(None,pattern='^(A4|A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.receipts.print')
  if len(set(body.payment_ids))!=len(body.payment_ids):raise HTTPException(422,'Sélection de reçus invalide')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
@@ -355,7 +355,7 @@ def get_print_settings(actor:ActorContext=Depends(require_school_actor),services
  need(actor,'finance.receipts.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return PostgresFinanceCheckoutRepository(conn).print_settings(actor.school_id)
 class PrintSettingsBody(BaseModel):
- receipt_policy:str=Field(pattern='^(NONE|PROPOSE|AUTO_PREVIEW)$');receipt_format:str=Field(pattern='^(A5|80MM|58MM)$')
+ receipt_policy:str=Field(pattern='^(NONE|PROPOSE|AUTO_PREVIEW)$');receipt_format:str=Field(pattern='^(A4|A5|80MM|58MM)$')
  receipt_prefix:str=Field(default='REC',pattern='^[A-Za-z0-9]{1,12}$');receipt_copies:int=Field(default=1,ge=1,le=5)
  report_prefix:str=Field(default='RAP',pattern='^[A-Za-z0-9]{1,12}$')   # N3-G / G-REC-5 (Desktop document settings)
  # Settings parity pass 3: Desktop save_document_settings signatory / show_logo (None keeps the stored value).

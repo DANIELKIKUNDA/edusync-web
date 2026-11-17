@@ -2,6 +2,9 @@ from datetime import datetime
 from io import BytesIO
 
 from pypdf import PdfReader
+from reportlab.lib.pagesizes import A4, A5
+from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from edusync.modules.finance_checkout.application.receipts import money, receipt_pdf
 
@@ -36,8 +39,8 @@ def test_official_receipt_matches_desktop_documentary_blocks_and_real_cashier():
     assert 79 < float(pdf.pages[0].mediabox.width) / 2.83464567 < 81
     text = pdf.pages[0].extract_text()
     for label in ("REÇU N°", "ANNÉE SCOLAIRE", "REÇU DE PAIEMENT", "CODE ÉLÈVE",
-                  "DÉTAIL DES PAIEMENTS", "TYPE DE FRAIS", "LIBELLÉ / MOIS",
-                  "PÉRIODE", "MONTANT (FC)", "TOTAL PAYÉ", "MONTANT EN LETTRES",
+                  "DÉTAIL DES PAIEMENTS", "Frais scolaires", "Libellé / mois",
+                  "Période", "70 000 FC", "TOTAL PAYÉ", "MONTANT EN LETTRES",
                   "MODE DE PAIEMENT", "CAISSIER", "CACHET DE L’ÉCOLE"):
         assert label in text
     assert "Caissier réel" in text
@@ -49,10 +52,54 @@ def test_official_receipt_matches_desktop_documentary_blocks_and_real_cashier():
 
 def test_receipt_copies_and_formats_keep_one_numbered_receipt_per_page():
     receipt = _receipt()
-    for fmt in ("58MM", "80MM", "A5"):
+    for fmt in ("58MM", "80MM", "A5", "A4"):
         pdf = PdfReader(BytesIO(receipt_pdf(school={"name": "École"}, receipts=[receipt], fmt=fmt, copies=2)))
         assert len(pdf.pages) == 2
         assert "Copie 1/2" in pdf.pages[0].extract_text()
         assert "Copie 2/2" in pdf.pages[1].extract_text()
         assert "REC-2026-000123" in pdf.pages[0].extract_text()
         assert "REC-2026-000123" in pdf.pages[1].extract_text()
+
+
+def test_thermal_ticket_uses_readable_fonts_and_full_text_inside_printable_area():
+    receipt = _receipt()
+    receipt["payment_reference"] = "REFERENCE" * 14
+    receipt["lines"][0]["fee_label"] = "Frais scolaires et cotisation exceptionnelle pour les activités scientifiques"
+    receipt["advance_amount"] = "10000"
+    receipt["advance_target"] = "Tranche trois"
+    receipt["copy_no"] = 2
+    school = {"name": "Complexe scolaire international de démonstration à Lubumbashi",
+              "address": "Avenue des Écoles numéro 123 commune de démonstration",
+              "email": "recette@ecole.example"}
+    pdf = PdfReader(BytesIO(receipt_pdf(school=school, receipts=[receipt], fmt="80MM")))
+    assert pdf.root_object["/ViewerPreferences"]["/PrintScaling"] == "/None"
+    page = pdf.pages[0]
+    width, height = float(page.mediabox.width), float(page.mediabox.height)
+    sizes = []
+
+    def measure(text, _cm, tm, font, size):
+        label = text.strip()
+        if not label or not font:
+            return
+        sizes.append(size)
+        assert tm[4] >= 5 * mm - .1
+        assert tm[4] + stringWidth(label, font["/BaseFont"][1:], size) <= width - 5 * mm + .1
+        assert 5 * mm <= tm[5] < height - 5 * mm
+
+    text = page.extract_text(visitor_text=measure)
+    assert min(sizes) >= 10 and max(sizes) >= 17
+    assert "…" not in text
+    assert receipt["payment_reference"] in "".join(text.split())
+    assert "Avance conservée" in text and "Tranche trois" in text
+    assert "DUPLICATA n° 1" in text
+    assert "120 000 FC" in text
+
+
+def test_office_receipts_have_native_a4_and_legacy_a5_dimensions():
+    for fmt, size in (("A4", A4), ("A5", A5)):
+        page = PdfReader(BytesIO(receipt_pdf(school={"name": "École"}, receipts=[_receipt()], fmt=fmt))).pages[0]
+        assert abs(float(page.mediabox.width) - size[0]) < .01
+        assert abs(float(page.mediabox.height) - size[1]) < .01
+        text = page.extract_text()
+        assert "TYPE DE FRAIS" in text and "MONTANT (FC)" in text
+        assert "REC-2026-000123" in text and "120 000 FC" in text

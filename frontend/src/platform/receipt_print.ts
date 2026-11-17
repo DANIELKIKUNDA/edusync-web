@@ -1,7 +1,26 @@
+import type {ReceiptFormat} from '../api';
+
 const AGENT = 'http://127.0.0.1:47319/v1';
 const STORAGE_KEY = 'edusync.receipt-print.key';
 const VALID_KEY = /^[a-f0-9]{64}$/;
 let submitting = false;
+
+const FORMAT_KEY = 'edusync.receipt-print.format';
+
+export function receiptWorkstationFormat(): ReceiptFormat | undefined {
+  try {
+    const format = localStorage.getItem(FORMAT_KEY);
+    switch (format) {
+      case 'A4': case 'A5': case '80MM': case '58MM': return format;
+      default: return undefined;
+    }
+  } catch { return undefined; }
+}
+
+export function saveReceiptWorkstationFormat(format: ReceiptFormat | undefined) {
+  if (format) localStorage.setItem(FORMAT_KEY, format);
+  else localStorage.removeItem(FORMAT_KEY);
+}
 
 export function receiptPrintKey(): string {
   try { return localStorage.getItem(STORAGE_KEY) ?? ''; }
@@ -67,12 +86,13 @@ export function browserReceiptPrint(blob: Blob, onError: () => void) {
 }
 
 export async function printReceiptOnWorkstation(
-  loadPdf: () => Promise<Blob>,
+  loadPdf: (format?: ReceiptFormat) => Promise<Blob>,
   onBrowserError: () => void,
 ): Promise<string | null> {
   const key = receiptPrintKey();
+  const format = receiptWorkstationFormat();
   if (!key) {
-    browserReceiptPrint(await loadPdf(), onBrowserError);
+    browserReceiptPrint(await loadPdf(format), onBrowserError);
     return null;
   }
   if (submitting) throw new Error('Une impression est déjà en cours sur ce poste.');
@@ -81,7 +101,7 @@ export async function printReceiptOnWorkstation(
     let printer: string;
     try { printer = await checkReceiptPrinter(key); }
     catch { throw new Error('Agent de caisse indisponible. Lancez-le ou utilisez l’aperçu pour imprimer.'); }
-    const pdf = await loadPdf();
+    const pdf = await loadPdf(format);
     let response: Response;
     try { response = await agentRequest('/print', key, pdf); }
     catch { throw new Error('Envoi non confirmé. Vérifiez l’imprimante avant de réessayer.'); }
