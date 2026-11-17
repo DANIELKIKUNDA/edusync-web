@@ -11,7 +11,7 @@ from io import BytesIO
 from typing import Any
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A5
+from reportlab.lib.pagesizes import A4, A5
 from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
@@ -40,6 +40,8 @@ def _size(fmt: str, lines: int) -> tuple[float, float]:
         return 58 * mm, max(205, 190 + lines * 8) * mm
     if fmt == "80MM":
         return 80 * mm, max(190, 178 + lines * 7) * mm
+    if fmt == "A4":
+        return A4
     if fmt == "A5":
         return A5
     raise ValueError("Format de reçu inconnu")
@@ -84,7 +86,7 @@ def _draw(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, Any],
                       "amount": row["advance_amount"]})
     width, height = _size(fmt, len(lines))
     pdf.setPageSize((width, height))
-    thermal, tiny = fmt != "A5", fmt == "58MM"
+    thermal = tiny = fmt == "58MM"
     margin = (1.8 if thermal else 4) * mm
     left, right, top, bottom = margin, width - margin, height - margin, margin
     usable = right - left
@@ -264,6 +266,116 @@ def _draw(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, Any],
           4.4 if thermal else 6.8, font="Helvetica-Bold", align="center", width=usable - 4 * mm)
 
 
+def _wrap_ticket(value: str, font: str, size: float, width: float) -> list[str]:
+    """Wrap plain text and split an unusually long reference without shrinking it."""
+    words = []
+    for word in value.split():
+        part = ""
+        for char in word:
+            if part and stringWidth(part + char, font, size) > width:
+                words.append(part)
+                part = ""
+            part += char
+        if part:
+            words.append(part)
+    return simpleSplit(" ".join(words), font, size, width)
+
+
+def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, Any],
+                     copy_index: int, copies: int) -> None:
+    width, margin = 80 * mm, 5 * mm
+    usable = width - 2 * margin  # 70 mm, centred within the XP-T80A's 72 mm print area
+    marks: list[tuple[float, str, str, float, str]] = []
+    rules: list[float] = []
+    regular, bold = "Helvetica", "Helvetica-Bold"
+    logo = logo_stream(school)
+    cursor = 22 * mm if logo else 5 * mm
+
+    def write(value: Any, size: float = 10, font: str = regular, align: str = "left") -> None:
+        nonlocal cursor
+        for line in _wrap_ticket(str(value), font, size, usable):
+            cursor += size
+            marks.append((cursor, line, font, size, align))
+            cursor += 3.5
+
+    def separate() -> None:
+        nonlocal cursor
+        cursor += 3
+        rules.append(cursor)
+        cursor += 5
+
+    def field(label: str, value: Any) -> None:
+        write(f"{label} : {value or '—'}")
+
+    currency = row.get("currency") or "CDF"
+    symbol = "FC" if currency == "CDF" else currency
+    write(school.get("motto") or "ÉTABLISSEMENT SCOLAIRE", align="center")
+    write((school.get("name") or "École").upper(), 12, bold, "center")
+    write(" · ".join(str(school[k]) for k in ("address", "city", "province") if school.get(k)), align="center")
+    for label, key in (("Tél.", "phone"), ("E-mail", "email")):
+        if school.get(key):
+            write(f"{label} : {school[key]}", align="center")
+    separate()
+    write("REÇU DE PAIEMENT", 13, bold, "center")
+    write(f"REÇU N° {row.get('receipt_number') or '—'}", 11, bold, "center")
+    if copies > 1:
+        write(f"Copie {copy_index}/{copies}", align="center")
+    if row.get("copy_no", 1) > 1:
+        write(f"DUPLICATA n° {row['copy_no'] - 1}", 11, bold, "center")
+    created = row.get("created_at")
+    stamp = created.strftime("%d/%m/%Y · %H:%M:%S") if isinstance(created, datetime) else str(created or "—")
+    field("DATE / HEURE", stamp)
+    for label, key in (("ANNÉE SCOLAIRE", "academic_year"), ("CLASSE", "class_label"),
+                       ("CODE ÉLÈVE", "matricule"), ("NOM", "last_name"), ("POSTNOM", "middle_name"),
+                       ("PRÉNOM", "first_name"), ("SEXE", "gender")):
+        field(label, row.get(key))
+    separate()
+    write("DÉTAIL DES PAIEMENTS", 11, bold)
+    lines = list(row.get("lines") or [])
+    if row.get("advance_amount"):
+        lines.append({"fee_label": "Avance conservée", "period_label": row.get("advance_target") or "Échéances futures",
+                      "amount": row["advance_amount"]})
+    for index, item in enumerate(lines, 1):
+        fee = item.get("fee_label") or item.get("label") or "Frais"
+        write(f"{index}. {fee}", 10, bold)
+        field("Libellé / mois", item.get("period_label") or fee)
+        field("Période", item.get("period_value") or row.get("academic_year"))
+        write(f"{_amount(item.get('amount'))} {symbol}", 11, bold, "right")
+        cursor += 3
+    separate()
+    write("TOTAL PAYÉ", 12, bold, "center")
+    write(f"{_amount(row.get('amount'))} {symbol}", 17, bold, "center")
+    words = money_in_words(row.get("amount") or 0, currency)
+    write(f"MONTANT EN LETTRES : {words[:1].upper()}{words[1:]}.")
+    mode = {"CASH": "ESPÈCES (CASH)", "MOBILE_MONEY": "MOBILE MONEY", "BANQUE": "BANQUE",
+            "AUTRE": "AUTRE"}.get(str(row.get("payment_mode") or "").upper())
+    field("MODE DE PAIEMENT", mode)
+    for label, key in (("Réf.", "payment_reference"), ("Famille", "family_name")):
+        if row.get(key):
+            field(label, row[key])
+    separate()
+    field("CAISSIER", row.get("cashier"))
+    cursor += 8 * mm
+    write("Signature : _______________________")
+    write("CACHET DE L’ÉCOLE", 10, bold)
+    cursor += 12 * mm
+    write("Merci pour votre confiance.", align="center")
+
+    height = cursor + 5 * mm
+    pdf.setPageSize((width, height))
+    if logo:
+        try:
+            pdf.drawImage(ImageReader(logo), (width - 16 * mm) / 2, height - 21 * mm,
+                          width=16 * mm, height=16 * mm, preserveAspectRatio=True, mask="auto")
+        except Exception:
+            _text(pdf, "ÉCOLE", width / 2, height - 13 * mm, 10, align="center")
+    for top, label, font, size, align in marks:
+        x = width / 2 if align == "center" else width - margin if align == "right" else margin
+        _text(pdf, label, x, height - top, size, font=font, align=align)
+    for top in rules:
+        pdf.line(margin, height - top, width - margin, height - top)
+
+
 def receipt_pdf(*, school: dict[str, Any], receipts: list[dict[str, Any]],
                 fmt: str = "80MM", copies: int = 1) -> bytes:
     """Render one official, numbered receipt per page, with optional numbered copies."""
@@ -273,9 +385,14 @@ def receipt_pdf(*, school: dict[str, Any], receipts: list[dict[str, Any]],
     out = BytesIO()
     pdf = canvas.Canvas(out, pagesize=_size(fmt, len(receipts[0].get("lines") or [])),
                         title="Reçu de paiement", author="EduSync")
+    if fmt == "80MM":
+        pdf.setViewerPreference("PrintScaling", "None")
     for row in receipts:
         for copy_index in range(1, count + 1):
-            _draw(pdf, school, row, fmt, copy_index, count)
+            if fmt == "80MM":
+                _draw_thermal_80(pdf, school, row, copy_index, count)
+            else:
+                _draw(pdf, school, row, fmt, copy_index, count)
             pdf.showPage()
     pdf.save()
     return out.getvalue()

@@ -1,4 +1,4 @@
-import {printReceiptOnWorkstation} from './platform/receipt_print';
+import {printReceiptOnWorkstation, receiptWorkstationFormat} from './platform/receipt_print';
 import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {receiptQueue,receiptQueuePdf,receiptQueueStatus,type ReceiptQueueData,type ReceiptQueueItem} from './api';
@@ -25,13 +25,13 @@ export default function ReceiptQueue({token,canPrint}:{token:string;canPrint:boo
   if(!idsToPrint.length)return;
   try{
    setBusy(true);setError('');setNotice('');
-   const notice=await printReceiptOnWorkstation(()=>receiptQueuePdf(token,idsToPrint),()=>{
+   const notice=await printReceiptOnWorkstation(format=>receiptQueuePdf(token,idsToPrint,format),()=>{
     setNotice('');setError('Le dialogue d’impression ne s’est pas ouvert. Utilisez « Ouvrir » pour imprimer.');
    });
    setNotice([notice,'Après sortie papier, confirmez chaque reçu.'].filter(Boolean).join(' '));
   }catch(e){setError(friendlyError(e))}finally{setBusy(false)}
  }
- async function openItem(item:ReceiptQueueItem){try{setBusy(true);const pdf=await receiptQueuePdf(token,[item.payment_id]);setPreview({url:URL.createObjectURL(pdf),title:`Reçu ${item.receipt_number}`})}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
+ async function openItem(item:ReceiptQueueItem){try{setBusy(true);const pdf=await receiptQueuePdf(token,[item.payment_id],receiptWorkstationFormat());setPreview({url:URL.createObjectURL(pdf),title:`Reçu ${item.receipt_number}`})}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
  async function change(item:ReceiptQueueItem,status:'PENDING'|'PRINTED'|'FAILED'){try{setBusy(true);await receiptQueueStatus(token,item.payment_id,status,status==='FAILED'?'Imprimante indisponible ou impression interrompue':undefined);setSelected(ids=>ids.filter(id=>id!==item.payment_id));await load();setNotice(status==='PRINTED'?'Sortie papier confirmée par le caissier.':status==='FAILED'?'Échec conservé pour reprise.':'Reçu remis en attente.')}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
  async function retry(){try{setBusy(true);const failed=data.items.filter(item=>item.status==='FAILED');for(const item of failed)await receiptQueueStatus(token,item.payment_id,'PENDING');await load();setBusy(false);await print(failed.map(item=>item.payment_id))}catch(e){setError(friendlyError(e));setBusy(false)}}
  return <div className="receiptQueueHost"><button type="button" className="receiptQueueBadge" onClick={()=>setOpen(true)} aria-label={`${data.counts.PENDING} reçus en attente d’impression`}>Reçus · <b>{data.counts.PENDING} en attente</b>{data.counts.FAILED>0&&<em>{data.counts.FAILED} échec(s)</em>}</button>

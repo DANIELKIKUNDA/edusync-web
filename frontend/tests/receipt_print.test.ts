@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {afterEach, expect, it, vi} from 'vitest';
-import {printReceiptOnWorkstation, saveReceiptPrintKey} from '../src/platform/receipt_print';
+import {printReceiptOnWorkstation, saveReceiptPrintKey, saveReceiptWorkstationFormat} from '../src/platform/receipt_print';
 
 afterEach(() => { localStorage.clear(); vi.unstubAllGlobals(); });
 const key = '1a'.repeat(32);
@@ -12,6 +12,7 @@ it('checks the configured workstation and sends one PDF without opening the brow
     .mockResolvedValueOnce(Response.json({status: 'ready', printer: 'Ticket 80'}))
     .mockResolvedValueOnce(Response.json({status: 'submitted'}));
   vi.stubGlobal('fetch', fetchAgent);
+  saveReceiptWorkstationFormat('80MM');
   const loadPdf = vi.fn(async () => pdf);
   const fallback = vi.fn();
   expect(await printReceiptOnWorkstation(loadPdf, fallback)).toContain('Vérifiez la sortie papier');
@@ -19,7 +20,7 @@ it('checks the configured workstation and sends one PDF without opening the brow
     'http://127.0.0.1:47319/v1/status', 'http://127.0.0.1:47319/v1/print',
   ]);
   expect(fetchAgent.mock.calls[1][1]).toMatchObject({method: 'POST', body: pdf, redirect: 'error'});
-  expect(loadPdf).toHaveBeenCalledTimes(1);
+  expect(loadPdf).toHaveBeenCalledExactlyOnceWith('80MM');
   expect(fallback).not.toHaveBeenCalled();
   expect(document.querySelector('iframe')).toBeNull();
 });

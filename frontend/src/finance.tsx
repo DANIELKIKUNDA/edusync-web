@@ -1,4 +1,4 @@
-import {printReceiptOnWorkstation} from './platform/receipt_print';
+import {printReceiptOnWorkstation,receiptWorkstationFormat} from './platform/receipt_print';
 import {ImportHistory} from './import_history';
 import './checkout.css';
 import {NavGlyph} from './platform/nav_icons';
@@ -6,7 +6,7 @@ import Recovery from './recovery';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {CheckoutCharge,CheckoutPerson,OldDebt,SaleProduct,CashSession,checkoutBalance,checkoutCollect,checkoutFamily,checkoutOldDebts,checkoutProducts,checkoutSearch,checkoutSellProduct,cashCurrent,cashOpen,cashClose,cashHistory,cashJournal,cashDaySummary,financeReportTemplates,financeReportPreview,FinanceReportTemplate,financeDecisions,financeResponsibilities,financeCredits,FinanceDecision,FinanceResponsibility,FinanceCredit,feeTrackingTaxonomy,feeTrackingOverview,feeTrackingStudents,FeeTrackingRow,financeHistoryImportTemplate,analyzeFinanceHistoryImport,executeFinanceHistoryImport,paymentOptions,checkoutCollectWithFund,advanceFundReceipt,checkoutRegistrationBundle,listClassSelector,type SchoolClass,type RegistrationBundleDue,type PaymentOptions} from './api';
 const PAY_MODE_LABEL:Record<string,string>={CASH:'Espèces',MOBILE_MONEY:'Mobile Money',BANQUE:'Banque',AUTRE:'Autre'};
-import {checkoutPlans,checkoutPlanMembership,checkoutPlanPreview,checkoutCollectPlan,type ApplicablePlan,type PlanPreview,familyCollect,getPrintSettings,printBasketReceipts,printReceipt,type BasketResult,type PrintSettings} from './api';
+import {checkoutPlans,checkoutPlanMembership,checkoutPlanPreview,checkoutCollectPlan,type ApplicablePlan,type PlanPreview,familyCollect,getPrintSettings,printBasketReceipts,printReceipt,type BasketResult,type PrintSettings,type ReceiptFormat} from './api';
 import {toast} from 'sonner';
 import {CashExpenseForm,SchoolDayPanel,useReversal} from './cash_controls';
 import {CashDeskPro} from './cash_desk';
@@ -64,22 +64,22 @@ function QuickCheckout({token,can,onOpenCash}:{token:string;can:(p:string)=>bool
  useEffect(()=>{if(can('finance.receipts.read'))getPrintSettings(token).then(setPrintCfg).catch(()=>setPrintCfg(null))},[token]);
  useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview.url)},[preview]);
  useEffect(()=>{saveCashierBasket(token,basket);if(!basket.length){basketRequest.current=null;saveCashierBasketRequest(token,null)}},[token,basket]);
- async function showReceipt(paymentId:string,label:string){try{const b=await printReceipt(token,paymentId,printCfg?.receipt_format);setPreview({url:URL.createObjectURL(b),title:`Reçu ${label}`})}catch(e){setMsg(friendlyError(e))}}
- async function showBasketReceipts(r:BasketResult){try{const b=await printBasketReceipts(token,r.basket_id,printCfg?.receipt_format);setPreview({url:URL.createObjectURL(b),title:'Reçus du panier familial'})}catch(e){setMsg(friendlyError(e))}}
- async function printNow(loadPdf:()=>Promise<Blob>,browserError:string){
+ async function showReceipt(paymentId:string,label:string){try{const b=await printReceipt(token,paymentId,receiptWorkstationFormat()??printCfg?.receipt_format);setPreview({url:URL.createObjectURL(b),title:`Reçu ${label}`})}catch(e){setMsg(friendlyError(e))}}
+ async function showBasketReceipts(r:BasketResult){try{const b=await printBasketReceipts(token,r.basket_id,receiptWorkstationFormat()??printCfg?.receipt_format);setPreview({url:URL.createObjectURL(b),title:'Reçus du panier familial'})}catch(e){setMsg(friendlyError(e))}}
+ async function printNow(loadPdf:(format?:ReceiptFormat)=>Promise<Blob>,browserError:string){
    try{
      const notice=await printReceiptOnWorkstation(loadPdf,()=>setMsg(browserError));
      if(notice)setMsg(notice);
    }catch(e){setMsg(friendlyError(e))}
  }
  async function printReceiptNow(paymentId:string,label:string){
-   await printNow(()=>printReceipt(token,paymentId,printCfg?.receipt_format),`Impossible d’ouvrir le dialogue d’impression pour ${label}. Ouvrez le reçu pour réessayer.`);
+   await printNow(format=>printReceipt(token,paymentId,format??printCfg?.receipt_format),`Impossible d’ouvrir le dialogue d’impression pour ${label}. Ouvrez le reçu pour réessayer.`);
  }
  async function printFundNow(id:string){
    await printNow(()=>advanceFundReceipt(token,id),'Impossible d’ouvrir le dialogue d’impression du reçu du fonds.');
  }
  async function printBasketNow(r:BasketResult){
-   await printNow(()=>printBasketReceipts(token,r.basket_id,printCfg?.receipt_format),'Impossible d’ouvrir le dialogue d’impression. Ouvrez les reçus pour réessayer.');
+   await printNow(format=>printBasketReceipts(token,r.basket_id,format??printCfg?.receipt_format),'Impossible d’ouvrir le dialogue d’impression. Ouvrez les reçus pour réessayer.');
  }
 
  const canBasket=can('finance.checkout.family.collect')&&can('finance.checkout.collect');
@@ -326,7 +326,7 @@ function OtherCollections({token,can}:{token:string;can:(p:string)=>boolean}){co
    const id=done?.payment_id;
    if(!id)return;
    try{
-     const notice=await printReceiptOnWorkstation(()=>printReceipt(token,id,printCfg?.receipt_format),
+     const notice=await printReceiptOnWorkstation(format=>printReceipt(token,id,format??printCfg?.receipt_format),
        ()=>setMsg('Le dialogue d’impression ne s’est pas ouvert. Réessayez.'));
      if(notice)setMsg(notice);
    }catch(e){setMsg(friendlyError(e))}
