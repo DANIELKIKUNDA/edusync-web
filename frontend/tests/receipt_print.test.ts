@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {afterEach, expect, it, vi} from 'vitest';
-import {printReceiptOnWorkstation, saveReceiptPrintKey, saveReceiptWorkstationFormat} from '../src/platform/receipt_print';
+import {pairReceiptPrinter, printReceiptOnWorkstation, saveReceiptPrintKey, saveReceiptWorkstationFormat} from '../src/platform/receipt_print';
 
 afterEach(() => { localStorage.clear(); vi.unstubAllGlobals(); });
 const key = '1a'.repeat(32);
@@ -42,4 +42,18 @@ it('reports an unknown submission without falling back and risking a second prin
   await expect(printReceiptOnWorkstation(async () => pdf, fallback)).rejects.toThrow('Envoi non confirmé');
   expect(fallback).not.toHaveBeenCalled();
   expect(document.querySelector('iframe')).toBeNull();
+});
+
+it('obtient la clé du connecteur local après validation et refuse les réponses invalides', async () => {
+  const fetchAgent = vi.fn()
+    .mockResolvedValueOnce(Response.json({status: 'paired', key, printer: 'XP-80C'}))
+    .mockResolvedValueOnce(Response.json({status: 'paired', key: 'incorrecte', printer: 'XP-80C'}))
+    .mockResolvedValueOnce(new Response(null, {status: 403}));
+  vi.stubGlobal('fetch', fetchAgent);
+  await expect(pairReceiptPrinter()).resolves.toEqual({key, printer: 'XP-80C'});
+  expect(fetchAgent).toHaveBeenCalledWith('http://127.0.0.1:47319/v1/pair', expect.objectContaining({
+    method: 'POST', credentials: 'omit', headers: {'Content-Type': 'application/json'},
+  }));
+  await expect(pairReceiptPrinter()).rejects.toThrow('Réponse du connecteur invalide');
+  await expect(pairReceiptPrinter()).rejects.toThrow('Association refusée');
 });
