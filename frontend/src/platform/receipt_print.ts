@@ -57,6 +57,32 @@ export async function checkReceiptPrinter(key: string): Promise<string> {
   return data.printer;
 }
 
+export async function pairReceiptPrinter(): Promise<{key: string; printer: string}> {
+  let response: Response;
+  try {
+    response = await fetch(AGENT + '/pair', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'error',
+      signal: AbortSignal.timeout(60_000),
+    });
+  } catch {
+    throw new Error('Ouvrez EduSync Print Connector et autorisez l’accès au réseau local dans le navigateur.');
+  }
+  if (response.status === 403) throw new Error('Association refusée sur ce poste.');
+  if (response.status === 429) throw new Error('Une demande d’association est en cours ou vient de se terminer. Réessayez dans quelques secondes.');
+  if (response.status === 401 || response.status === 404) {
+    throw new Error('Cette version de l’agent utilise la liaison par clé.');
+  }
+  if (!response.ok) throw new Error('Impossible d’ouvrir la confirmation Windows.');
+  const data = await response.json();
+  if (data.status !== 'paired' || typeof data.key !== 'string' || !VALID_KEY.test(data.key) ||
+      typeof data.printer !== 'string') throw new Error('Réponse du connecteur invalide.');
+  return {key: data.key, printer: data.printer};
+}
+
 export function browserReceiptPrint(blob: Blob, onError: () => void) {
   const url = URL.createObjectURL(blob);
   const frame = document.createElement('iframe');
