@@ -9,7 +9,7 @@ import {displayTitle} from './platform/format';
 import './documents.css';
 import {useLive} from './platform/live';
 
-type Tab='history'|'catalog'|'identity';
+type Tab='history'|'catalog'|'identity'|'workstation-print';
 const SIZE=(n:number)=>n<1024?`${n} o`:n<1048576?`${(n/1024).toFixed(0)} Ko`:`${(n/1048576).toFixed(1)} Mo`;
 
 function History({token,canOpen,initialQuery='',codeFilter='',onClearCode}:{token:string;canOpen:boolean;initialQuery?:string;codeFilter?:string;onClearCode?:()=>void}){
@@ -121,13 +121,14 @@ function Identity({token}:{token:string}){
 
 export default function DocumentsPage({token,permissions,schoolName}:{token:string;permissions:string[];schoolName:string}){
  const can=(p:string)=>permissions.includes(p);
- const tabs=([['history','Documents générés','doc',can('documents.history.read')],['catalog','Catalogue','folder',true],['identity','Logo et impression','image',can('settings.documents.manage')]] as const).filter(t=>t[3]);
+ const tabs=([['history','Documents générés','doc',can('documents.history.read')],['catalog','Catalogue','folder',true],['identity','Logo et impression','image',can('settings.documents.manage')],['workstation-print','Impression des reçus','print',can('finance.receipts.print')&&!can('settings.documents.manage')]] as const).filter(t=>t[3]);
  const [tab,setTab]=useState<Tab>(tabs[0]?.[0]||'catalog');const [code,setCode]=useState('');
  return <div className="docsPage">
   <div className="settingsHeader docHero"><span className="docHeroIcon" aria-hidden="true"><NavGlyph g="folder" size={26}/></span><div><h2>Documents</h2><p>Tous les PDF et fichiers Excel produits par EduSync pour {schoolName} sont archivés ici, avec leurs versions. Le catalogue montre ce que l’école peut produire ; touchez un type pour retrouver ses documents.</p></div></div>
   <div className="es-tabs docTabs" role="tablist">{tabs.map(([k,l,i])=><button key={k} role="tab" aria-selected={tab===k} className={tab===k?'es-on':''} onClick={()=>setTab(k)}><NavGlyph g={i} size={16}/>{l}</button>)}</div>
   {tab==='history'&&<History key={code} token={token} canOpen={can('documents.open')} codeFilter={code} onClearCode={()=>setCode('')}/>}
   {tab==='catalog'&&<Catalog token={token} permissions={permissions} schoolName={schoolName} onOpenType={can('documents.history.read')?c=>{setCode(c);setTab('history')}:undefined}/>}
-  {tab==='identity'&&<Identity token={token}/>}
+  {tab==='identity'&&can('settings.documents.manage')&&<Identity token={token}/>}
+  {tab==='workstation-print'&&can('finance.receipts.print')&&<section className="panel docPanel"><ReceiptPrintSettings/></section>}
  </div>
 }
