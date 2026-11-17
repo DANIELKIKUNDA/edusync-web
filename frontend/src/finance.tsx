@@ -1,3 +1,4 @@
+import {printReceiptOnWorkstation} from './platform/receipt_print';
 import {ImportHistory} from './import_history';
 import './checkout.css';
 import {NavGlyph} from './platform/nav_icons';
@@ -49,16 +50,6 @@ export default function FinancePage({token,permissions}:{token:string;permission
 function Checkout({token,can,onOpenCash,initialMode='quick'}:{token:string;can:(p:string)=>boolean;onOpenCash:()=>void;initialMode?:'quick'|'other'}){const [mode,setMode]=useState<'quick'|'other'|'debts'>(initialMode);if(mode==='other')return <><CheckoutNav mode={mode} setMode={setMode} can={can}/><OtherCollections token={token} can={can}/></>;if(mode==='debts')return <><CheckoutNav mode={mode} setMode={setMode} can={can}/><DebtDesk token={token} can={can}/></>;return <><CheckoutNav mode={mode} setMode={setMode} can={can}/><QuickCheckout token={token} can={can} onOpenCash={onOpenCash}/></>}
 function CheckoutNav({mode,setMode,can}:{mode:string;setMode:(x:any)=>void;can:(p:string)=>boolean}){return <div className="checkoutSubtabs"><button className={mode==='quick'?'active':''} onClick={()=>setMode('quick')}>Encaissement rapide</button>{can('finance.products.read')&&<button className={mode==='other'?'active':''} onClick={()=>setMode('other')}>Autres encaissements</button>}{can('finance.old_debt.read')&&<button className={mode==='debts'?'active':''} onClick={()=>setMode('debts')}>Dettes antérieures</button>}</div>}
 type BasketLine=CashierBasketLine;
-/** Native browser print: opening the dialog is possible; paper output is not observable by a PWA. */
-function printPdfDirectly(blob:Blob,onError:()=>void){
- const url=URL.createObjectURL(blob),frame=document.createElement('iframe');
- frame.title='Reçu à imprimer';frame.style.cssText='position:fixed;width:1px;height:1px;left:-10000px';
- document.body.appendChild(frame);
- let done=false;const cleanup=()=>{if(done)return;done=true;window.setTimeout(()=>{frame.remove();URL.revokeObjectURL(url)},1000)};
- const timeout=window.setTimeout(cleanup,120000);
- frame.onload=()=>{try{frame.contentWindow?.addEventListener('afterprint',()=>{window.clearTimeout(timeout);cleanup()},{once:true});frame.contentWindow?.focus();frame.contentWindow?.print()}catch{window.clearTimeout(timeout);cleanup();onError()}};
- frame.onerror=()=>{window.clearTimeout(timeout);cleanup();onError()};frame.src=url;
-}
 /* Receipt preview inside EduSync: the payment is already committed; printing stays the cashier's choice. */
 function ReceiptPreview({url,title,onClose}:{url:string;title:string;onClose:()=>void}){const frame=useRef<HTMLIFrameElement>(null);useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose]);
  return <div className="es-modal-backdrop" onMouseDown={e=>e.currentTarget===e.target&&onClose()}><div className="es-modal es-modal-wide receiptModal" role="dialog" aria-modal="true" aria-label={title}><div className="es-modal-head"><div><h2>{title}</h2><p>Vérifiez l’aperçu puis imprimez. L’opération est déjà enregistrée.</p></div><button className="es-icon-btn" aria-label="Fermer" onClick={onClose}><NavGlyph g="close" size={18}/></button></div>
@@ -75,9 +66,21 @@ function QuickCheckout({token,can,onOpenCash}:{token:string;can:(p:string)=>bool
  useEffect(()=>{saveCashierBasket(token,basket);if(!basket.length){basketRequest.current=null;saveCashierBasketRequest(token,null)}},[token,basket]);
  async function showReceipt(paymentId:string,label:string){try{const b=await printReceipt(token,paymentId,printCfg?.receipt_format);setPreview({url:URL.createObjectURL(b),title:`Reçu ${label}`})}catch(e){setMsg(friendlyError(e))}}
  async function showBasketReceipts(r:BasketResult){try{const b=await printBasketReceipts(token,r.basket_id,printCfg?.receipt_format);setPreview({url:URL.createObjectURL(b),title:'Reçus du panier familial'})}catch(e){setMsg(friendlyError(e))}}
- async function printReceiptNow(paymentId:string,label:string){try{const b=await printReceipt(token,paymentId,printCfg?.receipt_format);printPdfDirectly(b,()=>setMsg('Le dialogue d’impression ne s’est pas ouvert pour '+label+'. Ouvrez le reçu pour réessayer.'))}catch(e){setMsg(friendlyError(e))}}
- async function printFundNow(id:string){try{const b=await advanceFundReceipt(token,id);printPdfDirectly(b,()=>setMsg('Le dialogue d’impression du fonds ne s’est pas ouvert.'))}catch(e){setMsg(friendlyError(e))}}
- async function printBasketNow(r:BasketResult){try{const b=await printBasketReceipts(token,r.basket_id,printCfg?.receipt_format);printPdfDirectly(b,()=>setMsg('Le dialogue d’impression ne s’est pas ouvert. Ouvrez les reçus pour réessayer.'))}catch(e){setMsg(friendlyError(e))}}
+ async function printNow(loadPdf:()=>Promise<Blob>,browserError:string){
+   try{
+     const notice=await printReceiptOnWorkstation(loadPdf,()=>setMsg(browserError));
+     if(notice)setMsg(notice);
+   }catch(e){setMsg(friendlyError(e))}
+ }
+ async function printReceiptNow(paymentId:string,label:string){
+   await printNow(()=>printReceipt(token,paymentId,printCfg?.receipt_format),`Impossible d’ouvrir le dialogue d’impression pour ${label}. Ouvrez le reçu pour réessayer.`);
+ }
+ async function printFundNow(id:string){
+   await printNow(()=>advanceFundReceipt(token,id),'Impossible d’ouvrir le dialogue d’impression du reçu du fonds.');
+ }
+ async function printBasketNow(r:BasketResult){
+   await printNow(()=>printBasketReceipts(token,r.basket_id,printCfg?.receipt_format),'Impossible d’ouvrir le dialogue d’impression. Ouvrez les reçus pour réessayer.');
+ }
 
  const canBasket=can('finance.checkout.family.collect')&&can('finance.checkout.collect');
  useEffect(()=>{window.clearTimeout(timer.current);if(q.trim().length<1){setHits([]);return}timer.current=window.setTimeout(()=>checkoutSearch(token,q).then(x=>{setHits(x.items);setHitIndex(0)}).catch(e=>setMsg(friendlyError(e))),180);return()=>window.clearTimeout(timer.current)},[q,token]);
@@ -319,7 +322,15 @@ function OtherCollections({token,can}:{token:string;can:(p:string)=>boolean}){co
     toast.success((r as any).replayed?'Cette vente était déjà enregistrée':'Vente encaissée',{description:`${qty} × ${r.product_label} · ${money(r.amount,r.currency)} · reçu ${r.receipt_number}`,duration:10000})}
    setProduct(null);setQty('1');newKey();setProducts((await checkoutProducts(token)).items)}
   catch(e){const m=friendlyError(e);setMsg(m);toast.error(m)}finally{setBusy(false)}}
- async function printDone(){if(!done?.payment_id)return;try{const b=await printReceipt(token,done.payment_id,printCfg?.receipt_format);printPdfDirectly(b,()=>setMsg('Le dialogue d’impression ne s’est pas ouvert. Réessayez.'))}catch(e){setMsg(friendlyError(e))}}
+ async function printDone(){
+   const id=done?.payment_id;
+   if(!id)return;
+   try{
+     const notice=await printReceiptOnWorkstation(()=>printReceipt(token,id,printCfg?.receipt_format),
+       ()=>setMsg('Le dialogue d’impression ne s’est pas ouvert. Réessayez.'));
+     if(notice)setMsg(notice);
+   }catch(e){setMsg(friendlyError(e))}
+ }
  return <section className="checkoutWorkspace saleDesk"><div className="checkoutWelcome"><b>Vente d’articles</b><p>Choisissez l’élève, puis l’article. Le prix et le stock viennent du catalogue de l’école : aucune référence technique n’est à saisir au guichet.</p></div>
   <PersonFinder token={token} onChoose={p=>{setPerson(p);setDone(null)}}/>
   {person&&<div className="payerStrip"><div className="payerAvatar">{person.last_name[0]}{person.first_name[0]}</div><div><b>{person.last_name} {person.first_name}</b><span>{person.matricule} · {person.class_label}</span></div><button onClick={()=>{setPerson(null);setProduct(null);setDone(null)}}>Changer</button></div>}

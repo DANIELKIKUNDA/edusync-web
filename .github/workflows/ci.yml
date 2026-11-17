@@ -179,6 +179,8 @@ jobs:
       - name: Dépendances figées (npm ci)
         working-directory: frontend
         run: npm ci
+      - name: Agent local d’impression des reçus
+        run: node --test tools/print-agent/server.test.mjs
       - name: Typecheck
         working-directory: frontend
         run: npx tsc --noEmit -p tsconfig.json

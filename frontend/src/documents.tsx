@@ -1,3 +1,4 @@
+import {ReceiptPrintSettings} from './platform/receipt_print_settings';
 import { friendlyError } from './platform/errors';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {toast} from 'sonner';
@@ -113,7 +114,7 @@ function Identity({token}:{token:string}){
     <label>Préfixe des rapports<input value={reportDraft} maxLength={12} onChange={e=>setReportDraft(e.target.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase())} onBlur={()=>{if(reportDraft&&reportDraft!==print.report_prefix)void savePrint({report_prefix:reportDraft})}}/><small>Rapport financier officiel : {reportDraft||'RAP'}-001, numéroté par année scolaire (règle Desktop).</small></label>
     <label>Nombre de copies<select value={print.receipt_copies??1} onChange={e=>void savePrint({receipt_copies:Number(e.target.value)})}>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
    </fieldset>
-   <p className="es-hint">Un navigateur ne peut pas imprimer sans confirmation. L’impression directe sur une imprimante de caisse nécessitera un petit programme local, prévu pour une étape ultérieure.</p>
+   <ReceiptPrintSettings/>
   </section>}
  </div>
 }

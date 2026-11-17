@@ -1,44 +1,57 @@
-# Impression directe — état réel et architecture proposée
+# Impression directe des reçus EduSync Web
 
-## Ce qui existe (vérifié, clôture locale 2026-10)
+## Fonctionnement
 
-| Élément | État |
-|---|---|
-| Reçu PDF A5 et ticket 80 mm, généré à la demande depuis le grand livre | Fait — `POST /finance/checkout/receipts/{id}/print` |
-| Lot de reçus d'un panier familial (un reçu par enfant, un seul PDF) | Fait — `POST /finance/checkout/family-baskets/{id}/receipts/print` |
-| Original puis duplicata tracés (`finance_receipt_prints`, append-only) + audit | Fait |
-| Politique d'impression par école : ne rien proposer / proposer / ouvrir l'aperçu | Fait — `school_print_settings` |
-| Format par défaut A5 ou 80 mm | Fait |
-| Aperçu dans EduSync puis impression confirmée par le caissier | Fait (iframe + bouton Imprimer) |
-| Impression **silencieuse** sur une imprimante précise, sans boîte de dialogue | **Non faisable dans un navigateur** |
+Sur un poste Windows associé, le bouton **Imprimer** obtient le PDF officiel et l’envoie à
+l’agent EduSync, qui utilise SumatraPDF et le pilote Windows de l’imprimante configurée.
+Les boutons de la caisse, des paniers familiaux, des fonds, de l’encaissement après
+l’inscription et de la file des reçus utilisent la même liaison. Ouvrir l’aperçu reste
+possible pour inspecter le document ou utiliser le dialogue d’impression.
 
-`window.print()` n'est pas une impression directe : le navigateur affiche toujours sa boîte de dialogue et choisit
-l'imprimante par défaut du poste. Ce n'est donc pas présenté comme l'équivalent de l'impression directe historique.
+L’agent reçoit seulement des PDF de l’origine EduSync choisie à l’installation,
+sur `127.0.0.1:47319`, avec une clé aléatoire par poste. Aucun port entrant du réseau
+n’est nécessaire. La clé est propre au profil du navigateur. Le PDF temporaire est retiré
+après chaque tentative normale. Le paiement et les droits de génération du PDF
+restent gérés par EduSync, ainsi que la trace original/duplicata et la file des reçus.
 
-## Architecture proposée : agent d'impression local
+L’indication **Reçu envoyé** confirme la remise au système d’impression Windows.
+Après la sortie papier, le caissier peut confirmer l’impression dans la file.
+Une interruption réseau ou du processus d’impression peut laisser un envoi non confirmé.
+Contrôler dans ce cas le ticket et la file Windows avant de relancer. L’application
+n’envoie pas automatiquement une deuxième copie par le navigateur.
 
-```text
-Navigateur (EduSync)                Poste de caisse                      Imprimante
- POST /print-jobs  ──HTTPS──▶  [API EduSync] crée un travail signé
-                                     │
- agent local EduSync  ◀──── interroge (WebSocket/HTTPS sortant, authentifié par appareil enregistré)
-   • télécharge le PDF du reçu (lien signé court)
-   • imprime via l'API Windows (spooler) sur l'imprimante configurée pour ce poste
-   • renvoie le statut (imprimé / erreur) → finance_receipt_prints
-```
+## Installer sur le poste de caisse
 
-Principes :
-1. Le paiement reste validé même si l'agent ou l'imprimante échoue (doctrine Point 5B).
-2. L'agent n'expose **aucun port** sur le réseau : il appelle le serveur en sortant, comme un appareil enregistré.
-3. Configuration par poste : imprimante, format (A5 / 80 mm), nombre de copies, coupe papier (ESC/POS pour les
-   imprimantes thermiques ou PDF via le pilote Windows).
-4. Chaque impression reste tracée (original / duplicata) exactement comme aujourd'hui.
+1. Installer le pilote Windows du constructeur et imprimer une page de test depuis Windows.
+   Choisir la largeur adéquate dans les préférences du pilote et dans EduSync.
+   Les options de coupe dépendent du pilote de l’imprimante.
+2. Installer Node.js 22 ou ultérieur et une version récente de
+   [SumatraPDF](https://www.sumatrapdfreader.org/download-free-pdf-viewer).
+   Récupérer `install.ps1` et `server.mjs` du dossier `tools/print-agent` du même commit EduSync.
+3. Depuis PowerShell, dans le dossier contenant ces deux fichiers, exécuter
+   `Get-Printer | Select-Object Name` pour relever le nom exact de l’imprimante.
+   Installer ensuite l’agent pour l’origine de recette, en remplaçant le nom
+   et le chemin par les valeurs du poste :
 
-## Ce qui reste à décider ou à tester
+   ```powershell
+   .\install.ps1 -Origin 'https://staging.myeducsync.com' -Printer 'Nom exact' -SumatraPdf 'C:\Chemin\SumatraPDF.exe'
+   ```
 
-| Sujet | Classement |
-|---|---|
-| Modèle d'imprimante thermique réellement utilisé dans les écoles | À CONFIRMER PAR LE PROPRIÉTAIRE |
-| Mise en page exacte du reçu Desktop (golden master) | À CONFIRMER PAR LE PROPRIÉTAIRE |
-| Développement et signature de l'agent Windows | Étape ultérieure (hors clôture locale) |
-| Impression réelle sur matériel | BLOCKED — matériel requis |
+   Ajouter `-StartAtLogon` pour démarrer l’agent à l’ouverture de la session Windows.
+   Le raccourci **Agent impression EduSync** permet de le lancer immédiatement.
+4. Dans EduSync, ouvrir les **réglages d’impression des reçus**, puis
+   **Impression directe sur ce poste**. Saisir la clé affichée après l’installation et
+   cliquer sur **Associer ce poste**. Autoriser l’accès au réseau local dans le navigateur
+   si la permission est demandée pour l’origine EduSync configurée.
+   La vérification confirme la liaison et affiche le nom de l’imprimante configurée.
+
+Pour changer d’imprimante ou d’environnement, arrêter l’agent, relancer l’installation
+avec les nouveaux paramètres puis relancer le raccourci. Pour revenir au dialogue
+standard, cliquer sur **Désactiver l’impression directe** dans le profil du navigateur.
+
+## Recette matérielle
+
+Sur staging avec un reçu de recette, vérifier la sortie au format configuré, les
+caractères accentués, les montants, la largeur et la coupe. Tester ensuite un lot,
+une imprimante éteinte et un agent arrêté. Vérifier qu’un refus d’impression ne modifie
+pas le paiement et que la confirmation papier reste une action explicite dans la file.

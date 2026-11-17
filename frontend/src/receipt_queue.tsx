@@ -1,3 +1,4 @@
+import {printReceiptOnWorkstation} from './platform/receipt_print';
 import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {receiptQueue,receiptQueuePdf,receiptQueueStatus,type ReceiptQueueData,type ReceiptQueueItem} from './api';
@@ -8,17 +9,6 @@ import {useLive} from './platform/live';
 
 const EMPTY:ReceiptQueueData={counts:{PENDING:0,PRINTED:0,FAILED:0},items:[]};
 type Filter='PENDING'|'PRINTED'|'FAILED'|'ALL';
-
-/** A browser can open its print dialog; only a cashier can confirm that paper was produced. */
-function browserPrint(blob:Blob,onError:()=>void){
- const url=URL.createObjectURL(blob),frame=document.createElement('iframe');
- frame.title='Reçus à imprimer';frame.style.cssText='position:fixed;width:1px;height:1px;left:-10000px';
- document.body.appendChild(frame);
- const cleanup=()=>window.setTimeout(()=>{frame.remove();URL.revokeObjectURL(url)},1000);
- const timer=window.setTimeout(cleanup,120000);
- frame.onload=()=>{try{frame.contentWindow?.addEventListener('afterprint',()=>{window.clearTimeout(timer);cleanup()},{once:true});frame.contentWindow?.focus();frame.contentWindow?.print()}catch{window.clearTimeout(timer);cleanup();onError()}};
- frame.onerror=()=>{window.clearTimeout(timer);cleanup();onError()};frame.src=url;
-}
 
 export default function ReceiptQueue({token,canPrint}:{token:string;canPrint:boolean}){
  const [open,setOpen]=useState(false),[filter,setFilter]=useState<Filter>('PENDING');
@@ -31,7 +21,16 @@ export default function ReceiptQueue({token,canPrint}:{token:string;canPrint:boo
  useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview.url)},[preview?.url]);
  useEffect(()=>{if(!open)return;const close=(e:KeyboardEvent)=>{if(e.key==='Escape'){if(preview)setPreview(null);else setOpen(false)}};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close)},[open,preview]);
  const ids=selected.filter(id=>data.items.some(item=>item.payment_id===id));
- async function print(idsToPrint:string[]){if(!idsToPrint.length)return;try{setBusy(true);setError('');const pdf=await receiptQueuePdf(token,idsToPrint);browserPrint(pdf,()=>setError('Le dialogue d’impression ne s’est pas ouvert. Utilisez « Ouvrir » pour imprimer.'));setNotice('Après sortie papier, confirmez chaque reçu. Si l’imprimante est indisponible, laissez-le en attente ou marquez l’échec.')}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
+ async function print(idsToPrint:string[]){
+  if(!idsToPrint.length)return;
+  try{
+   setBusy(true);setError('');setNotice('');
+   const notice=await printReceiptOnWorkstation(()=>receiptQueuePdf(token,idsToPrint),()=>{
+    setNotice('');setError('Le dialogue d’impression ne s’est pas ouvert. Utilisez « Ouvrir » pour imprimer.');
+   });
+   setNotice([notice,'Après sortie papier, confirmez chaque reçu.'].filter(Boolean).join(' '));
+  }catch(e){setError(friendlyError(e))}finally{setBusy(false)}
+ }
  async function openItem(item:ReceiptQueueItem){try{setBusy(true);const pdf=await receiptQueuePdf(token,[item.payment_id]);setPreview({url:URL.createObjectURL(pdf),title:`Reçu ${item.receipt_number}`})}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
  async function change(item:ReceiptQueueItem,status:'PENDING'|'PRINTED'|'FAILED'){try{setBusy(true);await receiptQueueStatus(token,item.payment_id,status,status==='FAILED'?'Imprimante indisponible ou impression interrompue':undefined);setSelected(ids=>ids.filter(id=>id!==item.payment_id));await load();setNotice(status==='PRINTED'?'Sortie papier confirmée par le caissier.':status==='FAILED'?'Échec conservé pour reprise.':'Reçu remis en attente.')}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
  async function retry(){try{setBusy(true);const failed=data.items.filter(item=>item.status==='FAILED');for(const item of failed)await receiptQueueStatus(token,item.payment_id,'PENDING');await load();setBusy(false);await print(failed.map(item=>item.payment_id))}catch(e){setError(friendlyError(e));setBusy(false)}}
