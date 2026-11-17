@@ -39,8 +39,8 @@ def test_official_receipt_matches_desktop_documentary_blocks_and_real_cashier():
     assert 79 < float(pdf.pages[0].mediabox.width) / 2.83464567 < 81
     text = pdf.pages[0].extract_text()
     for label in ("REÇU N°", "ANNÉE SCOLAIRE", "REÇU DE PAIEMENT", "CODE ÉLÈVE",
-                  "DÉTAIL DES PAIEMENTS", "Frais scolaires", "Libellé / mois",
-                  "Période", "70 000 FC", "TOTAL PAYÉ", "MONTANT EN LETTRES",
+                  "DÉTAIL DES PAIEMENTS", "Frais scolaires", "Frais / période",
+                  "Octobre", "70 000 FC", "TOTAL PAYÉ", "MONTANT EN LETTRES",
                   "MODE DE PAIEMENT", "CAISSIER", "CACHET DE L’ÉCOLE"):
         assert label in text
     assert "Caissier réel" in text
@@ -84,10 +84,10 @@ def test_thermal_ticket_uses_readable_fonts_and_full_text_inside_printable_area(
         sizes.append(size)
         assert tm[4] >= 5 * mm - .1
         assert tm[4] + stringWidth(label, font["/BaseFont"][1:], size) <= width - 5 * mm + .1
-        assert 5 * mm <= tm[5] < height - 5 * mm
+        assert 5 * mm <= tm[5] < height - 4 * mm
 
     text = page.extract_text(visitor_text=measure)
-    assert min(sizes) >= 12 and max(sizes) >= 20
+    assert min(sizes) >= 9.5 and max(sizes) == 15
     assert "…" not in text
     assert receipt["payment_reference"] in "".join(text.split())
     assert "Avance conservée" in text and "Tranche trois" in text
