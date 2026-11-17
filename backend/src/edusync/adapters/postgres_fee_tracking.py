@@ -8,12 +8,13 @@ class PostgresFeeTrackingRepository:
             if year_id:c.execute("SELECT id,label FROM academic_years WHERE school_id=%s AND id=%s",(school_id,year_id))
             else:c.execute("SELECT id,label FROM academic_years WHERE school_id=%s ORDER BY (status='ACTIVE') DESC,start_date DESC LIMIT 1",(school_id,))
             r=c.fetchone();return dict(r) if r else None
-    def taxonomy(self,school_id,year_id,class_id=None,section_id=None,currency=None):
+    def taxonomy(self,school_id,year_id,class_id=None,section_id=None,currency=None,class_ids=None):
         with self.conn.cursor(row_factory=dict_row) as c:
             filters=["ft.school_id=%s","e.academic_year_id=%s","fc.status='ACTIVE'"];params=[school_id,year_id]
             if class_id:filters.append("e.class_id=%s");params.append(class_id)
             if section_id:filters.append("sc.section_id=%s");params.append(section_id)
             if currency:filters.append("fc.currency=%s");params.append(currency)
+            if class_ids is not None:filters.append("e.class_id=ANY(%s)");params.append(list(class_ids))
             c.execute(f"""SELECT coalesce(cat.id::text,CASE WHEN ft.regulatory THEN 'REGULATORY' ELSE 'SCHOOL' END) category_id,
               coalesce(cat.label,CASE WHEN ft.regulatory THEN 'Frais de l’État' ELSE 'Frais scolaires' END) category_label,
               ft.id fee_type_id,ft.code,ft.label,ft.regulatory
@@ -25,7 +26,7 @@ class PostgresFeeTrackingRepository:
               WHERE {' AND '.join(filters)}
               GROUP BY cat.id,cat.label,cat.sort_order,ft.id,ft.code,ft.label,ft.regulatory
               ORDER BY coalesce(cat.sort_order,CASE WHEN ft.regulatory THEN 20 ELSE 10 END),category_label,ft.label""",params);return [dict(r) for r in c.fetchall()]
-    def _base(self,school_id,year_id,currency,fee_type_id=None,category_id=None,class_id=None,section_id=None,status=None,q=None):
+    def _base(self,school_id,year_id,currency,fee_type_id=None,category_id=None,class_id=None,section_id=None,status=None,q=None,class_ids=None):
         filters=["fc.school_id=%s","e.academic_year_id=%s","fc.currency=%s","fc.status='ACTIVE'"];p=[school_id,year_id,currency]
         if fee_type_id:filters.append("fc.fee_type_id=%s");p.append(fee_type_id)
         if category_id:
@@ -34,6 +35,8 @@ class PostgresFeeTrackingRepository:
             else:filters.append("ft.category_id=%s");p.append(category_id)
         if class_id:filters.append("e.class_id=%s");p.append(class_id)
         if section_id:filters.append("sc.section_id=%s");p.append(section_id)
+        # Owner, 2026-11-17: never a pupil of a class outside the actor's scope (None = whole school).
+        if class_ids is not None:filters.append("e.class_id=ANY(%s)");p.append(list(class_ids))
         if q and q.strip():
             term='%'+q.strip().replace('\\','\\\\').replace('%','\\%').replace('_','\\_')+'%'
             filters.append("(s.matricule ILIKE %s OR concat_ws(' ',s.last_name,s.middle_name,s.first_name) ILIKE %s)");p+=[term,term]
@@ -74,8 +77,8 @@ class PostgresFeeTrackingRepository:
             for k in ('total_rows','sum_net','sum_regularized','sum_remaining','sort_k1','sort_k2','sort_k3'):r.pop(k,None)
         self.last_totals={k:str(v) for k,v in sums.items()}  # exact decimals, never binary floats
         return rows,total
-    def overview(self,school_id,year_id,currency,fee_type_id=None,category_id=None,class_id=None,section_id=None):
-        rows=self.students(school_id,year_id,currency,fee_type_id,category_id,class_id,section_id)
+    def overview(self,school_id,year_id,currency,fee_type_id=None,category_id=None,class_id=None,section_id=None,class_ids=None):
+        rows=self.students(school_id,year_id,currency,fee_type_id,category_id,class_id,section_id,class_ids=class_ids)
         groups={}
         for r in rows:
             k=r['category_label'];g=groups.setdefault(k,{'category_label':k,'net_expected':0,'regularized':0,'remaining':0,'students':set()})
@@ -85,14 +88,17 @@ class PostgresFeeTrackingRepository:
         for g in groups.values():
             g['student_count']=len(g.pop('students'));g['rate']=round(g['regularized']*100/g['net_expected'],1) if g['net_expected'] else 0;out.append(g)
         return out
-    def student_summary(self,school_id,student_id,currency='CDF'):
+    def student_summary(self,school_id,student_id,currency='CDF',class_ids=None):
         y=self.year(school_id,None)
         if not y:return {'items':[]}
-        rows=self.students(school_id,y['id'],currency)
+        rows=self.students(school_id,y['id'],currency,class_ids=class_ids)
         return {'academic_year':y,'currency':currency,'items':[r for r in rows if str(r['student_id'])==str(student_id)]}
-    def family_summary(self,school_id,family_id,currency='CDF'):
+    def family_summary(self,school_id,family_id,currency='CDF',class_ids=None):
         y=self.year(school_id,None)
         if not y:return {'items':[]}
         with self.conn.cursor(row_factory=dict_row) as c:c.execute("SELECT id FROM students WHERE school_id=%s AND family_id=%s",(school_id,family_id));ids={str(r['id']) for r in c.fetchall()}
-        rows=self.students(school_id,y['id'],currency)
+        rows=self.students(school_id,y['id'],currency,class_ids=class_ids)
         return {'academic_year':y,'currency':currency,'items':[r for r in rows if str(r['student_id']) in ids]}
+    def scope_classes(self,school_id,scopes):
+        from edusync.adapters.class_scope import visible_class_ids
+        return visible_class_ids(self.conn,school_id,scopes)

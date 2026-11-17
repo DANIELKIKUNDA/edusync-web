@@ -158,6 +158,12 @@ class PostgresFinanceRecoveryRepository:
         if classes: parts.append('upper(sc.code)=ANY(%s)'); args.append(classes)
         return ('('+' OR '.join(parts)+')' if parts else 'FALSE'),args
 
+    def scope_classes(self,school_id,scopes):
+        """None = the whole school; otherwise the ids of the classes the actor may see (same rule as _scope_filter).
+        Owner, 2026-11-17: a préfet must see only HIS section in the class registers and the summaries."""
+        from edusync.adapters.class_scope import visible_class_ids
+        return visible_class_ids(getattr(self,'conn',None),school_id,scopes)
+
     def direction_report_rows(self,school_id,year_id,currency,*,as_of,fee_type_id=None,period_order=None,scopes=()):
         """Rows for the direction report: (charges in scope, pupils for whom the period is not due).
         Without an explicit period, only obligations already due at `as_of` are kept. A charge after an abandon or a

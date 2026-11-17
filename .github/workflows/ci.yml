@@ -161,6 +161,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/direction_report_postgres_integration.py
+      - name: Finances limitées au périmètre — préfet de section vs toute l'école (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/finance_scope_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true

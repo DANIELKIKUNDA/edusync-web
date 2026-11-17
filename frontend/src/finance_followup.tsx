@@ -18,7 +18,7 @@ export default function FinanceFollowup({token, can, yearId, schoolName}: {token
   const [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF'); const [fee, setFee] = useState(''); const [column, setColumn] = useState(''); const [cumulative, setCumulative] = useState(true);
   const [res, setRes] = useState<FollowupResponse | null>(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const [view, setView] = useState<View>('NOT'); const [q, setQ] = useState('');
-  useEffect(() => { listClassSelector(token, yearId).then(c => { setClasses(c); }).catch(e => setErr(friendlyError(e))); }, [token, yearId]);
+  useEffect(() => { listClassSelector(token, yearId, 'finance.recovery.monthly.read').then(c => { setClasses(c); }).catch(e => setErr(friendlyError(e))); }, [token, yearId]);
   const sections = useMemo(() => [...new Map(classes.map(c => [c.section_id, c.section_label ?? 'Section'])).entries()], [classes]);
   const classChoices = classes.filter(c => !section || c.section_id === section);
   useEffect(() => { if (!classId) { setRes(null); return; } let alive = true; setBusy(true); setErr('');

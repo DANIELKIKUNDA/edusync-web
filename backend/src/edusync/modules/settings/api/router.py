@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
@@ -359,12 +359,20 @@ class ClassCreate(BaseModel):
     label:str=Field(min_length=1,max_length=140)
 
 @router.get('/classes/selector')
-def classes_selector(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def classes_selector(year_id:UUID|None=None,capability:str|None=Query(None,max_length=120),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """Minimal class list for operational screens (enrollment, cash desk filters), readable by every school member.
     Class structure administration stays behind settings.structure.read / management capabilities."""
     # Class labels/sections are not sensitive: same shape as the administration list, so screens render identically.
+    # Owner, 2026-11-17: a screen that serves one capability (finances…) asks for the classes of the actor's scope for
+    # it: a préfet never sees in a picker a class outside his section, unless « toute l'école » is given in Accès & rôles.
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return _jsonable(PostgresSettingsRepository(conn).list_classes(actor.school_id,year_id))
+        rows=PostgresSettingsRepository(conn).list_classes(actor.school_id,year_id)
+        if capability:
+            if capability not in actor.permissions:return []
+            from edusync.adapters.class_scope import visible_class_ids
+            v=visible_class_ids(conn.connection.driver_connection,actor.school_id,actor.scopes_for(capability))
+            if v is not None:rows=[r for r in rows if r['id'] in v]
+        return _jsonable(rows)
 
 @router.get('/classes')
 def classes(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):

@@ -12,6 +12,11 @@ router=APIRouter(tags=['Centre financier · Encaissement'])
 def need(a,c):
  try:a.require(c)
  except PermissionError as e:raise HTTPException(403,str(e))
+# Owner, 2026-11-17: a section-scoped actor (préfet, directeur…) never sees the finances of a pupil outside his classes.
+from edusync.adapters.class_scope import pupil_in_scope as _pupil_in_scope, visible_class_ids as _visible_class_ids
+def need_pupil(services,actor,cap,*,enrollment_id=None,student_id=None):
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+  if not _pupil_in_scope(conn,actor,(cap,),enrollment_id=enrollment_id,student_id=student_id):raise HTTPException(403,'Cet élève est hors de votre périmètre')
 def need_plan_view(a):
  # Desktop applicable_anticipation_plans / anticipation_payment_preview carry no role check: whoever records the parent's
  # decision or collects with a plan at the cash desk sees the applicable plans (no extra right to grant the cashier).
@@ -35,7 +40,7 @@ def children(family_id:UUID,actor:ActorContext=Depends(require_school_actor),ser
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return {'items':PostgresFinanceCheckoutRepository(conn).family_children(actor.school_id,family_id)}
 @router.get('/balance/{enrollment_id}')
 def balance(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- need(actor,'finance.checkout.balance.read')
+ need(actor,'finance.checkout.balance.read');need_pupil(services,actor,'finance.checkout.balance.read',enrollment_id=enrollment_id)
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return {'items':PostgresFinanceCheckoutRepository(conn).charges(actor.school_id,enrollment_id)}
 def _audit(conn,actor,action,entity_type,entity_id,new):
  import json as _json
@@ -111,12 +116,12 @@ def payment_options(actor:ActorContext=Depends(require_school_actor),services:Ap
 @router.get('/registration-bundle/{enrollment_id}')
 def registration_bundle(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  # Desktop registration_bundle_due (parity lot L4): obligations required at enrollment, to settle before other fees.
- need(actor,'finance.checkout.balance.read')
+ need(actor,'finance.checkout.balance.read');need_pupil(services,actor,'finance.checkout.balance.read',enrollment_id=enrollment_id)
  from edusync.adapters.postgres_fee_schedules import PostgresFeeScheduleRepository
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return PostgresFeeScheduleRepository(conn).registration_bundle_due(actor.school_id,enrollment_id)
 @router.get('/anticipation/{enrollment_id}')
 def anticipation(enrollment_id:UUID,currency:str=Query(...,pattern='^(CDF|USD)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- need(actor,'finance.anticipation_plans.read')
+ need(actor,'finance.anticipation_plans.read');need_pupil(services,actor,'finance.anticipation_plans.read',enrollment_id=enrollment_id)
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   plan=PostgresFinanceCheckoutRepository(conn).anticipation(actor.school_id,enrollment_id,currency)
   return {'available':bool(plan and plan.get('available')),'accepted':bool(plan and plan.get('accepted')),'membership_status':plan.get('membership_status') if plan else None,'plan':plan}
@@ -220,7 +225,7 @@ def family_basket(basket_id:UUID,actor:ActorContext=Depends(require_school_actor
   except Exception as e:raise HTTPException(404,'Panier introuvable') from e
 @router.get('/old-debts/{student_id}')
 def old_debts(student_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- need(actor,'finance.old_debt.read')
+ need(actor,'finance.old_debt.read');need_pupil(services,actor,'finance.old_debt.read',student_id=student_id)
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return {'items':PostgresFinanceCheckoutRepository(conn).historical_debts(actor.school_id,student_id)}
 @router.get('/products')
 def products(q:str='',actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -397,7 +402,8 @@ def receive_advance_fund(b:AdvanceFundBody,idempotency_key:str|None=Header(None,
 def list_advance_funds(enrollment_id:UUID|None=None,student_id:UUID|None=None,include_closed:bool=True,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.advance_funds.read')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-  return {'items':_jsonable_any(PostgresAdvanceFundsRepository(conn).list(actor.school_id,enrollment_id=enrollment_id,student_id=student_id,include_closed=include_closed))}
+  v=_visible_class_ids(conn.connection.driver_connection,actor.school_id,actor.scopes_for('finance.advance_funds.read'))
+  return {'items':_jsonable_any(PostgresAdvanceFundsRepository(conn).list(actor.school_id,enrollment_id=enrollment_id,student_id=student_id,include_closed=include_closed,class_ids=v))}
 class AllocateBody(BaseModel):amount:Decimal|None=Field(default=None,gt=0,max_digits=18,decimal_places=2)
 @router.post('/advance-funds/{fund_id}/allocate')
 def allocate_advance_fund(fund_id:UUID,b:AllocateBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -441,12 +447,12 @@ from edusync.adapters.postgres_finance_checkout import CheckoutGuidance
 @router.get('/recommended/{enrollment_id}')
 def recommended_checkout(enrollment_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  """Admission bundle first, then the oldest charge due today; nothing future is anticipated silently."""
- need(actor,'finance.checkout.balance.read')
+ need(actor,'finance.checkout.balance.read');need_pupil(services,actor,'finance.checkout.balance.read',enrollment_id=enrollment_id)
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   return _jsonable_any(CheckoutGuidance(conn).recommended(actor.school_id,enrollment_id))
 @router.get('/suggest/{enrollment_id}')
 def suggest_allocations(enrollment_id:UUID,amount:Decimal=Query(...,gt=0),currency:str=Query(...,pattern='^(CDF|USD)$'),include_future:bool=False,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
- need(actor,'finance.checkout.balance.read')
+ need(actor,'finance.checkout.balance.read');need_pupil(services,actor,'finance.checkout.balance.read',enrollment_id=enrollment_id)
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
    return {'allocations':CheckoutGuidance(conn).suggest(actor.school_id,enrollment_id,amount,currency,include_future=include_future)}
@@ -454,6 +460,6 @@ def suggest_allocations(enrollment_id:UUID,amount:Decimal=Query(...,gt=0),curren
 @router.get('/fee-bundle/{enrollment_id}')
 def fee_bundle(enrollment_id:UUID,codes:str=Query('JOURNAL_CLASSE,ECUSSON',max_length=300),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  """Desktop fee_bundle_due (default: journal de classe + écusson); paid through the normal collect with these charges."""
- need(actor,'finance.checkout.balance.read')
+ need(actor,'finance.checkout.balance.read');need_pupil(services,actor,'finance.checkout.balance.read',enrollment_id=enrollment_id)
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
   return _jsonable_any(CheckoutGuidance(conn).fee_bundle(actor.school_id,enrollment_id,codes.split(',')))
