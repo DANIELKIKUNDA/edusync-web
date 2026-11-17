@@ -5,11 +5,11 @@
 // expected as a grey track, regularized as the filled bar, the gap is what remains); one hue; thin marks; recessive
 // grid; hover tooltip on a full-height column; legend; table view; light and dark tokens.
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {recoveryMonthly} from '../api';
+import {recoveryMonthly, type RecoveryMonthlyRow} from '../api';
 import {formatMoney} from './format';
 import './recovery_chart.css';
 
-type Row = {ord?: number; month_label: string; expected: string | number; regularized_total: string | number; remaining: string | number; recovery_rate: string | number; debtors?: number | null};
+type Row = {ord?: number; month_label: string; expected: string | number; regularized_total: string | number; remaining: string | number; recovery_rate: string | number; debtors?: number | null; in_order?: RecoveryMonthlyRow['in_order']; not_in_order?: RecoveryMonthlyRow['not_in_order']};
 type Data = {items: Row[]; total: Row | null};
 const num = (v: unknown) => Number(v ?? 0) || 0;
 const MONTHS: Record<string, string> = {janvier: 'Janv', février: 'Févr', mars: 'Mars', avril: 'Avr', mai: 'Mai', juin: 'Juin', juillet: 'Juil', août: 'Août', septembre: 'Sept', octobre: 'Oct', novembre: 'Nov', décembre: 'Déc'};
@@ -91,7 +91,9 @@ export function RecoveryChart({token, yearId, compact, onOpen}: {token: string; 
           <span><em>Régularisé</em>{formatMoney(String(h.regularized_total), currency)}</span>
           <span><em>Attendu</em>{formatMoney(String(h.expected), currency)}</span>
           <span><em>Reste</em>{formatMoney(String(h.remaining), currency)}</span>
-          {h.debtors != null && <span><em>Élèves concernés</em>{h.debtors}</span>}
+          {h.debtors != null && <span><em>Élèves concernés</em>{h.debtors.toLocaleString('fr-FR')}</span>}
+          {h.in_order != null && <span><em>Élèves en ordre</em>{h.in_order.toLocaleString('fr-FR')}</span>}
+          {h.not_in_order != null && <span><em>Élèves non en ordre</em>{h.not_in_order.toLocaleString('fr-FR')}</span>}
         </div>}
       </div>}
     {onOpen && <div className="rc-foot"><button type="button" className="rc-link" onClick={onOpen}>Ouvrir le recouvrement détaillé ›</button></div>}
