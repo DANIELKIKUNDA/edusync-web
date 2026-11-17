@@ -18,8 +18,8 @@ class PostgresFinanceRecoveryRepository:
         school_scope=any(t=='SCHOOL' for t,_ in scopes)
         sections=[str(v).upper() for t,v in scopes if t in ('SECTION','CYCLE') and v]
         classes=[str(v).upper() for t,v in scopes if t=='CLASS' and v]
-        scope_sql='TRUE'; scope_args=[]
-        if scopes and not school_scope:
+        scope_sql='TRUE' if school_scope else 'FALSE'; scope_args=[]
+        if not school_scope:
             parts=[]
             if sections: parts.append('upper(ss.code)=ANY(%s)'); scope_args.append(sections)
             if classes: parts.append('upper(sc.code)=ANY(%s)'); scope_args.append(classes)
