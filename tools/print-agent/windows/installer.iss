@@ -9,16 +9,23 @@ DefaultGroupName=EduSync Print Connector (staging)
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 OutputDir=dist
-OutputBaseFilename=EduSync-Print-Setup-Staging
 WizardStyle=modern
 UninstallDisplayIcon={app}\EduSyncPrintConnector.exe
 #ifdef SignStaging
+OutputBaseFilename=EduSync-Print-Setup-Staging-Signed
 SignTool=edusync
 SignedUninstaller=yes
+#else
+OutputBaseFilename=EduSync-Print-Setup-Staging
 #endif
 
 [Files]
-Source: "payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "payload\*"; DestDir: "{app}"; Excludes: "EduSyncPrintConnector.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
+#ifdef SignStaging
+Source: "payload\EduSyncPrintConnector.exe"; DestDir: "{app}"; Flags: ignoreversion sign
+#else
+Source: "payload\EduSyncPrintConnector.exe"; DestDir: "{app}"; Flags: ignoreversion
+#endif
 Source: "..\server.mjs"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
