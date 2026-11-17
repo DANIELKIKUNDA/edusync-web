@@ -1,10 +1,13 @@
-import {useState} from 'react';
+import {useId, useState} from 'react';
+import {NavGlyph} from './nav_icons';
 import type {ReceiptFormat} from '../api';
 import {checkReceiptPrinter, receiptPrintKey, removeReceiptPrintKey, saveReceiptPrintKey, receiptWorkstationFormat, saveReceiptWorkstationFormat} from './receipt_print';
 
 export function ReceiptPrintSettings() {
   const [configured, setConfigured] = useState(() => !!receiptPrintKey());
   const [format, setFormat] = useState(receiptWorkstationFormat);
+  const keyInputId = useId();
+  const [keyVisible, setKeyVisible] = useState(false);
   const [draft, setDraft] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -19,6 +22,7 @@ export function ReceiptPrintSettings() {
         saveReceiptPrintKey(key);
         setConfigured(true);
         setDraft('');
+        setKeyVisible(false);
       }
       setMessage(`Agent accessible · imprimante configurée : ${printer}.`);
     } catch {
@@ -54,9 +58,18 @@ export function ReceiptPrintSettings() {
       <button type="button" className="es-btn" disabled={busy} onClick={() => void test(false)}>Vérifier la liaison</button>
       <button type="button" className="es-btn" disabled={busy} onClick={disable}>Désactiver l’impression directe</button>
     </> : <>
-      <label>Clé de liaison de l’agent
-        <input type="password" value={draft} onChange={e => setDraft(e.target.value)} autoComplete="off" spellCheck={false}/>
-      </label>
+      <div className="receiptPrintKey">
+        <label htmlFor={keyInputId}>Clé de liaison de l’agent</label>
+        <div className="receiptPrintKeyField">
+          <input id={keyInputId} type={keyVisible ? 'text' : 'password'} value={draft}
+            onChange={e => setDraft(e.target.value)} autoComplete="off" spellCheck={false} autoCapitalize="none"/>
+          <button type="button" aria-controls={keyInputId}
+            aria-label={keyVisible ? 'Masquer la clé de liaison' : 'Afficher la clé de liaison'}
+            onClick={() => setKeyVisible(visible => !visible)}>
+            <NavGlyph g={keyVisible ? 'eyeOff' : 'eye'} size={18}/>
+          </button>
+        </div>
+      </div>
       <button type="button" className="es-btn" disabled={busy || !draft.trim()} onClick={() => void test(true)}>Associer ce poste</button>
     </>}
     {message && <p role="status">{message}</p>}
