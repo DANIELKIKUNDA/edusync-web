@@ -17,11 +17,13 @@ function authorized(value, key) {
   return !!match && timingSafeEqual(Buffer.from(match[1], 'hex'), Buffer.from(key, 'hex'));
 }
 
-export function createPrintServer({origin, key, printer, print}) {
+export function createPrintServer({origin, key, printer, print, approvePairing}) {
   if (new URL(origin).origin !== origin || !origin.startsWith('https://') || !KEY.test(key) || !printer?.trim()) {
     throw new Error('Configuration du poste invalide.');
   }
   let busy = false;
+  let pairing = false;
+  let nextPairingAttempt = 0;
   return createServer({requestTimeout: 40_000, headersTimeout: 10_000}, async (request, response) => {
     const send = (status, data) => {
       response.writeHead(status, {'Content-Type': 'application/json', 'Cache-Control': 'no-store'});
@@ -33,11 +35,34 @@ export function createPrintServer({origin, key, printer, print}) {
     }
     response.setHeader('Access-Control-Allow-Origin', origin);
     response.setHeader('Vary', 'Origin');
-    if (request.method === 'OPTIONS' && ['/v1/status', '/v1/print'].includes(request.url)) {
+    const pairingRoute = approvePairing && request.url === '/v1/pair';
+    if (request.method === 'OPTIONS' && (pairingRoute || ['/v1/status', '/v1/print'].includes(request.url))) {
       response.setHeader('Access-Control-Allow-Methods', 'GET, POST');
       response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
       response.setHeader('Access-Control-Allow-Private-Network', 'true');
       response.writeHead(204).end();
+      return;
+    }
+    if (pairingRoute && request.method === 'POST') {
+      if (request.headers['content-type'] !== 'application/json' ||
+          request.headers['content-length'] !== '0' || request.headers['transfer-encoding']) {
+        send(400, {status: 'invalid_request'});
+        return;
+      }
+      if (pairing || Date.now() < nextPairingAttempt) {
+        send(429, {status: 'pairing_busy'});
+        return;
+      }
+      pairing = true;
+      try {
+        if (await approvePairing()) send(200, {status: 'paired', printer, key});
+        else send(403, {status: 'pairing_denied'});
+      } catch {
+        if (!response.destroyed) send(503, {status: 'pairing_unavailable'});
+      } finally {
+        pairing = false;
+        nextPairingAttempt = Date.now() + 3000;
+      }
       return;
     }
     if (!authorized(request.headers.authorization, key)) {
@@ -89,7 +114,17 @@ async function start() {
   if (!isAbsolute(config.renderer) || !config.renderer.toLowerCase().endsWith('sumatrapdf.exe')) {
     throw new Error('Indiquez le chemin absolu vers SumatraPDF.exe.');
   }
-  const server = createPrintServer({...config, print: async pdf => {
+  const approvePairing = config.interactivePairing === true ? async () => {
+    try {
+      await execute(join(dirname(process.execPath), 'EduSyncPrintConnector.exe'),
+        ['--approve', config.origin], {timeout: 55_000, windowsHide: true});
+      return true;
+    } catch (error) {
+      if (error.code === 2) return false;
+      throw error;
+    }
+  } : undefined;
+  const server = createPrintServer({...config, approvePairing, print: async pdf => {
     const directory = await mkdtemp(join(dirname(configPath), 'receipt-'));
     try {
       const file = join(directory, 'receipt.pdf');

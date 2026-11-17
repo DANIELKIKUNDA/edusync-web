@@ -1,12 +1,13 @@
 import {useId, useState} from 'react';
 import {NavGlyph} from './nav_icons';
 import type {ReceiptFormat} from '../api';
-import {checkReceiptPrinter, receiptPrintKey, removeReceiptPrintKey, saveReceiptPrintKey, receiptWorkstationFormat, saveReceiptWorkstationFormat} from './receipt_print';
+import {pairReceiptPrinter, checkReceiptPrinter, receiptPrintKey, removeReceiptPrintKey, saveReceiptPrintKey, receiptWorkstationFormat, saveReceiptWorkstationFormat} from './receipt_print';
 
 export function ReceiptPrintSettings() {
   const [configured, setConfigured] = useState(() => !!receiptPrintKey());
   const [format, setFormat] = useState(receiptWorkstationFormat);
   const keyInputId = useId();
+  const [manual, setManual] = useState(false);
   const [keyVisible, setKeyVisible] = useState(false);
   const [draft, setDraft] = useState('');
   const [message, setMessage] = useState('');
@@ -28,6 +29,24 @@ export function ReceiptPrintSettings() {
     } catch {
       setMessage('Connexion impossible. Vérifiez la clé, le démarrage de l’agent et l’autorisation de réseau local du navigateur.');
     } finally { setBusy(false); }
+  }
+
+  async function pair() {
+    setBusy(true);
+    setMessage('Confirmez la demande dans la fenêtre EduSync Print Connector sous Windows.');
+    try {
+      const {key, printer} = await pairReceiptPrinter();
+      saveReceiptPrintKey(key);
+      setConfigured(true);
+      setDraft('');
+      setManual(false);
+      setKeyVisible(false);
+      setMessage(`Agent accessible · imprimante configurée : ${printer}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Impossible d’associer ce poste.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   function disable() {
@@ -58,19 +77,26 @@ export function ReceiptPrintSettings() {
       <button type="button" className="es-btn" disabled={busy} onClick={() => void test(false)}>Vérifier la liaison</button>
       <button type="button" className="es-btn" disabled={busy} onClick={disable}>Désactiver l’impression directe</button>
     </> : <>
-      <div className="receiptPrintKey">
-        <label htmlFor={keyInputId}>Clé de liaison de l’agent</label>
-        <div className="receiptPrintKeyField">
-          <input id={keyInputId} type={keyVisible ? 'text' : 'password'} value={draft}
-            onChange={e => setDraft(e.target.value)} autoComplete="off" spellCheck={false} autoCapitalize="none"/>
-          <button type="button" aria-controls={keyInputId}
-            aria-label={keyVisible ? 'Masquer la clé de liaison' : 'Afficher la clé de liaison'}
-            onClick={() => setKeyVisible(visible => !visible)}>
-            <NavGlyph g={keyVisible ? 'eyeOff' : 'eye'} size={18}/>
-          </button>
+      <button type="button" className="es-btn" disabled={busy} onClick={() => void pair()}>Connecter mon imprimante</button>
+      <button type="button" className="es-btn" disabled={busy} aria-expanded={manual}
+        onClick={() => { setManual(open => !open); setKeyVisible(false); }}>
+        {manual ? 'Masquer la liaison par clé' : 'Utiliser une clé de liaison'}
+      </button>
+      {manual && <>
+        <div className="receiptPrintKey">
+          <label htmlFor={keyInputId}>Clé de liaison de l’agent</label>
+          <div className="receiptPrintKeyField">
+            <input id={keyInputId} type={keyVisible ? 'text' : 'password'} value={draft}
+              onChange={e => setDraft(e.target.value)} autoComplete="off" spellCheck={false} autoCapitalize="none"/>
+            <button type="button" aria-controls={keyInputId}
+              aria-label={keyVisible ? 'Masquer la clé de liaison' : 'Afficher la clé de liaison'}
+              onClick={() => setKeyVisible(visible => !visible)}>
+              <NavGlyph g={keyVisible ? 'eyeOff' : 'eye'} size={18}/>
+            </button>
+          </div>
         </div>
-      </div>
-      <button type="button" className="es-btn" disabled={busy || !draft.trim()} onClick={() => void test(true)}>Associer ce poste</button>
+        <button type="button" className="es-btn" disabled={busy || !draft.trim()} onClick={() => void test(true)}>Associer ce poste</button>
+      </>}
     </>}
     {message && <p role="status">{message}</p>}
   </fieldset>;
