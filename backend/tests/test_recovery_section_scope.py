@@ -86,3 +86,27 @@ def test_scope_classes_follows_the_monthly_rule():
     repo = PostgresFinanceRecoveryRepository.__new__(PostgresFinanceRecoveryRepository)
     assert repo.scope_classes(uuid4(), (('SCHOOL', None),)) is None
     assert repo.scope_classes(uuid4(), ()) is None
+
+
+@pytest.mark.parametrize(("scopes", "condition", "section_args"), [
+    ((("SECTION", "SECONDAIRE"),), "upper(ss.code)=ANY(%s)", (["SECONDAIRE"],)),
+    ((("SECTION", "PRIMAIRE"), ("SECTION", "MATERNELLE")), "upper(ss.code)=ANY(%s)", (["PRIMAIRE", "MATERNELLE"],)),
+    ((("SCHOOL", None),), "AND TRUE", ()),
+    ((), "AND FALSE", ()),
+])
+def test_monthly_chart_uses_explicit_finance_scope(scopes, condition, section_args):
+    class Cursor:
+        def execute(self, sql, params):
+            assert condition in sql
+            assert params[3:] == section_args
+            assert "GROUP BY ord,month_label,enrollment_id" in sql
+
+        def fetchall(self):
+            return []
+
+    @contextmanager
+    def cursor(**_):
+        yield Cursor()
+
+    repo = PostgresFinanceRecoveryRepository(SimpleNamespace(connection=SimpleNamespace(driver_connection=SimpleNamespace(cursor=cursor))))
+    assert repo.monthly(uuid4(), YEAR["id"], "CDF", scopes=scopes) == []
