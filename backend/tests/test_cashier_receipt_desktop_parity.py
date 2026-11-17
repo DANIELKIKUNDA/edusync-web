@@ -103,3 +103,28 @@ def test_office_receipts_have_native_a4_and_legacy_a5_dimensions():
         text = page.extract_text()
         assert "TYPE DE FRAIS" in text and "MONTANT (FC)" in text
         assert "REC-2026-000123" in text and "120 000 FC" in text
+
+
+def test_thermal_table_grows_for_more_rows_and_wrapped_labels():
+    single = _receipt()
+    single["lines"] = single["lines"][:1]
+    more = _receipt()
+    wrapped = _receipt()
+    wrapped["lines"][0]["fee_label"] = "Frais de travaux pratiques de mécanique et d’électricité pour le deuxième trimestre"
+    school = {"name": "École de démonstration"}
+    pdf = PdfReader(BytesIO(receipt_pdf(school=school, receipts=[single, more, wrapped], fmt="80MM")))
+    assert len(pdf.pages) == 3
+    assert all(abs(float(page.mediabox.width) - 80 * mm) < .01 for page in pdf.pages)
+    heights = [float(page.mediabox.height) for page in pdf.pages]
+    assert heights[0] < heights[1] < heights[2]
+    assert "Frais de travaux pratiques de mécanique et d’électricité pour le deuxième trimestre" in " ".join(
+        pdf.pages[2].extract_text().split()
+    )
+    for page in pdf.pages:
+        vertical_rules = 0
+        for (start, operator), (end, next_operator) in zip(
+            page.get_contents().operations, page.get_contents().operations[1:]
+        ):
+            if operator == b"m" and next_operator == b"l" and start[0] == end[0] and start[1] != end[1]:
+                vertical_rules += 1
+        assert vertical_rules == 3
