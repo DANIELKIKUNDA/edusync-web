@@ -10,7 +10,20 @@ Sur un poste de build Windows avec Inno Setup 6, préparer la distribution Windo
 .\build.ps1 -NodeDist C:\build\node -SumatraDist C:\build\sumatra -InnoCompiler 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
 ```
 
-Le build produit `dist\EduSync-Print-Setup-Staging.exe`. Pour une livraison, passer `-SignToolCommand` avec la commande Authenticode d’Inno Setup (qui doit contenir le paramètre `$f`) et vérifier la signature de l’installateur. Respecter les conditions de redistribution de SumatraPDF et fournir le code source correspondant lors de la distribution du binaire.
+Le build sans signature produit `dist\EduSync-Print-Setup-Staging.exe` pour les tests internes. Respecter les conditions de redistribution de SumatraPDF et fournir le code source correspondant lors de la distribution du binaire.
+
+### Produire la version signée
+
+La machine de build doit avoir accès à un certificat de signature de code reconnu par Windows. Utiliser la commande du fournisseur comme argument `-SignToolCommand` lors du build. La commande Inno Setup doit contenir `$f` pour le fichier à signer et appliquer un horodatage RFC 3161.
+
+Pour un certificat utilisable via le magasin Windows du compte de build, exemple avec SignTool dans le PATH :
+
+```powershell
+$sign = 'signtool.exe sign /sha1 EMPREINTE_CERTIFICAT /fd SHA256 /tr URL_HORODATAGE_FOURNISSEUR /td SHA256 $f'
+.\build.ps1 -NodeDist C:\build\node -SumatraDist C:\build\sumatra -InnoCompiler 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' -SignToolCommand $sign
+```
+
+L’installateur signé est `dist\EduSync-Print-Setup-Staging-Signed.exe`. Inno Setup signe le lanceur, l’installateur et le désinstallateur. Le build vérifie les signatures horodatées du lanceur et de l’installateur. Avant diffusion, vérifier aussi le désinstallateur installé et refaire l’installation et l’impression directe sur un PC où Smart App Control est actif.
 
 ## Valider sur Windows
 
