@@ -260,10 +260,14 @@ def _audit_print(conn,actor,payment_id,copy_no):
   {'sid':str(actor.school_id),'uid':str(actor.user_id),'mid':str(actor.membership_id),'a':'FINANCE_RECEIPT_PRINTED' if copy_no==1 else 'FINANCE_RECEIPT_REPRINTED','pid':str(payment_id),'n':copy_no})
 def _with_cashier(services,facts):
  """Cashier display name through the platform role (tenant role cannot read other users' rows)."""
- if facts and not facts.get('cashier'):
-  from sqlalchemy import text as _t
+ if facts and facts.get('school_id') and (not facts.get('cashier') or not facts.get('cashier_membership_id')):
   with services.platform_db.platform_transaction() as pc:
-   facts['cashier']=pc.execute(_t("SELECT full_name FROM users WHERE id=:id"),{'id':str(facts['actor_user_id'])}).scalar_one_or_none()
+   member=pc.execute(text("""SELECT u.full_name,m.civility FROM users u
+    LEFT JOIN school_memberships m ON m.user_id=u.id AND m.school_id=:sid
+    WHERE u.id=:id"""),{'id':str(facts['actor_user_id']),'sid':str(facts['school_id'])}).mappings().first()
+  if member:
+   facts['cashier']=member['full_name']
+   facts['cashier_civility']=member['civility']
  return facts
 @router.post('/receipts/{payment_id}/print')
 def print_receipt(payment_id:UUID,format:str|None=Query(None,pattern='^(A4|A5|80MM|58MM)$'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
