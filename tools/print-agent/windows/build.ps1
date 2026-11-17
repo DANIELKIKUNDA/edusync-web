@@ -30,4 +30,4 @@ if ($SignToolCommand) {
 }
 $innoArgs += (Join-Path $PSScriptRoot 'installer.iss')
 & $compiler @innoArgs
-if ($LASTEXITCODE -ne 0) { throw 'La création de l’installateur a échoué.' }
+if ($LASTEXITCODE -ne 0) { throw "La création de l’installateur a échoué." }
