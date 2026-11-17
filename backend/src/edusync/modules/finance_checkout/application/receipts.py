@@ -291,7 +291,7 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
     logo = logo_stream(school)
     cursor = 22 * mm if logo else 5 * mm
 
-    def write(value: Any, size: float = 10, font: str = regular, align: str = "left") -> None:
+    def write(value: Any, size: float = 12, font: str = regular, align: str = "left") -> None:
         nonlocal cursor
         for line in _wrap_ticket(str(value), font, size, usable):
             cursor += size
@@ -310,18 +310,18 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
     currency = row.get("currency") or "CDF"
     symbol = "FC" if currency == "CDF" else currency
     write(school.get("motto") or "ÉTABLISSEMENT SCOLAIRE", align="center")
-    write((school.get("name") or "École").upper(), 12, bold, "center")
+    write((school.get("name") or "École").upper(), 14, bold, "center")
     write(" · ".join(str(school[k]) for k in ("address", "city", "province") if school.get(k)), align="center")
     for label, key in (("Tél.", "phone"), ("E-mail", "email")):
         if school.get(key):
             write(f"{label} : {school[key]}", align="center")
     separate()
-    write("REÇU DE PAIEMENT", 13, bold, "center")
-    write(f"REÇU N° {row.get('receipt_number') or '—'}", 11, bold, "center")
+    write("REÇU DE PAIEMENT", 15, bold, "center")
+    write(f"REÇU N° {row.get('receipt_number') or '—'}", 13, bold, "center")
     if copies > 1:
         write(f"Copie {copy_index}/{copies}", align="center")
     if row.get("copy_no", 1) > 1:
-        write(f"DUPLICATA n° {row['copy_no'] - 1}", 11, bold, "center")
+        write(f"DUPLICATA n° {row['copy_no'] - 1}", 13, bold, "center")
     created = row.get("created_at")
     stamp = created.strftime("%d/%m/%Y · %H:%M:%S") if isinstance(created, datetime) else str(created or "—")
     field("DATE / HEURE", stamp)
@@ -330,21 +330,21 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
                        ("PRÉNOM", "first_name"), ("SEXE", "gender")):
         field(label, row.get(key))
     separate()
-    write("DÉTAIL DES PAIEMENTS", 11, bold)
+    write("DÉTAIL DES PAIEMENTS", 13, bold)
     lines = list(row.get("lines") or [])
     if row.get("advance_amount"):
         lines.append({"fee_label": "Avance conservée", "period_label": row.get("advance_target") or "Échéances futures",
                       "amount": row["advance_amount"]})
     for index, item in enumerate(lines, 1):
         fee = item.get("fee_label") or item.get("label") or "Frais"
-        write(f"{index}. {fee}", 10, bold)
+        write(f"{index}. {fee}", 12, bold)
         field("Libellé / mois", item.get("period_label") or fee)
         field("Période", item.get("period_value") or row.get("academic_year"))
-        write(f"{_amount(item.get('amount'))} {symbol}", 11, bold, "right")
+        write(f"{_amount(item.get('amount'))} {symbol}", 13, bold, "right")
         cursor += 3
     separate()
-    write("TOTAL PAYÉ", 12, bold, "center")
-    write(f"{_amount(row.get('amount'))} {symbol}", 17, bold, "center")
+    write("TOTAL PAYÉ", 14, bold, "center")
+    write(f"{_amount(row.get('amount'))} {symbol}", 20, bold, "center")
     words = money_in_words(row.get("amount") or 0, currency)
     write(f"MONTANT EN LETTRES : {words[:1].upper()}{words[1:]}.")
     mode = {"CASH": "ESPÈCES (CASH)", "MOBILE_MONEY": "MOBILE MONEY", "BANQUE": "BANQUE",
@@ -357,7 +357,7 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
     field("CAISSIER", row.get("cashier"))
     cursor += 8 * mm
     write("Signature : _______________________")
-    write("CACHET DE L’ÉCOLE", 10, bold)
+    write("CACHET DE L’ÉCOLE", 12, bold)
     cursor += 12 * mm
     write("Merci pour votre confiance.", align="center")
 
@@ -368,7 +368,7 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
             pdf.drawImage(ImageReader(logo), (width - 16 * mm) / 2, height - 21 * mm,
                           width=16 * mm, height=16 * mm, preserveAspectRatio=True, mask="auto")
         except Exception:
-            _text(pdf, "ÉCOLE", width / 2, height - 13 * mm, 10, align="center")
+            _text(pdf, "ÉCOLE", width / 2, height - 13 * mm, 12, align="center")
     for top, label, font, size, align in marks:
         x = width / 2 if align == "center" else width - margin if align == "right" else margin
         _text(pdf, label, x, height - top, size, font=font, align=align)

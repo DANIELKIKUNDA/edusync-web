@@ -87,7 +87,7 @@ def test_thermal_ticket_uses_readable_fonts_and_full_text_inside_printable_area(
         assert 5 * mm <= tm[5] < height - 5 * mm
 
     text = page.extract_text(visitor_text=measure)
-    assert min(sizes) >= 10 and max(sizes) >= 17
+    assert min(sizes) >= 12 and max(sizes) >= 20
     assert "…" not in text
     assert receipt["payment_reference"] in "".join(text.split())
     assert "Avance conservée" in text and "Tranche trois" in text
