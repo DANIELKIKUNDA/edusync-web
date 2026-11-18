@@ -432,6 +432,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   useEffect(()=>{const h=()=>{void onRefused()};window.addEventListener('edusync:space-check',h);return()=>window.removeEventListener('edusync:space-check',h)},[]);
   useEffect(()=>{
     let alive=true, running=false, first=true;
+    let lastSuccessfulCheck=0;
     restoreOfflineContext();
     async function restore(){
       if(running)return;
@@ -481,6 +482,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
         }
         const d=await r.json();if(!isCurrent())return;
         if(!d.access_token)throw new Error('SESSION_SERVICE_UNAVAILABLE');
+        lastSuccessfulCheck=Date.now();
         if(d.scope==='SCHOOL'&&d.school&&d.user){setPlatformAuthState('ONLINE_AUTHENTICATED');setPlatformToken('');openSchool({token:d.access_token,school:d.school,user:d.user,permissions:d.permissions||[]});}
         else if(d.scope==='PLATFORM'){
           const previous=knownPlatform();
@@ -523,7 +525,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     // timed out stayed cached for good when the network itself never dropped (no OFFLINE → ONLINE transition to wait for).
     // While the session is cached and the browser is online, it is revalidated every CACHED_SESSION_RETRY_MS.
     const retry=window.setInterval(()=>{if(shouldRetryCachedSession())void restore()},CACHED_SESSION_RETRY_MS);
-    const retryNow=()=>{if(shouldRetryCachedSession())void restore()};   // « Réessayer maintenant » of the reconnection banner
+    const retryNow=()=>{if(knownContext()&&navigator.onLine!==false&&(shouldRetryCachedSession()||Date.now()-lastSuccessfulCheck>=60_000))void restore()};   // « Réessayer maintenant » of the reconnection banner
     window.addEventListener('edusync:session-retry',retryNow);
     void restore();
     return()=>{alive=false;sessionCheck.current?.abort();window.clearInterval(retry);window.removeEventListener('edusync:session-retry',retryNow);window.removeEventListener('edusync:connectivity',probe)};

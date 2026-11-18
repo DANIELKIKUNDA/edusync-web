@@ -33,5 +33,6 @@ def test_chrome_wake_refresh_is_serialised_and_retried_without_revocation():
     assert "navigator.locks" in CONNECTIVITY
     assert "edusync-session-refresh" in CONNECTIVITY
     assert "X-EduSync-Session" in CONNECTIVITY and "STALE_REFRESH" in CONNECTIVITY
-    assert "visibilitychange" in CONNECTIVITY and "void renewAccess()" in CONNECTIVITY
+    assert "visibilitychange" in CONNECTIVITY and "edusync:session-retry" in CONNECTIVITY
+    assert "addEventListener('edusync:session-retry',retryNow)" in APP
     assert "no\n    # longer emitted" in IAM

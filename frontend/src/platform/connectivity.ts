@@ -59,12 +59,24 @@ function limited(signal?:AbortSignal){
 }
 async function doRefresh(signal?:AbortSignal){
   const t=limited(signal);
+  const request=()=>nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal:t.signal});
   try{
-    let r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal:t.signal});
+    let r:Response;
+    try{r=await request()}
+    catch(error){
+      if(t.signal.aborted||browserOffline())throw error;
+      await sleep(350);
+      r=await request();
+    }
+    if([502,503,504].includes(r.status)){
+      void r.body?.cancel().catch(()=>{});
+      await sleep(350);
+      r=await request();
+    }
     // A request frozen by Chrome may resume with the preceding cookie after another tab/PWA has rotated it. The server
     // deliberately keeps the device session alive; retry once so the browser sends its current cookie.
     if(r.status===409&&r.headers.get('X-EduSync-Session')==='STALE_REFRESH'){
-      await sleep(120);r=await nativeFetch('/api/v1/auth/refresh',{method:'POST',credentials:'include',cache:'no-store',signal:t.signal});
+      void r.body?.cancel().catch(()=>{});await sleep(120);r=await request();
     }
     // The body is read INSIDE the time limit: a response whose headers arrived but whose body stalls must not hang the caller.
     const body=await r.text();
@@ -254,7 +266,7 @@ export function installResilientFetch(){
       // request that the browser froze during sleep.
       if(snap.state==='OFFLINE'||snap.state==='RECOVERING')snap={...snap,successes:RECOVER_SUCCESSES-1};
       probeSoon(0);
-      if(knownContext())void renewAccess();
+      if(knownContext())window.dispatchEvent(new Event('edusync:session-retry'));
     });
     // Back to the app (phone unlocked, tab shown): check at once instead of waiting for the next beat.
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){
@@ -262,7 +274,7 @@ export function installResilientFetch(){
       // A wake-up is a session-resume event even when Chrome still reports the network as online.
       // Do not start a refresh while the app already knows it is offline: a frozen request would occupy the cross-tab lock
       // and delay the real restoration when the network returns.
-      if(knownContext()&&snap.state==='ONLINE'&&navigator.onLine!==false)void renewAccess();
+      if(knownContext()&&snap.state==='ONLINE'&&navigator.onLine!==false)window.dispatchEvent(new Event('edusync:session-retry'));
     }});
     if(navigator.onLine===false){failure();probeSoon(0)}
   }
