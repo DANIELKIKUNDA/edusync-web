@@ -35,11 +35,16 @@ def _amount(value: Any) -> str:
     return whole.replace(",", " ") + ("" if cents == "00" else "," + cents)
 
 
+THERMAL_80_WIDTH = 72 * mm
+
+
 def _size(fmt: str, lines: int) -> tuple[float, float]:
     if fmt == "58MM":
         return 58 * mm, max(205, 190 + lines * 8) * mm
     if fmt == "80MM":
-        return 80 * mm, max(190, 178 + lines * 7) * mm
+        # Owner, 2026-11-18: an 80 mm roll prints only 72 mm (XP-80C driver « 80(72.1) x 297 mm ») — a page of 80 mm
+        # was clipped on the right. The page IS the printable width; its height follows the content (set when drawn).
+        return THERMAL_80_WIDTH, max(120, 110 + lines * 6) * mm
     if fmt == "A4":
         return A4
     if fmt == "A5":
@@ -283,28 +288,31 @@ def _wrap_ticket(value: str, font: str, size: float, width: float) -> list[str]:
 
 def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, Any],
                      copy_index: int, copies: int) -> None:
-    width, margin = 80 * mm, 5 * mm
-    usable = width - 2 * margin  # 70 mm, centred within the XP-T80A's 72 mm print area
+    # Compact ticket (owner, 2026-11-18): 72 mm page = the printable width of an 80 mm roll, 3 mm inner margins, grouped
+    # identity lines, tight spacing — less paper, nothing cut on the right.
+    width, margin = THERMAL_80_WIDTH, 3 * mm
+    usable = width - 2 * margin  # 66 mm
     marks: list[tuple[float, str, str, float, str]] = []
     rules: list[float] = []
     regular, bold = "Helvetica", "Helvetica-Bold"
     logo = logo_stream(school)
-    cursor = 4 * mm
-    header_width = usable - (14 * mm if logo else 0)
+    cursor = 2 * mm
+    header_width = usable - (12 * mm if logo else 0)
+    body = 9
 
-    def write(value: Any, size: float = 10, font: str = regular, align: str = "left",
+    def write(value: Any, size: float = body, font: str = regular, align: str = "left",
               line_width: float = usable) -> None:
         nonlocal cursor
         for line in _wrap_ticket(str(value), font, size, line_width):
             cursor += size
             marks.append((cursor, line, font, size, align))
-            cursor += 2.8
+            cursor += 1.8
 
     def separate() -> None:
         nonlocal cursor
-        cursor += 2
+        cursor += 1.5
         rules.append(cursor)
-        cursor += 3
+        cursor += 2.5
 
     def field(label: str, value: Any) -> None:
         write(f"{label} : {value or '—'}")
@@ -312,49 +320,48 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
     currency = row.get("currency") or "CDF"
     symbol = "FC" if currency == "CDF" else currency
     header_align = "right" if logo else "center"
-    write(school.get("motto") or "ÉTABLISSEMENT SCOLAIRE", 9.5, align=header_align, line_width=header_width)
-    write((school.get("name") or "École").upper(), 11, bold, header_align, header_width)
+    write((school.get("name") or "École").upper(), 10.5, bold, header_align, header_width)
     write(" · ".join(str(school[k]) for k in ("address", "city", "province") if school.get(k)),
-          9.5, align=header_align, line_width=header_width)
-    for label, key in (("Tél.", "phone"), ("E-mail", "email")):
-        if school.get(key):
-            write(f"{label} : {school[key]}", 9.5, align=header_align, line_width=header_width)
+          8, align=header_align, line_width=header_width)
+    contacts = " · ".join(f"{label} {school[key]}" for label, key in (("Tél.", "phone"), ("", "email")) if school.get(key))
+    if contacts:
+        write(contacts.strip(), 8, align=header_align, line_width=header_width)
     if logo:
-        cursor = max(cursor, 16 * mm)
+        cursor = max(cursor, 12 * mm)
     separate()
-    write("REÇU DE PAIEMENT", 12, bold, "center")
-    write(f"REÇU N° {row.get('receipt_number') or '—'}", 10, bold, "center")
+    write("REÇU DE PAIEMENT", 11, bold, "center")
+    write(f"REÇU N° {row.get('receipt_number') or '—'}", 9.5, bold, "center")
     if copies > 1:
         write(f"Copie {copy_index}/{copies}", align="center")
     if row.get("copy_no", 1) > 1:
-        write(f"DUPLICATA n° {row['copy_no'] - 1}", 10, bold, "center")
+        write(f"DUPLICATA n° {row['copy_no'] - 1}", body, bold, "center")
     created = row.get("created_at")
-    stamp = created.strftime("%d/%m/%Y · %H:%M:%S") if isinstance(created, datetime) else str(created or "—")
+    stamp = created.strftime("%d/%m/%Y %H:%M") if isinstance(created, datetime) else str(created or "—")
     field("DATE / HEURE", stamp)
-    for label, key in (("ANNÉE SCOLAIRE", "academic_year"), ("CLASSE", "class_label"),
-                       ("CODE ÉLÈVE", "matricule"), ("NOM", "last_name"), ("POSTNOM", "middle_name"),
-                       ("PRÉNOM", "first_name"), ("SEXE", "gender")):
-        field(label, row.get(key))
+    name = " ".join(str(row[k]) for k in ("last_name", "middle_name", "first_name") if row.get(k))
+    field("ÉLÈVE", name.upper() if name else None)
+    write(f"CODE ÉLÈVE : {row.get('matricule') or '—'}" + (f" · SEXE : {row['gender']}" if row.get("gender") else ""))
+    write(f"CLASSE : {row.get('class_label') or '—'} · ANNÉE SCOLAIRE : {row.get('academic_year') or '—'}")
     separate()
-    write("DÉTAIL DES PAIEMENTS", 11, bold)
+    write("DÉTAIL DES PAIEMENTS", body, bold)
     lines = list(row.get("lines") or [])
     if row.get("advance_amount"):
         lines.append({"fee_label": "Avance conservée", "period_label": row.get("advance_target") or "Échéances futures",
                       "amount": row["advance_amount"]})
-    amount_width = 25 * mm
+    amount_width = 22 * mm
     label_width = usable - amount_width
-    table_top = cursor + 2
+    table_top = cursor + 1
     table_edges = [table_top]
 
     def table_row(labels: list[str], amounts: list[str], header: bool = False) -> None:
         nonlocal cursor
-        row_height = 12 * max(len(labels), len(amounts)) + 4
+        row_height = 10.5 * max(len(labels), len(amounts)) + 3
         for index, line in enumerate(labels):
-            marks.append((cursor + 12 + index * 12, line, bold if header else regular, 9.5, "table-left"))
+            marks.append((cursor + 10 + index * 10.5, line, bold if header else regular, body, "table-left"))
         for index, line in enumerate(amounts):
-            marks.append((cursor + 12 + index * 12, line, bold, 9.5, "table-right"))
+            marks.append((cursor + 10 + index * 10.5, line, bold, body, "table-right"))
         cursor += row_height
-        table_edges.append(cursor + 2)
+        table_edges.append(cursor + 1)
 
     table_row(["Frais / période"], ["Montant"], header=True)
     for item in lines:
@@ -364,41 +371,37 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
         details = [str(fee)]
         if period != fee or period_value:
             details.append(" · ".join(str(value) for value in (period if period != fee else None, period_value) if value))
-        labels = [line for detail in details for line in _wrap_ticket(detail, regular, 9.5, label_width - 4 * mm)]
-        amounts = _wrap_ticket(f"{_amount(item.get('amount'))} {symbol}", bold, 9.5, amount_width - 4 * mm)
+        labels = [line for detail in details for line in _wrap_ticket(detail, regular, body, label_width - 3 * mm)]
+        amounts = _wrap_ticket(f"{_amount(item.get('amount'))} {symbol}", bold, body, amount_width - 3 * mm)
         table_row(labels, amounts)
-    separate()
-    write("TOTAL PAYÉ", 11, bold, "center")
-    write(f"{_amount(row.get('amount'))} {symbol}", 15, bold, "center")
+    cursor += 2
+    write(f"TOTAL PAYÉ : {_amount(row.get('amount'))} {symbol}", 13, bold, "center")
     words = money_in_words(row.get("amount") or 0, currency)
-    write(f"MONTANT EN LETTRES : {words[:1].upper()}{words[1:]}.")
+    write(f"MONTANT EN LETTRES : {words[:1].upper()}{words[1:]}.", 8)
     mode = {"CASH": "ESPÈCES (CASH)", "MOBILE_MONEY": "MOBILE MONEY", "BANQUE": "BANQUE",
             "AUTRE": "AUTRE"}.get(str(row.get("payment_mode") or "").upper())
     field("MODE DE PAIEMENT", mode)
     for label, key in (("Réf.", "payment_reference"), ("Famille", "family_name")):
         if row.get(key):
             field(label, row[key])
-    separate()
     field("CAISSIER", row.get("cashier"))
-    cursor += 4 * mm
-    write("Signature : _______________________")
-    write("CACHET DE L’ÉCOLE", 12, bold)
-    cursor += 6 * mm
-    write("Merci pour votre confiance.", align="center")
+    separate()
+    write("Signature et CACHET DE L’ÉCOLE : __________", 8)
+    write("Merci pour votre confiance.", 8, align="center")
 
-    height = cursor + 5 * mm
+    height = cursor + 3 * mm
     pdf.setPageSize((width, height))
     if logo:
         try:
-            pdf.drawImage(ImageReader(logo), margin, height - 16 * mm,
-                          width=12 * mm, height=12 * mm, preserveAspectRatio=True, mask="auto")
+            pdf.drawImage(ImageReader(logo), margin, height - 12 * mm,
+                          width=10 * mm, height=10 * mm, preserveAspectRatio=True, mask="auto")
         except Exception:
             pass
     for top, label, font, size, align in marks:
         if align == "table-left":
-            x, align = margin + 2 * mm, "left"
+            x, align = margin + 1.5 * mm, "left"
         elif align == "table-right":
-            x, align = width - margin - 2 * mm, "right"
+            x, align = width - margin - 1.5 * mm, "right"
         else:
             x = width / 2 if align == "center" else width - margin if align == "right" else margin
         _text(pdf, label, x, height - top, size, font=font, align=align)

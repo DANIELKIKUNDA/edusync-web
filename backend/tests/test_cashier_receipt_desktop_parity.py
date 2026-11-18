@@ -36,7 +36,7 @@ def _receipt():
 def test_official_receipt_matches_desktop_documentary_blocks_and_real_cashier():
     pdf = PdfReader(BytesIO(receipt_pdf(school={"name": "École de démonstration"}, receipts=[_receipt()], fmt="80MM")))
     assert len(pdf.pages) == 1
-    assert 79 < float(pdf.pages[0].mediabox.width) / 2.83464567 < 81
+    assert 71 < float(pdf.pages[0].mediabox.width) / 2.83464567 < 73   # printable width of an 80 mm roll
     text = pdf.pages[0].extract_text()
     for label in ("REÇU N°", "ANNÉE SCOLAIRE", "REÇU DE PAIEMENT", "CODE ÉLÈVE",
                   "DÉTAIL DES PAIEMENTS", "Frais scolaires", "Frais / période",
@@ -82,12 +82,14 @@ def test_thermal_ticket_uses_readable_fonts_and_full_text_inside_printable_area(
         if not label or not font:
             return
         sizes.append(size)
-        assert tm[4] >= 5 * mm - .1
-        assert tm[4] + stringWidth(label, font["/BaseFont"][1:], size) <= width - 5 * mm + .1
-        assert 5 * mm <= tm[5] < height - 4 * mm
+        # 72 mm page (printable width of an 80 mm roll), 3 mm inner margins: nothing can be cut on the right.
+        assert tm[4] >= 3 * mm - .1
+        assert tm[4] + stringWidth(label, font["/BaseFont"][1:], size) <= width - 3 * mm + .1
+        assert 3 * mm <= tm[5] < height - 2 * mm
 
     text = page.extract_text(visitor_text=measure)
-    assert min(sizes) >= 9.5 and max(sizes) == 15
+    assert abs(width - 72 * mm) < .01
+    assert min(sizes) >= 8 and max(sizes) == 13
     assert "…" not in text
     assert receipt["payment_reference"] in "".join(text.split())
     assert "Avance conservée" in text and "Tranche trois" in text
@@ -114,7 +116,7 @@ def test_thermal_table_grows_for_more_rows_and_wrapped_labels():
     school = {"name": "École de démonstration"}
     pdf = PdfReader(BytesIO(receipt_pdf(school=school, receipts=[single, more, wrapped], fmt="80MM")))
     assert len(pdf.pages) == 3
-    assert all(abs(float(page.mediabox.width) - 80 * mm) < .01 for page in pdf.pages)
+    assert all(abs(float(page.mediabox.width) - 72 * mm) < .01 for page in pdf.pages)
     heights = [float(page.mediabox.height) for page in pdf.pages]
     assert heights[0] < heights[1] < heights[2]
     assert "Frais de travaux pratiques de mécanique et d’électricité pour le deuxième trimestre" in " ".join(
