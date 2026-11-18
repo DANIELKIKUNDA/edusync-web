@@ -200,9 +200,9 @@ def _draw(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, Any],
     for index, line in enumerate(lines, 1):
         y -= 6.5 * mm
         fee = str(line.get("fee_label") or line.get("label") or "Frais")
-        period = str(line.get("period_label") or "")
+        period, period_value = _receipt_period(line, row.get("academic_year"))
         label = period or fee
-        values = (str(index), fee, label, str(line.get("period_value") or row.get("academic_year") or "—"),
+        values = (str(index), fee, label, period_value or "—",
                   _amount(line.get("amount")))
         x = left
         for col, (ratio, value) in enumerate(zip(ratios, values)):
@@ -251,7 +251,7 @@ def _draw(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, Any],
     _box(pdf, left, y, usable, sign_h)
     half = usable / 2
     pdf.line(left + half, y, left + half, y + sign_h)
-    _text(pdf, "CAISSIER", left + half / 2, y + sign_h - 5 * mm, 5.4 if thermal else 8.2,
+    _text(pdf, _cashier_label(row), left + half / 2, y + sign_h - 5 * mm, 5.4 if thermal else 8.2,
           font="Helvetica-Bold", align="center")
     _text(pdf, row.get("cashier") or "—", left + half / 2, y + sign_h - 11 * mm,
           5.1 if thermal else 7.8, align="center", width=half - 4 * mm)
@@ -284,6 +284,23 @@ def _wrap_ticket(value: str, font: str, size: float, width: float) -> list[str]:
         if part:
             words.append(part)
     return simpleSplit(" ".join(words), font, size, width)
+
+
+def _cashier_label(row: dict[str, Any]) -> str:
+    return {"M": "CAISSIER", "MME": "CAISSIÈRE"}.get(row.get("cashier_civility"), "ENCAISSEMENT EFFECTUÉ PAR")
+
+
+def _receipt_period(item: dict[str, Any], academic_year: Any) -> tuple[str, str]:
+    label = str(item.get("period_label") or "")
+    value = str(item.get("period_value") or "")
+    if item.get("periodicity") == "INSTALLMENT":
+        number = item.get("sequence_order")
+        if number:
+            label = f"{number}{'re' if number == 1 else 'e'} tranche"
+        return (f"Paiement de la {label}" if label else "Paiement par tranche"), ""
+    if item.get("periodicity") == "MONTHLY" and label and len(value) == 7 and value[2] == "/":
+        return f"{label} {value[3:]}", ""
+    return label, value or str(academic_year or "")
 
 
 def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, Any],
@@ -366,8 +383,8 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
     table_row(["Frais / période"], ["Montant"], header=True)
     for item in lines:
         fee = item.get("fee_label") or item.get("label") or "Frais"
-        period = item.get("period_label") or fee
-        period_value = item.get("period_value") or row.get("academic_year")
+        period, period_value = _receipt_period(item, row.get("academic_year"))
+        period = period or fee
         details = [str(fee)]
         if period != fee or period_value:
             details.append(" · ".join(str(value) for value in (period if period != fee else None, period_value) if value))
@@ -384,7 +401,7 @@ def _draw_thermal_80(pdf: canvas.Canvas, school: dict[str, Any], row: dict[str, 
     for label, key in (("Réf.", "payment_reference"), ("Famille", "family_name")):
         if row.get(key):
             field(label, row[key])
-    field("CAISSIER", row.get("cashier"))
+    field(_cashier_label(row), row.get("cashier"))
     separate()
     write("Signature et CACHET DE L’ÉCOLE : __________", 8)
     write("Merci pour votre confiance.", 8, align="center")

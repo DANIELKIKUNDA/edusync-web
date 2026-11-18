@@ -18,8 +18,8 @@ class PostgresFinanceRecoveryRepository:
         school_scope=any(t=='SCHOOL' for t,_ in scopes)
         sections=[str(v).upper() for t,v in scopes if t in ('SECTION','CYCLE') and v]
         classes=[str(v).upper() for t,v in scopes if t=='CLASS' and v]
-        scope_sql='TRUE'; scope_args=[]
-        if scopes and not school_scope:
+        scope_sql='TRUE' if school_scope else 'FALSE'; scope_args=[]
+        if not school_scope:
             parts=[]
             if sections: parts.append('upper(ss.code)=ANY(%s)'); scope_args.append(sections)
             if classes: parts.append('upper(sc.code)=ANY(%s)'); scope_args.append(classes)
@@ -37,12 +37,16 @@ class PostgresFinanceRecoveryRepository:
           JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=e.school_id
           WHERE fc.school_id=%s AND e.academic_year_id=%s AND fc.status='ACTIVE' AND fc.currency=%s
             AND fc.effective_net_amount>0 AND {scope_sql}
-        ), agg AS (
-          SELECT ord,month_label,count(DISTINCT enrollment_id) debtors,
-                 count(DISTINCT enrollment_id) FILTER (WHERE paid_amount+outside_cash>=net_amount) in_order,
-                 count(DISTINCT enrollment_id) FILTER (WHERE paid_amount+outside_cash<net_amount) not_in_order,
+        ), per_student AS (
+          SELECT ord,month_label,enrollment_id,bool_and(paid_amount+outside_cash>=net_amount) settled,
                  sum(net_amount) expected,sum(paid_amount-noncash) cash_collected,sum(noncash) noncash,sum(outside_cash) outside_cash
-          FROM base GROUP BY ord,month_label
+          FROM base GROUP BY ord,month_label,enrollment_id
+        ), agg AS (
+          SELECT ord,month_label,count(*) debtors,
+                 count(*) FILTER (WHERE settled) in_order,
+                 count(*) FILTER (WHERE NOT settled) not_in_order,
+                 sum(expected) expected,sum(cash_collected) cash_collected,sum(noncash) noncash,sum(outside_cash) outside_cash
+          FROM per_student GROUP BY ord,month_label
         ) SELECT ord,month_label,debtors,in_order,not_in_order,expected,cash_collected,noncash,outside_cash,
                  cash_collected+noncash+outside_cash regularized_total,
                  greatest(expected-cash_collected-noncash-outside_cash,0) remaining,

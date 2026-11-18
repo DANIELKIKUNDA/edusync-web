@@ -16,6 +16,7 @@ def _receipt():
         "currency": "CDF",
         "created_at": datetime(2026, 10, 25, 9, 42),
         "cashier": "Caissier réel",
+        "cashier_civility": "M",
         "last_name": "KIKUNDA",
         "middle_name": "NGWEJ",
         "first_name": "Daniel",
@@ -130,3 +131,22 @@ def test_thermal_table_grows_for_more_rows_and_wrapped_labels():
             if operator == b"m" and next_operator == b"l" and start[0] == end[0] and start[1] != end[1]:
                 vertical_rules += 1
         assert vertical_rules == 3
+
+
+def test_thermal_receipt_identifies_cashier_and_distinguishes_tranches_from_months():
+    receipt = _receipt()
+    receipt["cashier_civility"] = "MME"
+    receipt["lines"] = [
+        {"fee_label": "Frais de l’État", "periodicity": "INSTALLMENT", "sequence_order": 1,
+         "period_value": "09/2026", "amount": "23000"},
+        {"fee_label": "Frais scolaires", "periodicity": "MONTHLY", "period_label": "Novembre",
+         "period_value": "11/2026", "amount": "83000"},
+        {"fee_label": "Frais scolaires", "periodicity": "MONTHLY", "period_label": "Juin",
+         "period_value": "06/2027", "amount": "83000"},
+    ]
+    pdf = PdfReader(BytesIO(receipt_pdf(school={"name": "École"}, receipts=[receipt], fmt="80MM")))
+    content = pdf.pages[0].extract_text()
+    assert "CAISSIÈRE" in content and receipt["cashier"] in content
+    assert "Paiement de la 1re tranche" in content
+    assert "09/2026" not in content
+    assert content.count("Novembre 2026") == content.count("Juin 2027") == 1
