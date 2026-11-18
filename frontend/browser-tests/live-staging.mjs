@@ -1,4 +1,4 @@
-import {chromium} from '@playwright/test';
+import {chromium, request} from '@playwright/test';
 
 const base = 'https://staging.myeducsync.com';
 const {E2E_SCHOOL_EMAIL: email, E2E_SCHOOL_PASSWORD: password, E2E_EXPECTED_SHA: sha} = process.env;
@@ -32,31 +32,44 @@ try {
   await personnel(page);
   console.log('PASS — connexion scolaire et réponse authentifiée de Personnel');
 
-  const reopened = await browser.newContext({storageState: await context.storageState(), serviceWorkers: 'block'});
-  const tab = await reopened.newPage();
-  let refreshCount = 0;
-  await tab.route(base + refresh, async route => {
-    refreshCount++;
-    if (refreshCount === 1) {
-      await new Promise(resolve => setTimeout(resolve, 4_000));
-      await route.fulfill({status: 503, contentType: 'application/json', body: '{}'});
-      return;
+  const signedInState = await context.storageState();
+  const reopened = await browser.newContext({storageState: signedInState, serviceWorkers: 'block'});
+  // This independent cookie jar can deliver a request to the real server without applying
+  // its response to the browser under test, simulating a broken return path.
+  const detached = await request.newContext({storageState: signedInState});
+  try {
+    const tab = await reopened.newPage();
+    let refreshCount = 0;
+    let lostResponseStatus;
+    let lostResponseSetCookie;
+    await tab.route(base + refresh, async route => {
+      refreshCount++;
+      if (refreshCount === 1) {
+        const response = await detached.post(base + refresh, {headers: {Origin: base}});
+        lostResponseStatus = response.status();
+        lostResponseSetCookie = response.headersArray().some(h => h.name.toLowerCase() === 'set-cookie');
+        await route.abort('connectionreset');
+        return;
+      }
+      await route.continue();
+    });
+    const renewed = tab.waitForResponse(r => at(r, refresh) && r.ok());
+    await tab.goto(base);
+    await renewed;
+    if (lostResponseStatus !== 200 || lostResponseSetCookie || refreshCount < 2) {
+      throw new Error('La reprise après la perte de la réponse ne respecte pas le contrat');
     }
-    await route.continue();
-  });
-  await tab.goto(base);
-  await tab.getByText('Vérification de votre session…', {exact: true}).waitFor();
-  await tab.getByText('Impossible de vérifier votre session pour le moment.', {exact: true}).waitFor();
-  const renewed = tab.waitForResponse(r => at(r, refresh) && r.ok());
-  await tab.getByRole('button', {name: 'Réessayer', exact: true}).click();
-  await renewed;
-  await personnel(tab);
-  console.log('PASS — réouverture avec cookie, réponse lente, interruption, nouvel essai et rechargement de Personnel');
-  await verifyBuild();
-  const logout = await reopened.request.post(base + '/api/v1/auth/logout', {headers: {Origin: base}});
-  if (logout.status() !== 204) throw new Error('Déconnexion scolaire non confirmée');
-  const refused = await reopened.request.post(base + refresh, {headers: {Origin: base}});
-  if (refused.status() !== 401) throw new Error('Refus après déconnexion absent');
+    await personnel(tab);
+    console.log('PASS — réponse de renouvellement perdue après traitement serveur et reprise automatique de Personnel');
+    await verifyBuild();
+    const logout = await reopened.request.post(base + '/api/v1/auth/logout', {headers: {Origin: base}});
+    if (logout.status() !== 204) throw new Error('Déconnexion scolaire non confirmée');
+    // The detached jar still holds the credential, so a 401 proves server-side revocation.
+    const refused = await detached.post(base + refresh, {headers: {Origin: base}});
+    if (refused.status() !== 401) throw new Error('Ancien cookie accepté après révocation');
+  } finally {
+    await detached.dispose();
+  }
   console.log('PASS — session fermée et renouvellement refusé');
 } catch {
   console.error('ÉCHEC — parcours scolaire. Consulter la dernière étape PASS. Aucun détail de compte dans les journaux.');

@@ -130,12 +130,14 @@ def test_archive_visibility_is_bound_to_the_producing_capability():
 
 
 # --- sessions / first-run setup -----------------------------------------------------------------------
-def test_session_is_persistent_rotated_and_revocable():
+def test_session_is_persistent_stable_and_revocable():
     # Owner decision 2026-10-07 (N0): an approved device stays signed in; no periodic re-authentication.
-    # Security is rotation + reuse detection + revocation + password/deactivation invalidation + CSRF origin check.
     iam = (SRC / "modules/iam/api/router.py").read_text(encoding="utf-8")
     assert "persistent_session_cookie_days" not in iam
-    assert "ROTATED_TOKEN_REUSED" in iam and "previous_valid_until=now()+make_interval(secs=>:grace)" in iam
+    refresh = iam.split("def refresh_session(", 1)[1].split("@router.post('/logout'", 1)[0]
+    assert "SET last_seen_at=now()" in refresh
+    assert "SET token_hash=" not in refresh and "_set_session_cookie(" not in refresh
+    assert "previous_valid_until>now()" in refresh  # Compatibility for cookies rotated by older deployments.
     assert "_assert_same_origin(request, services)" in iam and iam.count("_assert_same_origin(request, services)") >= 4
     from edusync.bootstrap.settings import Settings
     s = Settings(jwt_secret="x" * 40)
