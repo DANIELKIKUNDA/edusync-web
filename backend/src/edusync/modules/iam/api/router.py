@@ -36,8 +36,8 @@ _DUMMY_PASSWORD_HASH = hash_password(new_session_token()[0])
 
 
 def _set_session_cookie(response: Response, services: AppServices, raw: str, expires_at: datetime | None) -> None:
-    """Opaque device-session cookie: HttpOnly, SameSite=Lax, limited to /api/v1/auth. Re-issued at every renewal, so an
-    approved device stays signed in; never beyond a server-side expiry when the owner configures one."""
+    """Opaque device credential, issued on sign-in or space change. The browser lifetime is fixed at issuance
+    and capped by the server-side expiry when configured."""
     max_age = services.settings.session_cookie_max_age_days * 86400
     if expires_at is not None:
         max_age = min(max_age, max(0, int((expires_at - datetime.now(timezone.utc)).total_seconds())))
@@ -693,7 +693,7 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
         denied.delete_cookie(cfg.persistent_session_cookie,path='/api/v1/auth')
         return denied
     with services.platform_db.platform_transaction() as conn:
-        row=conn.execute(text("""SELECT s.*,u.active,u.version current_user_version,u.is_platform_admin,(s.token_hash=:th) current_token
+        row=conn.execute(text("""SELECT s.*,u.active,u.version current_user_version,u.is_platform_admin
             FROM user_device_sessions s JOIN users u ON u.id=s.user_id
             WHERE s.revoked_at IS NULL AND (s.expires_at IS NULL OR s.expires_at>now()) AND (s.token_hash=:th OR (s.previous_token_hash=:th AND s.previous_valid_until>now())) FOR UPDATE OF s"""),{'th':th}).mappings().first()
         if not row:
@@ -719,15 +719,9 @@ def refresh_session(request:Request,response:Response,services:AppServices=Depen
         # Option B: a platform session opened without the second factor (before the policy, or by any bypass) is never renewed.
         elif row['mfa_verified_at'] is None and platform_mfa.mfa_needed(conn,cfg,row['user_id']): raise HTTPException(401,'Session à renouveler')
         token=create_access_token(subject=str(row['user_id']),secret=services.settings.jwt_secret,issuer=services.settings.jwt_issuer,audience=services.settings.jwt_audience,minutes=services.settings.access_token_minutes,claims=claims)
-        if row['current_token']:
-            # Rotate the opaque token; the previous one stays valid a few seconds for concurrent tabs only.
-            new_raw,new_hash=new_session_token()
-            conn.execute(text("""UPDATE user_device_sessions SET token_hash=:nh,previous_token_hash=:oh,previous_valid_until=now()+make_interval(secs=>:grace),
-                rotated_at=now(),last_seen_at=now() WHERE id=:id"""),{'id':row['id'],'nh':new_hash,'oh':th,'grace':cfg.session_rotation_grace_seconds})
-            _set_session_cookie(response, services, new_raw, row['expires_at'])
-        else:
-            # Concurrent tab inside the grace window: the browser already holds the rotated cookie.
-            conn.execute(text("UPDATE user_device_sessions SET last_seen_at=now() WHERE id=:id"),{'id':row['id']})
+        # A refresh can succeed at the database while its response is lost. Keep the credential stable
+        # and do not send Set-Cookie: a delayed refresh must not overwrite a later login or space change.
+        conn.execute(text("UPDATE user_device_sessions SET last_seen_at=now() WHERE id=:id"),{'id':row['id']})
         user_row=conn.execute(text("SELECT id,email,full_name FROM users WHERE id=:id"),{'id':row['user_id']}).mappings().one()
         result={'access_token':token,'token_type':'bearer','expires_in':services.settings.access_token_minutes*60,'scope':claims['scope'].upper(),'user':dict(user_row)}
         if row['school_id']:
