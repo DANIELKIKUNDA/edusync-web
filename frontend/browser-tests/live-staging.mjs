@@ -44,14 +44,12 @@ try {
     }
     await route.continue();
   });
-  await tab.goto(base);
-  await tab.getByText('Vérification de votre session…', {exact: true}).waitFor();
-  await tab.getByText('Impossible de vérifier votre session pour le moment.', {exact: true}).waitFor();
   const renewed = tab.waitForResponse(r => at(r, refresh) && r.ok());
-  await tab.getByRole('button', {name: 'Réessayer', exact: true}).click();
+  await tab.goto(base);
   await renewed;
+  if (refreshCount < 2) throw new Error('Nouvel essai automatique absent');
   await personnel(tab);
-  console.log('PASS — réouverture avec cookie, réponse lente, interruption, nouvel essai et rechargement de Personnel');
+  console.log('PASS — réouverture avec cookie, réponse lente, reprise automatique après 503 et rechargement de Personnel');
   await verifyBuild();
   const logout = await reopened.request.post(base + '/api/v1/auth/logout', {headers: {Origin: base}});
   if (logout.status() !== 204) throw new Error('Déconnexion scolaire non confirmée');
