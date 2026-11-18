@@ -25,3 +25,17 @@ it('serialise le renouvellement et reprend une requête Chrome figée sans déco
   expect(native).toHaveBeenCalledTimes(2);
   expect(native.mock.calls.every(([, init]) => (init as RequestInit).credentials === 'include')).toBe(true);
 });
+
+it('reprend un renouvellement après une indisponibilité temporaire de la passerelle', async () => {
+  vi.resetModules();
+  const native = vi.fn()
+    .mockResolvedValueOnce(new Response('indisponible', {status: 503}))
+    .mockResolvedValueOnce(Response.json({access_token: 'restored', scope: 'SCHOOL'}));
+  vi.stubGlobal('fetch', native);
+  Object.defineProperty(navigator, 'locks', {configurable: true, value: undefined});
+
+  const {refreshAccessSession} = await import('../src/platform/connectivity');
+  const response = await refreshAccessSession();
+  expect(response.status).toBe(200);
+  expect(native).toHaveBeenCalledTimes(2);
+});
