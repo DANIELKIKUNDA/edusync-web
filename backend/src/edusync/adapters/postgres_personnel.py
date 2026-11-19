@@ -26,7 +26,7 @@ def _scope_where(scopes: tuple[tuple[str, str | None], ...], *, alias: str = "sm
     """
     if any(t == "SCHOOL" for t, _ in scopes):
         return "TRUE", {}
-    sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+    sections = sorted({str(v).upper() for t, v in scopes if t in ("SECTION", "CYCLE") and v})
     classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
     if not sections and not classes:
         return "FALSE", {}
@@ -39,7 +39,7 @@ def _scope_where(scopes: tuple[tuple[str, str | None], ...], *, alias: str = "sm
     if classes:
         clauses.append("(sa.scope_type='CLASS' AND upper(sa.scope_value) IN :scope_classes)")
         params["scope_classes"] = classes
-    return f"EXISTS (SELECT 1 FROM staff_assignments sa WHERE sa.school_id={alias}.school_id AND sa.staff_id={alias}.id AND sa.end_date IS NULL AND ({' OR '.join(clauses)}))", params
+    return f"EXISTS (SELECT 1 FROM staff_assignments sa WHERE sa.school_id={alias}.school_id AND sa.staff_id={alias}.id AND sa.start_date<=CURRENT_DATE AND (sa.end_date IS NULL OR sa.end_date>CURRENT_DATE) AND ({' OR '.join(clauses)}))", params
 
 
 def _bind_scope(stmt, params: dict[str, Any]):
@@ -78,7 +78,7 @@ class PostgresPersonnelRepository:
             conditions.append("sm.category=:category")
             args["category"] = category
         full = any(kind == "SCHOOL" for kind, _ in scopes)
-        assignment_count_sql = "(SELECT count(*) FROM staff_assignments a WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL)" if full else "0"
+        assignment_count_sql = "(SELECT count(*) FROM staff_assignments a WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.start_date<=CURRENT_DATE AND (a.end_date IS NULL OR a.end_date>CURRENT_DATE))" if full else "0"
         linked_access_sql = "EXISTS(SELECT 1 FROM staff_access_links l WHERE l.school_id=sm.school_id AND l.staff_id=sm.id AND l.active)" if full else "false"
         children_count_sql = "(SELECT count(*) FROM staff_student_links sl WHERE sl.school_id=sm.school_id AND sl.staff_id=sm.id AND sl.active)" if full else "0"
         assignment_json_sql = """coalesce((SELECT jsonb_agg(jsonb_build_object(
@@ -88,7 +88,7 @@ class PostgresPersonnelRepository:
                  'end_date',a.end_date,'version',a.version
                ) ORDER BY a.is_primary DESC,f.sort_order,f.label)
                FROM staff_assignments a JOIN staff_functions f ON f.id=a.function_id
-              WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.end_date IS NULL), '[]'::jsonb)""" if full else "'[]'::jsonb"
+              WHERE a.school_id=sm.school_id AND a.staff_id=sm.id AND a.start_date<=CURRENT_DATE AND (a.end_date IS NULL OR a.end_date>CURRENT_DATE)), '[]'::jsonb)""" if full else "'[]'::jsonb"
         stmt = text(f"""
             SELECT sm.*,
               {assignment_count_sql} AS active_assignment_count,
@@ -111,7 +111,7 @@ class PostgresPersonnelRepository:
             # The SQL applies scope filtering before rows enter Python.
             grouped: dict[UUID, list[dict[str, Any]]] = {item["id"]: [] for item in rows}
             if grouped:
-                sections = sorted({str(v).upper() for t, v in scopes if t == "SECTION" and v})
+                sections = sorted({str(v).upper() for t, v in scopes if t in ("SECTION", "CYCLE") and v})
                 classes = sorted({str(v).upper() for t, v in scopes if t == "CLASS" and v})
                 permitted = []
                 params_assign: dict[str, Any] = {"sid": school_id, "staff_ids": list(grouped)}
@@ -137,7 +137,7 @@ class PostgresPersonnelRepository:
                         LEFT JOIN school_classes sc ON sc.id=a.class_id
                         LEFT JOIN school_classes tc ON tc.id=a.titular_class_id
                         WHERE a.school_id=:sid AND a.staff_id IN :staff_ids
-                          AND a.end_date IS NULL AND ({' OR '.join(permitted)})
+                          AND a.start_date<=CURRENT_DATE AND (a.end_date IS NULL OR a.end_date>CURRENT_DATE) AND ({' OR '.join(permitted)})
                         ORDER BY a.is_primary DESC,a.start_date DESC
                     """).bindparams(bindparam("staff_ids", expanding=True))
                     if sections:
@@ -188,11 +188,11 @@ class PostgresPersonnelRepository:
     def summary(self, school_id: UUID, *, scopes: tuple[tuple[str, str | None], ...] = ()) -> StaffSummary:
         where_scope, params = _scope_where(scopes)
         full = any(t == 'SCHOOL' for t, _ in scopes)
-        assignment_expr = "(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id WHERE a.school_id=:sid AND a.end_date IS NULL)"
+        assignment_expr = "(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id WHERE a.school_id=:sid AND a.start_date<=CURRENT_DATE AND (a.end_date IS NULL OR a.end_date>CURRENT_DATE))"
         if not full:
             # Count only assignments belonging to the exact section/class grant,
             # not all assignments attached to otherwise visible employees.
-            sections = sorted({str(v).upper() for t,v in scopes if t == "SECTION" and v})
+            sections = sorted({str(v).upper() for t,v in scopes if t in ("SECTION", "CYCLE") and v})
             classes = sorted({str(v).upper() for t,v in scopes if t == "CLASS" and v})
             allowed = []
             if sections:
@@ -207,7 +207,7 @@ class PostgresPersonnelRepository:
                 allowed.append("(a.scope_type='CLASS' AND upper(a.scope_value) IN :summary_classes)")
                 params["summary_classes"] = classes
             assignment_expr = ("(SELECT count(*) FROM staff_assignments a JOIN visible v ON v.id=a.staff_id "
-                               "WHERE a.school_id=:sid AND a.end_date IS NULL AND ("
+                               "WHERE a.school_id=:sid AND a.start_date<=CURRENT_DATE AND (a.end_date IS NULL OR a.end_date>CURRENT_DATE) AND ("
                                + " OR ".join(allowed) + "))") if allowed else "0"
         access_expr = "(SELECT count(*) FROM staff_access_links l JOIN visible v ON v.id=l.staff_id WHERE l.school_id=:sid AND l.active)" if full else "0"
         children_expr = "(SELECT count(*) FROM staff_student_links sl JOIN visible v ON v.id=sl.staff_id WHERE sl.school_id=:sid AND sl.active)" if full else "0"
@@ -309,9 +309,9 @@ class PostgresPersonnelRepository:
         full=any(t=='SCHOOL' for t,_ in scopes)
         clauses=["a.school_id=:sid","a.staff_id=:staff"]
         params:dict[str,Any]={"sid":school_id,"staff":staff_id}
-        if not include_history: clauses.append("a.end_date IS NULL")
+        if not include_history: clauses.append("a.start_date<=CURRENT_DATE AND (a.end_date IS NULL OR a.end_date>CURRENT_DATE)")
         if not full:
-            sections=sorted({str(v).upper() for t,v in scopes if t=='SECTION' and v});classes=sorted({str(v).upper() for t,v in scopes if t=='CLASS' and v})
+            sections=sorted({str(v).upper() for t,v in scopes if t in ('SECTION','CYCLE') and v});classes=sorted({str(v).upper() for t,v in scopes if t=='CLASS' and v})
             bits=[]
             if sections:
                 bits += ["(a.scope_type='SECTION' AND upper(a.scope_value) IN :sections)","(a.scope_type='CLASS' AND EXISTS(SELECT 1 FROM school_classes sc JOIN school_sections ss ON ss.id=sc.section_id AND ss.school_id=sc.school_id WHERE sc.id=a.class_id AND sc.school_id=a.school_id AND upper(ss.code) IN :sections))"]
