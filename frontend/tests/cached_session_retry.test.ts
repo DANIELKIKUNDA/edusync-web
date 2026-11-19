@@ -24,7 +24,7 @@ it('une session rouverte depuis l’appareil est revérifiée tant que le naviga
 
 it('App relance la vérification périodiquement et au retour d’une réponse du serveur', () => {
   const app = readFileSync('src/App.tsx', 'utf8');
-  expect(app).toContain('window.setInterval(()=>{if(shouldRetryCachedSession())void restore()},CACHED_SESSION_RETRY_MS)');
+  expect(app).toContain("window.setInterval(()=>{if(shouldRetryCachedSession()||(knownContext()&&navigator.onLine!==false&&getSessionCheckState()==='interrupted'))void restore()},CACHED_SESSION_RETRY_MS)");
   expect(app).toContain("s==='ONLINE'&&(lastNet!=='ONLINE'||shouldRetryCachedSession())");
   expect(app).toContain('window.clearInterval(retry)');
 });

@@ -77,6 +77,14 @@ async function doRefresh(signal?:AbortSignal){
     // deliberately keeps the device session alive; retry once so the browser sends its current cookie.
     if(r.status===409&&r.headers.get('X-EduSync-Session')==='STALE_REFRESH'){
       void r.body?.cancel().catch(()=>{});await sleep(120);r=await request();
+      if(r.status===409&&r.headers.get('X-EduSync-Session')==='STALE_REFRESH'){
+        // A cookie left behind by the former rotation may never catch up. Only a
+        // definitive identity refusal ends recovery; network errors remain retryable.
+        const identity=await nativeFetch('/api/v1/auth/contexts',{credentials:'include',cache:'no-store',signal:t.signal});
+        const refused=identity.status===401;void identity.body?.cancel().catch(()=>{});
+        if(refused){void r.body?.cancel().catch(()=>{});return new Response(JSON.stringify({detail:{code:'SESSION_REAUTH_REQUIRED'}}),{status:401,headers:{'Content-Type':'application/json'}})}
+      }
+
     }
     // The body is read INSIDE the time limit: a response whose headers arrived but whose body stalls must not hang the caller.
     const body=await r.text();

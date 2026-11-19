@@ -1,9 +1,10 @@
+import {hasUsableAccessToken} from './platform/access_token';
 import {clearAllCashierBaskets} from './platform/cashier_basket';
 import {lazyPage} from './platform/lazy_page';
 import {OutboxCenter,useEnrollmentReference,useSchoolOffline} from './offline/school_sync';
 import {setFinanceTarget} from './finance_nav';
 import {startLive} from './platform/live';
-import {clearPlatformContext, getPlatformAuthState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, setSessionCheckState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS, SESSION_CHECK_MS} from './platform/offline_session';
+import {clearPlatformContext, getPlatformAuthState, getSessionCheckState, knownContext, knownPlatform, OFFLINE_PLATFORM_TOKEN, OFFLINE_SCHOOL_TOKEN, rememberPlatformContext, rememberSchoolContext, restoreOfflineContext, setPlatformAuthState, setSessionCheckState, shouldRetryCachedSession, CACHED_SESSION_RETRY_MS, SESSION_CHECK_MS} from './platform/offline_session';
 import React,{Suspense,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {SecureLogin} from './login';
 import {takeAccountLink,type AccountLink} from './account_links';
@@ -389,6 +390,8 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
   const [schoolSession,setSchoolSession]=useState<SavedSchoolSession|null>(null);
   const [restoring,setRestoring]=useState(true);
   const [signInRequired,setSignInRequired]=useState(false);
+  const currentAccessToken=useRef('');
+  currentAccessToken.current=schoolSession?.token||platformToken;
   const sessionRevision=useRef(0);
   const sessionCheck=useRef<AbortController|null>(null);
   function invalidateSessionCheck(){
@@ -444,6 +447,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
       const isCurrent=()=>alive&&revision===sessionRevision.current;
       setSessionCheckState('checking');
       let interrupted=false;
+      let refreshStatus:number|undefined;
       // Offline first (owner, 2026-11-15, slow network: Google itself took 5 s): when this device already knows the session,
       // the app opens AT ONCE on it and checks with the server in the background — never a boot screen waiting for the network.
       if(first){first=false;if(knownContext()){applyCachedContext();if(alive)setRestoring(false)}}
@@ -453,6 +457,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
       const timer=window.setTimeout(()=>ctl.abort(),SESSION_CHECK_MS);
       try{
         let r=await refreshAccessSession(ctl.signal);
+        refreshStatus=r.status;
         if(!isCurrent())return;
         let spacesAfterRefusal:SpacesState|null=null;
         if(r.status===401 || r.status===403){
@@ -468,6 +473,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
             if(r.status===401||r.status===403)spacesAfterRefusal=await fetchSpaces(ctl.signal);
           }
         }
+        refreshStatus=r.status;
         if(!r.ok){
           if(r.status===401 || r.status===403){
             const st=spacesAfterRefusal;
@@ -490,13 +496,16 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
           setPlatformAuthState('ONLINE_AUTHENTICATED');setPlatformToken(d.access_token);
           if(d.user)setPlatformUser({full_name:d.user.full_name,email:d.user.email});
         }
-      }catch{
+      }catch(error){
+        console.warn('EduSync session verification interrupted',{kind:error instanceof Error?error.name:'unknown',status:refreshStatus});
         // A timeout is not proof of revocation. Restore display-only context,
         // never a cached bearer token or authority to perform a mutation.
         // Each context keeps its own offline policy (24 h platform, 7 days school: offline_session.ts).
         if(!isCurrent())return;
         interrupted=true;
-        applyCachedContext();
+        // A background timeout must not downgrade an access token that is still usable.
+        // A truly refused session is handled above, before this transient-error path.
+        if(!hasUsableAccessToken(currentAccessToken.current))applyCachedContext();
       }finally{
         clearTimeout(timer);
         running=false;
@@ -524,7 +533,7 @@ export function App({initialLink=null}:{initialLink?:AccountLink|null}={}){
     // Owner, 2026-11-15: « En ligne » next to « Hors connexion ». A session reopened from the device because the first check
     // timed out stayed cached for good when the network itself never dropped (no OFFLINE → ONLINE transition to wait for).
     // While the session is cached and the browser is online, it is revalidated every CACHED_SESSION_RETRY_MS.
-    const retry=window.setInterval(()=>{if(shouldRetryCachedSession())void restore()},CACHED_SESSION_RETRY_MS);
+    const retry=window.setInterval(()=>{if(shouldRetryCachedSession()||(knownContext()&&navigator.onLine!==false&&getSessionCheckState()==='interrupted'))void restore()},CACHED_SESSION_RETRY_MS);
     const retryNow=()=>{if(knownContext()&&navigator.onLine!==false&&(shouldRetryCachedSession()||Date.now()-lastSuccessfulCheck>=60_000))void restore()};   // « Réessayer maintenant » of the reconnection banner
     window.addEventListener('edusync:session-retry',retryNow);
     void restore();

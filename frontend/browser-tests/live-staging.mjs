@@ -1,4 +1,4 @@
-import {chromium, request} from '@playwright/test';
+import {chromium, request, expect} from '@playwright/test';
 
 const base = 'https://staging.myeducsync.com';
 const {E2E_SCHOOL_EMAIL: email, E2E_SCHOOL_PASSWORD: password, E2E_EXPECTED_SHA: sha} = process.env;
@@ -31,6 +31,21 @@ try {
   await page.getByRole('button', {name: 'Se connecter', exact: true}).click();
   await personnel(page);
   console.log('PASS — connexion scolaire et réponse authentifiée de Personnel');
+  // Real staging, real authenticated requests. Only the browser's network is cut;
+  // no school record is created or changed, and no manual recovery button is used.
+  for(let cycle=0;cycle<3;cycle++){
+    await context.setOffline(true);
+    await page.getByText('Hors connexion — vous pouvez continuer.',{exact:true}).waitFor();
+    await context.setOffline(false);
+    await page.getByRole('button',{name:'Accueil',exact:true}).first().click();
+    await personnel(page);
+    await expect(page.getByText('Impossible de vérifier votre session pour le moment.',{exact:true})).toHaveCount(0);
+    await expect(page.getByText('Hors connexion — vous pouvez continuer.',{exact:true})).toHaveCount(0);
+  }
+  await page.reload();
+  await personnel(page);
+  console.log('PASS — trois coupures réseau et reprises automatiques, puis rechargement et réponse réelle de Personnel');
+
 
   const signedInState = await context.storageState();
   const reopened = await browser.newContext({storageState: signedInState, serviceWorkers: 'block'});
