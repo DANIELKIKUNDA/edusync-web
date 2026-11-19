@@ -225,13 +225,19 @@ class PostgresMembershipRepository:
             VALUES (:aid,'SCHOOL',NULL)
         """), {"aid": assignment._mapping["id"]})
 
-    def permissions(self, membership_id: UUID) -> frozenset[str]:
+    def permissions(self, membership_id: UUID, *, enforce_import_scope: bool = True) -> frozenset[str]:
         """Return the union of currently effective capabilities for login/UI hints.
 
         Resource-scope authorization still belongs to PostgresAuthorizationRepository;
         this union is intentionally only a coarse capability list for menu rendering.
         """
         from edusync.adapters.rbac_effective import ALIAS_EXPANSION, ASSIGNMENT_CAPABILITIES
+        # Global imports cannot honour a section/class boundary. Filter each grant,
+        # rather than borrowing SCHOOL from an unrelated role or capability.
+        assignment_scope = """AND (ac.capability_code NOT LIKE 'migration.%' OR EXISTS (
+            SELECT 1 FROM rbac_assignment_scopes sc
+            WHERE sc.assignment_id=a.id AND sc.scope_type='SCHOOL'))""" if enforce_import_scope else ""
+        exception_scope = "AND (eg.capability_code NOT LIKE 'migration.%' OR eg.scope_type='SCHOOL')" if enforce_import_scope else ""
         rows = self.connection.execute(text(f"""
             WITH held(code) AS (
                 SELECT ac.capability_code
@@ -240,11 +246,13 @@ class PostgresMembershipRepository:
                   CROSS JOIN LATERAL ({ASSIGNMENT_CAPABILITIES}) ac
                  WHERE a.membership_id=:mid AND a.active=true
                    AND a.valid_from<=now() AND (a.valid_until IS NULL OR a.valid_until>now())
+                   {assignment_scope}
                 UNION
                 SELECT eg.capability_code
                   FROM rbac_exception_grants eg
                  WHERE eg.membership_id=:mid AND eg.active=true
                    AND eg.valid_from<=now() AND eg.valid_until>now()
+                   {exception_scope}
             ){ALIAS_EXPANSION}
              ORDER BY 1
         """), {"mid": membership_id}).all()
