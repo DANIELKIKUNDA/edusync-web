@@ -6,7 +6,11 @@ CSS=(PROJECT/'frontend/src/styles.css').read_text()
 
 
 def test_scope_selector_matches_certified_desktop():
-    for label in ["Toute l’école","Maternelle","Primaire","Secondaire"]:assert label in PAGE
+    # Section labels come from the scoped server catalogue, not an unconditional desktop list.
+    assert 'getStructureSelector(token,scopeCapability,yearId)' in PAGE
+    assert 'scopeChoices.map' in PAGE
+    assert "['MATERNELLE','PRIMAIRE','SECONDAIRE']" in PAGE
+    assert "if(data.school_wide)choices.unshift(['ALL','Toute l’école'])" in PAGE
 
 
 def test_certified_effectifs_tabs_and_groups_are_not_redesigned():
