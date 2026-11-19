@@ -165,6 +165,13 @@ async def _send(cfg, engine, row) -> ports.SendResult | None:
                else f"{cfg.password_reset_ttl_minutes} minutes" if row['template_code'] == 'ACCOUNT_PASSWORD_RESET' else None)
         content = render_email(row['template_code'], recipient_name=row.get('display_name'), school_name=row.get('school_name'),
                                subject=row.get('subject'), body=row['body'], link=link, ttl_label=ttl)
+        with engine.begin() as c:
+            files = [(r[0], r[1], bytes(r[2])) for r in c.execute(text(
+                "SELECT file_name, content_type, data FROM communication_attachments WHERE message_id=:m ORDER BY created_at, id"),
+                {'m': str(row['message_id'])}).all()]
+        if files:
+            from dataclasses import replace as _replace
+            content = _replace(content, attachments=files)
         return await p.send_email(to=row['destination'], content=content)
     if ch == 'PUSH':
         p = build_push_provider(cfg)

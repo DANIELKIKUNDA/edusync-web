@@ -152,7 +152,8 @@ def fingerprint(recipients: list[Recipient], channels: list[str], body: str) -> 
 def request_message(conn, *, school_id: UUID | None, kind: str, channels: list[str], body: str, recipients: list[Recipient],
                     idempotency_key: str, created_by: UUID | None, subject: str | None = None, audience_type: str = "INDIVIDUAL",
                     audience_ref: UUID | None = None, template_code: str | None = None, link_path: str | None = None,
-                    secret_by_ref: dict[UUID, str] | None = None, sealer=None, reserve_sms: bool = True) -> dict:
+                    secret_by_ref: dict[UUID, str] | None = None, sealer=None, reserve_sms: bool = True,
+                    attachments: list[tuple[str, str, bytes]] | None = None) -> dict:
     """Records the message, its recipients, the SMS credit reservation and the COMMUNICATION_REQUESTED outbox event in
     the caller's transaction. Idempotent on (school, idempotency key): a replay returns the first message unchanged."""
     channels = [c for c in dict.fromkeys(ch.upper() for ch in channels) if c in CHANNELS]
@@ -183,6 +184,12 @@ def request_message(conn, *, school_id: UUID | None, kind: str, channels: list[s
         {"id": str(mid), "s": str(school_id) if school_id else None, "kind": kind, "aud": audience_type.upper(),
          "ref": str(audience_ref) if audience_ref else None, "sub": subject, "body": body, "by": str(created_by) if created_by else None,
          "key": idempotency_key, "ch": channels, "tpl": template_code, "link": link_path, "n": len(recipients), "units": units})
+    for name, ctype, data in attachments or []:
+        # Files travel with the message (one PDF per recipient's scope); the worker reads them only to send.
+        if school_id is None or ctype != "application/pdf" or not data or len(data) > 5 * 1024 * 1024:
+            raise ValueError("Pièce jointe refusée (PDF de 5 Mo au plus, message d’une école)")
+        conn.execute(text("""INSERT INTO communication_attachments(school_id, message_id, file_name, content_type, byte_size, data)
+            VALUES (:s, :m, :n, :t, :b, :d)"""), {"s": str(school_id), "m": str(mid), "n": name[:200], "t": ctype, "b": len(data), "d": data})
     if secret_by_ref and sealer is None:
         raise ValueError("Un secret à usage unique doit être chiffré (sealer obligatoire)")
     for r in recipients:
