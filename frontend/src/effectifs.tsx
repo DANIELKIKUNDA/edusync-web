@@ -43,7 +43,8 @@ export default function EffectifsPage({token,permissions,schoolName,yearId}:Prop
  const [tab,setTab]=useState<Tab>(firstTab);
  const [mode,setMode]=useState<Mode>('headcounts');
  const [scopeChoices,setScopeChoices]=useState<[EffectifsScope,string][]>([]);
- const scopeCapability=mode==='deposits'?'contributions.register.read':tab==='movements'?'headcounts.movements.read':tab==='class'?'headcounts.by_class.read':tab==='section'?'headcounts.by_section.read':'headcounts.by_option.read';
+ const detailCapability=tab==='movements'?'headcounts.movements.read':tab==='class'?'headcounts.by_class.read':tab==='section'?'headcounts.by_section.read':'headcounts.by_option.read';
+ const scopeCapability=mode==='deposits'?'contributions.register.read':can(detailCapability)?detailCapability:'headcounts.read';
  useEffect(()=>{let alive=true;setScopeChoices([]);getStructureSelector(token,scopeCapability,yearId).then(data=>{if(!alive)return;const choices:[EffectifsScope,string][]=data.sections.filter(s=>['MATERNELLE','PRIMAIRE','SECONDAIRE'].includes(s.code)).map(s=>[s.code as EffectifsScope,s.label]);if(data.school_wide)choices.unshift(['ALL','Toute l’école']);else if(choices.length>1)choices.unshift(['ALL','Sections autorisées']);setScopeChoices(choices);setScope(current=>choices.some(([v])=>v===current)?current:choices[0]?.[0]??'ALL')}).catch(e=>{if(alive)setError(friendlyError(e))});return()=>{alive=false}},[token,scopeCapability,yearId]);
  const [overview,setOverview]=useState<EffectifsOverview|null>(null);
  const [counts,setCounts]=useState<EffectifsCounts|null>(null);
@@ -63,7 +64,8 @@ export default function EffectifsPage({token,permissions,schoolName,yearId}:Prop
      const o=await getEffectifsOverview(token,scope,yearId);setOverview(o);
      if(mode==='headcounts'){
        if(tab==='movements') setMovements(await getEffectifsMovements(token,scope,{yearId,q:dq,eventType:movementType||undefined}));
-       else setCounts(await getEffectifsCounts(token,tab,scope,yearId));
+       else if(allowed(tab))setCounts(await getEffectifsCounts(token,tab,scope,yearId));
+       else setCounts(null);
      }else{
        setDeposits(await getDepositRegister(token,scope,{yearId,q:dq}));
      }
