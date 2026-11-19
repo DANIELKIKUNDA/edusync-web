@@ -420,6 +420,22 @@ def update_class(class_id:UUID,body:ClassUpdate,response:Response,if_match:str|N
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_UPDATE_CLASS',payload={**body.model_dump(mode='json'),'class_id':str(class_id),'expected':expected},action=action);return result.body
     except Exception as exc:_error(exc)
 
+class ClassOptionChange(BaseModel):
+    option_id:UUID|None=None
+
+@router.put('/classes/{class_id}/option')
+def change_class_option(class_id:UUID,body:ClassOptionChange,response:Response,if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Attach a Humanités class to its option (or detach it) — same right as renaming a class (settings.classes.rename)."""
+    _need(actor,'settings.classes.rename');expected=_expected(if_match);key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            old=conn.execute(text("SELECT option_id,version FROM school_classes WHERE school_id=:s AND id=:id"),{"s":actor.school_id,"id":class_id}).first()
+            old=None if old is None else _jsonable(dict(old._mapping))
+            out=_jsonable(PostgresSettingsRepository(conn).set_class_option(actor.school_id,class_id,option_id=body.option_id,expected_version=expected))
+            _audit_and_outbox(conn,request_actor,action='SCHOOL_CLASS_OPTION_CHANGED',entity_type='SchoolClass',entity_id=class_id,old=old,new=out);return 200,out
+        result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_CLASS_OPTION',payload={**body.model_dump(mode='json'),'class_id':str(class_id),'expected':expected},action=action);return result.body
+    except Exception as exc:_error(exc)
+
 @router.post('/classes/{class_id}/status')
 def change_class_status(class_id:UUID,body:ClassStatusChange,response:Response,if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """Desktop set_class_status: one capability (settings.classes.activate) for activate / pause / reactivate / archive."""

@@ -3,7 +3,7 @@
 // classes named with the school sigles (« 1re HP », « 2e HSC A »). Same APIs and permissions as before.
 import React, {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
-import {listOptions, putSection, setClassStatus, updateClass, type AcademicYear, type ReferenceCatalog, type SchoolClass, type SchoolOption, type SchoolSection} from './api';
+import {listOptions, putSection, setClassOption, setClassStatus, updateClass, type AcademicYear, type ReferenceCatalog, type SchoolClass, type SchoolOption, type SchoolSection} from './api';
 import {confirmAction, promptText} from './platform/dialogs';
 import {friendlyError} from './platform/errors';
 import {Button as UIButton} from './platform/ui';
@@ -65,6 +65,12 @@ export function Structure({token, sections, classes, years, refs, can, onDone}: 
       : {title: `Réactiver ${c.label} ?`, message: 'La classe est de nouveau proposée pour les inscriptions et les changements de classe.', confirmLabel: 'Réactiver'};
     if (!await confirmAction(ask)) return;
     try { setError(''); await setClassStatus(token, c, status); toast.success(status === 'INACTIVE' ? `${c.label} en pause` : status === 'ARCHIVED' ? `${c.label} archivée` : `${c.label} réactivée`); await onDone(); } catch (e) { setError(friendlyError(e)); }
+  }
+  // Owner, 2026-11-19: a Humanités class opened without its option can be attached to it afterwards (headcounts par option).
+  async function changeOption(c: SchoolClass, o: SchoolOption | null) {
+    setMenu(null);
+    if (!await confirmAction({title: o ? `Rattacher ${c.label} à l’option ${o.label} ?` : `Retirer l’option de ${c.label} ?`, message: 'Les élèves, les paiements et l’historique restent attachés à la classe. Les effectifs par option en tiennent compte aussitôt ; les tarifs déjà appliqués ne changent pas.', confirmLabel: o ? 'Rattacher' : 'Retirer'})) return;
+    try { setError(''); await setClassOption(token, c, o?.id ?? null); toast.success(o ? `${c.label} rattachée à ${o.label}` : `Option retirée de ${c.label}`); await onDone(); } catch (e) { setError(friendlyError(e)); }
   }
   async function applySigles() {
     const sample = renames.slice(0, 6).map(r => `${r.cls.label} → ${r.label}`).join(' · ');
@@ -143,6 +149,10 @@ export function Structure({token, sections, classes, years, refs, can, onDone}: 
                   {can('settings.classes.activate') && (st === 'ACTIVE' ? <button type="button" role="menuitem" onClick={() => void changeStatus(c, 'INACTIVE')}>Mettre en pause</button>
                     : <button type="button" role="menuitem" onClick={() => void changeStatus(c, 'ACTIVE')}>Réactiver</button>)}
                   {can('settings.classes.activate') && n === 0 && <button type="button" role="menuitem" className="dangerText" onClick={() => void changeStatus(c, 'ARCHIVED')}>Archiver</button>}
+                  {can('settings.classes.rename') && /^H[1-4]$/i.test(c.reference_code ?? '') && openOptions.length > 0 && <>
+                    <small className="structMenuLabel">Option{c.option_id ? ` : ${openOptions.find(o => o.id === c.option_id)?.label ?? '—'}` : ' : aucune'}</small>
+                    {openOptions.filter(o => o.id !== c.option_id).map(o => <button key={o.id} type="button" role="menuitem" onClick={() => void changeOption(c, o)}>Rattacher à {o.label}</button>)}
+                    {c.option_id && <button type="button" role="menuitem" onClick={() => void changeOption(c, null)}>Retirer l’option</button>}</>}
                 </div>}
               </li>; })}</ul>
           </div>)}</div>}
