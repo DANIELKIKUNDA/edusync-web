@@ -95,9 +95,37 @@ def run(A: dict) -> None:
         check(tag + "fonds anticipés lisibles", r.status_code == 200, r.text[:160])
 
 
+
+def import_policy(A: dict) -> None:
+    """Actual effective-grant SQL, then actual HTTP guard; disposable CI database only."""
+    from uuid import uuid4
+    from sqlalchemy import text
+    from edusync.adapters.postgres_repositories import PostgresMembershipRepository
+    from dataclasses import replace
+    cap = "migration.finance_history.analyze"
+    a = actor_for("PREFET_ETUDES", A["id"], extra={cap})
+    role, assignment = uuid4(), uuid4()
+    H.sql("INSERT INTO rbac_roles(id,school_id,code,label,level,kind,status) VALUES(:r,:s,:code,'Import test','SCHOOL','SCHOOL_CUSTOM','ACTIVE')",
+          r=role, s=A["id"], code=f"IMPORT_{H.RUN}")
+    H.sql("INSERT INTO rbac_role_capabilities(role_id,capability_code) VALUES(:r,:cap)", r=role, cap=cap)
+    H.sql("INSERT INTO rbac_assignments(id,user_id,school_id,membership_id,role_id) VALUES(:i,:u,:s,:m,:r)",
+          i=assignment, u=a.user_id, s=A["id"], m=a.membership_id, r=role)
+    for scope in ("SECTION", "SCHOOL"):
+        H.sql("DELETE FROM rbac_assignment_scopes WHERE assignment_id=:i", i=assignment)
+        H.sql("INSERT INTO rbac_assignment_scopes(assignment_id,scope_type,scope_value) VALUES(:i,:t,:v)",
+              i=assignment, t=scope, v="SECONDAIRE" if scope == "SECTION" else None)
+        with H.ENGINE.begin() as conn:
+            caps = PostgresMembershipRepository(conn).permissions(a.membership_id)
+        check(f"import SQL {scope}: capability visible only at school scope", (cap in caps) == (scope == "SCHOOL"))
+        current = replace(a, capability_scopes=((cap, scope, "SECONDAIRE" if scope == "SECTION" else None),))
+        r = as_(current).get("/api/v1/import/contracts")
+        check(f"import contracts {scope}: no unauthorized import card", r.status_code == 200 and bool(r.json().get("contracts")) == (scope == "SCHOOL"), r.text)
+
+
 def main() -> int:
     A = school("A")
     run(A)
+    import_policy(A)
     H.CLIENT.__exit__(None, None, None)
     fails = [r for r in H.RESULTS if r[0] == "FAIL"]
     print(f"\n{len(H.RESULTS) - len(fails)}/{len(H.RESULTS)} PASS · {len(fails)} FAIL")

@@ -57,7 +57,8 @@ def snapshot(out: str, legacy: bool = False) -> None:
                 perms = sorted(str(r[0]) for r in c.execute(text(LEGACY_PERMISSIONS), {"mid": mid}))
                 triples = c.execute(text(LEGACY_GRANTS), {"uid": uid, "sid": sid}).all()
             else:
-                perms = sorted(PostgresMembershipRepository(c).permissions(mid))
+                # Historical 0085 union-engine parity; current import policy is tested separately.
+                perms = sorted(PostgresMembershipRepository(c).permissions(mid, enforce_import_scope=False))
                 triples = PostgresAuthorizationRepository(c).effective_capability_grants(uid, sid)
             grants = sorted({f"{cap}|{st}|{sv or ''}" for cap, st, sv in triples})
             result[str(mid)] = {"permissions": perms, "scoped": grants}

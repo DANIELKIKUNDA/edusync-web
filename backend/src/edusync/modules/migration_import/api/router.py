@@ -50,6 +50,8 @@ HEADERS=['Nom*','Postnom*','Prénom*','Sexe*','Classe*','Date naissance','Lieu n
 def need(a,c):
  try:a.require(c)
  except PermissionError as e:raise HTTPException(403,str(e))
+ if not any(t == "SCHOOL" for t, _ in a.scopes_for(c)):
+  raise HTTPException(403,"Cet import global nécessite une autorisation sur toute l’école")
 def clean(v): return ' '.join(str(v or '').strip().split())
 def norm(v): return clean(v).casefold()
 def parse_date(v):
@@ -471,7 +473,7 @@ def import_contract_registry(actor:ActorContext=Depends(require_school_actor)):
  kinds=[]
  for kind,c in CONTRACTS.items():
   cap={'STUDENTS':'migration.students.analyze','STAFF':'migration.staff.analyze','FINANCE_HISTORY':'migration.finance_history.analyze'}[kind]
-  if cap in actor.permissions:
+  if cap in actor.permissions and any(t == "SCHOOL" for t, _ in actor.scopes_for(cap)):
    kinds.append({'kind':kind,'contract_id':c['id'],'contract_version':contract_version(kind),'max_rows':MAX_IMPORT_ROWS,'max_bytes':MAX_IMPORT_BYTES,'format':'XLSX'})
  return {'contracts':kinds,'policy':'OFFICIAL_TEMPLATE_ONLY'}
 
