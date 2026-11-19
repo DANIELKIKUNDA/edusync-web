@@ -298,3 +298,72 @@ def direction_report_export(year_id: UUID | None = None, fee_type_id: UUID | Non
                          document_code=f'finance.recovery.direction_report.{currency}', title=f"Rapport de recouvrement — {report['title']}",
                          file_name=f'{name}.pdf', academic_year_id=y['id'])
     return StreamingResponse(BytesIO(data), media_type='application/pdf', headers={'Content-Disposition': f'inline; filename="{name}.pdf"'})
+
+
+# ------------------------------------------------------------------ rapport de la semaine / du mois (owner, 2026-11-19)
+# « Le rapport doit parler comme une vraie personne » : a letter built only from real figures, for the reader's scope
+# (whole school, or his section), with the money part only for those who supervise the cash desks.
+from edusync.modules.access.domain.titles import role_title as _role_title
+from edusync.modules.finance_recovery.domain import digest as _dg
+from edusync.modules.finance_recovery.application.digest_document import digest_pdf as _digest_pdf
+
+ROLE_ORDER = ('PROMOTEUR', 'GESTIONNAIRE', 'RESPONSABLE_FINANCE', 'PREFET_ETUDES', 'DIRECTION_SECTION', 'DIRECTEUR_ETUDES')
+
+
+def _reader(conn, actor):
+    """(civility, title) of the reader, from his most senior role."""
+    from sqlalchemy import text as _t
+    rows = conn.execute(_t("""SELECT r.code, r.kind, r.label, m.civility FROM rbac_assignments a JOIN rbac_roles r ON r.id=a.role_id
+        JOIN school_memberships m ON m.id=a.membership_id WHERE a.membership_id=:m AND a.active"""), {'m': str(actor.membership_id)}).mappings().all()
+    if not rows:
+        return None, None
+    best = sorted(rows, key=lambda x: ROLE_ORDER.index(x['code']) if x['code'] in ROLE_ORDER else 99)[0]
+    return best['civility'], _role_title(best['code'], best['kind'], best['label'], best['civility'])
+
+
+def _digest_load(actor, services, kind, as_of, currency):
+    from datetime import date as _d
+    when = as_of or _d.today()
+    start, end = (_dg.week_of if kind == 'WEEK' else _dg.month_of)(when)
+    prev_start, prev_end = _dg.previous_period(kind, start)
+    scopes = actor.scopes_for('finance.recovery.monthly.read')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
+        repo = PostgresFinanceRecoveryRepository(conn); y = repo.year(actor.school_id, None)
+        if not y: raise HTTPException(409, 'Année scolaire introuvable')
+        school = repo.school_identity(actor.school_id); v = _visible(repo, actor)
+        sections = sorted({c['section_label'] for c in repo.classes(actor.school_id, y['id']) if v is None or c['id'] in v})
+        scope_label = None if v is None else (f"la section {sections[0]}" if len(sections) == 1 else 'vos sections')
+        whole = v is None and 'finance.cash.other.read' in actor.permissions
+        cash, attention = repo.digest_cash(actor.school_id, currency, start, end, prev_start, prev_end) if whole else (None, {})
+        total = monthly_total(repo.monthly(actor.school_id, y['id'], currency, scopes=scopes))
+        classes = [r for r in repo.scope_summary(actor.school_id, y['id'], currency) if v is None or r['class_id'] in v]
+        weakest = min((r for r in classes if (r['expected'] or 0) > 0), key=lambda r: r['recovery_rate'], default=None)
+        pupils = repo.digest_pupils(actor.school_id, y['id'], start, end, v)
+        civility, rtitle = _reader(conn, actor)
+    d = _dg.Digest(kind=kind, start=start, end=end, school_name=school.get('name') or 'l’école', scope_label=scope_label, currency=currency,
+                   cash=cash, recovery={'expected': total['expected'], 'regularized': total['regularized_total'], 'remaining': total['remaining'],
+                                        'rate': total['recovery_rate']},
+                   weakest_class={'label': weakest['class_label'], 'rate': weakest['recovery_rate']} if weakest else None,
+                   pupils=pupils, attention=attention)
+    return y, d, _dg.greeting(civility, rtitle), classes
+
+
+@router.get('/digest')
+def digest(kind: str = Query('WEEK', pattern='^(WEEK|MONTH)$'), as_of: _date | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
+           actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.recovery.monthly.read')
+    _, d, hello, _ = _digest_load(actor, services, kind, as_of, currency)
+    return {'title': _dg.title(d), 'greeting': hello, 'paragraphs': [{'heading': h, 'text': t} for h, t in _dg.paragraphs(d)],
+            'period': {'start': str(d.start), 'end': str(d.end)}, 'scope': d.scope_label or 'SCHOOL'}
+
+
+@router.get('/digest.pdf')
+def digest_pdf_route(kind: str = Query('WEEK', pattern='^(WEEK|MONTH)$'), as_of: _date | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
+                     actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    need(actor, 'finance.recovery.monthly.read'); need(actor, 'finance.views.vf01.export')
+    y, d, hello, classes = _digest_load(actor, services, kind, as_of, currency)
+    data = _digest_pdf(digest=d, greeting=hello, classes=classes, signature=f"EduSync — pour {d.school_name}")
+    name = f"rapport_{'semaine' if kind == 'WEEK' else 'mois'}_{d.start.isoformat()}"
+    archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='finance.recovery.monthly.read',
+                         document_code=f'finance.recovery.digest.{kind.lower()}', title=_dg.title(d), file_name=f'{name}.pdf', academic_year_id=y['id'])
+    return StreamingResponse(BytesIO(data), media_type='application/pdf', headers={'Content-Disposition': f'inline; filename="{name}.pdf"'})

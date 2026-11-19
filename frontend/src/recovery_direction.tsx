@@ -1,7 +1,7 @@
 // Rapport de recouvrement de direction (owner, 2026-11-14): the report given to the school's hierarchy, by fee and period.
 // The screen shows the key figures; the full report (classes, analysis, pupils to follow up, pupils not concerned) is the PDF.
 import React,{useEffect,useState,useMemo} from 'react';
-import {recoveryDirectionReport,recoveryDirectionReportPdf,recoveryFees} from './api';
+import {recoveryDigestPdf,recoveryDirectionReport,recoveryDirectionReportPdf,recoveryFees} from './api';
 import {previewPdf} from './document_io';
 import {friendlyError} from './platform/errors';
 import './recovery_direction.css';
@@ -34,7 +34,13 @@ export default function RecoveryDirection({token,can,yearId,currency,live}:{toke
   const pageSize=50,maxPage=Math.max(0,Math.ceil(filtered.length/pageSize)-1),currentPage=Math.min(page,maxPage);
 
 
+  // Owner, 2026-11-19: the weekly / monthly letter, in the reader's scope (whole school, or his section).
+  async function digest(kind:'WEEK'|'MONTH'){setBusy(true);setMsg('');try{previewPdf(await recoveryDigestPdf(token,kind,currency),kind==='WEEK'?'Rapport de la semaine':'Rapport du mois')}catch(e){setMsg(friendlyError(e))}finally{setBusy(false)}}
   return <>
+    {can('finance.views.vf01.export')&&<div className="recoveryActions">
+      <div><b>Rapport de la semaine et du mois</b><span>Une lettre claire pour la direction : l’argent, le recouvrement, les élèves et les points à surveiller, puis le détail par classe</span></div>
+      <div className="registerControls"><button type="button" className="softBtn" disabled={busy} onClick={()=>void digest('WEEK')}>Rapport de la semaine</button><button type="button" className="softBtn" disabled={busy} onClick={()=>void digest('MONTH')}>Rapport du mois</button></div>
+    </div>}
     <div className="recoveryActions">
       <div><b>Rapport de direction</b><span>Le rapport de recouvrement pour la hiérarchie : chiffres clés, sections, classes, analyse et élèves à relancer</span></div>
       <div className="registerControls">
