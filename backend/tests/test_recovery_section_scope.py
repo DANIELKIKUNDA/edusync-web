@@ -85,7 +85,7 @@ def test_school_wide_grant_still_sees_everything(monkeypatch):
 def test_scope_classes_follows_the_monthly_rule():
     repo = PostgresFinanceRecoveryRepository.__new__(PostgresFinanceRecoveryRepository)
     assert repo.scope_classes(uuid4(), (('SCHOOL', None),)) is None
-    assert repo.scope_classes(uuid4(), ()) is None
+    assert repo.scope_classes(uuid4(), ()) == set()
 
 
 @pytest.mark.parametrize(("scopes", "condition", "section_args"), [
