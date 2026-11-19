@@ -248,13 +248,13 @@ function RuleForm({token, year, fees, classes, sections, refs, can, onCancel, on
 }
 
 function BillingMonths({token, canEdit, onError, onSaved}: {token: string; canEdit: boolean; onError: (m: string) => void; onSaved?: () => void}) {
-  const [policy, setPolicy] = useState<BillingPolicy | null>(null); const [months, setMonths] = useState<string[]>([]); const [due, setDue] = useState(''); const [busy, setBusy] = useState(false);
-  async function load() { try { const p = await getBillingPolicy(token); setPolicy(p); setMonths(p.billing_months); setDue(p.month_due_at_enrollment ?? ''); } catch (e) { onError(friendlyError(e)); } }
+  const [policy, setPolicy] = useState<BillingPolicy | null>(null); const [months, setMonths] = useState<string[]>([]); const [due, setDue] = useState(''); const [departure, setDeparture] = useState(''); const [busy, setBusy] = useState(false);
+  async function load() { try { const p = await getBillingPolicy(token); setPolicy(p); setMonths(p.billing_months); setDue(p.month_due_at_enrollment ?? ''); setDeparture(p.departure_month_not_due_until_day ? String(p.departure_month_not_due_until_day) : ''); } catch (e) { onError(friendlyError(e)); } }
   useEffect(() => { void load(); }, [token]);
   async function save() {
     if (!months.length) { onError('Sélectionnez au moins un mois facturé.'); return; }
     if (due && !months.includes(due)) { onError('Le mois exigé à l’inscription doit faire partie des mois facturés.'); return; }
-    try { setBusy(true); await putBillingPolicy(token, {billing_months: months, month_due_at_enrollment: due || null, expected_version: policy?.version ?? null}); toast.success('Mois de facturation enregistrés'); await load(); onSaved?.(); }
+    try { setBusy(true); await putBillingPolicy(token, {billing_months: months, month_due_at_enrollment: due || null, departure_month_not_due_until_day: departure ? Number(departure) : null, expected_version: policy?.version ?? null}); toast.success('Mois de facturation enregistrés'); await load(); onSaved?.(); }
     catch (e) { onError(friendlyError(e)); } finally { setBusy(false); }
   }
   if (!policy) return null;
@@ -262,6 +262,9 @@ function BillingMonths({token, canEdit, onError, onSaved}: {token: string; canEd
     <legend>Facturation mensuelle</legend>
     <div className="monthGrid">{MONTHS.map(([code, label]) => <label key={code} className="checkField"><input type="checkbox" checked={months.includes(code)} onChange={e => setMonths(m => e.target.checked ? [...m, code] : m.filter(x => x !== code))}/> {label}</label>)}</div>
     <FormField label="Mois éventuellement exigé dès l’inscription"><select value={due} onChange={e => setDue(e.target.value)}><option value="">Aucun</option>{MONTHS.filter(([c]) => months.includes(c)).map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></FormField>
+    {/* Owner, 2026-11-19: each school decides whether the month of an abandon or a transfer is still owed. */}
+    <FormField label="Mois du départ (abandon ou transfert)" hint={departure ? `Parti du 1er au ${departure} du mois : ce mois n’est pas dû. Parti après le ${departure} : il est dû. Les mois suivants ne sont jamais dus.` : 'Le mois du départ reste dû ; seuls les mois suivants sont annulés.'}>
+      <select value={departure} onChange={e => setDeparture(e.target.value)}><option value="">Toujours dû</option>{Array.from({length: 31}, (_, i) => String(i + 1)).map(d => <option key={d} value={d}>Non dû si parti jusqu’au {d}</option>)}</select></FormField>
     {canEdit && <div className="formActions"><button type="button" className="softBtn" onClick={() => void save()}>Enregistrer les mois</button></div>}
   </fieldset>;
 }

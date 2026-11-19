@@ -825,6 +825,8 @@ def set_anticipation_plan_active(plan_id:UUID,body:ActiveFlag,response:Response,
 class BillingPolicyPut(BaseModel):
     billing_months:list[str]=Field(min_length=1,max_length=12)
     month_due_at_enrollment:str|None=Field(default=None,max_length=2)
+    # Owner, 2026-11-19: left on day D <= this day → the month of departure is not owed. Omitted = unchanged; null = always owed.
+    departure_month_not_due_until_day:int|None=Field(default=None,ge=1,le=31)
     expected_version:int|None=Field(default=None,ge=1)
 
 @router.get('/billing-policy')
@@ -839,7 +841,9 @@ def put_billing_policy(body:BillingPolicyPut,response:Response,idempotency_key:s
     _need(actor,'settings.billing_months.manage');key=_key(idempotency_key)
     try:
         def action(conn,request_actor):
-            out,old=PostgresSettingsRepository(conn).put_billing_policy(actor.school_id,**body.model_dump())
+            data=body.model_dump()
+            if 'departure_month_not_due_until_day' not in body.model_fields_set:data.pop('departure_month_not_due_until_day')
+            out,old=PostgresSettingsRepository(conn).put_billing_policy(actor.school_id,**data)
             out=_jsonable(out);_audit_and_outbox(conn,request_actor,action='BILLING_MONTHS_UPDATED',entity_type='SchoolBillingPolicy',entity_id=actor.school_id,old=_jsonable(old),new=out);return 200,out
         result=_mutate(services=services,actor=actor,key=key,operation='SETTINGS_PUT_BILLING_POLICY',payload=body.model_dump(mode='json'),action=action);return result.body
     except Exception as exc:_error(exc)

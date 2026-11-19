@@ -326,6 +326,7 @@ class PostgresSchoolingRepository:
         if int(before._mapping['version'])!=expected_version:raise OptimisticConcurrencyError("Fiche élève modifiée par un autre utilisateur")
         reason=reason.strip()
         if not reason:raise ValueError("Motif obligatoire")
+        if effective_date>date.today():raise ValueError("La date d’effet ne peut pas être dans le futur")
         target={"ABANDON":"ABANDON","TRANSFER":"TRANSFERRED","SUSPEND":"SUSPENDED","REINTEGRATE":"ACTIVE"}.get(event_type)
         if target is None:raise ValueError("Transition invalide")
         # N3-H — Desktop change_student_status invariants.
@@ -361,12 +362,21 @@ class PostgresSchoolingRepository:
         rows=self.connection.execute(text("""SELECT c.id FROM finance_charges c WHERE c.school_id=:sid AND c.enrollment_id=:e AND c.status='ACTIVE'
           AND c.due_date IS NOT NULL AND c.due_date>=:d AND c.paid_amount=0
           AND NOT EXISTS (SELECT 1 FROM finance_charge_regularizations r WHERE r.school_id=c.school_id AND r.charge_id=c.id)"""),
-          {"sid":school_id,"e":enrollment,"d":effective_date}).all()
+          {"sid":school_id,"e":enrollment,"d":self.departure_cutoff(school_id,event_type,effective_date)}).all()
         for (cid,) in rows:
             self.connection.execute(text("""INSERT INTO finance_charge_lifecycle_states(charge_id,school_id,event_id,effective_on,reason)
               VALUES (:c,:sid,:ev,:d,:r) ON CONFLICT (charge_id) DO UPDATE SET event_id=EXCLUDED.event_id,effective_on=EXCLUDED.effective_on,reason=EXCLUDED.reason"""),
               {"c":cid,"sid":school_id,"ev":event_id,"d":effective_date,"r":f"{event_type}: {reason}"})
             self.connection.execute(text("UPDATE finance_charges SET status='CANCELLED' WHERE id=:c AND school_id=:sid"),{"c":cid,"sid":school_id})
+
+    def departure_cutoff(self, school_id:UUID, event_type:str, effective_date:date)->date:
+        """First due date no longer owed. Monthly charges are due on the 1st: by default the month of departure stays owed
+        (only later months are neutralized). Owner, 2026-11-19 — each school sets its day: an abandon or a transfer on day
+        D <= departure_month_not_due_until_day also frees the month of departure. A suspension keeps the default."""
+        if event_type not in {'ABANDON','TRANSFER'}:return effective_date
+        day=self.connection.execute(text("SELECT departure_month_not_due_until_day FROM school_billing_policy WHERE school_id=:sid"),{"sid":school_id}).scalar()
+        if day and effective_date.day<=int(day):return effective_date.replace(day=1)
+        return effective_date
 
     def summary(self, school_id:UUID, *, scopes:tuple[tuple[str,str|None],...])->dict[str,int]:
         where,params=_student_scope_where(scopes)
