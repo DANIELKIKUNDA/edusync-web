@@ -71,7 +71,7 @@ def send_digest(services, sender, *, kind: str, as_of: date | None, currency: st
         _, d, hello, classes = load(a, services, kind, as_of, currency)
         signature = f"EduSync — pour {d.school_name}"
         pdf = digest_pdf(digest=d, greeting=hello, classes=classes, signature=signature)
-        file_name = f"rapport_{'semaine' if kind == 'WEEK' else 'mois'}_{d.start.isoformat()}.pdf"
+        file_name = f"rapport_{ {'WEEK': 'semaine', 'MONTH': 'mois', 'QUARTER': 'trimestre'}[kind]}_{d.start.isoformat()}.pdf"
         with services.tenant_db.tenant_transaction(school_id=sender.school_id, user_id=sender.user_id) as conn:
             res = request_message(conn, school_id=sender.school_id, kind="REPORT", channels=["EMAIL", "PUSH"], subject=title(d)[:120],
                             body=letter_text(hello, paragraphs(d), signature)[:2000], link_path="/finance",

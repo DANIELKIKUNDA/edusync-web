@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     host_load_critical_per_cpu: float = 3.0
     # Vigie EduSync: deterministic business supervision across active schools. One elected evaluator per interval.
     supervision_enabled: bool = True
+    # Rapports automatiques (owner, 2026-11-19): weekly on Saturday after the last cash closure (20:00 at the latest),
+    # monthly and term reports at their end, by e-mail with the PDF of each responsible. School local time.
+    scheduled_reports_enabled: bool = True
+    school_timezone: str = "Africa/Lubumbashi"
     supervision_interval_seconds: int = 900
     # Push notifications: "disabled" (default) or "mock" (local certification). Real providers: BLOCKED_EXTERNAL.
     push_provider: str = "disabled"
