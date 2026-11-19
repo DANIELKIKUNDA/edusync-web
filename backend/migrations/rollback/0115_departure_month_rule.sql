@@ -1,0 +1,2 @@
+ALTER TABLE school_billing_policy DROP CONSTRAINT IF EXISTS school_billing_policy_departure_day_ck;
+ALTER TABLE school_billing_policy DROP COLUMN IF EXISTS departure_month_not_due_until_day;

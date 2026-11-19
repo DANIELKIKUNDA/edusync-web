@@ -378,13 +378,16 @@ class PostgresSettingsRepository:
     DEFAULT_BILLING_MONTHS = ["09","10","11","12","01","02","03","04","05","06"]
 
     def get_billing_policy(self, school_id: UUID) -> dict[str,Any]:
-        row=self.connection.execute(text("SELECT billing_months,month_due_at_enrollment,version FROM school_billing_policy WHERE school_id=:sid"),
+        row=self.connection.execute(text("SELECT billing_months,month_due_at_enrollment,departure_month_not_due_until_day,version FROM school_billing_policy WHERE school_id=:sid"),
                                     {"sid":school_id}).first()
-        if row is None: return {"billing_months":list(self.DEFAULT_BILLING_MONTHS),"month_due_at_enrollment":None,"version":None}
+        if row is None: return {"billing_months":list(self.DEFAULT_BILLING_MONTHS),"month_due_at_enrollment":None,
+                                "departure_month_not_due_until_day":None,"version":None}
         return dict(_m(row))
 
+    KEEP=object()
+
     def put_billing_policy(self, school_id: UUID, *, billing_months:list[str], month_due_at_enrollment:str|None,
-                           expected_version:int|None) -> tuple[dict[str,Any],dict[str,Any]]:
+                           expected_version:int|None, departure_month_not_due_until_day:Any=KEEP) -> tuple[dict[str,Any],dict[str,Any]]:
         months=[]
         for m in billing_months:
             mm=str(m).zfill(2)
@@ -395,16 +398,20 @@ class PostgresSettingsRepository:
         due=str(month_due_at_enrollment).zfill(2) if month_due_at_enrollment else None
         if due and due not in months: raise ValueError("Le mois exigé à l'inscription doit faire partie des mois facturés")
         old=self.get_billing_policy(school_id)
+        # Month of departure rule (owner, 2026-11-19): kept as is when the caller does not send it (older screens).
+        dep=old.get('departure_month_not_due_until_day') if departure_month_not_due_until_day is self.KEEP else departure_month_not_due_until_day
+        if dep is not None and not 1<=int(dep)<=31: raise ValueError("Jour limite du mois de départ : entre 1 et 31")
         if old['version'] is None:
-            row=self.connection.execute(text("""INSERT INTO school_billing_policy(school_id,billing_months,month_due_at_enrollment)
-                VALUES (:sid,CAST(:m AS jsonb),:due) RETURNING billing_months,month_due_at_enrollment,version"""),
-                {"sid":school_id,"m":json.dumps(months),"due":due}).first()
+            row=self.connection.execute(text("""INSERT INTO school_billing_policy(school_id,billing_months,month_due_at_enrollment,departure_month_not_due_until_day)
+                VALUES (:sid,CAST(:m AS jsonb),:due,:dep) RETURNING billing_months,month_due_at_enrollment,departure_month_not_due_until_day,version"""),
+                {"sid":school_id,"m":json.dumps(months),"due":due,"dep":dep}).first()
         else:
             if expected_version is None or int(old['version'])!=expected_version:
                 raise OptimisticConcurrencyError("Mois de facturation modifiés par une autre session; rechargez")
-            row=self.connection.execute(text("""UPDATE school_billing_policy SET billing_months=CAST(:m AS jsonb),month_due_at_enrollment=:due
-                WHERE school_id=:sid AND version=:v RETURNING billing_months,month_due_at_enrollment,version"""),
-                {"sid":school_id,"m":json.dumps(months),"due":due,"v":expected_version}).first()
+            row=self.connection.execute(text("""UPDATE school_billing_policy SET billing_months=CAST(:m AS jsonb),month_due_at_enrollment=:due,
+                departure_month_not_due_until_day=:dep
+                WHERE school_id=:sid AND version=:v RETURNING billing_months,month_due_at_enrollment,departure_month_not_due_until_day,version"""),
+                {"sid":school_id,"m":json.dumps(months),"due":due,"dep":dep,"v":expected_version}).first()
             if row is None: raise OptimisticConcurrencyError("Mois de facturation modifiés par une autre session")
         return dict(_m(row)), old
 
