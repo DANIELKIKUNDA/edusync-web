@@ -214,7 +214,7 @@ def _authorize_staff_update(conn, actor:ActorContext, staff_id:UUID)->None:
         FROM staff_assignments a
         LEFT JOIN school_sections ss ON ss.id=a.section_id AND ss.school_id=a.school_id
         LEFT JOIN school_classes sc ON sc.id=a.class_id AND sc.school_id=a.school_id
-        WHERE a.school_id=:sid AND a.staff_id=:staff AND a.end_date IS NULL
+        WHERE a.school_id=:sid AND a.staff_id=:staff AND (a.end_date IS NULL OR a.end_date>CURRENT_DATE)
         FOR SHARE OF a
     """),{'sid':actor.school_id,'staff':staff_id}).all()
     if not assignments:
