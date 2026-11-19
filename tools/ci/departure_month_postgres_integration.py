@@ -52,43 +52,46 @@ def leave(c, st, when: str, kind: str = "abandon"):
 def run(A: dict) -> None:
     print("\n== Mois du départ réglé par l'école (19/11/2026)")
     sid = A["id"]
-    admin = as_(actor_for("GESTIONNAIRE", sid, extra={"settings.billing_months.manage", "settings.tariffs.read"}))
-    r = admin.put("/api/v1/settings/billing-policy", json={"billing_months": ["09", "10", "11", "12", "01", "02", "03", "04", "05", "06"],
+    # as_() switches the ONE test client to an actor: call admin() / sec() before each request of that actor.
+    a_admin = actor_for("GESTIONNAIRE", sid, extra={"settings.billing_months.manage", "settings.tariffs.read"})
+    admin = lambda: as_(a_admin)  # noqa: E731
+    r = admin().put("/api/v1/settings/billing-policy", json={"billing_months": ["09", "10", "11", "12", "01", "02", "03", "04", "05", "06"],
                                                           "month_due_at_enrollment": "06"}, headers=key())
     check("politique de facturation sans règle de départ", r.status_code == 200 and r.json().get("departure_month_not_due_until_day") is None, r.text[:200])
-    sec = as_(actor_for("SECRETARIAT", sid, extra={"students.lifecycle.abandon", "students.lifecycle.transfer"}))
+    a_sec = actor_for("SECRETARIAT", sid, extra={"students.lifecycle.abandon", "students.lifecycle.transfer"})
+    sec = lambda: as_(a_sec)  # noqa: E731
 
     st, ch = pupil(A, "SANSREGLE")
-    r = leave(sec, st, "2026-09-15")
+    r = leave(sec(), st, "2026-09-15")
     check("abandon le 15/09 enregistré à sa vraie date", r.status_code == 200
           and str(one("SELECT effective_date FROM student_status_events WHERE student_id=:s", s=st)[0]) == "2026-09-15", r.text[:200])
     check("sans règle : septembre reste dû, octobre et novembre ne le sont plus",
           (status(ch["Septembre"]), status(ch["Octobre"]), status(ch["Novembre"])) == ("ACTIVE", "CANCELLED", "CANCELLED"),
           [status(x) for x in ch.values()])
 
-    pol = admin.get("/api/v1/settings/billing-policy").json()
-    r = admin.put("/api/v1/settings/billing-policy", json={"billing_months": pol["billing_months"], "month_due_at_enrollment": pol["month_due_at_enrollment"],
+    pol = admin().get("/api/v1/settings/billing-policy").json()
+    r = admin().put("/api/v1/settings/billing-policy", json={"billing_months": pol["billing_months"], "month_due_at_enrollment": pol["month_due_at_enrollment"],
                                                           "departure_month_not_due_until_day": 15, "expected_version": pol["version"]}, headers=key())
     check("l'école règle : parti jusqu'au 15 → mois non dû", r.status_code == 200 and r.json()["departure_month_not_due_until_day"] == 15, r.text[:200])
-    pol = admin.get("/api/v1/settings/billing-policy").json()
-    r = admin.put("/api/v1/settings/billing-policy", json={"billing_months": pol["billing_months"], "month_due_at_enrollment": "06",
+    pol = admin().get("/api/v1/settings/billing-policy").json()
+    r = admin().put("/api/v1/settings/billing-policy", json={"billing_months": pol["billing_months"], "month_due_at_enrollment": "06",
                                                           "expected_version": pol["version"]}, headers=key())
     check("un ancien écran qui n'envoie pas la règle ne l'efface pas", r.status_code == 200 and r.json()["departure_month_not_due_until_day"] == 15, r.text[:200])
 
     st, ch = pupil(A, "QUINZE")
-    leave(sec, st, "2026-09-15")
+    leave(sec(), st, "2026-09-15")
     check("règle 15, abandon le 15/09 : septembre n'est plus dû", status(ch["Septembre"]) == "CANCELLED" and status(ch["Octobre"]) == "CANCELLED",
           [status(x) for x in ch.values()])
     st, ch = pupil(A, "VINGT")
-    leave(sec, st, "2026-09-20", "transfer")
+    leave(sec(), st, "2026-09-20", "transfer")
     check("règle 15, transfert le 20/09 : septembre reste dû, octobre non", (status(ch["Septembre"]), status(ch["Octobre"])) == ("ACTIVE", "CANCELLED"),
           [status(x) for x in ch.values()])
     st, ch = pupil(A, "PAYE", paid_september=True)
-    leave(sec, st, "2026-09-10")
+    leave(sec(), st, "2026-09-10")
     check("un mois déjà payé n'est jamais annulé", status(ch["Septembre"]) == "ACTIVE" and status(ch["Octobre"]) == "CANCELLED",
           [status(x) for x in ch.values()])
     st, _ = pupil(A, "FUTUR")
-    r = leave(sec, st, "2099-01-01")
+    r = leave(sec(), st, "2099-01-01")
     check("date d'abandon dans le futur refusée", r.status_code in (400, 409, 422), r.status_code)
 
 
