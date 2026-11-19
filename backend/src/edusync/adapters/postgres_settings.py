@@ -582,6 +582,27 @@ class PostgresSettingsRepository:
         if row is None: raise OptimisticConcurrencyError("Classe modifiée par une autre session ou introuvable")
         return dict(_m(row))
 
+    def set_class_option(self, school_id: UUID, class_id: UUID, *, option_id: UUID|None, expected_version:int) -> dict[str,Any]:
+        """Attach a Humanités class (H1–H4) to an option of its section, or detach it (owner, 2026-11-19: the APN classes were
+        opened without their option, so the headcounts « par option » were empty). Pupils, charges and history stay attached
+        to the class; tariffs already applied are not recalculated."""
+        cls=self._class_for_change(school_id,class_id)
+        if cls['status']=='ARCHIVED': raise ValueError("Une classe archivée ne se modifie plus")
+        row=self.connection.execute(text("SELECT section_id,reference_code FROM school_classes WHERE id=:id AND school_id=:sid"),{"id":class_id,"sid":school_id}).first()
+        if row is None: raise LookupError("Classe introuvable")
+        if option_id is not None:
+            if (_m(row)['reference_code'] or '').upper() not in ('H1','H2','H3','H4'):
+                raise ValueError("Une option ne s’applique qu’aux classes des Humanités (1re à 4e Humanités).")
+            ok=self.connection.execute(text("SELECT 1 FROM school_options WHERE id=:o AND school_id=:sid AND section_id=:sec AND enabled"),
+                                       {"o":option_id,"sid":school_id,"sec":_m(row)['section_id']}).first()
+            if ok is None: raise ValueError("Option incompatible avec la section ou cette école")
+        r=self.connection.execute(text(f"""
+            UPDATE school_classes SET option_id=:option
+             WHERE id=:id AND school_id=:sid AND version=:expected RETURNING {self.CLASS_COLUMNS}
+        """),{"id":class_id,"sid":school_id,"option":option_id,"expected":expected_version}).first()
+        if r is None: raise OptimisticConcurrencyError("Classe modifiée par une autre session ou introuvable")
+        return dict(_m(r))
+
     def set_class_status(self, school_id: UUID, class_id: UUID, *, status:str, expected_version:int) -> dict[str,Any]:
         """Desktop set_class_status: ACTIVE <-> INACTIVE (pause, students kept), ARCHIVED only when the class is empty."""
         status=status.strip().upper()
