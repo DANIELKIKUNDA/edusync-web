@@ -118,3 +118,20 @@ def test_wiring_rights_scope_and_screen():
     panel = (ROOT / "frontend/src/recovery_direction.tsx").read_text(encoding="utf-8")
     assert "Rapport de direction" in screen and "<RecoveryDirection " in screen
     assert "recoveryDirectionReportPdf" in panel and "can('finance.views.vf01.export')" in panel
+
+
+def test_direction_report_scope_never_expands_missing_grants():
+    import ast
+    repo = ROOT / 'backend/src/edusync/adapters/postgres_finance_recovery.py'
+    tree = ast.parse(repo.read_text())
+    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'PostgresFinanceRecoveryRepository')
+    fn = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == '_scope_filter')
+    fn.decorator_list = []
+    ns = {}
+    exec(compile(ast.Module(body=[fn], type_ignores=[]), str(repo), 'exec'), ns)
+    scope = ns['_scope_filter']
+    assert scope(()) == ('FALSE', [])
+    assert scope([('SCHOOL', None)]) == ('TRUE', [])
+    sql, args = scope([('SECTION', 'secondaire')])
+    assert 'ss.code' in sql and args == [['SECONDAIRE']]
+    assert scope([('UNKNOWN', 'value')]) == ('FALSE', [])

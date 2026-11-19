@@ -1,6 +1,6 @@
 // Rapport de recouvrement de direction (owner, 2026-11-14): the report given to the school's hierarchy, by fee and period.
 // The screen shows the key figures; the full report (classes, analysis, pupils to follow up, pupils not concerned) is the PDF.
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useState,useMemo} from 'react';
 import {recoveryDirectionReport,recoveryDirectionReportPdf,recoveryFees} from './api';
 import {previewPdf} from './document_io';
 import {friendlyError} from './platform/errors';
@@ -13,16 +13,26 @@ const pct=(v:any)=>`${Number(v||0).toLocaleString('fr-FR',{minimumFractionDigits
 export default function RecoveryDirection({token,can,yearId,currency,live}:{token:string;can:(p:string)=>boolean;yearId:string;currency:string;live:number}){
   const [fees,setFees]=useState<any[]>([]),[feeTypeId,setFeeTypeId]=useState(''),[periodOrder,setPeriodOrder]=useState(''),[asOf,setAsOf]=useState(today());
   const [report,setReport]=useState<any>(null),[loading,setLoading]=useState(false),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);
+  const [search,setSearch]=useState(''),[section,setSection]=useState(''),[classFilter,setClassFilter]=useState(''),[page,setPage]=useState(0);
   const periods=fees.find(f=>f.id===feeTypeId)?.periods??[];
   const params={yearId:yearId||undefined,currency,feeTypeId:feeTypeId||undefined,periodOrder:periodOrder?Number(periodOrder):undefined,asOf:asOf||undefined};
 
   useEffect(()=>{if(!yearId)return;recoveryFees(token,yearId).then(x=>{setFees(x.items);setFeeTypeId(v=>x.items.some((f:any)=>f.id===v)?v:'')}).catch(e=>setMsg(friendlyError(e)))},[token,yearId]);
-  useEffect(()=>{if(!yearId)return;let active=true;setLoading(true);setMsg('');
+  useEffect(()=>{if(!yearId)return;let active=true;setReport(null);setLoading(true);setMsg('');
     recoveryDirectionReport(token,params).then(x=>{if(active)setReport(x)}).catch(e=>{if(active){setReport(null);setMsg(friendlyError(e))}}).finally(()=>{if(active)setLoading(false)});
     return()=>{active=false}},[token,yearId,currency,feeTypeId,periodOrder,asOf,live]);
 
   async function pdf(){setBusy(true);setMsg('');try{previewPdf(await recoveryDirectionReportPdf(token,params),'Rapport de recouvrement')}catch(e){setMsg(friendlyError(e))}finally{setBusy(false)}}
   const t=report?.total;
+  const unpaid:any[]=report?.unpaid??[];
+  const sections=Array.from(new Set(unpaid.map(s=>s.section_label))).sort();
+  const classes=Array.from(new Set(unpaid.filter(s=>!section||s.section_label===section).map(s=>s.class_label))).sort((a,b)=>a.localeCompare(b,'fr',{numeric:true}));
+  const normalize=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr');
+  const filtered=useMemo(()=>unpaid.filter(s=>(!section||s.section_label===section)&&(!classFilter||s.class_label===classFilter)&&normalize([s.student_name,s.matricule,s.contact_name,s.contact_phone].join(' ')).includes(normalize(search.trim()))),[report,search,section,classFilter]);
+  useEffect(()=>{setPage(0)},[report,search,section,classFilter]);
+  useEffect(()=>{setSection('');setClassFilter('')},[token,yearId]);
+  const pageSize=50,maxPage=Math.max(0,Math.ceil(filtered.length/pageSize)-1),currentPage=Math.min(page,maxPage);
+
 
   return <>
     <div className="recoveryActions">
@@ -53,6 +63,21 @@ export default function RecoveryDirection({token,can,yearId,currency,live}:{toke
             <b>{s.label}</b><span>{s.concerned}</span><span>{s.in_order}</span><span>{s.not_in_order}</span><span>{money(s.expected,currency)}</span>
             <span>{money(s.collected,currency)}</span><span>{money(s.remaining,currency)}</span><strong>{pct(s.rate)}</strong></div>)}
         </div>
+        <section className="directionPupils" aria-label="Élèves à relancer">
+          <div className="directionPupilsTitle"><div><h3>Élèves à relancer</h3><p>Les dettes correspondant aux frais et à la période sélectionnés, dans votre périmètre autorisé.</p></div><strong>{unpaid.length} élève(s)</strong></div>
+          <div className="directionPupilFilters">
+            <label>Rechercher<input type="search" placeholder="Nom, matricule ou téléphone…" aria-label="Rechercher un élève à relancer" value={search} onChange={e=>setSearch(e.target.value)}/></label>
+            <label>Section<select aria-label="Section des élèves à relancer" value={section} onChange={e=>{setSection(e.target.value);setClassFilter('')}}><option value="">Toutes les sections autorisées</option>{sections.map(s=><option key={s}>{s}</option>)}</select></label>
+            <label>Classe<select aria-label="Classe des élèves à relancer" value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="">Toutes les classes autorisées</option>{classes.map(c=><option key={c}>{c}</option>)}</select></label>
+          </div>
+          <p role="status">{filtered.length} résultat(s) · Reste dû : <b>{money(filtered.reduce((sum,s)=>sum+Number(s.remaining||0),0),currency)}</b></p>
+          <div className="directionPupilTable"><table><caption>Élèves non en ordre — {report.title}</caption><thead><tr><th>Élève</th><th>Section / classe</th><th>Non réglé</th><th>Parent ou tuteur</th><th>Reste dû</th></tr></thead><tbody>
+            {filtered.slice(currentPage*pageSize,(currentPage+1)*pageSize).map(s=><tr key={s.enrollment_id}><td><b>{s.student_name}</b><small>{s.matricule}</small></td><td>{s.section_label}<small>{s.class_label}</small></td><td>{s.missing.join(', ')}</td><td>{s.contact_name||'Non renseigné'}<small>{s.contact_phone?<a href={`tel:${s.contact_phone.replace(/[^+0-9]/g,'')}`}>{s.contact_phone}</a>:'Téléphone non renseigné'}</small></td><td className="directionDebt">{money(s.remaining,currency)}</td></tr>)}
+            {!filtered.length&&<tr><td colSpan={5}>{unpaid.length?'Aucun élève ne correspond à ces filtres.':'Tous les élèves concernés sont en ordre.'}</td></tr>}
+          </tbody></table></div>
+          {filtered.length>pageSize&&<nav className="directionPagination" aria-label="Pages des élèves à relancer"><button disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>Précédent</button><span>Page {currentPage+1} sur {maxPage+1}</span><button disabled={currentPage===maxPage} onClick={()=>setPage(currentPage+1)}>Suivant</button></nav>}
+          <small>Le rapport PDF conserve la liste complète du périmètre autorisé ; la recherche et les filtres ci-dessus concernent cette vue à l’écran.</small>
+        </section>
         <p className="recoveryFootnote">
           {report.analysis.without_contact>0&&<>{report.analysis.without_contact} élève(s) pas à jour sans numéro de téléphone enregistré. </>}
           {(report.exempted_counts.ARRIVAL+report.exempted_counts.EXEMPTION)>0&&<>{report.exempted_counts.ARRIVAL+report.exempted_counts.EXEMPTION} élève(s) non concerné(s) (inscription après la date limite ou exonération), non comptés. </>}

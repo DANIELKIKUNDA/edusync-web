@@ -154,7 +154,7 @@ class PostgresFinanceRecoveryRepository:
     @staticmethod
     def _scope_filter(scopes):
         """Same rule as monthly(): SCHOOL sees all; SECTION/CYCLE and CLASS grants are intersected, never widened."""
-        if not scopes or any(t=='SCHOOL' for t,_ in scopes): return 'TRUE',[]
+        if any(t=='SCHOOL' for t,_ in scopes): return 'TRUE',[]
         sections=[str(v).upper() for t,v in scopes if t in ('SECTION','CYCLE') and v]
         classes=[str(v).upper() for t,v in scopes if t=='CLASS' and v]
         parts,args=[],[]
