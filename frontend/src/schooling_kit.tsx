@@ -34,6 +34,7 @@ export function StudentDirectoryPro({token, schoolName, classes, filters, setFil
   useEffect(()=>{const nextSection=soleSection||(secs.some(s=>s.id===filters.section_id)?filters.section_id:'');const nextClass=classes.some(c=>c.id===filters.class_id&&(!nextSection||c.section_id===nextSection))?filters.class_id:'';if((nextSection||'')!==(filters.section_id||'')||nextClass!==(filters.class_id||''))setFilters({...filters,section_id:nextSection,class_id:nextClass,option_id:''})},[classes,token]);
   const set = (patch: StudentFilters) => setFilters({...filters, ...patch});
   const classChoices = classes.filter(c => (!filters.section_id || c.section_id === filters.section_id) && (!filters.option_id || c.option_id === filters.option_id));
+  const optionChoices=options.filter(o=>!filters.section_id||o.section_id===filters.section_id);
   const active = (['section_id', 'class_id', 'option_id', 'gender', 'status', 'academic_year_id'] as const).filter(k => filters[k]).length + (filters.all_years ? 1 : 0);
   async function pdf() { try { previewPdf(await studentDirectoryPdf(token, filters)); } catch (e) { toast.error(friendlyError(e)); } }
   async function xlsx() { try { await exportManaged(await studentDirectoryXlsx(token, filters), {school: schoolName, module: 'Scolarité', category: 'Élèves', filename: 'annuaire_eleves.xlsx'}); } catch (e) { toast.error(friendlyError(e)); } }
@@ -47,7 +48,7 @@ export function StudentDirectoryPro({token, schoolName, classes, filters, setFil
     <div className="kp-filters" role="group" aria-label="Filtres de l’annuaire">
       <label><span>Section</span><select value={filters.section_id ?? ''} onChange={e => set({section_id: e.target.value, class_id: '', option_id: e.target.value && secs.find(s => s.id === e.target.value)?.code !== 'SECONDAIRE' ? '' : filters.option_id})}>
         {secs.length>1&&<option value="">Toutes les sections autorisées</option>}{secs.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}</select></label>
-      {options.length > 0 && <label><span>Option</span><select value={filters.option_id ?? ''} onChange={e => set({option_id: e.target.value, class_id: ''})}><option value="">Toutes</option>{options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>}
+      {optionChoices.length > 0 && <label><span>Option</span><select value={filters.option_id ?? ''} onChange={e => set({option_id: e.target.value, class_id: ''})}><option value="">Toutes</option>{optionChoices.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>}
       <label><span>Classe</span><select value={filters.class_id ?? ''} onChange={e => set({class_id: e.target.value})}><option value="">Toutes</option>{classChoices.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</select></label>
       <label><span>Sexe</span><select value={filters.gender ?? ''} onChange={e => set({gender: e.target.value as StudentFilters['gender']})}><option value="">Filles et garçons</option><option value="F">Filles</option><option value="M">Garçons</option></select></label>
       <label><span>Statut</span><select value={filters.status ?? ''} onChange={e => set({status: e.target.value})}><option value="">Tous</option>{Object.entries(STATUS_FR).slice(0, 4).map(([k, l]) => <option key={k} value={k}>{l}s</option>)}</select></label>
