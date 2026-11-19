@@ -27,7 +27,7 @@ jobs:
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - id: gate
@@ -57,7 +57,7 @@ jobs:
       SHA: ${{ needs.select.outputs.sha }}
       ROLLBACK_FROM: ${{ inputs.rollback_from }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
