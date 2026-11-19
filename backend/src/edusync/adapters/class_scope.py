@@ -10,7 +10,7 @@ from __future__ import annotations
 
 def visible_class_ids(driver_conn, school_id, scopes):
     """None = the whole school; otherwise the set of class ids (possibly empty) the scopes allow."""
-    if not scopes or any(t == 'SCHOOL' for t, _ in scopes):
+    if any(t == 'SCHOOL' for t, _ in scopes):
         return None
     sections = [str(v).upper() for t, v in scopes if t in ('SECTION', 'CYCLE') and v]
     classes = [str(v).upper() for t, v in scopes if t == 'CLASS' and v]

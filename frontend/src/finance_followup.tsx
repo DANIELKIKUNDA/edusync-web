@@ -20,6 +20,7 @@ export default function FinanceFollowup({token, can, yearId, schoolName}: {token
   const [view, setView] = useState<View>('NOT'); const [q, setQ] = useState('');
   useEffect(() => { listClassSelector(token, yearId, 'finance.recovery.monthly.read').then(c => { setClasses(c); }).catch(e => setErr(friendlyError(e))); }, [token, yearId]);
   const sections = useMemo(() => [...new Map(classes.map(c => [c.section_id, c.section_label ?? 'Section'])).entries()], [classes]);
+  useEffect(()=>{setSection(v=>sections.some(([id])=>id===v)?v:sections.length===1?sections[0][0]:'');setClassId('');setColumn('')},[classes]);
   const classChoices = classes.filter(c => !section || c.section_id === section);
   useEffect(() => { if (!classId) { setRes(null); return; } let alive = true; setBusy(true); setErr('');
     fetchFollowup(token, {class_id: classId, column: column || undefined, cumulative, currency, year_id: yearId})
@@ -38,7 +39,7 @@ export default function FinanceFollowup({token, can, yearId, schoolName}: {token
   return <section className="ff-root">
     <header className="ff-head"><div><span className="ff-eyebrow">Suivi financier</span><h3>Qui est en ordre ?</h3><p>Choisissez une classe, un frais et une période : la liste des élèves non en ordre s’imprime pour le passage en classe.</p></div></header>
     <div className="ff-filters">
-      <label className="ff-field"><span>Section</span><select value={section} onChange={e => { setSection(e.target.value); setClassId(''); setColumn(''); }}><option value="">Toutes</option>{sections.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></label>
+      <label className="ff-field"><span>Section</span><select value={section} onChange={e => { setSection(e.target.value); setClassId(''); setColumn(''); }}>{sections.length>1&&<option value="">Sections autorisées</option>}{sections.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></label>
       <label className="ff-field grow"><span>Classe</span><select value={classId} onChange={e => { setClassId(e.target.value); setColumn(''); }} aria-invalid={!classId}><option value="">Choisir une classe…</option>{classChoices.map(c => <option key={c.id} value={c.id}>{section ? '' : `${c.section_label ?? ''} · `}{c.label}</option>)}</select></label>
       <label className="ff-field"><span>Devise</span><select value={currency} onChange={e => { setCurrency(e.target.value as 'CDF' | 'USD'); setColumn(''); }}><option value="CDF">FC</option><option value="USD">USD</option></select></label>
       {res && res.fees.length > 0 && <label className="ff-field"><span>Frais</span><select value={fee} onChange={e => { const g = res.fees.find(x => x.key === e.target.value); setFee(e.target.value); if (g) setColumn(g.periods[g.periods.length - 1].key); }}>{res.fees.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}</select></label>}

@@ -31,7 +31,7 @@ class Driver:
 def test_visible_class_ids_rule():
     sid = uuid4(); c1 = uuid4()
     assert class_scope.visible_class_ids(Driver(), sid, (('SCHOOL', None),)) is None
-    assert class_scope.visible_class_ids(Driver(), sid, ()) is None            # same rule as the monthly recovery view
+    assert class_scope.visible_class_ids(Driver(), sid, ()) == set()           # missing scope never grants the whole school
     assert class_scope.visible_class_ids(Driver(), sid, (('SECTION', None),)) == set()   # malformed grant: nothing
     d = Driver([c1])
     assert class_scope.visible_class_ids(d, sid, (('SECTION', 'secondaire'), ('CLASS', 'p1a'))) == {c1}

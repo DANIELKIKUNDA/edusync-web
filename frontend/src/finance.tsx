@@ -373,6 +373,7 @@ function FeeTracking({token}:{token:string}){
  const [total,setTotal]=useState(0);const [more,setMore]=useState(false);const [search,setSearch]=useState('');const [q,setQ]=useState('');const [sums,setSums]=useState<{net_expected:string;regularized:string;remaining:string}|null>(null);const [loading,setLoading]=useState(true);const gen=useRef(0);
  useEffect(()=>{listClassSelector(token,undefined,'finance.analysis.by_fee.read').then(setClasses).catch(e=>setMsg(friendlyError(e)))},[token]);
  const sections=useMemo(()=>Array.from(new Map(classes.map(c=>[c.section_id,c.section_label??'Section'])).entries()),[classes]);
+ useEffect(()=>{setSection(v=>sections.some(([id])=>id===v)?v:sections.length===1?sections[0][0]:'');setClassId('')},[classes]);
  const classChoices=classes.filter(c=>!section||c.section_id===section);
  const scope={currency,classId:classId||undefined,sectionId:classId?undefined:section||undefined};
  useEffect(()=>{let alive=true;Promise.all([feeTrackingTaxonomy(token,scope),feeTrackingOverview(token,scope)]).then(([t,o])=>{if(!alive)return;setTax(t.items);setOverview(o.items);setCategory(v=>t.items.some((x:any)=>x.category_id===v)?v:'');setFee(v=>t.items.some((x:any)=>x.fee_type_id===v)?v:'')}).catch(e=>alive&&setMsg(friendlyError(e)));return()=>{alive=false}},[token,currency,section,classId]);
@@ -385,7 +386,7 @@ function FeeTracking({token}:{token:string}){
  return <section className="feeTracking">
   <div className="feeTrackHeading"><div><span className="eyebrow">Pilotage financier</span><h3>Suivi des frais</h3><p>Analyse des obligations réellement générées · {scopeLabel}</p></div></div>
   <div className="feeTrackBar">
-   <label><span>Section</span><select aria-label="Section" value={section} onChange={e=>{setSection(e.target.value);setClassId('');setCategory('');setFee('')}}><option value="">Toutes les sections</option>{sections.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+   <label><span>Section</span><select aria-label="Section" value={section} onChange={e=>{setSection(e.target.value);setClassId('');setCategory('');setFee('')}}>{sections.length>1&&<option value="">Toutes les sections autorisées</option>}{sections.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
    <label><span>Classe</span><select aria-label="Classe" value={classId} onChange={e=>{setClassId(e.target.value);setCategory('');setFee('')}}><option value="">Toutes les classes</option>{classChoices.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></label>
    <label><span>Devise</span><select aria-label="Devise" value={currency} onChange={e=>setCurrency(e.target.value)}><option value="CDF">FC</option><option>USD</option></select></label>
    <label><span>Famille de frais</span><select aria-label="Famille de frais" value={category} onChange={e=>{setCategory(e.target.value);setFee('')}}><option value="">Toutes les familles</option>{cats.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>

@@ -53,7 +53,7 @@ export default function SchoolingPage({token,permissions,schoolName,onNavigate}:
   // Each read stands alone (offline proof, 2026-10-31): without network, a directory page that was never consulted used to
   // reject the whole refresh — and with it the classes the enrollment wizard needs. What is available is shown.
   useLive(['students','headcounts'],()=>refresh());   // live: what another member records here appears without reloading (2026-11-01)
-  async function refresh(){setLoading(true);setError('');try{const [sum,stu,fam,cls]=await Promise.allSettled([getSchoolingSummary(token),listStudents(token,{...filters,limit:PAGE_SIZE,offset:studentPage*PAGE_SIZE}),listFamilies(token,q,{limit:PAGE_SIZE,offset:familyPage*PAGE_SIZE}),listClassSelector(token)]);
+  async function refresh(){setLoading(true);setError('');try{const [sum,stu,fam,cls]=await Promise.allSettled([getSchoolingSummary(token),listStudents(token,{...filters,limit:PAGE_SIZE,offset:studentPage*PAGE_SIZE}),listFamilies(token,q,{limit:PAGE_SIZE,offset:familyPage*PAGE_SIZE}),listClassSelector(token,undefined,can('students.read')?'students.read':can('enrollments.create')?'enrollments.create':'enrollments.reenroll')]);
     if(sum.status==='fulfilled')setSummary(sum.value);if(stu.status==='fulfilled'){setStudents(stu.value.items);setStudentMore(Boolean(stu.value.has_more))}
     if(fam.status==='fulfilled'){setFamilies(fam.value.items);setFamilyMore(Boolean(fam.value.has_more))}if(cls.status==='fulfilled')setClasses(cls.value.filter(x=>x.enabled));
     const failed=[sum,stu,fam,cls].find(x=>x.status==='rejected') as PromiseRejectedResult|undefined;if(failed&&[sum,stu,fam,cls].every(x=>x.status==='rejected'))setError(friendlyError(failed.reason));}finally{setLoading(false)}}
