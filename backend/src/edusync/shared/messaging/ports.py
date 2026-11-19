@@ -55,6 +55,8 @@ class EmailContent:
     text: str
     html: str | None = None
     headers: dict[str, str] = field(default_factory=dict)
+    # (file name, content type, bytes) — owner, 2026-11-19: the weekly / monthly report « avec le PDF joint ».
+    attachments: list[tuple[str, str, bytes]] = field(default_factory=list)
 
 
 class SmsProviderPort(Protocol):

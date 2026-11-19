@@ -181,6 +181,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/digest_report_postgres_integration.py
+      - name: Envoi du rapport aux responsables — e-mail avec le PDF de chacun (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/digest_send_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true

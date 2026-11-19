@@ -3,6 +3,7 @@ from io import BytesIO
 from uuid import UUID
 from fastapi import APIRouter,Depends,HTTPException,Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel,Field
 from edusync.bootstrap.dependencies import get_services,require_school_actor
 from edusync.bootstrap.services import AppServices
 from edusync.shared.application.context import ActorContext
@@ -367,3 +368,20 @@ def digest_pdf_route(kind: str = Query('WEEK', pattern='^(WEEK|MONTH)$'), as_of:
     archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='finance.recovery.monthly.read',
                          document_code=f'finance.recovery.digest.{kind.lower()}', title=_dg.title(d), file_name=f'{name}.pdf', academic_year_id=y['id'])
     return StreamingResponse(BytesIO(data), media_type='application/pdf', headers={'Content-Disposition': f'inline; filename="{name}.pdf"'})
+
+
+class DigestSendBody(BaseModel):
+    kind: str = Field('WEEK', pattern='^(WEEK|MONTH)$')
+    as_of: _date | None = None
+    currency: str = Field('CDF', pattern='^(CDF|USD)$')
+
+
+@router.post('/digest/send')
+def digest_send(body: DigestSendBody, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """« Envoyer aux responsables » (owner, 2026-11-19): each responsible receives HIS report by e-mail, PDF attached.
+    Only a whole-school supervisor of the cash desks may send it (promoteur, gestionnaire, chargé financier…)."""
+    need(actor, 'finance.recovery.monthly.read'); need(actor, 'finance.cash.other.read')
+    if not any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.cash.other.read')):
+        raise HTTPException(403, 'Envoi réservé aux responsables de toute l’école')
+    from edusync.modules.finance_recovery.application.digest_send import send_digest
+    return send_digest(services, actor, kind=body.kind, as_of=body.as_of, currency=body.currency, load=_digest_load)

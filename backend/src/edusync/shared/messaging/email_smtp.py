@@ -47,6 +47,9 @@ class SmtpEmailProvider:
         msg.set_content(content.text)
         if content.html:
             msg.add_alternative(content.html, subtype="html")
+        for name, ctype, data in content.attachments:
+            maintype, _, subtype = ctype.partition("/")
+            msg.add_attachment(data, maintype=maintype, subtype=subtype or "octet-stream", filename=name)
         return msg
 
     async def health_check(self) -> dict:

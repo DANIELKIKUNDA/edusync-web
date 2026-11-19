@@ -240,6 +240,7 @@ def main() -> None:
             ("0114_receipt_spool_status", "0114_receipt_spool_status.sql"),
             ("0115_departure_month_rule", "0115_departure_month_rule.sql"),
             ("0116_section_leadership_imports", "0116_section_leadership_imports.sql"),
+            ("0117_communication_attachments", "0117_communication_attachments.sql"),
         ]
         # CI only (rbac-contract job): stop after a given migration to snapshot the state BEFORE a later one.
         until = os.environ.get("EDUSYNC_MIGRATE_UNTIL", "").strip()
