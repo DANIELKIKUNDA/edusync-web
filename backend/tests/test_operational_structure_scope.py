@@ -46,7 +46,8 @@ def test_staff_visibility_executes_current_assignment_dates_and_section_isolatio
 def test_selector_uses_only_the_requested_capability(monkeypatch):
     from contextlib import contextmanager
     from types import SimpleNamespace
-    from edusync.modules.settings.api import router as R
+    from importlib import import_module
+    R=import_module('edusync.modules.settings.api.router')
     class Repo:
         def __init__(self,conn):pass
         def list_sections(self,*a):return SECTIONS
