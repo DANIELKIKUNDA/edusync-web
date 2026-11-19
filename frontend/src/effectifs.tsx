@@ -4,7 +4,7 @@ import { friendlyError, reportTechnical } from './platform/errors';
 import {exportManaged,previewPdf} from './document_io';
 import React,{useEffect,useMemo,useState} from 'react';
 import {
-  ContributionType,DepositRow,EffectifsCounts,EffectifsMovement,EffectifsOverview,EffectifsRow,EffectifsScope,
+  getStructureSelector,ContributionType,DepositRow,EffectifsCounts,EffectifsMovement,EffectifsOverview,EffectifsRow,EffectifsScope,
   fetchDepositsExport,fetchEffectifsExport,getDepositRegister,getEffectifsCounts,getEffectifsMovements,getEffectifsOverview,
   getStudent,listContributionTypes,listStudents,recordMaterialDeposit,SchoolingStudent
 } from './api';
@@ -18,7 +18,7 @@ import {useLive} from './platform/live';
 type Props={token:string;permissions:string[];schoolName:string;yearId?:string};
 type Tab='class'|'section'|'option'|'movements';
 type Mode='headcounts'|'deposits';
-const scopes:[EffectifsScope,string][]=[['ALL','Toute l’école'],['MATERNELLE','Maternelle'],['PRIMAIRE','Primaire'],['SECONDAIRE','Secondaire']];
+
 const MOVE_FR:Record<EffectifsMovement['event_type'],string>={ABANDON:'Abandon',TRANSFER:'Transfert',SUSPEND:'Suspension',REINTEGRATE:'Réintégration',CLASS_CHANGE:'Changement de classe'};
 const GROUP_FR:Record<Exclude<Tab,'movements'>,string>={class:'classe',section:'section',option:'filière / option'};
 const nf=(v:number)=>new Intl.NumberFormat('fr-FR').format(v);
@@ -42,6 +42,9 @@ export default function EffectifsPage({token,permissions,schoolName,yearId}:Prop
  const firstTab=(['class','section','option'] as Tab[]).find(allowed)??'section';
  const [tab,setTab]=useState<Tab>(firstTab);
  const [mode,setMode]=useState<Mode>('headcounts');
+ const [scopeChoices,setScopeChoices]=useState<[EffectifsScope,string][]>([]);
+ const scopeCapability=mode==='deposits'?'contributions.register.read':tab==='movements'?'headcounts.movements.read':tab==='class'?'headcounts.by_class.read':tab==='section'?'headcounts.by_section.read':'headcounts.by_option.read';
+ useEffect(()=>{let alive=true;setScopeChoices([]);getStructureSelector(token,scopeCapability,yearId).then(data=>{if(!alive)return;const choices:[EffectifsScope,string][]=data.sections.filter(s=>['MATERNELLE','PRIMAIRE','SECONDAIRE'].includes(s.code)).map(s=>[s.code as EffectifsScope,s.label]);if(data.school_wide)choices.unshift(['ALL','Toute l’école']);else if(choices.length>1)choices.unshift(['ALL','Sections autorisées']);setScopeChoices(choices);setScope(current=>choices.some(([v])=>v===current)?current:choices[0]?.[0]??'ALL')}).catch(e=>{if(alive)setError(friendlyError(e))});return()=>{alive=false}},[token,scopeCapability,yearId]);
  const [overview,setOverview]=useState<EffectifsOverview|null>(null);
  const [counts,setCounts]=useState<EffectifsCounts|null>(null);
  const [movements,setMovements]=useState<{items:EffectifsMovement[];total:number}>({items:[],total:0});
@@ -77,7 +80,7 @@ export default function EffectifsPage({token,permissions,schoolName,yearId}:Prop
  const go=(m:Mode,t?:Tab)=>{setMode(m);if(t)setTab(allowed(t)?t:firstTab)};
  return <div className="effectifsPage">
   <div className="fxHero"><div><div className="eyebrow">SCOLARITÉ</div><h2>Effectifs & dépôts</h2><p>Lecture annuelle certifiée F/G/T, mouvements et registre des contributions matérielles{overview?` · ${overview.academic_year.label}`:''}.</p></div><div className="fxMode" role="tablist"><button role="tab" aria-selected={mode==='headcounts'} className={mode==='headcounts'?'active':''} onClick={()=>setMode('headcounts')}><Icon name="students"/>Effectifs</button>{can('contributions.register.read')&&<button role="tab" aria-selected={mode==='deposits'} className={mode==='deposits'?'active':''} onClick={()=>setMode('deposits')}><Icon name="box"/>Dépôts matériels</button>}</div></div>
-  <div className="fxScope" role="group" aria-label="Périmètre">{scopes.map(([v,l])=><button key={v} aria-pressed={scope===v} className={scope===v?'active':''} onClick={()=>setScope(v)}>{l}</button>)}</div>
+  <div className="fxScope" role="group" aria-label="Périmètre">{scopeChoices.map(([v,l])=><button key={v} aria-pressed={scope===v} className={scope===v?'active':''} onClick={()=>setScope(v)}>{l}</button>)}</div>
   {error&&<div className="error" role="alert">{error}</div>}
   <div className="fxKpis fx2Kpis">
    <button type="button" onClick={()=>go('headcounts','class')}><i><Icon name="students"/></i><div><b>{overview?nf(overview.active_students):'—'}</b><span>Élèves actifs</span><small>{overview?`${nf(overview.active_girls)} filles • ${nf(overview.active_boys)} garçons`:'Chargement…'}</small></div></button>
