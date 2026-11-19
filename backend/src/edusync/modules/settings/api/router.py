@@ -283,6 +283,14 @@ class SectionPut(BaseModel):
     enabled:bool=True
     expected_version:int|None=Field(default=None,ge=1)
 
+@router.get('/structure/selector')
+def structure_selector(capability:str=Query(...,max_length=120),year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    _need(actor,capability)
+    from edusync.adapters.structure_scope import scoped_structure
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        repo=PostgresSettingsRepository(conn)
+        return _jsonable(scoped_structure(repo.list_sections(actor.school_id),repo.list_classes(actor.school_id,year_id),repo.list_options(actor.school_id),actor.scopes_for(capability)))
+
 @router.get('/sections')
 def sections(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'settings.structure.read')
@@ -310,11 +318,17 @@ class OptionPut(BaseModel):
     expected_version:int|None=Field(default=None,ge=1)
 
 @router.get('/options/selector')
-def options_selector(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+def options_selector(capability:str|None=Query(None,max_length=120),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     """Enabled options (labels, section) for operational filters (student directory), readable by every school member —
     same doctrine as /classes/selector. Option administration stays behind settings.structure.read."""
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
-        return _jsonable([o for o in PostgresSettingsRepository(conn).list_options(actor.school_id) if o.get('enabled',True)])
+        repo=PostgresSettingsRepository(conn)
+        rows=[o for o in repo.list_options(actor.school_id) if o.get('enabled',True)]
+        if capability:
+            if capability not in actor.permissions:return []
+            from edusync.adapters.structure_scope import scoped_structure
+            rows=scoped_structure(repo.list_sections(actor.school_id),repo.list_classes(actor.school_id),rows,actor.scopes_for(capability))['options']
+        return _jsonable(rows)
 
 @router.get('/options')
 def options(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
@@ -370,7 +384,8 @@ def classes_selector(year_id:UUID|None=None,capability:str|None=Query(None,max_l
         if capability:
             if capability not in actor.permissions:return []
             from edusync.adapters.class_scope import visible_class_ids
-            v=visible_class_ids(conn.connection.driver_connection,actor.school_id,actor.scopes_for(capability))
+            scopes=actor.scopes_for(capability)
+            v=visible_class_ids(conn.connection.driver_connection,actor.school_id,scopes) if scopes else set()
             if v is not None:rows=[r for r in rows if r['id'] in v]
         return _jsonable(rows)
 
