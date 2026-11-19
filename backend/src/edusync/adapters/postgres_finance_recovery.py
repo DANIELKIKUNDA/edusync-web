@@ -162,6 +162,46 @@ class PostgresFinanceRecoveryRepository:
         if classes: parts.append('upper(sc.code)=ANY(%s)'); args.append(classes)
         return ('('+' OR '.join(parts)+')' if parts else 'FALSE'),args
 
+    # ------------------------------------------------------------ rapport de la semaine / du mois (owner, 2026-11-19)
+    def digest_cash(self,school_id,currency,start,end,prev_start,prev_end):
+        """Net cash received by the school's desks (receipts + advance funds − cancellations / refunds), per business day.
+        School-wide only: the desks serve every section."""
+        sql="""WITH mv AS (
+          SELECT s.business_date d,p.amount a FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
+           WHERE s.school_id=%(s)s AND p.currency=%(c)s AND s.business_date BETWEEN %(ps)s AND %(e)s
+          UNION ALL SELECT s.business_date,f.amount FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id
+           WHERE s.school_id=%(s)s AND f.currency=%(c)s AND s.business_date BETWEEN %(ps)s AND %(e)s
+          UNION ALL SELECT r.business_date,-r.amount FROM finance_payment_reversals r
+           WHERE r.school_id=%(s)s AND r.currency=%(c)s AND r.business_date BETWEEN %(ps)s AND %(e)s)
+          SELECT d,sum(a) a FROM mv GROUP BY d ORDER BY d"""
+        with self.conn.cursor(row_factory=dict_row) as c:
+            c.execute(sql,{"s":school_id,"c":currency,"ps":prev_start,"e":end});days=[dict(r) for r in c.fetchall()]
+            c.execute("""SELECT count(*) n FROM finance_payment_reversals WHERE school_id=%s AND business_date BETWEEN %s AND %s""",(school_id,start,end))
+            reversals=c.fetchone()["n"]
+            c.execute("""SELECT count(*) n FROM finance_cash_sessions WHERE school_id=%s AND status='OPEN' AND business_date<CURRENT_DATE""",(school_id,))
+            open_sessions=c.fetchone()["n"]
+        cur=[x for x in days if start<=x["d"]<=end];prev=[x for x in days if prev_start<=x["d"]<=prev_end]
+        best=max(cur,key=lambda x:x["a"]) if cur else None
+        return {"total":sum((x["a"] for x in cur),0),"previous":sum((x["a"] for x in prev),0),
+                "best_day":(best["d"],best["a"]) if best and best["a"]>0 else None},{"reversals":int(reversals),"open_sessions":int(open_sessions)}
+
+    def digest_pupils(self,school_id,year_id,start,end,class_ids=None):
+        """Active pupils and departures of the period, limited to the reader's classes (None = whole school)."""
+        cls="" if class_ids is None else " AND e.class_id=ANY(%(cls)s)"
+        args={"s":school_id,"y":year_id,"a":start,"b":end,"cls":list(class_ids or [])}
+        with self.conn.cursor(row_factory=dict_row) as c:
+            c.execute(f"""SELECT count(DISTINCT e.student_id) n FROM enrollments e JOIN students st ON st.id=e.student_id
+                          WHERE e.school_id=%(s)s AND e.academic_year_id=%(y)s AND e.status='VALIDATED' AND st.status='ACTIVE'{cls}""",args)
+            active=c.fetchone()["n"]
+            c.execute(f"""SELECT ev.event_type,sc.label FROM student_status_events ev
+                          JOIN enrollments e ON e.student_id=ev.student_id AND e.school_id=ev.school_id AND e.academic_year_id=%(y)s
+                          JOIN school_classes sc ON sc.id=e.class_id
+                          WHERE ev.school_id=%(s)s AND ev.event_type IN ('ABANDON','TRANSFER') AND ev.effective_date BETWEEN %(a)s AND %(b)s{cls}
+                          ORDER BY ev.effective_date""",args)
+            rows=c.fetchall()
+        return {"active":int(active),"abandons":[r["label"] for r in rows if r["event_type"]=="ABANDON"],
+                "transfers":[r["label"] for r in rows if r["event_type"]=="TRANSFER"]}
+
     def scope_classes(self,school_id,scopes):
         """None = the whole school; otherwise the ids of the classes the actor may see (same rule as _scope_filter).
         Owner, 2026-11-17: a préfet must see only HIS section in the class registers and the summaries."""
