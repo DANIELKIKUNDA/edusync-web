@@ -60,3 +60,28 @@ def test_list_is_filtered_and_hard_bounded():
     route = section("def list_subscriptions(")
     assert "le=200" in route and "school_id" in route and "status" in route and "LIMIT :limit" in route
 
+
+def test_invoice_and_payment_reads_are_bounded_and_permissioned():
+    route = section("def list_invoices(")
+    assert "platform.billing.read" in route and "le=200" in route and "LIMIT :limit" in route
+
+
+def test_invoice_issue_is_idempotent_mfa_protected_and_audited():
+    route = section("def issue_invoice(")
+    for token in ("platform.billing.invoices.manage", "require_recent_mfa", "IdempotentExecutor",
+                  "SAAS_INVOICE_ISSUED", "saas_invoice_number_seq", "bill_to_snapshot"):
+        assert token in route
+
+
+def test_manual_payment_is_exact_locked_and_reactivates_subscription():
+    route = section("def record_manual_payment(")
+    for token in ("platform.billing.payments.reconcile", "require_recent_mfa", "FOR UPDATE", "body.amount > remaining",
+                  "PARTIALLY_PAID", "SAAS_PAYMENT_RECONCILED", "status='ACTIVE'", "Paiement intégral confirmé"):
+        assert token in route
+
+
+def test_payment_never_accepts_a_currency_mismatch_or_overpayment():
+    route = section("def record_manual_payment(")
+    assert "La devise du paiement doit être celle de la facture" in route
+    assert "Le paiement dépasse le solde restant" in route
+

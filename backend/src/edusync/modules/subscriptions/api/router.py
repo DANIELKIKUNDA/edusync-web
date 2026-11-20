@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import csv
+import io
 from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -93,6 +96,22 @@ class SubscriptionCreate(BaseModel):
         if value not in {SubscriptionStatus.TRIAL, SubscriptionStatus.PENDING_PAYMENT, SubscriptionStatus.ACTIVE}:
             raise ValueError("État initial non autorisé")
         return value
+
+
+class InvoiceCreate(BaseModel):
+    period_start: date
+    due_days: int = Field(default=7, ge=0, le=90)
+    discount_total: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    fee_total: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    reason: str = Field(min_length=5, max_length=500)
+
+
+class ManualPaymentCreate(BaseModel):
+    amount: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
+    currency: str = Field(pattern="^(USD|CDF)$")
+    provider: str = Field(default="MANUAL", min_length=2, max_length=48)
+    provider_reference: str = Field(min_length=3, max_length=180)
+    reason: str = Field(min_length=5, max_length=500)
 
 
 @router.get("/catalog")
@@ -232,6 +251,9 @@ def transition_subscription(subscription_id: UUID, target: SubscriptionStatus, b
                             actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
     from edusync.modules.subscriptions.domain.subscription import Subscription
     _need(actor, "platform.billing.subscriptions.manage")
+    if target == SubscriptionStatus.GRACE:
+        _need(actor, "platform.billing.overrides.grant")
+        require_recent_mfa(services, actor, "platform.billing.overrides.grant")
     require_recent_mfa(services, actor, "platform.billing.subscriptions.manage")
     key = _key(idempotency_key)
     with services.platform_db.platform_transaction() as conn:
@@ -263,3 +285,169 @@ def transition_subscription(subscription_id: UUID, target: SubscriptionStatus, b
                school_id=current["school_id"], reason=body.reason, old={"status": current["status"], "version": body.version},
                new={"status": target.value, "version": changed.version}, key=key)
         return {"id": str(subscription_id), "status": target.value, "version": changed.version}
+
+
+@router.get("/invoices")
+def list_invoices(school_id: UUID | None = None, status: str | None = Query(None, pattern="^(DRAFT|ISSUED|PARTIALLY_PAID|PAID|OVERDUE|VOID|REFUNDED)$"),
+                  limit: int = Query(50, ge=1, le=200), actor: ActorContext = Depends(require_platform_actor),
+                  services: AppServices = Depends(get_services)):
+    _need(actor, "platform.billing.read")
+    where, params = ["TRUE"], {"limit": limit}
+    if school_id:
+        where.append("i.school_id=:school"); params["school"] = school_id
+    if status:
+        where.append("i.status=:status"); params["status"] = status
+    with services.platform_db.platform_transaction() as conn:
+        rows = conn.execute(text(f"""SELECT i.*,s.name AS school_name FROM saas_invoices i
+            JOIN schools s ON s.id=i.school_id WHERE {' AND '.join(where)}
+            ORDER BY i.created_at DESC,i.id LIMIT :limit"""), params).mappings()
+        return [_json(row) for row in rows]
+
+
+@router.get("/export.csv")
+def export_billing_csv(actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    _need(actor, "platform.billing.export")
+    with services.platform_db.platform_transaction() as conn:
+        rows = conn.execute(text("""SELECT sc.code AS school_code,sc.name AS school_name,s.status AS subscription_status,
+            p.name AS plan_name,s.billing_cycle,s.current_period_start,s.current_period_end,
+            coalesce(sum(i.total),0) AS invoiced,coalesce(sum(i.paid_total),0) AS paid,v.currency
+            FROM saas_subscriptions s JOIN schools sc ON sc.id=s.school_id
+            JOIN saas_plan_versions v ON v.id=s.plan_version_id JOIN saas_plans p ON p.id=v.plan_id
+            LEFT JOIN saas_invoices i ON i.subscription_id=s.id
+            GROUP BY sc.code,sc.name,s.status,p.name,s.billing_cycle,s.current_period_start,s.current_period_end,v.currency
+            ORDER BY lower(sc.name),sc.code LIMIT 10000""")).mappings().all()
+        stream = io.StringIO()
+        fields = ["school_code", "school_name", "subscription_status", "plan_name", "billing_cycle",
+                  "current_period_start", "current_period_end", "invoiced", "paid", "currency"]
+        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(_json(row))
+        export_id = uuid4()
+        _audit(conn, actor, action="SAAS_BILLING_EXPORTED", entity_type="SaaSBillingExport", entity_id=export_id,
+               new={"row_count": len(rows), "format": "CSV"})
+    return Response(content="\ufeff" + stream.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": "attachment; filename=abonnements-edusync.csv"})
+
+
+@router.post("/subscriptions/{subscription_id}/invoices", status_code=201)
+def issue_invoice(subscription_id: UUID, body: InvoiceCreate, response: Response,
+                  idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                  actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    _need(actor, "platform.billing.invoices.manage")
+    require_recent_mfa(services, actor, "platform.billing.invoices.manage")
+    key = _key(idempotency_key)
+    invoice_id = uuid4()
+    try:
+        with services.platform_db.platform_transaction() as conn:
+            def action():
+                subscription = conn.execute(text("""SELECT s.*,v.amount,v.currency,p.name AS plan_name,sc.name AS school_name,
+                    sc.email,sc.phone,sc.address,sc.city,sc.province FROM saas_subscriptions s
+                    JOIN saas_plan_versions v ON v.id=s.plan_version_id JOIN saas_plans p ON p.id=v.plan_id
+                    JOIN schools sc ON sc.id=s.school_id WHERE s.id=:id AND s.status NOT IN ('CANCELLED','EXPIRED') FOR UPDATE"""),
+                    {"id": subscription_id}).mappings().first()
+                if not subscription:
+                    raise HTTPException(404, "Abonnement facturable introuvable")
+                period_finish = period_end(body.period_start, BillingCycle(subscription["billing_cycle"]))
+                subtotal = Decimal(subscription["amount"])
+                total = subtotal - body.discount_total + body.fee_total
+                if total < 0:
+                    raise HTTPException(409, "La remise ne peut pas dépasser le montant facturé augmenté des frais")
+                number = conn.execute(text("SELECT 'EDS-'||to_char(CURRENT_DATE,'YYYY')||'-'||lpad(nextval('saas_invoice_number_seq')::text,8,'0')")).scalar_one()
+                bill_to = {"school_id": str(subscription["school_id"]), "name": subscription["school_name"],
+                           "email": subscription["email"], "phone": subscription["phone"], "address": subscription["address"],
+                           "city": subscription["city"], "province": subscription["province"]}
+                row = conn.execute(text("""INSERT INTO saas_invoices(id,invoice_number,school_id,subscription_id,status,currency,
+                    period_start,period_end,issued_at,due_at,subtotal,discount_total,fee_total,total,bill_to_snapshot)
+                    VALUES(:id,:number,:school,:subscription,'ISSUED',:currency,:start,:end,now(),now()+(:days||' days')::interval,
+                    :subtotal,:discount,:fee,:total,CAST(:bill_to AS jsonb)) RETURNING *"""),
+                    {"id": invoice_id, "number": number, "school": subscription["school_id"], "subscription": subscription_id,
+                     "currency": subscription["currency"], "start": body.period_start, "end": period_finish, "days": body.due_days,
+                     "subtotal": subtotal, "discount": body.discount_total, "fee": body.fee_total, "total": total,
+                     "bill_to": json.dumps(bill_to, ensure_ascii=False)}).mappings().one()
+                conn.execute(text("""INSERT INTO saas_invoice_lines(invoice_id,description,quantity,unit_price,line_total,metadata)
+                    VALUES(:invoice,:description,1,:amount,:amount,CAST(:metadata AS jsonb))"""),
+                    {"invoice": invoice_id, "description": f"Abonnement EduSync — {subscription['plan_name']}", "amount": subtotal,
+                     "metadata": json.dumps({"plan_version_id": str(subscription["plan_version_id"])})})
+                result = _json(row)
+                _audit(conn, actor, action="SAAS_INVOICE_ISSUED", entity_type="SaaSInvoice", entity_id=invoice_id,
+                       school_id=subscription["school_id"], reason=body.reason, new=result, key=key)
+                return 201, result
+            result = IdempotentExecutor(PostgresIdempotencyRepository(conn)).execute(
+                scope_key="platform", idempotency_key=key, operation="SAAS_INVOICE_ISSUE",
+                payload={"subscription_id": str(subscription_id), **body.model_dump(mode="json")}, school_id=None,
+                actor_user_id=str(actor.user_id), action=action)
+        response.status_code = result.status_code
+        response.headers["Idempotent-Replayed"] = "true" if result.replayed else "false"
+        return result.body
+    except (IdempotencyConflict, IdempotencyInProgress, IntegrityError) as exc:
+        raise HTTPException(409, "Cette facture existe déjà ou la demande est en cours") from exc
+
+
+@router.post("/invoices/{invoice_id}/payments/manual", status_code=201)
+def record_manual_payment(invoice_id: UUID, body: ManualPaymentCreate, response: Response,
+                          idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                          actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
+    _need(actor, "platform.billing.payments.reconcile")
+    require_recent_mfa(services, actor, "platform.billing.payments.reconcile")
+    key = _key(idempotency_key)
+    payment_id = uuid4()
+    try:
+        with services.platform_db.platform_transaction() as conn:
+            def action():
+                invoice = conn.execute(text("SELECT * FROM saas_invoices WHERE id=:id FOR UPDATE"), {"id": invoice_id}).mappings().first()
+                if not invoice or invoice["status"] in {"VOID", "REFUNDED"}:
+                    raise HTTPException(404, "Facture payable introuvable")
+                if body.currency != invoice["currency"]:
+                    raise HTTPException(409, "La devise du paiement doit être celle de la facture")
+                remaining = Decimal(invoice["total"]) - Decimal(invoice["paid_total"])
+                if remaining <= 0:
+                    raise HTTPException(409, "Cette facture est déjà entièrement payée")
+                if body.amount > remaining:
+                    raise HTTPException(409, f"Le paiement dépasse le solde restant de {remaining} {invoice['currency']}")
+                reference = f"PAY-{date.today():%Y%m%d}-{str(payment_id)[:8].upper()}"
+                row = conn.execute(text("""INSERT INTO saas_payments(id,payment_reference,invoice_id,school_id,provider,
+                    provider_reference,channel,status,currency,amount,confirmed_at)
+                    VALUES(:id,:reference,:invoice,:school,:provider,:provider_reference,'MANUAL','SUCCEEDED',:currency,:amount,now()) RETURNING *"""),
+                    {"id": payment_id, "reference": reference, "invoice": invoice_id, "school": invoice["school_id"],
+                     "provider": body.provider.strip().upper(), "provider_reference": body.provider_reference.strip(),
+                     "currency": body.currency, "amount": body.amount}).mappings().one()
+                paid = Decimal(invoice["paid_total"]) + body.amount
+                invoice_state = "PAID" if paid == Decimal(invoice["total"]) else "PARTIALLY_PAID"
+                conn.execute(text("""UPDATE saas_invoices SET paid_total=:paid,status=:status,version=version+1,updated_at=now()
+                    WHERE id=:id"""), {"paid": paid, "status": invoice_state, "id": invoice_id})
+                subscription_version = None
+                if invoice_state == "PAID" and invoice["subscription_id"]:
+                    subscription = conn.execute(text("SELECT * FROM saas_subscriptions WHERE id=:id FOR UPDATE"),
+                                                {"id": invoice["subscription_id"]}).mappings().first()
+                    if subscription and subscription["status"] != "CANCELLED":
+                        new_start = max(subscription["current_period_start"], invoice["period_start"])
+                        new_end = max(subscription["current_period_end"], invoice["period_end"])
+                        updated = conn.execute(text("""UPDATE saas_subscriptions SET status='ACTIVE',current_period_start=:start,
+                            current_period_end=:end,next_billing_on=:end,version=version+1,updated_at=now()
+                            WHERE id=:id RETURNING version"""), {"start": new_start, "end": new_end, "id": subscription["id"]}).scalar_one()
+                        subscription_version = int(updated)
+                        entitlement_end = new_end + timedelta(days=int(subscription["grace_days"]))
+                        conn.execute(text("""UPDATE saas_entitlements SET status='ACTIVE',ends_at=:ends,version=version+1,
+                            updated_at=now(),reason='Paiement intégral confirmé' WHERE subscription_id=:id AND status IN ('ACTIVE','SUSPENDED')"""),
+                            {"ends": entitlement_end, "id": subscription["id"]})
+                        if subscription["status"] != "ACTIVE":
+                            conn.execute(text("""INSERT INTO saas_subscription_events(subscription_id,school_id,actor_user_id,
+                                from_status,to_status,reason,correlation_id,idempotency_key) VALUES(:id,:school,:actor,:old,'ACTIVE',
+                                :reason,:correlation,:key)"""), {"id": subscription["id"], "school": subscription["school_id"],
+                                "actor": actor.user_id, "old": subscription["status"], "reason": body.reason.strip(),
+                                "correlation": actor.correlation_id, "key": key})
+                result = {**_json(row), "invoice_status": invoice_state, "invoice_paid_total": format(paid, "f"),
+                          "subscription_version": subscription_version}
+                _audit(conn, actor, action="SAAS_PAYMENT_RECONCILED", entity_type="SaaSPayment", entity_id=payment_id,
+                       school_id=invoice["school_id"], reason=body.reason, new=result, key=key)
+                return 201, result
+            result = IdempotentExecutor(PostgresIdempotencyRepository(conn)).execute(
+                scope_key="platform", idempotency_key=key, operation="SAAS_MANUAL_PAYMENT",
+                payload={"invoice_id": str(invoice_id), **body.model_dump(mode="json")}, school_id=None,
+                actor_user_id=str(actor.user_id), action=action)
+        response.status_code = result.status_code
+        response.headers["Idempotent-Replayed"] = "true" if result.replayed else "false"
+        return result.body
+    except (IdempotencyConflict, IdempotencyInProgress, IntegrityError) as exc:
+        raise HTTPException(409, "Paiement déjà enregistré ou référence déjà utilisée") from exc

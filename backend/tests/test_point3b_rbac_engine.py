@@ -33,8 +33,8 @@ def registry() -> CapabilityRegistry:
 def test_registry_has_current_unique_capabilities():
     r = registry()
     # 2026-10-23: reconciled with the real database (+6) and 10 canonical *.export capabilities (format variants -> ALIAS)
-    assert len(r.capabilities) == 298
-    assert len(r.by_code()) == 298
+    assert len(r.capabilities) == 305  # +7 droits commerciaux d’abonnement (SaaS S1/S3)
+    assert len(r.by_code()) == 305
     assert "platform.notifications.system.send" in r.by_code()
 
 
@@ -66,7 +66,7 @@ def test_manager_system_owner_decision_is_locked_and_all_atelier_pro():
     canonical = json.loads(REGISTRY.read_text(encoding="utf-8"))["standard_roles"]["MANAGER_SYSTEME"]["capabilities"]
     assert set(canonical) == expected
     assert "platform.notifications.system.send" in expected
-    assert len(expected) == 16  # + platform.access.manage, platform.collaborators.manage (in the database since 0052)
+    assert len(expected) == 23  # +7 droits commerciaux d’abonnement, tous réservés à l’Atelier Pro
 
 
 def test_standard_role_decisions_are_finalized_and_owner_approved():

@@ -157,6 +157,15 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         except Exception:  # noqa: BLE001 — reports must never prevent startup
             pass
 
+    @app.on_event("startup")
+    def start_subscription_billing() -> None:
+        """Commercial subscription deadlines: grace, limited access and overdue invoices."""
+        from edusync.modules.subscriptions.application.lifecycle import start_billing_loop
+        try:
+            start_billing_loop(app.state.services)
+        except Exception:  # billing automation must never prevent startup
+            pass
+
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
         # POINT-5-DOCUMENTS-EXPORTS extends the certified Point 4D baseline without invalidating its health contract.
