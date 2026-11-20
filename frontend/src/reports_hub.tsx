@@ -18,6 +18,7 @@ type Key = 'daily' | 'periodic' | 'sales' | 'analyses' | 'templates' | 'history'
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const PERIOD: Record<string, string> = {JOURNALIER: 'Journalier', HEBDOMADAIRE: 'Hebdomadaire', MENSUEL: 'Mensuel', PERSONNALISE: 'Personnalisé'};
 const frDay=(v:string)=>{const [y,m,d]=v.split('-').map(Number);return y&&m&&d?new Date(y,m-1,d).toLocaleDateString('fr-FR') : v};
+const revealMobileField=(el:HTMLElement)=>{if(!window.matchMedia?.('(max-width: 800px)').matches)return;window.setTimeout(()=>el.scrollIntoView({block:'center',behavior:'smooth'}),180)};
 
 /* Owner, 2026-11-08: « est-ce normal que le promoteur ait Générer le rapport officiel ? » — no. An official report is frozen
    and archived by those who run the cash and the finances (caissier, gestionnaire, responsable financier, direction for its
@@ -74,10 +75,10 @@ function GeneratedList({token}: {token: string}) {
   useEffect(() => { generatedReports(token).then(setItems).catch(e => setErr(friendlyError(e))); }, [token]);
   const rows = (items ?? []).filter(r => !q.trim() || `${r.report_label} ${r.profile_code}`.toLowerCase().includes(q.trim().toLowerCase()));
   return <article className="rh-card"><div className="rh-row spread"><div><h4>Rapports officiels générés</h4><p>Chaque rapport officiel reçoit un numéro unique ; le document est classé dans « Documents ».</p></div>
-    <label className="rh-search"><NavGlyph g="search" size={15}/><input value={q} onChange={e => setQ(e.target.value)} placeholder="Numéro, profil…" aria-label="Rechercher un rapport"/></label></div>
+    <label className="rh-search"><NavGlyph g="search" size={15}/><input value={q} onFocus={e=>revealMobileField(e.currentTarget)} onChange={e => setQ(e.target.value)} placeholder="Numéro, profil…" aria-label="Rechercher un rapport"/></label></div>
     {err && <div className="error" role="alert">{err}</div>}
     <div className="rh-table" role="table" aria-label="Rapports générés"><div className="rh-tr rh-th" role="row"><span>N°</span><span>Profil</span><span>Période</span><span>Du</span><span>Au</span><span>Généré le</span></div>
-      {rows.map(r => <div className="rh-tr" role="row" key={r.id}><span><b>{r.report_label}</b></span><span>{r.profile_code}</span><span>{PERIOD[r.period_type] ?? r.period_type}</span><span>{frDay(r.start_date)}</span><span>{frDay(r.end_date)}</span><span>{new Date(r.generated_at).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'})}</span></div>)}
+      {rows.map(r => <div className="rh-tr" role="row" key={r.id}><span data-label="N°"><b>{r.report_label}</b></span><span data-label="Profil">{r.profile_code}</span><span data-label="Période">{PERIOD[r.period_type] ?? r.period_type}</span><span data-label="Du">{frDay(r.start_date)}</span><span data-label="Au">{frDay(r.end_date)}</span><span data-label="Généré le">{new Date(r.generated_at).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'})}</span></div>)}
       {items && rows.length === 0 && <p className="rh-empty">Aucun rapport officiel généré pour le moment.</p>}
       {!items && !err && <p className="rh-empty">Chargement…</p>}</div></article>;
 }
