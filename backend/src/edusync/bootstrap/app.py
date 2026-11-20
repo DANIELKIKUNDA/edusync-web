@@ -147,6 +147,15 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         except Exception:  # supervision must never prevent the school from opening
             pass
 
+    @app.on_event("startup")
+    def start_scheduled_reports() -> None:
+        """Weekly / monthly / term reports sent automatically to the responsibles (owner, 2026-11-19)."""
+        from edusync.modules.finance_recovery.application.digest_schedule import start_report_loop
+        try:
+            start_report_loop(app.state.services)
+        except Exception:  # noqa: BLE001 — reports must never prevent startup
+            pass
+
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
         # POINT-5-DOCUMENTS-EXPORTS extends the certified Point 4D baseline without invalidating its health contract.

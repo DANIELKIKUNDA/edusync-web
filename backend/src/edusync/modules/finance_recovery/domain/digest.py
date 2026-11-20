@@ -26,8 +26,23 @@ def month_of(day: date) -> tuple[date, date]:
     return start, nxt - timedelta(days=1)
 
 
+def quarter_of(day: date) -> tuple[date, date]:
+    """School terms in the RDC: September–December, January–March, April–June (July–August: holidays)."""
+    y, m = day.year, day.month
+    if m >= 9: return date(y, 9, 1), date(y, 12, 31)
+    if m <= 3: return date(y, 1, 1), date(y, 3, 31)
+    if m <= 6: return date(y, 4, 1), date(y, 6, 30)
+    return date(y, 7, 1), date(y, 8, 31)
+
+
+def period_of(kind: str, day: date) -> tuple[date, date]:
+    return {"WEEK": week_of, "MONTH": month_of, "QUARTER": quarter_of}[kind](day)
+
+
 def previous_period(kind: str, start: date) -> tuple[date, date]:
-    return week_of(start - timedelta(days=7)) if kind == "WEEK" else month_of(start - timedelta(days=1))
+    if kind == "WEEK":
+        return week_of(start - timedelta(days=7))
+    return period_of(kind, start - timedelta(days=1))
 
 
 def fr_date(d: date, year: bool = False) -> str:
@@ -62,6 +77,8 @@ class Digest:
 def title(d: Digest) -> str:
     if d.kind == "WEEK":
         return f"Votre semaine à {d.school_name} — du {fr_date(d.start)} au {fr_date(d.end, True)}"
+    if d.kind == "QUARTER":
+        return f"Votre trimestre ({MOIS[d.start.month - 1]} – {MOIS[d.end.month - 1]} {d.end.year}) à {d.school_name}"
     return f"Votre mois de {MOIS[d.start.month - 1]} {d.start.year} à {d.school_name}"
 
 
@@ -77,9 +94,10 @@ def greeting(civility: str | None, role_title: str | None) -> str:
 def paragraphs(d: Digest) -> list[tuple[str, str]]:
     """(heading, text) pairs, in reading order. Headings are short; texts are full sentences."""
     out: list[tuple[str, str]] = []
-    when = "cette semaine" if d.kind == "WEEK" else "ce mois-ci"
+    when = {"WEEK": "cette semaine", "MONTH": "ce mois-ci", "QUARTER": "ce trimestre"}[d.kind]
     where = d.scope_label or d.school_name
-    out.append(("", f"Voici comment s’est passé{'e la semaine' if d.kind == 'WEEK' else ' le mois'} à {where.rstrip('.')}."))
+    period = {"WEEK": "e la semaine", "MONTH": " le mois", "QUARTER": " le trimestre"}[d.kind]
+    out.append(("", f"Voici comment s’est passé{period} à {where.rstrip('.')}."))
     c = d.cash
     if c is not None:
         total = Decimal(str(c.get("total") or 0))

@@ -325,7 +325,7 @@ def _reader(conn, actor):
 def _digest_load(actor, services, kind, as_of, currency):
     from datetime import date as _d
     when = as_of or _d.today()
-    start, end = (_dg.week_of if kind == 'WEEK' else _dg.month_of)(when)
+    start, end = _dg.period_of(kind, when)
     prev_start, prev_end = _dg.previous_period(kind, start)
     scopes = actor.scopes_for('finance.recovery.monthly.read')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as conn:
@@ -350,7 +350,7 @@ def _digest_load(actor, services, kind, as_of, currency):
 
 
 @router.get('/digest')
-def digest(kind: str = Query('WEEK', pattern='^(WEEK|MONTH)$'), as_of: _date | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
+def digest(kind: str = Query('WEEK', pattern='^(WEEK|MONTH|QUARTER)$'), as_of: _date | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
            actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     need(actor, 'finance.recovery.monthly.read')
     _, d, hello, _ = _digest_load(actor, services, kind, as_of, currency)
@@ -359,19 +359,19 @@ def digest(kind: str = Query('WEEK', pattern='^(WEEK|MONTH)$'), as_of: _date | N
 
 
 @router.get('/digest.pdf')
-def digest_pdf_route(kind: str = Query('WEEK', pattern='^(WEEK|MONTH)$'), as_of: _date | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
+def digest_pdf_route(kind: str = Query('WEEK', pattern='^(WEEK|MONTH|QUARTER)$'), as_of: _date | None = None, currency: str = Query('CDF', pattern='^(CDF|USD)$'),
                      actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     need(actor, 'finance.recovery.monthly.read'); need(actor, 'finance.views.vf01.export')
     y, d, hello, classes = _digest_load(actor, services, kind, as_of, currency)
     data = _digest_pdf(digest=d, greeting=hello, classes=classes, signature=f"EduSync — pour {d.school_name}")
-    name = f"rapport_{'semaine' if kind == 'WEEK' else 'mois'}_{d.start.isoformat()}"
+    name = f"rapport_{ {'WEEK': 'semaine', 'MONTH': 'mois', 'QUARTER': 'trimestre'}[kind]}_{d.start.isoformat()}"
     archive_generated_tx(services, actor, data=data, fmt='PDF', required_capability='finance.recovery.monthly.read',
                          document_code=f'finance.recovery.digest.{kind.lower()}', title=_dg.title(d), file_name=f'{name}.pdf', academic_year_id=y['id'])
     return StreamingResponse(BytesIO(data), media_type='application/pdf', headers={'Content-Disposition': f'inline; filename="{name}.pdf"'})
 
 
 class DigestSendBody(BaseModel):
-    kind: str = Field('WEEK', pattern='^(WEEK|MONTH)$')
+    kind: str = Field('WEEK', pattern='^(WEEK|MONTH|QUARTER)$')
     as_of: _date | None = None
     currency: str = Field('CDF', pattern='^(CDF|USD)$')
 

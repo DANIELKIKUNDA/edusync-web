@@ -186,6 +186,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/digest_send_postgres_integration.py
+      - name: Rapports automatiques — samedi après la clôture, fin de mois (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/digest_schedule_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true
