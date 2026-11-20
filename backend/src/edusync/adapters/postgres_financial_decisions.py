@@ -60,9 +60,14 @@ class PostgresFinancialDecisionsRepository:
             raise ValueError("Le motif de la décision financière est obligatoire")
         if currency not in ("CDF", "USD"):
             raise ValueError("Devise invalide")
-        enr = self.c.execute(text("SELECT id FROM enrollments WHERE id=:e AND school_id=:s"), {"e": enrollment_id, "s": school_id}).first()
+        enr = self.c.execute(text("""SELECT e.id, y.start_date FROM enrollments e JOIN academic_years y ON y.id=e.academic_year_id
+            WHERE e.id=:e AND e.school_id=:s"""), {"e": enrollment_id, "s": school_id}).mappings().first()
         if enr is None:
             raise ValueError("Inscription annuelle introuvable pour cette décision")
+        # Owner, 2026-11-20: without a date, a decision covers the whole school year (it used to start the day it was
+        # created, so September–November stayed owed for pupils exempted in November).
+        if effective_from is None:
+            effective_from = enr["start_date"]
         ref = (scope_ref or "").strip() or None
         if scope_type in ("FEE_CODE", "FEE_CATEGORY", "CHARGE") and not ref:
             raise ValueError("La cible de la décision financière est obligatoire")

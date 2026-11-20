@@ -138,3 +138,72 @@ def credits(status:str=Query('OPEN',pattern='^(OPEN|CONSUMED|REFUNDED|CANCELLED|
      f.origin_type origin,f.status,f.receipt_number,f.received_at created_at,concat_ws(' ',s.last_name,s.middle_name,s.first_name) student,sc.label class_label
      FROM finance_advance_fund_state f JOIN enrollments e ON e.id=f.enrollment_id JOIN students s ON s.id=e.student_id JOIN school_classes sc ON sc.id=e.class_id
      WHERE f.school_id=:s AND (:st='ALL' OR f.status=:st) AND (CAST(:scope_all AS boolean) OR e.class_id=ANY(CAST(:scope_cids AS uuid[]))) ORDER BY f.received_at DESC""",{'s':str(actor.school_id),'st':st,**scope(c,actor,'finance.credits.read')}),'read_only':True}
+
+
+# ---------------------------------------------------------------------- décision groupée (owner, 2026-11-20)
+# « Exonérer en une seule passe tous les enfants des agents (par exemple des frais de l'État) » : one traceable decision
+# per child and per fee, exactly as if made one by one, after a preview that lists the children and flags those who
+# already have the same decision. Covers the whole school year unless a later date is chosen.
+from typing import Literal as _Literal
+
+
+class GroupDecisionBody(BaseModel):
+ group: _Literal['STAFF_CHILDREN'] = 'STAFF_CHILDREN'
+ decision_type: str = 'EXEMPTION'
+ fee_codes: list[str] = Field(min_length=1, max_length=30)
+ value_type: _Literal['PERCENT', 'FIXED'] = 'PERCENT'
+ amount: Decimal = Field(default=Decimal('100'), ge=0, max_digits=18, decimal_places=2)
+ currency: str = Field(default='CDF', pattern='^(CDF|USD)$')
+ effective_date: date | None = None
+ reason: str = Field(min_length=3, max_length=500)
+ execute: bool = False
+
+
+def _group_targets(c, actor, year_id):
+ sc = scope(c, actor, 'finance.decisions.create')
+ return rows(c, f"""SELECT DISTINCT e.id AS enrollment_id, concat_ws(' ', s.last_name, s.middle_name, s.first_name) AS student, sc.label AS class_label
+   FROM staff_student_links l JOIN students s ON s.id=l.student_id AND s.school_id=l.school_id
+   JOIN enrollments e ON e.student_id=s.id AND e.school_id=s.school_id AND e.academic_year_id=:y AND e.status='VALIDATED'
+   JOIN school_classes sc ON sc.id=e.class_id
+  WHERE l.school_id=:s AND l.active AND (CAST(:scope_all AS boolean) OR e.class_id=ANY(CAST(:scope_cids AS uuid[])))
+  ORDER BY student""", {'s': str(actor.school_id), 'y': str(year_id), **sc})
+
+
+@router.post('/decisions/group')
+def group_decision(b: GroupDecisionBody, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+ need(actor, 'finance.decisions.create')
+ codes = sorted({x.strip().upper() for x in b.fee_codes if x and x.strip()})
+ if not codes: raise HTTPException(422, 'Choisissez au moins un frais')
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
+  y = c.execute(text("SELECT id, start_date FROM academic_years WHERE school_id=:s ORDER BY (status='ACTIVE') DESC, start_date DESC LIMIT 1"),
+                {'s': str(actor.school_id)}).mappings().first()
+  if not y: raise HTTPException(409, 'Année scolaire introuvable')
+  fees = {r['code']: r['label'] for r in rows(c, "SELECT upper(code) AS code, label FROM fee_types WHERE school_id=:s AND upper(code)=ANY(:c)",
+                                               {'s': str(actor.school_id), 'c': codes})}
+  missing = [x for x in codes if x not in fees]
+  if missing: raise HTTPException(422, 'Frais inconnu : ' + ', '.join(missing))
+  start = b.effective_date or y['start_date']
+  targets = _group_targets(c, actor, y['id'])
+  plan = []
+  for t in targets:
+   for code in codes:
+    dup = c.execute(text("""SELECT 1 FROM finance_decisions WHERE school_id=:s AND enrollment_id=:e AND status='ACTIVE'
+        AND scope_type='FEE_CODE' AND upper(scope_ref)=:c LIMIT 1"""), {'s': str(actor.school_id), 'e': str(t['enrollment_id']), 'c': code}).first()
+    plan.append({'enrollment_id': str(t['enrollment_id']), 'student': t['student'], 'class_label': t['class_label'], 'fee_code': code,
+                 'fee_label': fees[code], 'status': 'ALREADY' if dup else 'NEW'})
+  out = {'effective_date': str(start), 'children': len(targets), 'items': plan, 'created': 0}
+  if not b.execute:
+   return out
+  repo = PostgresFinancialDecisionsRepository(c)
+  try:
+   for p in plan:
+    if p['status'] != 'NEW': continue
+    r = repo.create_decision(actor.school_id, user_id=actor.user_id, enrollment_id=UUID(p['enrollment_id']), decision_kind=b.decision_type,
+                             scope_type='FEE_CODE', scope_ref=p['fee_code'], value_type=b.value_type, value_amount=b.amount, currency=b.currency,
+                             effective_from=start, reason=b.reason, reference='Décision groupée — enfants du personnel')
+    _audit(c, actor, 'CREATE_FINANCIAL_DECISION', 'FinancialDecision', r['id'], None,
+           {'enrollment_id': p['enrollment_id'], 'scope': 'FEE_CODE', 'fee': p['fee_code'], 'kind': r['decision_type'], 'group': b.group}, reason=b.reason)
+    out['created'] += 1
+  except ValueError as e:
+   raise HTTPException(409, f"{p['student']} — {p['fee_label']} : {e}") from e
+  return out

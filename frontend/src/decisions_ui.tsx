@@ -91,7 +91,7 @@ function DecisionForm({token, person, charges, onDone}: {token: string; person: 
         <label className="checkField"><input type="checkbox" checked={cumulative} onChange={e => setCumulative(e.target.checked)}/> Cumulable avec les autres décisions</label>
         <label>Période : du (facultatif)<DateInput value={periodStart} onChange={e => setPeriodStart(e.target.value)}/></label>
         <label>au<DateInput value={periodEnd} onChange={e => setPeriodEnd(e.target.value)}/></label>
-        <label>Applicable aux échéances à partir du<DateInput value={effective} onChange={e => setEffective(e.target.value)}/></label>
+        <label>Applicable aux échéances à partir du <small>(vide = depuis la rentrée)</small><DateInput value={effective} onChange={e => setEffective(e.target.value)}/></label>
         <label>Motif *<input value={reason} maxLength={500} onChange={e => setReason(e.target.value)}/></label>
         <label>Référence (facultatif)<input value={reference} maxLength={120} onChange={e => setReference(e.target.value)}/></label>
       </div>
