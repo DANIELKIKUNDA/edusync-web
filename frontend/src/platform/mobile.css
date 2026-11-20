@@ -143,3 +143,16 @@
    overflowed and pushed the « Plus » target 16 px off screen. */
 .es-shell .es-bottom button{min-width:0}
 .es-shell .es-bottom button>span.es-bnav-ind{width:min(60px,100%)}
+/* Certification mobile PR #109 (2026-11-20): on a touch screen (phone in landscape, tablet) the desktop layout kept
+   targets of 26–39 px — year selector, bell, breadcrumb, module tabs, row actions. Fingers get 44 px everywhere. */
+@media (pointer:coarse){
+  .es-shell .es-year select,.es-shell .es-tools .es-icon-btn{min-height:44px;min-width:44px}
+  .es-shell .pf-trail button,.es-shell .es-main [role=tab],.es-shell .personTabs button,.es-shell .checkoutSubtabs button,
+  .es-shell .docScopeTabs button,.es-shell .structTabs button,.es-shell .textBtn,.es-shell .iconAction,.es-shell .rc-seg button{min-height:44px}
+  .es-shell .iconAction,.es-shell .rc-seg button{min-width:44px}
+}
+@media (pointer:coarse){
+  .es-shell .fxScope button,.es-shell .fxActions button,.es-shell .sj-chips button,.es-shell .sj-more,.es-shell .docCrumbs button,
+  .es-shell .linkBtn,.es-shell .reportControls button{min-height:44px}
+  .es-shell .fx2Search input,.es-shell .docSearch input{min-height:44px;box-sizing:border-box}
+}
