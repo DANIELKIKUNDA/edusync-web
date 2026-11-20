@@ -180,10 +180,48 @@ class PostgresFinanceRecoveryRepository:
             reversals=c.fetchone()["n"]
             c.execute("""SELECT count(*) n FROM finance_cash_sessions WHERE school_id=%s AND status='OPEN' AND business_date<CURRENT_DATE""",(school_id,))
             open_sessions=c.fetchone()["n"]
+            # Management evidence attached to the automatic report. Keep the collection figure above unchanged
+            # (receipts net of reversals); the ledger below explains the physical cash balance: entries − outflows.
+            c.execute("""SELECT * FROM (
+              SELECT s.business_date d,p.created_at at,'ENTREE' direction,
+                     CASE WHEN EXISTS (SELECT 1 FROM finance_product_sales ps WHERE ps.payment_id=p.id)
+                          THEN 'Vente article' ELSE 'Paiement élève' END operation,
+                     concat_ws(' ',st.last_name,st.middle_name,st.first_name) party,
+                     p.receipt_number reference,NULL::text reason,p.amount
+                FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
+                LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students st ON st.id=e.student_id
+               WHERE s.school_id=%(s)s AND p.currency=%(c)s AND s.business_date BETWEEN %(a)s AND %(e)s
+              UNION ALL
+              SELECT s.business_date,e.created_at,'SORTIE','Dépense',e.label,coalesce(e.reference,e.label),e.reason,e.amount
+                FROM finance_cash_expenses e JOIN finance_cash_sessions s ON s.id=e.cash_session_id
+               WHERE s.school_id=%(s)s AND e.currency=%(c)s AND s.business_date BETWEEN %(a)s AND %(e)s
+              UNION ALL
+              SELECT r.business_date,r.performed_at,'SORTIE',
+                     CASE WHEN r.reversal_type='REMBOURSEMENT' THEN 'Remboursement' ELSE 'Annulation' END,
+                     NULL,p.receipt_number,r.reason,r.amount
+                FROM finance_payment_reversals r JOIN finance_payments p ON p.id=r.payment_id
+               WHERE r.school_id=%(s)s AND r.currency=%(c)s AND r.business_date BETWEEN %(a)s AND %(e)s
+              UNION ALL
+              SELECT s.business_date,f.received_at,'ENTREE','Fonds anticipé',NULL,f.receipt_number,NULL,f.amount
+                FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id
+               WHERE s.school_id=%(s)s AND f.currency=%(c)s AND f.origin_type='PAYMENT_ADVANCE'
+                 AND s.business_date BETWEEN %(a)s AND %(e)s
+              UNION ALL
+              SELECT cl.business_date,cl.performed_at,'SORTIE','Restitution fonds anticipé',NULL,
+                     coalesce(f.receipt_number,f.reference),cl.reason,cl.amount
+                FROM finance_advance_fund_closures cl JOIN finance_advance_funds f ON f.id=cl.fund_id
+               WHERE cl.school_id=%(s)s AND f.currency=%(c)s AND cl.closure_type IN ('ANNULATION','REMBOURSEMENT')
+                 AND cl.business_date BETWEEN %(a)s AND %(e)s
+            ) ledger ORDER BY d,at,reference""",{"s":school_id,"c":currency,"a":start,"e":end})
+            movements=[dict(r) for r in c.fetchall()]
         cur=[x for x in days if start<=x["d"]<=end];prev=[x for x in days if prev_start<=x["d"]<=prev_end]
         best=max(cur,key=lambda x:x["a"]) if cur else None
+        entries=sum((r["amount"] for r in movements if r["direction"]=='ENTREE'),0)
+        outflows=sum((r["amount"] for r in movements if r["direction"]=='SORTIE'),0)
         return {"total":sum((x["a"] for x in cur),0),"previous":sum((x["a"] for x in prev),0),
-                "best_day":(best["d"],best["a"]) if best and best["a"]>0 else None},{"reversals":int(reversals),"open_sessions":int(open_sessions)}
+                "best_day":(best["d"],best["a"]) if best and best["a"]>0 else None,
+                "entries":entries,"outflows":outflows,"net":entries-outflows,"movements":movements},\
+               {"reversals":int(reversals),"open_sessions":int(open_sessions)}
 
     def digest_pupils(self,school_id,year_id,start,end,class_ids=None):
         """Active pupils and departures of the period, limited to the reader's classes (None = whole school)."""
