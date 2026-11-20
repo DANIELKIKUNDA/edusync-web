@@ -35,3 +35,15 @@
 .ff-skel{display:grid;gap:8px}.ff-skel i{display:block;height:18px;border-radius:6px;background:linear-gradient(90deg,#f2f4f7 25%,#e4e7ec 50%,#f2f4f7 75%);background-size:200% 100%;animation:ff-sh 1.2s linear infinite}
 @keyframes ff-sh{to{background-position:-200% 0}}
 @media(max-width:720px){.ff-bar{grid-template-columns:1fr}.ff-search{width:100%;box-sizing:border-box}.ff-search input{min-width:0;width:100%}.ff-actions{display:grid!important;grid-template-columns:1fr}.ff-actions .ff-btn{width:100%;justify-content:center;min-height:44px}.ff-kpis{grid-template-columns:1fr 1fr}.ff-kpis button:last-child{grid-column:1/-1}.ff-periods{align-items:stretch}.ff-seg{display:grid;grid-template-columns:1fr 1fr;width:100%}}
+
+@media(max-width:720px){
+  .ff-root{gap:11px}.ff-head h3{font-size:21px}.ff-head p{font-size:12.5px;line-height:1.45}
+  .ff-filters{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px}.ff-field,.ff-field.grow{min-width:0}.ff-field.grow{grid-column:1/-1}.ff-field select{width:100%;min-width:0;min-height:48px}
+  .ff-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px;scroll-snap-type:x proximity}.ff-chips button{flex:0 0 auto;min-height:42px;scroll-snap-align:start}
+  .ff-search{position:sticky;top:116px;z-index:12;min-height:48px;box-shadow:0 6px 18px rgba(15,23,42,.06)}
+  .ff-table{border:0;overflow:visible;max-height:none;gap:9px;background:transparent}.ff-th{display:none}
+  .ff-row{min-width:0;display:grid;grid-template-columns:1fr auto;gap:8px 12px;padding:13px;border:1px solid #e3e8f0;border-radius:14px;background:#fff;box-shadow:0 3px 10px rgba(15,23,42,.035)}
+  .ff-row>span{padding:0}.ff-row>span:first-child{grid-column:1/-1;padding-bottom:8px;border-bottom:1px solid #eef2f7;font-size:14px}.ff-row>span:nth-child(2){grid-column:1}.ff-row>span:nth-child(3){grid-column:2;grid-row:2;text-align:right}.ff-row>span:nth-child(4){grid-column:1/-1}
+  .ff-row>span:nth-child(2)::before,.ff-row>span:nth-child(3)::before,.ff-row>span:nth-child(4)::before{display:block;margin-bottom:3px;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#667085}.ff-row>span:nth-child(2)::before{content:'Situation'}.ff-row>span:nth-child(3)::before{content:'Reste dû'}.ff-row>span:nth-child(4)::before{content:'Périodes non réglées'}
+}
+@media(max-width:390px){.ff-filters{grid-template-columns:1fr}.ff-field.grow{grid-column:1}.ff-kpis{grid-template-columns:1fr}.ff-kpis button:last-child{grid-column:1}}
