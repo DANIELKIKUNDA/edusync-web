@@ -125,6 +125,20 @@ def catalog(actor: ActorContext = Depends(require_platform_actor), services: App
         return {"modules": [_json(r) for r in modules], "plans": [_json(r) for r in plans]}
 
 
+@router.get("/plans/{plan_id}/versions")
+def list_plan_versions(plan_id: UUID, actor: ActorContext = Depends(require_platform_actor),
+                       services: AppServices = Depends(get_services)):
+    _need(actor, "platform.billing.read")
+    with services.platform_db.platform_transaction() as conn:
+        if not conn.execute(text("SELECT 1 FROM saas_plans WHERE id=:id"), {"id": plan_id}).first():
+            raise HTTPException(404, "Plan introuvable")
+        rows = conn.execute(text("""SELECT v.*,coalesce(array_agg(m.module_code ORDER BY m.module_code)
+            FILTER (WHERE m.module_code IS NOT NULL),'{}') AS module_codes FROM saas_plan_versions v
+            LEFT JOIN saas_plan_modules m ON m.plan_version_id=v.id WHERE v.plan_id=:id
+            GROUP BY v.id ORDER BY v.version DESC,v.billing_cycle,v.currency"""), {"id": plan_id}).mappings()
+        return [_json(row) for row in rows]
+
+
 @router.post("/plans", status_code=201)
 def create_plan(body: PlanCreate, response: Response, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
                 actor: ActorContext = Depends(require_platform_actor), services: AppServices = Depends(get_services)):
@@ -301,6 +315,23 @@ def list_invoices(school_id: UUID | None = None, status: str | None = Query(None
         rows = conn.execute(text(f"""SELECT i.*,s.name AS school_name FROM saas_invoices i
             JOIN schools s ON s.id=i.school_id WHERE {' AND '.join(where)}
             ORDER BY i.created_at DESC,i.id LIMIT :limit"""), params).mappings()
+        return [_json(row) for row in rows]
+
+
+@router.get("/payments")
+def list_payments(school_id: UUID | None = None, invoice_id: UUID | None = None,
+                  limit: int = Query(50, ge=1, le=200), actor: ActorContext = Depends(require_platform_actor),
+                  services: AppServices = Depends(get_services)):
+    _need(actor, "platform.billing.read")
+    where, params = ["TRUE"], {"limit": limit}
+    if school_id:
+        where.append("p.school_id=:school"); params["school"] = school_id
+    if invoice_id:
+        where.append("p.invoice_id=:invoice"); params["invoice"] = invoice_id
+    with services.platform_db.platform_transaction() as conn:
+        rows = conn.execute(text(f"""SELECT p.*,i.invoice_number,s.name AS school_name FROM saas_payments p
+            JOIN saas_invoices i ON i.id=p.invoice_id JOIN schools s ON s.id=p.school_id
+            WHERE {' AND '.join(where)} ORDER BY p.created_at DESC,p.id LIMIT :limit"""), params).mappings()
         return [_json(row) for row in rows]
 
 

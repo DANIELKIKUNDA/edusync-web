@@ -18,6 +18,7 @@ const HomePage=lazyPage(()=>import('./home'));
 const CommunicationsPage=lazyPage(()=>import('./communications'));
 const SupervisionCenter=lazyPage(()=>import('./supervision_center'));
 const PlatformMessaging=lazyPage(()=>import('./platform/messaging'));
+const PlatformBilling=lazyPage(()=>import('./platform/billing'));
 const StewardshipPage=lazyPage(()=>import('./stewardship'));
 const SyncAdminPage=lazyPage(()=>import('./sync_admin'));
 const AccessPage=lazyPage(()=>import('./access'));
@@ -81,9 +82,9 @@ const SCHOOL_SESSION='edusync.school.session';
 type SavedSchoolSession={token:string;school:SchoolLoginResult['school'];user:SchoolLoginResult['user'];permissions:string[]};
 
 /** A reloaded or shared link to the schools or accounts screen (?school=<id>, ?user=<id>, filters) opens that screen, not the dashboard. */
-const schoolsDeepLink=():'dashboard'|'schools'|'access'|'team'|'notifications'|'audit'|'diagnostics'|'messaging'=>/[?&]msg=/.test(window.location.search)?'messaging':/[?&]service=/.test(window.location.search)?'diagnostics':/[?&](aevent|aq|acat|aact|asch|aactor|ares|afrom|ato|asort)=/.test(window.location.search)?'audit':/[?&]campaign=/.test(window.location.search)?'notifications':/[?&]member=/.test(window.location.search)?'team':ACCESS_URL_KEYS.test(window.location.search)?'access':/[?&](school|q|status|config|sort|page|needs_admin)=/.test(window.location.search)?'schools':'dashboard';
+const schoolsDeepLink=():'dashboard'|'schools'|'billing'|'access'|'team'|'notifications'|'audit'|'diagnostics'|'messaging'=>/[?&]billing=/.test(window.location.search)?'billing':/[?&]msg=/.test(window.location.search)?'messaging':/[?&]service=/.test(window.location.search)?'diagnostics':/[?&](aevent|aq|acat|aact|asch|aactor|ares|afrom|ato|asort)=/.test(window.location.search)?'audit':/[?&]campaign=/.test(window.location.search)?'notifications':/[?&]member=/.test(window.location.search)?'team':ACCESS_URL_KEYS.test(window.location.search)?'access':/[?&](school|q|status|config|sort|page|needs_admin)=/.test(window.location.search)?'schools':'dashboard';
 function AtelierPro({token,user,onLogout,onSwitchSpace}:{token:string;user:PlatformUser;onLogout:()=>void;onSwitchSpace?:()=>void}){
-  const [tab,setTab]=useState<'dashboard'|'schools'|'access'|'team'|'notifications'|'audit'|'diagnostics'|'messaging'>(schoolsDeepLink);
+  const [tab,setTab]=useState<'dashboard'|'schools'|'billing'|'access'|'team'|'notifications'|'audit'|'diagnostics'|'messaging'>(schoolsDeepLink);
   // Server-computed identity and menu: a PLATFORM_CUSTOM account only sees (and only loads) what its roles open.
   const [me,setMe]=useState<PlatformMe|null>(()=>knownPlatform()?.me||null);
   const can=(key:string)=>!!me?.menu.some(m=>m.key===key);
@@ -119,7 +120,7 @@ function AtelierPro({token,user,onLogout,onSwitchSpace}:{token:string;user:Platf
   useEffect(()=>{if(me?.avatar_version)void loadAvatar()},[me?.avatar_version]);
   useEffect(()=>()=>{if(avatarUrl)URL.revokeObjectURL(avatarUrl)},[avatarUrl]);
   const photo={url:avatarUrl,upload:async(f:File)=>{await uploadPlatformAvatar(token,f);await loadAvatar()},remove:async()=>{await deletePlatformAvatar(token);setAvatarUrl(undefined)}};
-  const NAV_DEF:[typeof tab,string,string][]=[['dashboard','cockpit','Tableau de bord'],['schools','school','Écoles'],['access','lock','Utilisateurs & accès'],['team','users','Équipe plateforme'],['notifications','bell','Notifications système'],['audit','audit','Journal d’audit'],['diagnostics','pulse','État du service'],['messaging','bell','Messagerie']];
+  const NAV_DEF:[typeof tab,string,string][]=[['dashboard','cockpit','Tableau de bord'],['schools','school','Écoles'],['billing','receipt','Abonnements'],['access','lock','Utilisateurs & accès'],['team','users','Équipe plateforme'],['notifications','bell','Notifications système'],['audit','audit','Journal d’audit'],['diagnostics','pulse','État du service'],['messaging','bell','Messagerie']];
   const roleLabel=me?.roles.map(r=>r.label.replace(/^Manager syst[eè]me$/i,'Manager Système')).join(' · ');
   const nav:any[]=NAV_DEF.filter(([k])=>can(k)).map(([k,icon,label])=>[icon,label,tab===k,()=>goTab(k),k]);
   return <Shell title="Plateforme EduSync" subtitle="Pilotage et administration de la plateforme EduSync" onLogout={onLogout} onSwitchSpace={onSwitchSpace} nav={nav} user={user} token={token} roleLabel={roleLabel} theme={theme} onTheme={setTheme} reducedMotion={reducedMotion} onReducedMotion={setReducedMotion} photo={photo}>
@@ -138,6 +139,7 @@ function AtelierPro({token,user,onLogout,onSwitchSpace}:{token:string;user:Platf
       onOpenSchool:id=>{setSchoolsPreset({nonce:Date.now(),openId:id});goTab('schools')},onOpenMember:id=>{setTeamPreset({openMember:id,nonce:Date.now()});goTab('team')},
       onOpenUser:id=>{setAccessPreset({openUser:id,nonce:Date.now()});goTab('access')},onOpenCampaign:id=>{goTab('notifications');history.replaceState(history.state,'',`${window.location.pathname}?campaign=${id}`)}}}/></Suspense></ScreenBoundary>}
     {tab==='messaging'&&can('messaging')&&<ScreenBoundary resetKey={tab} label={tab}><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformMessaging token={token} canCredit={has('platform.sms_wallet.credit')} canAdjust={has('platform.sms_wallet.adjust')} canRetry={has('platform.messaging.retry')}/></Suspense></ScreenBoundary>}
+    {tab==='billing'&&can('billing')&&<ScreenBoundary resetKey={tab} label={tab}><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><PlatformBilling token={token} has={has}/></Suspense></ScreenBoundary>}
     {tab==='diagnostics'&&can('diagnostics')&&<ScreenBoundary resetKey={tab} label={tab}><Suspense fallback={<div className="es-skeleton" aria-busy="true"><i/><i/><i/></div>}><HealthPanel token={token} canMessaging={can('messaging')} onOpenMessaging={()=>goTab('messaging')}/></Suspense></ScreenBoundary>}
     {notificationOpen&&<PlatformNotificationDialog token={token} schools={[]} onClose={()=>setNotificationOpen(false)} onDone={async()=>{setNotificationOpen(false);setSystemNotifications(await platformSystemNotifications(token,0));await refresh()}}/>}
   </Shell>
