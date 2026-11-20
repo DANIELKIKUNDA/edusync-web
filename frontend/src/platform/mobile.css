@@ -139,3 +139,7 @@
 }
 @keyframes es-sheet-up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.es-drawer-backdrop .es-drawer,:is(.wizardBackdrop,.modalBackdrop)>*{animation:none!important}}
+/* Certification mobile PR #109 (2026-11-20): at 320 px each bottom-bar slot is ~58 px wide, the fixed 60 px indicator
+   overflowed and pushed the « Plus » target 16 px off screen. */
+.es-shell .es-bottom button{min-width:0}
+.es-shell .es-bottom button>span.es-bnav-ind{width:min(60px,100%)}

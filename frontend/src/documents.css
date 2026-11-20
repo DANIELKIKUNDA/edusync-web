@@ -95,3 +95,10 @@
 @media (max-width:640px){.docFolders{grid-template-columns:1fr}}
 .docViewTabs{justify-self:start;width:max-content}
 .docFolder b{color:#101828}
+/* Certification mobile PR #109 (2026-11-20): at 320–360 px the scope tabs (« Mes documents / Documents de l'école »)
+   refused to wrap and widened the whole panel — content cut on the right and the bottom bar pushed off screen. */
+.docPanel,.docPanel>*{min-width:0}
+@media (max-width:600px){
+  .docScopeTabs{width:100%;max-width:100%;box-sizing:border-box}
+  .docScopeTabs button{flex:1 1 0;min-width:0;white-space:normal;line-height:1.2;text-align:center}
+}

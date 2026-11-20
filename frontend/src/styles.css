@@ -635,3 +635,12 @@ button.personMetric.clickable:focus-visible{outline:2px solid #2563eb;outline-of
   .importWorkspace .cardHeading{display:grid!important;grid-template-columns:1fr;gap:12px}.importWorkspace .cardHeading button{width:100%;min-height:46px}.importDrop{padding:12px}.importDrop input{width:100%;box-sizing:border-box}.importStats span{padding:11px}.mobileTableScroll{overflow:visible!important}.importPreview,.importPreview tbody{display:block;min-width:0}.importPreview thead{display:none}.importPreview tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-bottom:9px;padding:13px;border:1px solid #e3e8f0;border-radius:14px;background:#fff}.importPreview td{display:block;padding:0;border:0!important;text-align:left!important;overflow-wrap:anywhere}.importPreview td:nth-child(4),.importPreview td:nth-child(7){grid-column:1/-1}.importPreview td::before{display:block;font-size:9px;font-weight:800;text-transform:uppercase;color:#667085}.importPreview td:nth-child(1)::before{content:'Ligne'}.importPreview td:nth-child(2)::before{content:'Matricule'}.importPreview td:nth-child(3)::before{content:'Année'}.importPreview td:nth-child(4)::before{content:'Frais / période'}.importPreview td:nth-child(5)::before{content:'Montant'}.importPreview td:nth-child(6)::before{content:'Date historique'}.importPreview td:nth-child(7)::before{content:'Contrôle'}
 }
 @media(max-width:380px){.feeOverviewTable tr,.feeStudentTable tr,.financeControls .cashSummaryTable tr,.importPreview tr{grid-template-columns:1fr}.feeOverviewTable th:first-child,.feeStudentTable th:first-child,.importPreview td:nth-child(4),.importPreview td:nth-child(7){grid-column:1}}
+/* Certification mobile PR #109 (2026-11-20): page-level grids let a child grow past the screen (grid items default to
+   min-width:auto) — Synchronisation at 360 px (+13 px) and Accès & rôles in landscape 844×390 (+6 px). Children of these
+   page containers may now shrink; long content wraps or scrolls inside its own card instead of widening the page. */
+.pageEnter>*,.syncAdmin>*,.personnelPage>*,.accessMetrics>*{min-width:0}
+.syncCard,.syncHero,.syncKpis{overflow-wrap:anywhere}
+/* Same certification: the page track itself must never exceed the screen, and a hero whose actions do not fit wraps
+   them onto a new line (Accès & rôles in landscape 844×390 was 6 px too wide). */
+.personnelPage,.syncAdmin{grid-template-columns:minmax(0,1fr)}
+.personnelHero{flex-wrap:wrap}.personnelHero>*{min-width:0}.heroActions{flex-wrap:wrap}

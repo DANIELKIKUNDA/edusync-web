@@ -47,3 +47,8 @@ button.syncKpi:focus-visible{outline:3px solid #93b4ff;outline-offset:2px}
 .syncPremium .linkBtn:disabled{opacity:.5;cursor:not-allowed}
 
 /* Sur cet appareil — school outbox (2026-10-25) */
+/* Certification mobile PR #109 (2026-11-20): at 320 px the device cards had a 320 px minimum and the sync card track
+   grew with its content (+31 px). Same shrink rules as the other page grids. */
+.deviceGrid{grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))}
+.syncCard{grid-template-columns:minmax(0,1fr)}.syncCard>*,.syncCardHead>*{min-width:0}
+@media (max-width:600px){.syncCardHead .primaryBtn{white-space:normal}}

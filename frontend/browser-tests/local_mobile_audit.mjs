@@ -32,16 +32,23 @@ const measure = p => p.evaluate(() => {
   const cut = tables.filter(t => (t.parentElement?.scrollWidth ?? 0) > (t.parentElement?.clientWidth ?? 0) + 2 || t.scrollWidth > main.clientWidth + 2).length;
   const tabs = [...main.querySelectorAll('[role=tablist], .personTabs, .financeTabs, .kp-tabs')].filter(vis).filter(t => t.scrollWidth > t.clientWidth + 2).length;
   const bar = [...document.querySelectorAll('.es-bottom button')].map(x => x.textContent.trim());
+  const W = document.documentElement.clientWidth;
+  const scrollerOk = el => { for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) { const ox = getComputedStyle(e).overflowX; if (ox === 'auto' || ox === 'scroll') return true; } return false; };
+  const wide = [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.right > W + 1 && !scrollerOk(e) && getComputedStyle(e).position !== 'fixed' || (e.matches?.('.es-bottom') && e.getBoundingClientRect().right > W + 1); });
+  const offenders = wide.filter(e => !wide.includes(e.parentElement));
   const firstContent = [...main.querySelectorAll('section, article, table, ul, form')].filter(vis).map(e => e.getBoundingClientRect().top + scrollY).filter(t => t > 140)[0] ?? 0;
   return {title, repeats, smallTargets: small.length, smallSamples: [...new Set(small.slice(0, 6).map(e => (e.textContent || e.getAttribute('aria-label') || e.tagName).trim().slice(0, 30)))],
     tables: tables.length, cutTables: cut, hiddenTabs: tabs, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    offscreen: offenders.length, offscreenSamples: offenders.slice(0, 4).map(e => (e.className && typeof e.className === 'string' ? e.className : e.tagName).slice(0, 40)),
     height: document.documentElement.scrollHeight, firstContentTop: Math.round(firstContent), bottomBar: bar};
 });
-for (const f of accounts) {
-  const acc = account(f);
-  const ctx = await b.newContext({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true, deviceScaleFactor: 1,
+// Certification 2026-11-20 (PR #109): every role at every required size — portrait phones, tablet, phone landscape.
+const SIZES = (process.env.EDUSYNC_VIEWPORTS || '320x568,360x800,390x844,412x915,768x1024,844x390').split(',').map(v => v.split('x').map(Number));
+for (const f of accounts) for (const [W, H] of SIZES) {
+  const acc = account(f); const size = `${W}x${H}`; const phone = Math.min(W, H) < 600;
+  const ctx = await b.newContext({viewport: {width: W, height: H}, isMobile: phone, hasTouch: true, deviceScaleFactor: 1,
     userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-A145F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36'});
-  const p = await ctx.newPage(); report[f] = {};
+  const p = await ctx.newPage(); report[f] = report[f] || {}; report[f][size] = {};
   try {
     await p.goto('http://localhost:5180/'); await p.getByLabel('Adresse e-mail').fill(acc.email); await p.getByLabel('Mot de passe', {exact: true}).fill(acc.password);
     await p.getByRole('button', {name: 'Se connecter'}).click();
@@ -49,21 +56,30 @@ for (const f of accounts) {
       const go = p.getByRole('button', {name: /Valider|Continuer|Se connecter|Vérifier/}).first(); if (await go.isVisible().catch(() => false)) await go.click(); }
     await p.locator('.es-shell').waitFor({timeout: 40000}); await p.waitForTimeout(3500);
     const space = p.getByRole('button', {name: /Plateforme EduSync|Atelier/}).first(); if (f === 'platform' && await space.isVisible().catch(() => false) && !(await p.locator('.es-bottom').count())) await space.click();
-    await p.getByRole('button', {name: 'Tous les modules'}).click(); await p.waitForTimeout(600);
-    const modules = (await p.getByRole('dialog', {name: 'Menu EduSync'}).locator('nav button, .es-drawer-nav button').allInnerTexts()).map(x => x.trim()).filter(x => x && !/^[A-Z]{2}(\s|$)/.test(x));
-    await p.keyboard.press('Escape'); await p.waitForTimeout(400); if (await p.getByRole('dialog', {name: 'Menu EduSync'}).isVisible().catch(() => false)) await p.mouse.click(380, 400);
-    console.log(`== ${f} : ${modules.join(' | ')}`);
+    const side = p.getByRole('complementary', {name: 'Navigation principale'});
+    // The « Tous les modules » entry exists twice (bottom bar on phones, side bar on tablet / landscape): use the visible one.
+    const allBtn = p.getByRole('button', {name: 'Tous les modules'}).locator('visible=true').first();
+    const drawer = await allBtn.isVisible().catch(() => false);
+    let modules;
+    if (drawer) { await allBtn.click(); await p.waitForTimeout(600);
+      modules = (await p.getByRole('dialog', {name: 'Menu EduSync'}).locator('nav button, .es-drawer-nav button').allInnerTexts()).map(x => x.trim()).filter(x => x && !/^[A-Z]{2}(\s|$)/.test(x)); }
+    const navNames = () => p.locator('.es-nav button').evaluateAll(bs => bs.map(b => (b.getAttribute('aria-label') || b.title || b.textContent || '').trim().split(String.fromCharCode(10))[0]));
+    if (!drawer) modules = (await navNames()).filter(Boolean);
+    const open = async m => { if (drawer) { await allBtn.click(); await p.getByRole('dialog', {name: 'Menu EduSync'}).getByRole('button', {name: m, exact: true}).click(); }
+      else { const names = await navNames(); await p.locator('.es-nav button').nth(names.indexOf(m)).click(); } };
+    if (drawer) await p.keyboard.press('Escape'); await p.waitForTimeout(400); if (await p.getByRole('dialog', {name: 'Menu EduSync'}).isVisible().catch(() => false)) await p.mouse.click(W - 10, Math.round(H / 2));
+    console.log(`== ${f} ${size} : ${modules.join(' | ')}`);
     for (const m of modules) {
       try {
-        await p.getByRole('button', {name: 'Tous les modules'}).click(); await p.getByRole('dialog', {name: 'Menu EduSync'}).getByRole('button', {name: m, exact: true}).click();
+        await open(m);
         await p.waitForTimeout(2200);
-        const r = await measure(p); report[f][m] = r;
+        const r = await measure(p); report[f][size][m] = r;
         const slug = m.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '').slice(0, 18);
-        await p.screenshot({path: `${OUT}/${f}_${slug}.png`});
-        console.log(`   ${m.padEnd(24)} titre×${r.repeats} petits=${r.smallTargets} tableaux=${r.tables}(coupés ${r.cutTables}) onglets cachés=${r.hiddenTabs} débord=${r.overflow} 1er contenu=${r.firstContentTop}px barre=[${r.bottomBar.join(', ')}]`);
-      } catch (e) { report[f][m] = {error: String(e.message).split('\n')[0]}; console.log(`   ${m} — ERREUR ${String(e.message).split('\n')[0].slice(0, 120)}`); }
+        await p.screenshot({path: `${OUT}/${f}_${size}_${slug}.png`});
+        console.log(`   ${m.padEnd(24)} titre×${r.repeats} petits=${r.smallTargets} tableaux=${r.tables}(coupés ${r.cutTables}) onglets cachés=${r.hiddenTabs} débord=${r.overflow} horsÉcran=${r.offscreen}${r.offscreen ? '(' + r.offscreenSamples.join(',') + ')' : ''} 1er contenu=${r.firstContentTop}px barre=[${r.bottomBar.join(', ')}]`);
+      } catch (e) { report[f][size][m] = {error: String(e.message).split('\n')[0]}; console.log(`   ${m} — ERREUR ${String(e.message).split('\n')[0].slice(0, 120)}`); }
     }
-  } catch (e) { console.log(`== ${f} — ERREUR ${String(e.message).split('\n')[0]}`); }
+  } catch (e) { report[f][size].login_error = String(e.message).split('\n')[0]; console.log(`== ${f} ${size} — ERREUR ${String(e.message).split('\n')[0]}`); }
   await ctx.close();
   fs.writeFileSync(`${OUT}/audit.json`, JSON.stringify(report, null, 1));
 }

@@ -68,6 +68,9 @@ class Digest:
     scope_label: str | None = None  # « la section Secondaire » for a section reader; None = whole school
     currency: str = "CDF"
     cash: dict[str, Any] | None = None          # {total, previous, best_day: (date, amount), days: int, open_sessions: int}
+    # Certification PR #109 (2026-11-20): the cash justification of the OTHER currency (USD when the letter is in FC),
+    # never mixed with it — strict FC / USD separation in the attached ledger.
+    other_cash: dict[str, dict[str, Any]] = field(default_factory=dict)
     recovery: dict[str, Any] | None = None      # {expected, regularized, remaining, rate}
     weakest_class: dict[str, Any] | None = None # {label, rate}
     pupils: dict[str, Any] | None = None        # {active, abandons: [..labels..], transfers: [..]}

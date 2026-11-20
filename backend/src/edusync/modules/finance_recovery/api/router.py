@@ -336,13 +336,19 @@ def _digest_load(actor, services, kind, as_of, currency):
         scope_label = None if v is None else (f"la section {sections[0]}" if len(sections) == 1 else 'vos sections')
         whole = v is None and 'finance.cash.other.read' in actor.permissions
         cash, attention = repo.digest_cash(actor.school_id, currency, start, end, prev_start, prev_end) if whole else (None, {})
+        other = {}
+        if whole:
+            for cur in ('CDF', 'USD'):
+                if cur != currency:
+                    oc, _ = repo.digest_cash(actor.school_id, cur, start, end, prev_start, prev_end)
+                    if oc.get('movements'): other[cur] = oc
         total = monthly_total(repo.monthly(actor.school_id, y['id'], currency, scopes=scopes))
         classes = [r for r in repo.scope_summary(actor.school_id, y['id'], currency) if v is None or r['class_id'] in v]
         weakest = min((r for r in classes if (r['expected'] or 0) > 0), key=lambda r: r['recovery_rate'], default=None)
         pupils = repo.digest_pupils(actor.school_id, y['id'], start, end, v)
         civility, rtitle = _reader(conn, actor)
     d = _dg.Digest(kind=kind, start=start, end=end, school_name=school.get('name') or 'l’école', scope_label=scope_label, currency=currency,
-                   cash=cash, recovery={'expected': total['expected'], 'regularized': total['regularized_total'], 'remaining': total['remaining'],
+                   cash=cash, other_cash=other, recovery={'expected': total['expected'], 'regularized': total['regularized_total'], 'remaining': total['remaining'],
                                         'rate': total['recovery_rate']},
                    weakest_class={'label': weakest['class_label'], 'rate': weakest['recovery_rate']} if weakest else None,
                    pupils=pupils, attention=attention)
