@@ -85,25 +85,27 @@ class PostgresCashIntegrityRepository:
             SELECT p.created_at, 'ENTREE' AS direction,
                    CASE WHEN EXISTS (SELECT 1 FROM finance_product_sales ps WHERE ps.payment_id=p.id) THEN 'VENTE_ARTICLE' ELSE 'PAIEMENT_ELEVE' END AS source,
                    p.amount, p.currency, p.payment_mode AS mode, p.receipt_number AS reference, NULL::text AS reason, u.full_name AS user_name,
+                   concat_ws(' ',st.last_name,st.middle_name,st.first_name) AS party,
                    s.membership_id, p.actor_user_id AS user_id, CAST(p.id AS text) AS payment_id,
                    EXISTS (SELECT 1 FROM finance_payment_reversals x WHERE x.payment_id=p.id) AS reversed
               FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id LEFT JOIN users u ON u.id=p.actor_user_id
+              LEFT JOIN enrollments en ON en.id=p.enrollment_id LEFT JOIN students st ON st.id=en.student_id
              WHERE p.school_id=:s AND s.business_date=:d
             UNION ALL
             SELECT e.created_at, 'SORTIE', 'DEPENSE_JOURNALIERE', e.amount, e.currency, 'CASH', coalesce(e.reference, e.label), coalesce(e.reason, e.label),
-                   u.full_name, s.membership_id, e.actor_user_id, NULL, false
+                   u.full_name, e.label, s.membership_id, e.actor_user_id, NULL, false
               FROM finance_cash_expenses e JOIN finance_cash_sessions s ON s.id=e.cash_session_id LEFT JOIN users u ON u.id=e.actor_user_id
              WHERE e.school_id=:s AND s.business_date=:d
             UNION ALL
-            SELECT r.performed_at, 'SORTIE', r.reversal_type, r.amount, r.currency, p.payment_mode, p.receipt_number, r.reason, u.full_name, NULL, r.performed_by, NULL, false
+              SELECT r.performed_at, 'SORTIE', r.reversal_type, r.amount, r.currency, p.payment_mode, p.receipt_number, r.reason, u.full_name, NULL, NULL, r.performed_by, NULL, false
               FROM finance_payment_reversals r JOIN finance_payments p ON p.id=r.payment_id LEFT JOIN users u ON u.id=r.performed_by
              WHERE r.school_id=:s AND r.business_date=:d
             UNION ALL
-            SELECT f.received_at, 'ENTREE', 'FONDS_ANTICIPE', f.amount, f.currency, f.mode, f.receipt_number, NULL, u.full_name, s.membership_id, f.received_by, NULL, false
+              SELECT f.received_at, 'ENTREE', 'FONDS_ANTICIPE', f.amount, f.currency, f.mode, f.receipt_number, NULL, u.full_name, NULL, s.membership_id, f.received_by, NULL, false
               FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id LEFT JOIN users u ON u.id=f.received_by
              WHERE f.school_id=:s AND f.origin_type='PAYMENT_ADVANCE' AND s.business_date=:d
             UNION ALL
-            SELECT c.performed_at, 'SORTIE', 'RESTITUTION_FONDS_ANTICIPE', c.amount, f.currency, f.mode, coalesce(f.receipt_number, f.reference), c.reason, u.full_name, NULL, c.performed_by, NULL, false
+              SELECT c.performed_at, 'SORTIE', 'RESTITUTION_FONDS_ANTICIPE', c.amount, f.currency, f.mode, coalesce(f.receipt_number, f.reference), c.reason, u.full_name, NULL, NULL, c.performed_by, NULL, false
               FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id LEFT JOIN users u ON u.id=c.performed_by
              WHERE c.school_id=:s AND c.business_date=:d AND c.closure_type IN ('ANNULATION','REMBOURSEMENT')
             ORDER BY 1"""), {"s": school_id, "d": day}).mappings().all()
