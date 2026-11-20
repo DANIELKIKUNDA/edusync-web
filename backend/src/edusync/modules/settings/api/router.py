@@ -381,6 +381,11 @@ def classes_selector(year_id:UUID|None=None,capability:str|None=Query(None,max_l
     # it: a préfet never sees in a picker a class outside his section, unless « toute l'école » is given in Accès & rôles.
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
         rows=PostgresSettingsRepository(conn).list_classes(actor.school_id,year_id)
+        # Certification PR #109 (2026-11-20): without an explicit capability, a reader of the pupils is limited to the
+        # classes of HIS pupils scope (a préfet of the Secondaire no longer gets the Primaire/Maternelle classes in the
+        # directory or communication filters). Members without the pupils right keep the plain list.
+        if not capability and 'students.read' in actor.permissions:
+            capability='students.read'
         if capability:
             if capability not in actor.permissions:return []
             from edusync.adapters.class_scope import visible_class_ids

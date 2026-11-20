@@ -125,3 +125,11 @@ def test_class_picker_follows_the_capability_scope():
     assert "listClassSelector(token, yearId, 'finance.recovery.monthly.read')" in (ui / 'finance_followup.tsx').read_text(encoding='utf-8')
     assert "listClassSelector(token,undefined,'finance.analysis.by_fee.read')" in (ui / 'finance.tsx').read_text(encoding='utf-8')
     assert 'capability' in (ui / 'api.ts').read_text(encoding='utf-8').split('export async function listClassSelector', 1)[1].split('\n', 1)[0]
+
+
+def test_class_picker_without_capability_follows_the_pupils_scope():
+    """Certification PR #109 (2026-11-20): the general class picker gave the Primaire / Maternelle classes to a préfet
+    of the Secondaire (directory and communication filters)."""
+    src = (SRC / 'modules/settings/api/router.py').read_text(encoding='utf-8')
+    body = src.split('def classes_selector(', 1)[1].split("@router.get('/classes')", 1)[0]
+    assert "if not capability and 'students.read' in actor.permissions:" in body and "capability='students.read'" in body

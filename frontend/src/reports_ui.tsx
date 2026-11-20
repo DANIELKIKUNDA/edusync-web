@@ -21,7 +21,8 @@ const qs = (o: Record<string, string>) => '?' + new URLSearchParams(o).toString(
 const money = (v: string | number, c: string) => formatMoney(String(v), c);
 type Profile = {code: string; label: string; title: string; intro: string};
 type Row = {payment_id: string; paid_day: string; last_name?: string; middle_name?: string; first_name?: string; class_label?: string; observation: string; currency: string; amount: string; reporting_status: string};
-type Report = {rows: Row[]; totals: Record<string, string>; partial_reporting_mode: string; profile: Profile};
+type CashLedger = {items: Array<{business_day:string;created_at:string;direction:'ENTREE'|'SORTIE';operation:string;justification?:string;reference?:string;amount:string;currency:string}>;totals:Record<string,{entries:string;outflows:string;net:string}>};
+type Report = {rows: Row[]; totals: Record<string, string>; partial_reporting_mode: string; profile: Profile; cash_ledger?: CashLedger};
 const MODE_LABEL: Record<string, string> = {SEPARATE: 'acomptes présentés à part', INCLUDE: 'acomptes inclus', EXCLUDE_UNTIL_SETTLED: 'reconnus une fois soldés'};
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 function reportActorScope(token:string):string {try {const claims=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(/^[0-9a-f-]{36}$/i.test(claims.sub)&&/^[0-9a-f-]{36}$/i.test(claims.school_id))return `${claims.school_id}.${claims.sub}`}catch{/* opaque session */}return 'current-session'}
@@ -86,6 +87,10 @@ export function PeriodicReports({token, can, official = true}: {token: string; c
           <td>{r.currency === 'CDF' ? money(r.amount, 'CDF') : ''}</td><td>{r.currency === 'USD' ? money(r.amount, 'USD') : ''}</td></tr>)}
           {report.rows.length === 0 && <tr><td colSpan={6}>Aucun encaissement pour ce rapport sur la période.</td></tr>}
           <tr><th></th><th>TOTAL</th><th></th><th></th><th>{money(report.totals.CDF ?? 0, 'CDF')}</th><th>{money(report.totals.USD ?? 0, 'USD')}</th></tr></tbody></table></div>
+      {report.cash_ledger && <><h3>Justification de la caisse</h3><div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Date</th><th>Sens</th><th>Opération / justification</th><th>Référence</th><th>Montant</th></tr></thead><tbody>
+        {report.cash_ledger.items.map((r,i)=><tr key={`${r.created_at}-${i}`}><td>{formatDate(r.business_day)}</td><td>{r.direction==='ENTREE'?'Entrée':'Sortie'}</td><td><b>{r.operation}</b>{r.justification?` · ${r.justification}`:''}</td><td>{r.reference||'—'}</td><td>{money(r.amount,r.currency)}</td></tr>)}
+        {report.cash_ledger.items.length===0&&<tr><td colSpan={5}>Aucun mouvement de caisse sur la période.</td></tr>}</tbody></table></div>
+        <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Devise</th><th>Total des entrées</th><th>Total des sorties</th><th>Solde net</th></tr></thead><tbody>{Object.entries(report.cash_ledger.totals).map(([cur,t])=><tr key={cur}><td><b>{cur==='CDF'?'FC':cur}</b></td><td>{money(t.entries,cur)}</td><td>{money(t.outflows,cur)}</td><td><b>{money(t.net,cur)}</b></td></tr>)}</tbody></table></div></>}
     </> : <div className="checkoutEmpty">Choisissez le rapport et la période, puis affichez-le. Le PDF officiel reçoit un numéro (préfixe des rapports) ; l’Excel n’en consomme pas.</div>}
     {generated.length > 0 && <details className="dayOps"><summary>Rapports officiels émis ({generated.length})</summary><ul>{generated.map(g => <li key={g.id}><span>{g.report_label} · {g.profile_code} · {formatDate(g.start_date)}{g.end_date !== g.start_date ? ` → ${formatDate(g.end_date)}` : ''}</span><b>{new Date(g.generated_at).toLocaleDateString('fr-FR')}</b></li>)}</ul></details>}
   </section>;

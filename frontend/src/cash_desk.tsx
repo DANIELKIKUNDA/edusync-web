@@ -27,6 +27,7 @@ const dayFr = (v: string) => new Date(`${v}T12:00:00`).toLocaleDateString('fr-FR
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const KIND: Record<string, string> = {RECEIPT: 'Encaissement', EXPENSE: 'Dépense', REMBOURSEMENT: 'Remboursement', ANNULATION: 'Annulation'};
 const outflow = (x: CashSession['cdf']) => fromCents(cents(x.expenses) + cents((x as any).reversals));
+const revealMobileField=(el:HTMLElement)=>{if(!window.matchMedia?.('(max-width: 800px)').matches)return;window.setTimeout(()=>el.scrollIntoView({block:'center',behavior:'smooth'}),180)};
 
 function Modal({title, sub, onClose, children, foot}: {title: string; sub?: string; onClose: () => void; children: React.ReactNode; foot: React.ReactNode}) {
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
@@ -111,7 +112,7 @@ function SessionJournal({items, canReverse, onReverse, title}: {items: Awaited<R
   const totals = useMemo(() => { const t: Record<string, {in: bigint; out: bigint}> = {}; for (const x of items as any[]) { const k = x.currency; t[k] ??= {in: 0n, out: 0n}; if (x.kind === 'RECEIPT') t[k].in += cents(x.amount); else t[k].out += cents(x.amount); } return t; }, [items]);
   return <section className="cd-card"><header className="cd-cardHead"><div><h4>{title}</h4><small>{items.length} mouvement(s){Object.entries(totals).map(([c, t]) => ` · ${c === 'CDF' ? 'FC' : c} : +${money(fromCents(t.in), c as Cur)} / −${money(fromCents(t.out), c as Cur)}`).join('')}</small></div>
     <div className="cd-tools"><div className="cd-seg" role="group" aria-label="Sens">{([['ALL', 'Tout'], ['IN', 'Entrées'], ['OUT', 'Sorties']] as const).map(([k, l]) => <button key={k} type="button" aria-pressed={dir === k} className={dir === k ? 'on' : ''} onClick={() => setDir(k)}>{l}</button>)}</div>
-      <label className="cd-search"><NavGlyph g="search" size={15}/><input value={q} onChange={e => setQ(e.target.value)} placeholder="Reçu, libellé…" aria-label="Rechercher un mouvement"/></label></div></header>
+      <label className="cd-search"><NavGlyph g="search" size={15}/><input value={q} onFocus={e=>revealMobileField(e.currentTarget)} onChange={e => setQ(e.target.value)} placeholder="Reçu, libellé…" aria-label="Rechercher un mouvement"/></label></div></header>
     <div className="cd-table" role="table" aria-label={title}><div className="cd-row cd-th" role="row"><span>Heure</span><span>Opération</span><span>Référence</span><span>Montant</span><span/></div>
       {rows.map((x: any, i) => <div className={`cd-row${x.reversed ? ' void' : ''}${x.pending ? ' cd-pending' : ''}`} role="row" key={i}>
         <span>{new Date(x.created_at).toLocaleTimeString('fr-FR')}</span>

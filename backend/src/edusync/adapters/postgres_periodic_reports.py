@@ -41,6 +41,50 @@ class PostgresPeriodicReportsRepository:
     def __init__(self, connection: Connection):
         self.c = connection
 
+    def cash_ledger(self, school_id: UUID, *, start_date: date, end_date: date) -> dict[str, Any]:
+        """Physical cash evidence for a school-wide manual report: every entry/outflow and reconciled totals.
+
+        This is deliberately separate from the pedagogical payment rows: allocations explain what pupils paid for;
+        this ledger explains how the cash balance moved (including expenses and counter-operations).
+        """
+        rows = self.c.execute(text("""SELECT * FROM (
+          SELECT s.business_date AS business_day,p.created_at,'ENTREE' AS direction,
+                 CASE WHEN EXISTS (SELECT 1 FROM finance_product_sales ps WHERE ps.payment_id=p.id)
+                      THEN 'Vente article' ELSE 'Paiement élève' END AS operation,
+                 concat_ws(' ',st.last_name,st.middle_name,st.first_name) AS justification,
+                 p.receipt_number AS reference,p.amount,p.currency
+            FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
+            LEFT JOIN enrollments e ON e.id=p.enrollment_id LEFT JOIN students st ON st.id=e.student_id
+           WHERE p.school_id=:s AND s.business_date BETWEEN :a AND :b
+          UNION ALL
+          SELECT s.business_date,e.created_at,'SORTIE','Dépense',concat_ws(' · ',e.label,e.reason),
+                 coalesce(e.reference,e.label),e.amount,e.currency
+            FROM finance_cash_expenses e JOIN finance_cash_sessions s ON s.id=e.cash_session_id
+           WHERE e.school_id=:s AND s.business_date BETWEEN :a AND :b
+          UNION ALL
+          SELECT r.business_date,r.performed_at,'SORTIE',
+                 CASE WHEN r.reversal_type='REMBOURSEMENT' THEN 'Remboursement' ELSE 'Annulation' END,
+                 r.reason,p.receipt_number,r.amount,r.currency
+            FROM finance_payment_reversals r JOIN finance_payments p ON p.id=r.payment_id
+           WHERE r.school_id=:s AND r.business_date BETWEEN :a AND :b
+          UNION ALL
+          SELECT s.business_date,f.received_at,'ENTREE','Fonds anticipé','Avance reçue',f.receipt_number,f.amount,f.currency
+            FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id
+           WHERE f.school_id=:s AND f.origin_type='PAYMENT_ADVANCE' AND s.business_date BETWEEN :a AND :b
+          UNION ALL
+          SELECT c.business_date,c.performed_at,'SORTIE','Restitution fonds anticipé',c.reason,
+                 coalesce(f.receipt_number,f.reference),c.amount,f.currency
+            FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id
+           WHERE c.school_id=:s AND c.closure_type IN ('ANNULATION','REMBOURSEMENT') AND c.business_date BETWEEN :a AND :b
+        ) ledger ORDER BY business_day,created_at,reference"""), {"s": school_id, "a": start_date, "b": end_date}).mappings().all()
+        items = [{**dict(r), "amount": str(money(r["amount"])), "business_day": str(r["business_day"]), "created_at": str(r["created_at"])} for r in rows]
+        totals = {cur: {"entries": Decimal("0"), "outflows": Decimal("0")} for cur in ("CDF", "USD")}
+        for r in rows:
+            bucket = totals.setdefault(r["currency"], {"entries": Decimal("0"), "outflows": Decimal("0")})
+            bucket["entries" if r["direction"] == "ENTREE" else "outflows"] += money(r["amount"])
+        return {"items": items, "totals": {cur: {"entries": str(money(v["entries"])), "outflows": str(money(v["outflows"])),
+                                                          "net": str(money(v["entries"] - v["outflows"]))} for cur, v in totals.items()}}
+
     # ---------- raw material ----------
     @staticmethod
     def _scope_clause(scopes):

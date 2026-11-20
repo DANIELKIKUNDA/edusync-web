@@ -10,6 +10,7 @@ import './recovery_direction.css';
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const money=(v:any,c:string)=>`${Number(v||0).toLocaleString('fr-FR')} ${c==='CDF'?'FC':c}`;
 const pct=(v:any)=>`${Number(v||0).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})} %`;
+const revealMobileField=(el:HTMLElement)=>{if(!window.matchMedia?.('(max-width: 800px)').matches)return;window.setTimeout(()=>el.scrollIntoView({block:'center',behavior:'smooth'}),180)};
 
 export default function RecoveryDirection({token,can,yearId,currency,live}:{token:string;can:(p:string)=>boolean;yearId:string;currency:string;live:number}){
   const [fees,setFees]=useState<any[]>([]),[feeTypeId,setFeeTypeId]=useState(''),[periodOrder,setPeriodOrder]=useState(''),[asOf,setAsOf]=useState(today());
@@ -77,7 +78,7 @@ export default function RecoveryDirection({token,can,yearId,currency,live}:{toke
         <section className="directionPupils" aria-label="Élèves à relancer">
           <div className="directionPupilsTitle"><div><h3>Élèves à relancer</h3><p>Les dettes correspondant aux frais et à la période sélectionnés, dans votre périmètre autorisé.</p></div><strong>{unpaid.length} élève(s)</strong></div>
           <div className="directionPupilFilters">
-            <label>Rechercher<input type="search" placeholder="Nom, matricule ou téléphone…" aria-label="Rechercher un élève à relancer" value={search} onChange={e=>setSearch(e.target.value)}/></label>
+            <label>Rechercher<input type="search" placeholder="Nom, matricule ou téléphone…" aria-label="Rechercher un élève à relancer" value={search} onFocus={e=>revealMobileField(e.currentTarget)} onChange={e=>setSearch(e.target.value)}/></label>
             <label>Section<select aria-label="Section des élèves à relancer" value={section} onChange={e=>{setSection(e.target.value);setClassFilter('')}}><option value="">Toutes les sections autorisées</option>{sections.map(s=><option key={s}>{s}</option>)}</select></label>
             <label>Classe<select aria-label="Classe des élèves à relancer" value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="">Toutes les classes autorisées</option>{classes.map(c=><option key={c}>{c}</option>)}</select></label>
           </div>

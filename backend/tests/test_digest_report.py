@@ -10,7 +10,14 @@ from edusync.modules.finance_recovery.application.digest_document import digest_
 
 def school_week():
     return Digest(kind="WEEK", start=date(2026, 11, 16), end=date(2026, 11, 21), school_name="C.S. ABBE P.N.",
-                  cash={"total": 4250000, "previous": 3800000, "best_day": (date(2026, 11, 17), 1340000)},
+                  cash={"total": 4250000, "previous": 3800000, "best_day": (date(2026, 11, 17), 1340000),
+                        "entries": 4300000, "outflows": 50000, "net": 4250000,
+                        "movements": [{"d": date(2026, 11, 17), "at": "2026-11-17T09:10:00", "direction": "ENTREE",
+                                       "operation": "Paiement élève", "party": "Kikunda Élève", "reference": "REC-001",
+                                       "reason": None, "amount": 4300000},
+                                      {"d": date(2026, 11, 18), "at": "2026-11-18T11:00:00", "direction": "SORTIE",
+                                       "operation": "Dépense", "party": "Fournitures", "reference": "DEP-001",
+                                       "reason": "Craies", "amount": 50000}]},
                   recovery={"expected": 143275000, "regularized": 88975000, "remaining": 54300000, "rate": 62.1},
                   weakest_class={"label": "4e CG", "rate": 41}, pupils={"active": 558, "abandons": ["3e MA", "1re primaire"], "transfers": []},
                   attention={"reversals": 3, "open_sessions": 0})
@@ -53,3 +60,22 @@ def test_pdf_contains_the_letter_and_the_classes():
                                        classes=[{"class_label": "4e CG", "debtors": 23, "expected": 1000, "regularized_total": 410, "remaining": 590, "recovery_rate": 41}])))
     text = " ".join(" ".join(p.extract_text().split()) for p in pdf.pages)
     assert "Bonjour Monsieur le Promoteur," in text and "Recouvrement par classe" in text and "4e CG" in text
+    assert "Justification des mouvements de caisse" in text
+    assert "Total des entrées" in text and "Total des sorties" in text and "Solde net" in text
+    assert "Paiement élève" in text and "REC-001" in text and "Dépense" in text and "DEP-001" in text
+
+
+def test_pdf_justifies_fc_and_usd_separately():
+    """Certification PR #109 (2026-11-20): USD movements were absent from the FC letter's ledger."""
+    d = school_week()
+    d.cash = {**d.cash, "entries": 4250000, "outflows": 0, "net": 4250000,
+              "movements": [{"d": date(2026, 11, 17), "direction": "ENTREE", "operation": "Paiement élève", "party": "KABILA Jean", "reference": "REC-1", "amount": 85000}]}
+    d.other_cash = {"USD": {"entries": 50, "outflows": 10, "net": 40, "movements": [
+        {"d": date(2026, 11, 18), "direction": "ENTREE", "operation": "Paiement élève", "party": "MUTOMBO Paul", "reference": "REC-2", "amount": 50},
+        {"d": date(2026, 11, 19), "direction": "SORTIE", "operation": "Annulation", "party": None, "reference": "REC-2", "reason": "erreur", "amount": 10}]}}
+    pdf = PdfReader(BytesIO(digest_pdf(digest=d, greeting="Bonjour,", signature="EduSync", classes=[])))
+    text = " ".join(" ".join(p.extract_text().split()) for p in pdf.pages)
+    assert "Justification des mouvements de caisse" in text and "Justification des mouvements de caisse — USD" in text
+    assert "KABILA Jean" in text and "MUTOMBO Paul" in text
+    usd = text.split("— USD", 1)[1]
+    assert "40 USD" in usd and "50 USD" in usd and "10 USD" in usd and "85 000 FC" not in usd

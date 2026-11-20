@@ -21,11 +21,12 @@ export function RecoveryChart({token, yearId, compact, onOpen}: {token: string; 
   const [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
   const [data, setData] = useState<Data | null>(null); const [error, setError] = useState(''); const [view, setView] = useState<'chart' | 'table'>('chart');
   const [hover, setHover] = useState<number | null>(null);
+  // Certification mobile PR #109 (2026-11-20): the chart follows its card down to 200 px (a 280 px floor overflowed at 320 px).
   const [width, setWidth] = useState(640); const ro = useRef<ResizeObserver | null>(null);
   // Callback ref: the chart box appears only once the data is loaded, so the observer is attached at that moment.
   const box = (el: HTMLDivElement | null) => { ro.current?.disconnect(); if (!el || typeof ResizeObserver === 'undefined') return;
-    setWidth(Math.max(280, Math.round(el.getBoundingClientRect().width)));
-    ro.current = new ResizeObserver(e => setWidth(Math.max(280, Math.round(e[0].contentRect.width)))); ro.current.observe(el); };
+    setWidth(Math.max(200, Math.round(el.getBoundingClientRect().width)));
+    ro.current = new ResizeObserver(e => setWidth(Math.max(200, Math.round(e[0].contentRect.width)))); ro.current.observe(el); };
   useEffect(() => () => ro.current?.disconnect(), []);
   useEffect(() => { let alive = true; setData(null); setError('');
     recoveryMonthly(token, yearId, currency).then((r: any) => { if (alive) setData({items: r?.items ?? [], total: r?.total ?? null}); }).catch(e => { if (alive) setError(e instanceof Error ? e.message : 'Données indisponibles'); });

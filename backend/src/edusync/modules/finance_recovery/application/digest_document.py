@@ -16,6 +16,44 @@ from edusync.modules.finance_recovery.application.direction_report_document impo
 from edusync.modules.finance_recovery.domain.digest import Digest, money, paragraphs, pct, title
 
 
+def _cash_section(story: list[Any], cash_in: dict[str, Any] | None, cur: str, title_suffix: str = "") -> None:
+    """Entries, outflows and net of ONE currency, then every movement (FC and USD never mixed)."""
+    cash = cash_in or {}
+    movements = cash.get("movements") or []
+    if cash:
+        story += [Spacer(1, 5 * mm), Paragraph("Justification des mouvements de caisse" + title_suffix, T2),
+                  Paragraph("Les entrées et les sorties ci-dessous expliquent le solde de la période. "
+                            "Les annulations, remboursements et dépenses sont présentés comme sorties.", PETIT)]
+        summary = [[Paragraph(h, ENT) for h in ("Devise", "Total des entrées", "Total des sorties", "Solde net")],
+                   ["FC" if cur == "CDF" else cur, money(cash.get("entries"), cur),
+                    money(cash.get("outflows"), cur), money(cash.get("net"), cur)]]
+        st = Table(summary, colWidths=[34 * mm, 45 * mm, 45 * mm, 45 * mm], repeatRows=1)
+        st.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), BLEU), ("GRID", (0, 0), (-1, -1), .4, TRAIT),
+                                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, FOND]),
+                                ("FONTSIZE", (0, 1), (-1, -1), 8.5), ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+                                ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        story.append(st)
+    if movements:
+        story += [Spacer(1, 3 * mm)]
+        data = [[Paragraph(h, ENT) for h in ("Date", "Sens", "Opération / justification", "Référence", "Montant")]]
+        for row in movements:
+            at = row.get("at")
+            day = row.get("d")
+            stamp = (day.strftime("%d/%m/%Y") if hasattr(day, "strftime") else str(day or ""))
+            if hasattr(at, "strftime"):
+                stamp += " " + at.strftime("%H:%M")
+            detail = " — ".join(str(x) for x in (row.get("operation"), row.get("party"), row.get("reason")) if x)
+            data.append([stamp, "Entrée" if row.get("direction") == "ENTREE" else "Sortie",
+                         Paragraph(escape(detail or "—"), CEL), row.get("reference") or "—",
+                         money(row.get("amount"), cur)])
+        ledger = Table(data, colWidths=[29 * mm, 18 * mm, 67 * mm, 28 * mm, 27 * mm], repeatRows=1)
+        ledger.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), BLEU), ("GRID", (0, 0), (-1, -1), .35, TRAIT),
+                                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, FOND]),
+                                    ("FONTSIZE", (0, 1), (-1, -1), 7.2), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),
+                                    ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TEXTCOLOR", (0, 1), (-1, -1), GRIS)]))
+        story.append(ledger)
+
+
 def digest_pdf(*, digest: Digest, greeting: str, classes: list[dict[str, Any]], signature: str) -> bytes:
     out = BytesIO()
     doc = SimpleDocTemplate(out, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=16 * mm,
@@ -40,6 +78,9 @@ def digest_pdf(*, digest: Digest, greeting: str, classes: list[dict[str, Any]], 
                                ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                                ("TEXTCOLOR", (1, 1), (-1, -1), GRIS)]))
         story.append(t)
+    _cash_section(story, digest.cash, digest.currency)
+    for other_cur, other in sorted((digest.other_cash or {}).items()):
+        _cash_section(story, other, other_cur, " — " + ("FC" if other_cur == "CDF" else other_cur))
     story += [Spacer(1, 4 * mm), Paragraph("Rapport produit automatiquement par EduSync à partir des encaissements, des inscriptions "
                                            "et des mouvements d’élèves enregistrés. Les montants sont nets des annulations.", PETIT)]
     doc.build(story)

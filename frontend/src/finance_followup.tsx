@@ -12,6 +12,7 @@ import {NavGlyph} from './platform/nav_icons';
 import './finance_followup.css';
 
 type View = 'NOT' | 'OK' | 'ALL';
+const revealMobileField=(el:HTMLElement)=>{if(!window.matchMedia?.('(max-width: 800px)').matches)return;window.setTimeout(()=>el.scrollIntoView({block:'center',behavior:'smooth'}),180)};
 export default function FinanceFollowup({token, can, yearId, schoolName}: {token: string; can: (p: string) => boolean; yearId?: string; schoolName?: string}) {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [section, setSection] = useState(''); const [classId, setClassId] = useState('');
@@ -59,7 +60,7 @@ export default function FinanceFollowup({token, can, yearId, schoolName}: {token
           <button type="button" className={view === 'ALL' ? 'on' : ''} onClick={() => setView('ALL')}><b>{formatMoney(d.remaining, d.currency)}</b><span>Reste à recouvrer</span><small>taux {d.rate.toLocaleString('fr-FR')} %</small></button>
         </div>
         <div className="ff-bar"><div><b>{d.class_label}</b> · {d.title}{d.cumulative && d.periods.length > 1 ? <small> ({d.periods.join(', ')})</small> : null}</div>
-          <label className="ff-search"><NavGlyph g="search" size={15}/><input value={q} onChange={e => setQ(e.target.value)} placeholder="Nom ou matricule…" aria-label="Rechercher un élève"/></label>
+          <label className="ff-search"><NavGlyph g="search" size={15}/><input value={q} onFocus={e=>revealMobileField(e.currentTarget)} onChange={e => setQ(e.target.value)} placeholder="Nom ou matricule…" aria-label="Rechercher un élève"/></label>
           {canExport && <div className="ff-actions" aria-label="Actions d’export"><button type="button" className="ff-btn primary" onClick={() => void print(false)} disabled={!d.counts.not_in_order}><NavGlyph g="print" size={17}/>Liste des non-régularisés</button>
             <button type="button" className="ff-btn" onClick={() => void print(true)}><NavGlyph g="doc" size={17}/>Situation de toute la classe</button><button type="button" className="ff-btn" onClick={() => void excel()}><NavGlyph g="sheet" size={17}/>Exporter vers Excel</button></div>}
         </div>
