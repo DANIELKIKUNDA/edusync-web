@@ -155,30 +155,41 @@ def daily_report_pdf(*, school_name: str, report: dict[str, Any]) -> bytes:
             y -= 4.5*mm
     y -= 5 * mm
 
-    # Full operation ledger: useful for a manager without forcing a separate journal document.
-    c.setFont("Helvetica-Bold", 10); c.drawString(left, y, "Opérations de la journée"); y -= 5 * mm
-    opcols=[left,left+20*mm,left+64*mm,left+96*mm,left+121*mm,left+146*mm]
-    def op_head():
-        nonlocal y
-        for label,x in zip(("Heure","Opération","Référence","Montant","Devise","Utilisateur"),opcols):
-            c.setFont("Helvetica-Bold",7); c.drawString(x,y,label)
-        y -= 4*mm
-    op_head()
+    # Separate ledgers make the report directly auditable: every entry explains the entry total, every outflow explains
+    # the outflow total. A manager should not have to reconstruct the two sides from one mixed list.
     ops=report.get("operations",[])
-    if not ops:
-        c.setFont("Helvetica-Oblique",8); c.drawString(left,y,"Aucune opération enregistrée."); y -= 5*mm
-    else:
-        for op in ops:
-            if y < 22*mm:
-                c.showPage(); y=header(True); c.setFont("Helvetica-Bold",10); c.drawString(left,y,"Opérations de la journée — suite"); y-=5*mm; op_head()
+    opcols=[left,left+18*mm,left+54*mm,left+98*mm,left+128*mm,left+154*mm]
+    def ledger(direction: str, heading: str):
+        nonlocal y
+        rows=[op for op in ops if op.get("direction")==direction]
+        if y < 40*mm: c.showPage(); y=header(True)
+        c.setFont("Helvetica-Bold",10); c.drawString(left,y,heading); y-=5*mm
+        for label,x in zip(("Heure","Opération","Justification","Référence","Montant","Opérateur"),opcols):
+            c.setFont("Helvetica-Bold",7); c.drawString(x,y,label)
+        y-=4*mm
+        if not rows:
+            c.setFont("Helvetica-Oblique",8); c.drawString(left,y,"Aucun mouvement."); y-=5*mm
+        for op in rows:
+            if y < 26*mm:
+                c.showPage(); y=header(True); c.setFont("Helvetica-Bold",10); c.drawString(left,y,heading+" — suite"); y-=5*mm
+                for label,x in zip(("Heure","Opération","Justification","Référence","Montant","Opérateur"),opcols):
+                    c.setFont("Helvetica-Bold",7); c.drawString(x,y,label)
+                y-=4*mm
             at=op.get("created_at")
+            detail=" · ".join(str(v) for v in (op.get("party"),op.get("reason")) if v) or "—"
             vals=[at.strftime("%H:%M") if hasattr(at,"strftime") else str(at or "")[11:16],
-                  SOURCES.get(op.get("source"),str(op.get("source") or "").replace("_"," ").title()),
-                  op.get("reference") or "—", _money(op.get("amount")), CURRENCY.get(op.get("currency"),op.get("currency")),
+                  SOURCES.get(op.get("source"),str(op.get("source") or "").replace("_"," ").title()),detail,
+                  op.get("reference") or "—",f"{_money(op.get('amount'))} {CURRENCY.get(op.get('currency'),op.get('currency'))}",
                   op.get("user_name") or "—"]
-            c.setFont("Helvetica",6.8)
-            for v,x in zip(vals,opcols): c.drawString(x,y,str(v)[:28])
-            y -= 4.2*mm
+            c.setFont("Helvetica",6.5)
+            for v,x in zip(vals,opcols): c.drawString(x,y,str(v)[:34])
+            y-=4.2*mm
+        totals={r["currency"]:sum((Decimal(str(op.get("amount") or 0)) for op in rows if op.get("currency")==r["currency"]),Decimal("0")) for r in report.get("totals",[])}
+        c.setFont("Helvetica-Bold",7.5)
+        total_text=" · ".join(f"{_money(amount)} {CURRENCY.get(cur,cur)}" for cur,amount in totals.items()) or "0"
+        c.drawRightString(right,y,f"TOTAL {heading.upper()} : {total_text}"); y-=7*mm
+    ledger("ENTREE","Détail des entrées")
+    ledger("SORTIE","Détail des sorties")
 
     if report.get("closed_at"):
         if y < 28*mm: c.showPage(); y=header(True)
