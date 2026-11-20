@@ -2,6 +2,8 @@
 // 1. A data table becomes one card per record (mobile.css, table.m-cards): each cell receives the label of its column.
 //    Tables marked data-keep-table (comparisons read across rows) are left as they are.
 // 2. A tab touched in a swiped tab bar is brought to the centre, so the next one is always visible.
+// 3. When the software keyboard opens, the active field is brought back into the visible viewport. This also keeps
+//    an autocomplete/result list immediately below a search field visible instead of leaving it behind the keyboard.
 const PHONE = '(max-width:767.98px)';
 function label(table: HTMLTableElement) {
   if (table.dataset.keepTable !== undefined || table.closest('[data-keep-table]')) return;
@@ -31,4 +33,20 @@ export function installMobileEnhancements() {
   document.addEventListener('click', e => { if (!mq.matches) return;
     const tab = (e.target as HTMLElement | null)?.closest?.('[role=tab], .personTabs > *, .financeTabs > *, .kp-tabs > *, .fxTabs > *, .commTabs > *');
     if (tab) (tab as HTMLElement).scrollIntoView({behavior: 'smooth', inline: 'center', block: 'nearest'}); }, true);
+
+  let revealTimer = 0;
+  const revealFocusedControl = () => {
+    if (!mq.matches) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (!active?.matches('input, select, textarea, [contenteditable="true"]')) return;
+    window.clearTimeout(revealTimer);
+    // Android reports the final visual viewport a little after focus; waiting avoids scrolling to the pre-keyboard
+    // position and works for both native selects and text searches.
+    revealTimer = window.setTimeout(() => {
+      if (document.activeElement !== active) return;
+      active.scrollIntoView({behavior: 'smooth', block: 'center', inline: 'nearest'});
+    }, 180);
+  };
+  document.addEventListener('focusin', revealFocusedControl, true);
+  window.visualViewport?.addEventListener('resize', revealFocusedControl);
 }
