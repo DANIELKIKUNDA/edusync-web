@@ -71,6 +71,30 @@ def periodic_report_pdf(*, school: dict[str, Any], report: dict[str, Any], perio
                                ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F9FAFB")]), ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#F2F4F7")),
                                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("ALIGN", (4, 1), (-1, -1), "RIGHT")]))
     story.append(table); story.append(Spacer(1, 12 * mm))
+    ledger = report.get("cash_ledger") or {}
+    if ledger:
+        story.append(Paragraph("JUSTIFICATION DE LA CAISSE", title_style))
+        summary = [[Paragraph(x, strong) for x in ("Devise", "Entrées", "Sorties", "Solde net")]]
+        for cur in ("CDF", "USD"):
+            t = ledger.get("totals", {}).get(cur, {})
+            summary.append(["FC" if cur == "CDF" else cur, _money(t.get("entries")), _money(t.get("outflows")), _money(t.get("net"))])
+        cash_table = Table(summary, colWidths=[35 * mm, 45 * mm, 45 * mm, 45 * mm], repeatRows=1)
+        cash_table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF2FF")),
+                                        ("GRID", (0, 0), (-1, -1), .45, colors.HexColor("#D0D5DD")),
+                                        ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        story += [cash_table, Spacer(1, 4 * mm)]
+        detail = [[Paragraph(x, strong) for x in ("Date", "Sens", "Opération / justification", "Référence", "Montant")]]
+        for r in ledger.get("items", []):
+            desc = " — ".join(str(x) for x in (r.get("operation"), r.get("justification")) if x)
+            detail.append([str(r.get("business_day") or ""), "Entrée" if r.get("direction") == "ENTREE" else "Sortie",
+                           Paragraph(escape(desc or "—"), body_style), r.get("reference") or "—",
+                           Paragraph(f"{_money(r.get('amount'))} {'FC' if r.get('currency') == 'CDF' else r.get('currency')}", right)])
+        movements = Table(detail, colWidths=[24 * mm, 17 * mm, 76 * mm, 28 * mm, 25 * mm], repeatRows=1)
+        movements.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF2FF")),
+                                       ("GRID", (0, 0), (-1, -1), .35, colors.HexColor("#D0D5DD")),
+                                       ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+                                       ("FONTSIZE", (0, 1), (-1, -1), 7.2), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
+        story += [movements, Spacer(1, 10 * mm)]
     from edusync.modules.documents.application.identity import signatory_line
     signer = signatory_line(school)                # Desktop save_document_settings signatory (name — title)
     signature = Table([[Paragraph("Visa / cachet de l’école", meta_style), Paragraph("Signature du responsable financier", meta_style)],
@@ -110,6 +134,22 @@ def periodic_report_xlsx(*, school: dict[str, Any], report: dict[str, Any], peri
     for idx, width in enumerate([8, 14, 34, 24, 28, 16, 14], 1):
         ws.column_dimensions[get_column_letter(idx)].width = width
     ws.freeze_panes = "A5"; ws.sheet_view.showGridLines = False; ws.page_setup.orientation = "landscape"
+    ledger = report.get("cash_ledger") or {}
+    if ledger:
+        cash = wb.create_sheet("Justification caisse")
+        cash.append(["Date", "Heure", "Sens", "Opération", "Justification", "Référence", "Montant", "Devise"])
+        for cell in cash[1]: cell.fill = PatternFill("solid", fgColor=blue); cell.font = Font(bold=True, color="FFFFFF")
+        for r in ledger.get("items", []):
+            created = str(r.get("created_at") or "")
+            cash.append([r.get("business_day"), created[11:16], "Entrée" if r.get("direction") == "ENTREE" else "Sortie",
+                         r.get("operation"), r.get("justification"), r.get("reference"), float(Decimal(r.get("amount") or 0)), r.get("currency")])
+        cash.append([]); cash.append(["SYNTHÈSE", None, None, None, None, "Devise", "Entrées", "Sorties", "Solde net"])
+        for cur in ("CDF", "USD"):
+            t = ledger.get("totals", {}).get(cur, {})
+            cash.append([None, None, None, None, None, cur, float(Decimal(t.get("entries") or 0)),
+                         float(Decimal(t.get("outflows") or 0)), float(Decimal(t.get("net") or 0))])
+        for col, width in zip("ABCDEFGHI", [14, 10, 12, 23, 38, 20, 17, 12, 17]): cash.column_dimensions[col].width = width
+        cash.freeze_panes = "A2"; cash.sheet_view.showGridLines = False
     neutralize_formulas(wb); out = BytesIO(); wb.save(out); return out.getvalue()   # formula injection guard (D14)
 
 
