@@ -126,7 +126,11 @@ def periodic(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIER', s
     a, b = _period(period_type, start, end)
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            return _jsonable(PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=b, profile_code=profile_code, scopes=actor.scopes_for('finance.reports.periodic.generate')))
+            repo = PostgresPeriodicReportsRepository(c)
+            report = repo.report_rows(actor.school_id, start_date=a, end_date=b, profile_code=profile_code, scopes=actor.scopes_for('finance.reports.periodic.generate'))
+            if any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.periodic.generate')):
+                report['cash_ledger'] = repo.cash_ledger(actor.school_id, start_date=a, end_date=b)
+            return _jsonable(report)
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
 
@@ -174,6 +178,11 @@ def periodic_pdf(b: PeriodicPdfBody, idempotency_key: str = Header(..., alias='I
             else:
                 repo = PostgresPeriodicReportsRepository(c)
                 report = repo.report_rows(actor.school_id, start_date=a, end_date=z, profile_code=b.profile_code)
+                # getattr keeps repository test doubles and older extensions compatible while the production repository
+                # always supplies the auditable ledger.
+                ledger = getattr(repo, 'cash_ledger', None)
+                if ledger:
+                    report['cash_ledger'] = ledger(actor.school_id, start_date=a, end_date=z)
                 issued = repo.register(actor.school_id, user_id=actor.user_id, profile_code=b.profile_code,
                                        period_type=b.period_type, start_date=a, end_date=z, report=report,
                                        request_key=idempotency_key)
@@ -216,7 +225,10 @@ def periodic_xlsx(profile_code: str = 'CONSOLIDE', period_type: str = 'JOURNALIE
     _need_periodic_scope(actor, 'finance.reports.periodic.export'); a, z = _period(period_type, start, end)
     try:
         with services.tenant_db.tenant_transaction(school_id=actor.school_id, user_id=actor.user_id) as c:
-            report = PostgresPeriodicReportsRepository(c).report_rows(actor.school_id, start_date=a, end_date=z, profile_code=profile_code, scopes=actor.scopes_for('finance.reports.periodic.export'))
+            repo = PostgresPeriodicReportsRepository(c)
+            report = repo.report_rows(actor.school_id, start_date=a, end_date=z, profile_code=profile_code, scopes=actor.scopes_for('finance.reports.periodic.export'))
+            if any(t == 'SCHOOL' for t, _ in actor.scopes_for('finance.reports.periodic.export')):
+                report['cash_ledger'] = repo.cash_ledger(actor.school_id, start_date=a, end_date=z)
             school = _school(c, actor.school_id)
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
