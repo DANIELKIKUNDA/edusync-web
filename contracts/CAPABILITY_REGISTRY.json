@@ -11,7 +11,7 @@
  },
  "owner_decides_roles_and_assignments": true,
  "role_assignments_finalized": true,
- "capability_count": 305,
+ "capability_count": 306,
  "capabilities": [
   {
    "code": "access.grants.exception",
@@ -6819,6 +6819,7 @@
    "replaced_by": null,
    "school_adjustable": true
   },
+  {"code":"subscription.account.read","domain":"Abonnement EduSync","group":"Abonnement","label":"Consulter l’abonnement, les factures et paiements de l’école","action":"read","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":false,"scope_types":["SCHOOL"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"Lecture strictement limitée à l’école du jeton; aucune mutation commerciale.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
   {
    "code": "sync.conflicts.read",
    "domain": "Synchronisation & offline",
@@ -7115,6 +7116,7 @@
     "settings.tariffs.manage",
     "settings.tariffs.read",
     "settings.work_year.select",
+    "subscription.account.read",
     "sync.conflicts.read",
     "sync.conflicts.resolve",
     "sync.device.register",
@@ -7495,6 +7497,7 @@
    "kind": "SCHOOL_STANDARD",
    "capabilities": [
     "audit.entity.history.read",
+    "subscription.account.read",
     "audit.school.export",
     "audit.school.filter",
     "audit.school.read",
@@ -7784,6 +7787,7 @@
    "kind": "SCHOOL_STANDARD",
    "capabilities": [
     "audit.entity.history.read",
+    "subscription.account.read",
     "audit.school.export",
     "audit.school.filter",
     "audit.school.read",
@@ -7914,6 +7918,7 @@
    "kind": "SCHOOL_STANDARD",
    "capabilities": [
     "audit.entity.history.read",
+    "subscription.account.read",
     "audit.school.export",
     "audit.school.filter",
     "audit.school.read",

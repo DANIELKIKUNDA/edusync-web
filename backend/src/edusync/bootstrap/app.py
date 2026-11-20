@@ -37,6 +37,7 @@ from edusync.modules.access.api.router import router as access_router
 from edusync.modules.setup.api.router import router as setup_router
 from edusync.modules.alerts.api.router import router as supervision_router
 from edusync.modules.subscriptions.api.router import router as subscriptions_router
+from edusync.modules.subscriptions.api.school_router import router as school_subscription_router
 from edusync.shared.infrastructure.observability import CorrelationLoggingMiddleware, configure_logging
 from edusync.shared.infrastructure.security_headers import SecurityHeadersMiddleware
 from edusync.shared.infrastructure.api_guard import ApiGuardMiddleware
@@ -182,6 +183,7 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.include_router(notifications_center_router, prefix="/api/v1")
     app.include_router(platform_router, prefix="/api/v1/platform")
     app.include_router(subscriptions_router, prefix="/api/v1/platform/billing")
+    app.include_router(school_subscription_router, prefix="/api/v1/subscription")
     app.include_router(settings_router, prefix="/api/v1/settings")
     app.include_router(personnel_router, prefix="/api/v1/personnel")
     app.include_router(schooling_router, prefix="/api/v1/schooling")
