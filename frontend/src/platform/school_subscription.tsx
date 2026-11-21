@@ -1,0 +1,281 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Button, EmptyState, PageHeader, Skeleton } from "./ui";
+import { NavGlyph } from "./nav_icons";
+import { friendlyError } from "./errors";
+import {
+  getSchoolSubscriptionAccount,
+  initiateSubscriptionPayment,
+  type SchoolSubscriptionAccount,
+  type SchoolInvoice,
+} from "./school_subscription_api";
+import './school_subscription.css';
+import './school_subscription_payment.css';
+
+const LABEL: Record<string, string> = {
+  MONTHLY: "Mensuel",
+  QUARTERLY: "Trimestriel",
+  ANNUAL: "Annuel",
+  ACTIVE: "Actif",
+  TRIAL: "Essai",
+  PENDING_PAYMENT: "Paiement attendu",
+  PAST_DUE: "Échu",
+  GRACE: "Délai de grâce",
+  LIMITED: "Accès limité",
+  SUSPENDED: "Suspendu",
+  ISSUED: "Émise",
+  PARTIALLY_PAID: "Partiellement payée",
+  PAID: "Payée",
+  OVERDUE: "En retard",
+  SUCCEEDED: "Confirmé",
+  PENDING: "En attente",
+  FAILED: "Échoué",
+  CANCELLED: "Annulé",
+  EXPIRED: "Expiré",
+};
+const money = (v: string | number, c: string) =>
+  new Intl.NumberFormat("fr-CD", {
+    style: "currency",
+    currency: c,
+    maximumFractionDigits: 2,
+  }).format(Number(v) || 0);
+const day = (v?: string | null) =>
+  v ? new Date(v).toLocaleDateString("fr-FR") : "—";
+const badge = (s: string) => (
+  <span className={`sa-status ${s}`}>{LABEL[s] || s}</span>
+);
+export default function SchoolSubscriptionPage({ token }: { token: string }) {
+  const [data, setData] = useState<SchoolSubscriptionAccount | null>(null),
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true),
+    [paying, setPaying] = useState<SchoolInvoice | null>(null);
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      setData(await getSchoolSubscriptionAccount(token));
+    } catch (e) {
+      setError(friendlyError(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const due = useMemo(
+    () =>
+      data?.invoices
+        .filter((x) => !["PAID", "VOID", "REFUNDED"].includes(x.status))
+        .reduce((n, x) => n + Number(x.total) - Number(x.paid_total), 0) || 0,
+    [data],
+  );
+  if (loading)
+    return (
+      <div className="ui-page sa">
+        <Skeleton lines={7} />
+      </div>
+    );
+  return (
+    <div className="ui-page sa">
+      <PageHeader
+        eyebrow="Compte EduSync"
+        title="Mon abonnement"
+        subtitle="Votre offre, les fonctionnalités incluses, les échéances et les justificatifs de paiement."
+        actions={
+          <Button icon="sync" onClick={() => void load()}>
+            Actualiser
+          </Button>
+        }
+      />
+      {error && (
+        <div className="sc-error" role="alert">
+          <NavGlyph g="alert" size={18} />
+          <div>
+            <b>Abonnement indisponible</b>
+            <small>{error}</small>
+          </div>
+        </div>
+      )}
+      {data && !data.subscription ? (
+        <EmptyState
+          icon="receipt"
+          title="Aucun abonnement actif"
+          text="Contactez Volcano Tech pour choisir ou réactiver une offre EduSync."
+        />
+      ) : (
+        data?.subscription && (
+          <>
+            <div className="sa-hero">
+              <article className="sa-main">
+                {badge(data.subscription.status)}
+                <h3>{data.subscription.plan_name}</h3>
+                <p>
+                  {data.subscription.plan_description ||
+                    "Votre offre EduSync actuelle."}
+                </p>
+                <small>
+                  {LABEL[data.subscription.billing_cycle] ||
+                    data.subscription.billing_cycle}{" "}
+                  · renouvellement{" "}
+                  {data.subscription.auto_renew ? "automatique" : "manuel"}
+                </small>
+              </article>
+              <Stat
+                label="Montant"
+                value={money(
+                  data.subscription.amount,
+                  data.subscription.currency,
+                )}
+              />
+              <Stat
+                label="Prochaine échéance"
+                value={day(data.subscription.next_billing_on)}
+              />
+              <Stat
+                label="Solde ouvert"
+                value={money(due, data.subscription.currency)}
+              />
+            </div>
+            {["GRACE", "LIMITED", "PAST_DUE"].includes(
+              data.subscription.status,
+            ) && (
+              <div className="sa-note">
+                <NavGlyph g="alert" size={18} />
+                <span>
+                  {data.subscription.status === "LIMITED"
+                    ? "L’accès est limité après expiration du délai de grâce. Vos données sont conservées et seront accessibles après régularisation."
+                    : "Une échéance demande votre attention. Contactez le gestionnaire EduSync avec votre référence de paiement."}
+                </span>
+              </div>
+            )}
+            <section className="sa-box">
+              <div className="sa-box-head">
+                <h3>Fonctionnalités incluses</h3>
+                <p>
+                  {data.modules.length} module
+                  {data.modules.length > 1 ? "s" : ""} dans votre offre
+                </p>
+              </div>
+              <div className="sa-modules">
+                {data.modules.map((m) => (
+                  <article className="sa-module" key={m.module_code}>
+                    {badge(m.status)}
+                    <b>{m.label}</b>
+                    <p>
+                      {m.description ||
+                        "Fonctionnalité incluse dans votre abonnement."}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
+            <section className="sa-box">
+              <div className="sa-box-head">
+                <h3>Factures</h3>
+                <p>
+                  Historique commercial EduSync, distinct des finances de
+                  l’école
+                </p>
+              </div>
+              {!data.invoices.length ? (
+                <div className="sa-empty">Aucune facture.</div>
+              ) : (
+                <table className="sa-table">
+                  <thead>
+                    <tr>
+                      <th>Numéro</th>
+                      <th>Période</th>
+                      <th>Échéance</th>
+                      <th>Total</th>
+                      <th>Payé</th>
+                      <th>État</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.invoices.map((x) => (
+                      <tr key={x.id}>
+                        <td data-label="Numéro">
+                          <b>{x.invoice_number}</b>
+                        </td>
+                        <td data-label="Période">
+                          {day(x.period_start)} → {day(x.period_end)}
+                        </td>
+                        <td data-label="Échéance">{day(x.due_at)}</td>
+                        <td data-label="Total" className="sa-money">
+                          {money(x.total, x.currency)}
+                        </td>
+                        <td data-label="Payé" className="sa-money">
+                          {money(x.paid_total, x.currency)}
+                        </td>
+                        <td data-label="État">{badge(x.status)}</td>
+                        <td data-label="Action">
+                          {!['PAID','VOID','REFUNDED'].includes(x.status) && <Button onClick={() => setPaying(x)}>Payer</Button>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+            {paying && <PaymentPanel token={token} invoice={paying} onClose={() => setPaying(null)} onDone={async () => {setPaying(null);await load()}} />}
+            <section className="sa-box">
+              <div className="sa-box-head">
+                <h3>Paiements confirmés</h3>
+                <p>Références reconnues par Volcano Tech</p>
+              </div>
+              {!data.payments.length ? (
+                <div className="sa-empty">Aucun paiement confirmé.</div>
+              ) : (
+                <table className="sa-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Facture</th>
+                      <th>Référence</th>
+                      <th>Canal</th>
+                      <th>Montant</th>
+                      <th>État</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.payments.map((x) => (
+                      <tr key={x.id}>
+                        <td data-label="Date">
+                          {day(x.confirmed_at || x.created_at)}
+                        </td>
+                        <td data-label="Facture">{x.invoice_number}</td>
+                        <td data-label="Référence">
+                          <b>{x.provider_reference || x.payment_reference}</b>
+                        </td>
+                        <td data-label="Canal">{x.provider}</td>
+                        <td data-label="Montant" className="sa-money">
+                          {money(x.amount, x.currency)}
+                        </td>
+                        <td data-label="État">{badge(x.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          </>
+        )
+      )}
+    </div>
+  );
+}
+function PaymentPanel({token,invoice,onClose,onDone}:{token:string;invoice:SchoolInvoice;onClose:()=>void;onDone:()=>Promise<void>}) {
+  const remaining=(Number(invoice.total)-Number(invoice.paid_total)).toFixed(2);
+  const [phone,setPhone]=useState(''),[amount,setAmount]=useState(remaining),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+  const submit=async(e:React.FormEvent)=>{e.preventDefault();try{setBusy(true);setError('');const result=await initiateSubscriptionPayment(token,invoice.id,phone,amount);setMessage(result.message)}catch(err){setError(friendlyError(err))}finally{setBusy(false)}};
+  return <div className="sa-pay-backdrop" role="dialog" aria-modal="true" aria-label="Paiement Mobile Money"><form className="sa-pay" onSubmit={submit}><div className="sa-box-head"><div><h3>Payer {invoice.invoice_number}</h3><p>Solde : {money(remaining,invoice.currency)}</p></div><Button type="button" onClick={onClose}>Fermer</Button></div>{message?<div className="sa-note"><NavGlyph g="check" size={18}/><span>{message}</span><Button type="button" onClick={()=>void onDone()}>Terminer</Button></div>:<><label>Numéro Mobile Money<input inputMode="tel" autoComplete="tel" placeholder="+243 9…" value={phone} onChange={e=>setPhone(e.target.value)} required/></label><label>Montant ({invoice.currency})<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} required/></label>{error&&<div className="sc-error" role="alert">{error}</div>}<Button type="submit" disabled={busy}>{busy?'Envoi…':'Envoyer la demande'}</Button><small>Le paiement ne sera confirmé qu’après la réponse sécurisée de l’opérateur.</small></>}</form></div>
+}
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="sa-stat">
+      <small>{label}</small>
+      <b>{value}</b>
+    </article>
+  );
+}

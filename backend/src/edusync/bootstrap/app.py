@@ -36,6 +36,9 @@ from edusync.modules.migration_import.api.router import router as migration_impo
 from edusync.modules.access.api.router import router as access_router
 from edusync.modules.setup.api.router import router as setup_router
 from edusync.modules.alerts.api.router import router as supervision_router
+from edusync.modules.subscriptions.api.router import router as subscriptions_router
+from edusync.modules.subscriptions.api.school_router import router as school_subscription_router
+from edusync.modules.subscriptions.api.payment_webhooks import router as subscription_payment_webhooks_router
 from edusync.shared.infrastructure.observability import CorrelationLoggingMiddleware, configure_logging
 from edusync.shared.infrastructure.security_headers import SecurityHeadersMiddleware
 from edusync.shared.infrastructure.api_guard import ApiGuardMiddleware
@@ -156,6 +159,15 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         except Exception:  # noqa: BLE001 — reports must never prevent startup
             pass
 
+    @app.on_event("startup")
+    def start_subscription_billing() -> None:
+        """Commercial subscription deadlines: grace, limited access and overdue invoices."""
+        from edusync.modules.subscriptions.application.lifecycle import start_billing_loop
+        try:
+            start_billing_loop(app.state.services)
+        except Exception:  # billing automation must never prevent startup
+            pass
+
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
         # POINT-5-DOCUMENTS-EXPORTS extends the certified Point 4D baseline without invalidating its health contract.
@@ -171,6 +183,9 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.include_router(provider_webhooks_router, prefix="/api/v1/webhooks")
     app.include_router(notifications_center_router, prefix="/api/v1")
     app.include_router(platform_router, prefix="/api/v1/platform")
+    app.include_router(subscriptions_router, prefix="/api/v1/platform/billing")
+    app.include_router(school_subscription_router, prefix="/api/v1/subscription")
+    app.include_router(subscription_payment_webhooks_router, prefix="/api/v1/subscription-payments/webhooks")
     app.include_router(settings_router, prefix="/api/v1/settings")
     app.include_router(personnel_router, prefix="/api/v1/personnel")
     app.include_router(schooling_router, prefix="/api/v1/schooling")

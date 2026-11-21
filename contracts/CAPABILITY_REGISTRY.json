@@ -11,7 +11,7 @@
  },
  "owner_decides_roles_and_assignments": true,
  "role_assignments_finalized": true,
- "capability_count": 298,
+ "capability_count": 307,
  "capabilities": [
   {
    "code": "access.grants.exception",
@@ -4853,6 +4853,13 @@
    "replaced_by": null,
    "school_adjustable": false
   },
+  {"code":"platform.billing.export","domain":"Atelier Pro","group":"Abonnements","label":"Exporter les données commerciales","action":"export","risk":"HIGH","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":["CSV"],"sensitive":true,"notes":"Export commercial audité.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
+  {"code":"platform.billing.invoices.manage","domain":"Atelier Pro","group":"Abonnements","label":"Gérer les factures commerciales","action":"manage","risk":"CRITICAL","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"MFA récente et audit obligatoires.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
+  {"code":"platform.billing.overrides.grant","domain":"Atelier Pro","group":"Abonnements","label":"Accorder une grâce ou dérogation commerciale","action":"grant","risk":"CRITICAL","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"Motif et MFA récente obligatoires.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
+  {"code":"platform.billing.payments.reconcile","domain":"Atelier Pro","group":"Abonnements","label":"Rapprocher les paiements commerciaux","action":"reconcile","risk":"CRITICAL","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"Paiements d’abonnement, distincts des encaissements scolaires.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
+  {"code":"platform.billing.plans.manage","domain":"Atelier Pro","group":"Abonnements","label":"Gérer les plans tarifaires","action":"manage","risk":"CRITICAL","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"MFA récente et audit obligatoires.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
+  {"code":"platform.billing.read","domain":"Atelier Pro","group":"Abonnements","label":"Consulter les abonnements et factures commerciales","action":"read","risk":"HIGH","offline_policy":"SERVER_ONLY","audit_required":false,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"Données commerciales Volcano Tech.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
+  {"code":"platform.billing.subscriptions.manage","domain":"Atelier Pro","group":"Abonnements","label":"Gérer les abonnements","action":"manage","risk":"CRITICAL","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"MFA récente et audit obligatoires.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
   {
    "code": "platform.messaging.read",
    "domain": "Atelier Pro",
@@ -6812,6 +6819,8 @@
    "replaced_by": null,
    "school_adjustable": true
   },
+  {"code":"subscription.account.read","domain":"Abonnement EduSync","group":"Abonnement","label":"Consulter l’abonnement, les factures et paiements de l’école","action":"read","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":false,"scope_types":["SCHOOL"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"Lecture strictement limitée à l’école du jeton; aucune mutation commerciale.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
+  {"code":"subscription.payment.create","domain":"Abonnement EduSync","group":"Abonnement","label":"Payer l’abonnement de son école par Mobile Money","action":"create","risk":"HIGH","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["SCHOOL"],"source_status":"OWNER_APPROVED","prerequisites":["subscription.account.read"],"outputs":[],"sensitive":true,"notes":"École du jeton uniquement; confirmation exclusivement par webhook signé.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
   {
    "code": "sync.conflicts.read",
    "domain": "Synchronisation & offline",
@@ -7108,6 +7117,8 @@
     "settings.tariffs.manage",
     "settings.tariffs.read",
     "settings.work_year.select",
+    "subscription.account.read",
+    "subscription.payment.create",
     "sync.conflicts.read",
     "sync.conflicts.resolve",
     "sync.device.register",
@@ -7488,6 +7499,8 @@
    "kind": "SCHOOL_STANDARD",
    "capabilities": [
     "audit.entity.history.read",
+    "subscription.account.read",
+    "subscription.payment.create",
     "audit.school.export",
     "audit.school.filter",
     "audit.school.read",
@@ -7777,6 +7790,7 @@
    "kind": "SCHOOL_STANDARD",
    "capabilities": [
     "audit.entity.history.read",
+    "subscription.account.read",
     "audit.school.export",
     "audit.school.filter",
     "audit.school.read",
@@ -7907,6 +7921,7 @@
    "kind": "SCHOOL_STANDARD",
    "capabilities": [
     "audit.entity.history.read",
+    "subscription.account.read",
     "audit.school.export",
     "audit.school.filter",
     "audit.school.read",
@@ -8046,6 +8061,13 @@
     "platform.audit.export",
     "platform.audit.read",
     "platform.collaborators.manage",
+    "platform.billing.export",
+    "platform.billing.invoices.manage",
+    "platform.billing.overrides.grant",
+    "platform.billing.payments.reconcile",
+    "platform.billing.plans.manage",
+    "platform.billing.read",
+    "platform.billing.subscriptions.manage",
     "platform.health.read",
     "platform.messaging.read",
     "platform.messaging.retry",

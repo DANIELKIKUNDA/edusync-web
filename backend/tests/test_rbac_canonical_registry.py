@@ -1,4 +1,4 @@
-"""Canonical RBAC registry contract (owner decisions 2026-10-23, items 3, 6, 7).
+"""Canonical RBAC registry contract (owner decisions 2026-10-23 plus SaaS billing 2026-11-20).
 
 Static checks (no database): the database itself is checked against the registry by the CI job `rbac-contract`
 (tools/ci/rbac_registry.py check) and the effective permissions by tools/ci/rbac_snapshot.py.
