@@ -414,7 +414,7 @@ def test_access_governance_guardrails_are_enforced_server_side():
     assert "Les rôles standards ne se modifient pas" in s                      # standard roles immutable
     assert s.count("_idempotent(services, actor, idempotency_key") == 10       # every role mutation idempotent (+ policies, requests, SoD, conversion 2026-10-23)
     assert s.count("_idempotent_iam(services, actor,") >= 3                     # N2 member mutations idempotent (create, rename, (de)activate; reset never replayed)
-    assert s.count('_audit(conn, actor, "ACCESS_') == 14                       # every mutation journaled (5 role + 4 member + policy, request, SoD, conversion call sites)
+    assert s.count('_audit(conn, actor, "ACCESS_') == 15                       # every mutation journaled (5 role + 5 member incl. e-mail change 2026-11-21 + policy, request, SoD, conversion)
 
 
 def test_access_names_resolved_only_for_this_schools_members():

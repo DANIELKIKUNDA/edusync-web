@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
 import {friendlyError} from './platform/errors';
-import {confirmAction} from './platform/dialogs';
+import {confirmAction,promptText} from './platform/dialogs';
 import {SchoolJournal} from './school_journal';
 import './access.css';
 import {useLive} from './platform/live';
@@ -406,6 +406,10 @@ function MemberSheet({member,canAssign,canUpdate,canActivate,canReset,token,onCl
   async function setCivility(c:Civility|'NONE'){try{setBusy(true);await send(token,'PATCH',`members/${member.membership_id}`,{full_name:member.full_name,civility:c,reason:'Civilité du membre'});toast.success(c==='NONE'?'Civilité retirée':`Civilité : ${CIVILITY_LABEL[c]}`);await onRenamed()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
   useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[onClose]);
   const locked=member.is_me;
+  // Owner, 2026-11-21: correct a member's e-mail (sign-in address and where the automatic reports go).
+  async function changeEmail(){const email=await promptText({title:`Nouvelle adresse e-mail de ${member.full_name}`,message:'Elle servira à se connecter et à recevoir les rapports. L’ancienne et la nouvelle adresse sont prévenues ; la personne devra se reconnecter.',label:'Nouvelle adresse e-mail',placeholder:'prenom.nom@exemple.com',confirmLabel:'Continuer'});if(!email)return;
+    const reason=await promptText({title:'Motif du changement',label:'Motif',placeholder:'Ex. : adresse erronée à la création du compte',confirmLabel:'Modifier l’adresse'});if(!reason)return;
+    try{setBusy(true);await send(token,'POST',`members/${member.membership_id}/email`,{email:email.trim().toLowerCase(),reason});toast.success('Adresse e-mail modifiée — la personne doit se reconnecter');await onRenamed()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
   async function rename(){if(name.trim().length<3||reason.trim().length<3)return;try{setBusy(true);await send(token,'PATCH',`members/${member.membership_id}`,{full_name:name.trim(),reason:reason.trim()});toast.success('Nom modifié');setRenaming(false);await onRenamed()}catch(e){toast.error(friendlyError(e))}finally{setBusy(false)}}
   return <div className="sheetBackdrop" onClick={onClose}><aside className="memberSheet" role="dialog" aria-modal="true" aria-label={`Fiche de ${member.full_name}`} onClick={e=>e.stopPropagation()}>
     <header className="sheetHead"><div className="memberSheetWho"><span className="avatar lg">{initials(member.full_name)}</span><div><h3>{member.full_name}{member.is_me&&<em className="meBadge">Vous</em>}</h3><small>{member.email}</small></div></div>
@@ -429,7 +433,7 @@ function MemberSheet({member,canAssign,canUpdate,canActivate,canReset,token,onCl
           {canUpdate&&<div className="actionRow civilityRow"><Icon name="user" size={17}/><span><b>Civilité</b><small>Sert à écrire le rôle au féminin ou au masculin (Promotrice, Directrice de la maternelle…). Les droits ne changent pas.</small>
             <span className="civilityChoice" role="radiogroup" aria-label="Civilité">{(['M','MME'] as Civility[]).map(c=><button key={c} type="button" role="radio" aria-checked={member.civility===c} className={member.civility===c?'on':''} disabled={busy} onClick={()=>void setCivility(c)}>{CIVILITY_LABEL[c]}</button>)}
               {member.civility&&<button type="button" className="textBtn" disabled={busy} onClick={()=>void setCivility('NONE')}>Non précisé</button>}</span></span></div>}
-          {canUpdate&&<button className="actionRow" disabled={member.shared_account} onClick={()=>setRenaming(true)}><Icon name="edit" size={17}/><span><b>Modifier le nom</b><small>{member.shared_account?'Compte partagé : seul son titulaire peut le modifier.':'Corrige le nom affiché partout dans l’école.'}</small></span></button>}
+          {canUpdate&&<button className="actionRow" disabled={member.shared_account} onClick={()=>setRenaming(true)}><Icon name="edit" size={17}/><span><b>Modifier le nom</b><small>{member.shared_account?'Compte partagé : seul son titulaire peut le modifier.':'Corrige le nom affiché partout dans l’école.'}</small></span></button>}{canUpdate&&<button className="actionRow" disabled={member.shared_account||locked||busy} onClick={()=>void changeEmail()}><Icon name="mail" size={17}/><span><b>Modifier l’adresse e-mail</b><small>{member.shared_account?'Compte partagé : seul son titulaire peut la modifier.':locked?'Votre propre adresse : demandez à un autre responsable.':`Adresse de connexion et de réception des rapports. Actuelle : ${member.email}`}</small></span></button>}
           {canReset&&member.active&&<button className="actionRow" disabled={member.shared_account} onClick={()=>onAction('reset')}><Icon name="key" size={17}/><span><b>Réinitialiser le mot de passe</b><small>{member.shared_account?'Compte partagé avec un autre espace : réinitialisation par son titulaire ou la plateforme.':'Mot de passe oublié : un provisoire est généré, ses sessions sont coupées.'}</small></span></button>}
           {canActivate&&<button className={`actionRow ${member.active?'danger':''}`} onClick={()=>onAction(member.active?'deactivate':'activate')}><Icon name="power" size={17}/><span><b>{member.active?'Désactiver l’accès':'Réactiver l’accès'}</b><small>{member.active?'Départ, suspension : coupe immédiatement l’accès à cette école.':'Rétablit l’accès avec ses rôles actuels.'}</small></span></button>}
         </div>}
