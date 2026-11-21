@@ -12,6 +12,7 @@ from __future__ import annotations
 # control next, configuration LAST. Labels follow what the member actually does (see ``navigation``).
 NAVIGATION: list[tuple[str, str, str, tuple[str, ...]]] = [
     ("home", "Accueil", "home", ()),
+    ("subscription", "Mon abonnement", "receipt", ("subscription.account.read",)),
     ("finance", "Finances", "finance", (
         "finance.cash.read", "finance.checkout.search", "finance.receipts.read", "finance.recovery.monthly.read",
         "finance.reports.history.read", "finance.decisions.read", "finance.advance_funds.read", "finance.cash.other.read",

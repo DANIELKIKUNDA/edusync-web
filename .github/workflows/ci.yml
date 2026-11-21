@@ -208,6 +208,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/family_merge_postgres_integration.py
+      - name: Intégration — abonnements EduSync, étape 1 sans activation (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/saas_subscription_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true
