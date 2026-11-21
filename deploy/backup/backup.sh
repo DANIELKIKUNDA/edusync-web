@@ -85,8 +85,21 @@ run_backup() {
     if rclone copy --quiet "$dir" "$OFFSITE/$ts"; then offsite=true; else log "FAIL copie hors site"; fi
   fi
   find "$OUT" -mindepth 1 -maxdepth 1 -type d -mtime "+$KEEP_DAYS" -exec rm -rf {} +
-  if [ "$verified" = true ]; then status true true "$offsite" "$ts"; log "PASS sauvegarde $ts (restauration vérifiée, hors site=$offsite)"
-  else status false false "$offsite" "restauration non vérifiée ($ts)"; log "FAIL restauration $ts"; return 1; fi
+  if [ "$verified" = true ]; then
+    # Une destination hors site configurée est obligatoire pour déclarer la sauvegarde réussie.
+    # Sans ce contrôle, Healthchecks recevait un signal OK même si la copie R2 avait échoué.
+    if [ -n "$OFFSITE" ] && [ "$offsite" != true ]; then
+      status false true false "copie hors site en échec ($ts)"
+      log "FAIL sauvegarde $ts (restauration vérifiée, copie hors site en échec)"
+      return 1
+    fi
+    status true true "$offsite" "$ts"
+    log "PASS sauvegarde $ts (restauration vérifiée, hors site=$offsite)"
+  else
+    status false false "$offsite" "restauration non vérifiée ($ts)"
+    log "FAIL restauration $ts"
+    return 1
+  fi
 }
 
 if [ "${1:-}" = "once" ]; then run_once; exit $?; fi
