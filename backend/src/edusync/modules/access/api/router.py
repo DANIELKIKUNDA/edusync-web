@@ -751,6 +751,48 @@ def reset_member_credentials(membership_id: UUID, b: ReasonInput, idempotency_ke
     return {**out, "temporary_password": temporary}
 
 
+class EmailChangeInput(BaseModel):
+    email: str = Field(min_length=5, max_length=254)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.post("/members/{membership_id}/email")
+def change_member_email(membership_id: UUID, b: EmailChangeInput, idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+                        actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
+    """Owner, 2026-11-21: correct the e-mail of a member (it is also his sign-in address and where the automatic reports
+    go). Reason required and audited; the old AND the new address are told; every session ends (sign in again with the
+    new address). Refused for an account shared with another school or Atelier Pro, and for an address already used."""
+    import re
+    from edusync.modules.iam.application import account_links
+    _need(actor, "access.users.update")
+    if not (idempotency_key or "").strip():
+        raise HTTPException(400, "Idempotency-Key obligatoire")
+    email = b.email.strip().lower()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise HTTPException(422, "Adresse e-mail invalide")
+    with services.platform_db.platform_transaction() as conn:
+        m = _target(conn, actor, membership_id)
+        if _account_shared(conn, m["user_id"], actor.school_id):
+            raise HTTPException(409, "Compte partagé avec un autre espace EduSync : l’adresse revient à son titulaire ou à la plateforme")
+        old = conn.execute(text("SELECT email, full_name FROM users WHERE id=:u FOR UPDATE"), {"u": str(m["user_id"])}).mappings().one()
+        if str(old["email"]).lower() == email:
+            raise HTTPException(409, "C’est déjà l’adresse de ce membre")
+        if conn.execute(text("SELECT 1 FROM users WHERE lower(email::text)=:e AND id<>:u"), {"e": email, "u": str(m["user_id"])}).first():
+            raise HTTPException(409, "Cette adresse est déjà utilisée par un autre compte EduSync")
+        notice = (f"L’adresse de connexion EduSync de {old['full_name']} a été modifiée par l’administration de l’école "
+                  f"({old['email']} → {email}). Motif : {b.reason.strip()}. Si vous n’êtes pas à l’origine de cette demande, "
+                  "contactez immédiatement votre école.")
+        account_links.security_alert(conn, services.settings, user_id=m["user_id"], text_=notice, subject="Adresse de connexion modifiée")
+        conn.execute(text("UPDATE users SET email=:e, version=version+1 WHERE id=:u"), {"e": email, "u": str(m["user_id"])})
+        revoked = conn.execute(text("""UPDATE user_device_sessions SET revoked_at=coalesce(revoked_at,now()),revoked_reason=coalesce(revoked_reason,'EMAIL_CHANGED')
+            WHERE user_id=:u AND revoked_at IS NULL"""), {"u": str(m["user_id"])}).rowcount
+        account_links.security_alert(conn, services.settings, user_id=m["user_id"], text_=notice, subject="Adresse de connexion modifiée")
+        out = {"membership_id": str(membership_id), "email": email, "sessions_revoked": revoked}
+        _audit(conn, actor, "ACCESS_MEMBER_EMAIL_CHANGED", "school_membership", membership_id, out, reason=b.reason.strip(),
+               old={"email": str(old["email"])})
+    return out
+
+
 # --------------------------------------------------------------------------------------- school role policies (2026-10-23)
 def _dumps(value) -> str:
     import json
