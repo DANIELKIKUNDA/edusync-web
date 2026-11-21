@@ -40,3 +40,25 @@ def test_daily_financial_report_is_management_grade_and_preview_is_not_archived(
  assert "preview:bool=Query(False)" in route
  assert "if not preview:" in route
  assert "'X-EduSync-Preview':'1' if preview else '0'" in route
+
+
+def test_daily_report_writes_the_whole_justification_and_french_amounts():
+    """Owner, 2026-11-21: « on n'écrit pas toute la justification que la caissière a écrite »."""
+    from pathlib import Path
+    from io import BytesIO
+    from pypdf import PdfReader
+    from edusync.modules.finance_cash.application.documents import daily_report_pdf
+    long_reason = "achat produit hygiénique pour les toilettes des élèves de la maternelle et du primaire (savon, papier, désinfectant)"
+    report = {"day": "2026-11-21", "closed": False, "sessions": 1, "open_sessions": 1, "closed_at": None,
+              "totals": [{"currency": "CDF", "entries": "1110000", "outflows": "50000", "net": "1060000"}],
+              "details": [], "operations": [{"created_at": "2026-11-21T04:25:00", "direction": "SORTIE", "source": "DEPENSE_JOURNALIERE",
+                                             "party": "fourniture", "reason": long_reason, "reference": "fourniture", "amount": "50000",
+                                             "currency": "CDF", "user_name": "Caissière"}]}
+    text = " ".join(" ".join((p.extract_text() or "").split()) for p in PdfReader(BytesIO(daily_report_pdf(school_name="APN", report=report, prepared_by="Mwadi Fany"))).pages)
+    text = text.replace(" ", " ")
+    assert "désinfectant)" in text and "toilettes des élèves" in text
+    assert "1 110 000 FC" in text and "1 060 000 FC" in text and "1110000.00" not in text
+    assert "Journée non clôturée" in text and "Visa de la direction" in text
+    assert "Établi par" in text and "Mwadi Fany, le" in text and "Caissier(s) de la journée : Caissière" in text
+    route = (Path(__file__).resolve().parents[1] / 'src/edusync/modules/finance_cash/api/router.py').read_text(encoding='utf-8')
+    assert 'daily_report_pdf(school_name=name,report=r,prepared_by=me)' in route

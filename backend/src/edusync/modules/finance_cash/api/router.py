@@ -212,8 +212,9 @@ def day_report_pdf(day:str|None=Query(None),preview:bool=Query(False),actor:Acto
  need(actor,'finance.reports.daily.generate')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   r=_report(c,actor,day);name=_school_name(c,actor.school_id)
+  me=c.execute(text("SELECT full_name FROM users WHERE id=:u"),{'u':str(actor.user_id)}).scalar()
  r['operations']=_names(services,r['operations'])
- data=daily_report_pdf(school_name=name,report=r)
+ data=daily_report_pdf(school_name=name,report=r,prepared_by=me)
  if not preview:
   archive_generated_tx(services,actor,data=data,fmt='PDF',required_capability='finance.reports.daily.generate',document_code='finance.reports.daily',title=f"Rapport financier journalier du {r['day']}",file_name=f"rapport_journalier_{r['day']}.pdf")
  return _Stream(_BytesIO(data),media_type='application/pdf',headers={'Content-Disposition':f'inline; filename="rapport_journalier_{r["day"]}.pdf"','X-EduSync-Preview':'1' if preview else '0'})
