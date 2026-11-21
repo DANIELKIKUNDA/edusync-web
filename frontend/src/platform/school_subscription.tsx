@@ -32,12 +32,11 @@ const LABEL: Record<string, string> = {
   CANCELLED: "Annulé",
   EXPIRED: "Expiré",
 };
+// Same amount format as the rest of EduSync: « 223,20 $ », « 85 000,00 FC » (owner review 2026-11-21).
 const money = (v: string | number, c: string) =>
-  new Intl.NumberFormat("fr-CD", {
-    style: "currency",
-    currency: c,
-    maximumFractionDigits: 2,
-  }).format(Number(v) || 0);
+  `${(Number(v) || 0).toLocaleString("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${c === "CDF" ? "FC" : "$"}`;
+const CHANNEL: Record<string, string> = {MANUAL: "Espèces / manuel", BANK: "Banque", AIRTEL_MONEY: "Airtel Money", ORANGE_MONEY: "Orange Money",
+  M_PESA: "M-Pesa", MOBILE_MONEY: "Mobile Money"};
 const day = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString("fr-FR") : "—";
 const badge = (s: string) => (
@@ -233,7 +232,7 @@ export default function SchoolSubscriptionPage({ token }: { token: string }) {
                       <th>Date</th>
                       <th>Facture</th>
                       <th>Référence</th>
-                      <th>Canal</th>
+                      <th>Moyen</th>
                       <th>Montant</th>
                       <th>État</th>
                     </tr>
@@ -248,7 +247,7 @@ export default function SchoolSubscriptionPage({ token }: { token: string }) {
                         <td data-label="Référence">
                           <b>{x.provider_reference || x.payment_reference}</b>
                         </td>
-                        <td data-label="Canal">{x.provider}</td>
+                        <td data-label="Moyen">{CHANNEL[x.provider] || x.provider}</td>
                         <td data-label="Montant" className="sa-money">
                           {money(x.amount, x.currency)}
                         </td>

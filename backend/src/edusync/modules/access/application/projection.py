@@ -12,7 +12,6 @@ from __future__ import annotations
 # control next, configuration LAST. Labels follow what the member actually does (see ``navigation``).
 NAVIGATION: list[tuple[str, str, str, tuple[str, ...]]] = [
     ("home", "Accueil", "home", ()),
-    ("subscription", "Mon abonnement", "receipt", ("subscription.account.read",)),
     ("finance", "Finances", "finance", (
         "finance.cash.read", "finance.checkout.search", "finance.receipts.read", "finance.recovery.monthly.read",
         "finance.reports.history.read", "finance.decisions.read", "finance.advance_funds.read", "finance.cash.other.read",
@@ -29,6 +28,8 @@ NAVIGATION: list[tuple[str, str, str, tuple[str, ...]]] = [
     ("communications", "Communication", "bell", ("communications.read", "notifications.internal.configure")),
     ("access", "Accès & rôles", "lock", ("access.users.read", "access.roles.read", "audit.school.read")),
     ("sync", "Synchronisation", "sync", ("sync.status.read",)),
+    # Owner, 2026-11-21: consulted rarely → near the end; shown only to a school that HAS a subscription (access/me).
+    ("subscription", "Mon abonnement", "finance", ("subscription.account.read",)),
     ("settings", "Paramètres", "settings", (
         "settings.school_identity.read", "settings.structure.read", "settings.academic_year.read", "settings.tariffs.read",
         "settings.fee_types.read", "settings.payment_policy.read", "settings.documents.read", "settings.products.read",
