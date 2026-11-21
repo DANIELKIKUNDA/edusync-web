@@ -80,7 +80,7 @@ def _amount(v: Any, currency: str | None) -> str:
     return txt.replace(",", " ").replace(".", ",") + " " + CURRENCY.get(currency or "", currency or "")
 
 
-def daily_report_pdf(*, school_name: str, report: dict[str, Any]) -> bytes:
+def daily_report_pdf(*, school_name: str, report: dict[str, Any], prepared_by: str | None = None) -> bytes:
     """Management-grade daily report (owner, 2026-11-21: « la justification n'est pas entière » and « est-ce que la mise
     en page est très professionnelle ? »). Real tables, the whole justification written by the cashier (wrapped, never
     cut), French amounts, the day status, totals that explain the summary and a visa block. FC and USD never added."""
@@ -189,15 +189,21 @@ def daily_report_pdf(*, school_name: str, report: dict[str, Any]) -> bytes:
     ledger("ENTREE", "Détail des entrées")
     ledger("SORTIE", "Détail des sorties")
 
-    sig = Table([[p("Établi par (caissier)", SMALL), p("Vérifié par (responsable financier)", SMALL), p("Visa de la direction", SMALL)],
-                 [Spacer(1, 16 * mm), "", ""], [p("Nom, date et signature", SMALL)] * 3], colWidths=[W / 3] * 3)
+    # Owner, 2026-11-21: « pourquoi établi par, le système ne connaît pas celui qui l'a établi ? » — the system writes
+    # who generated the report and which cashiers worked that day; only the signatures stay handwritten.
+    cashiers = sorted({str(op.get("user_name")) for op in ops if op.get("user_name")})
+    stamp = datetime.now().strftime("%d/%m/%Y %H:%M")
+    made = [Paragraph("<b>Établi par</b>", CELL), p(f"{prepared_by or '—'}, le {stamp}", TXT),
+            p("Caissier(s) de la journée : " + (", ".join(cashiers) if cashiers else "—"), SMALL)]
+    sig = Table([[made, [Paragraph("<b>Vérifié par</b>", CELL), p("Responsable financier", SMALL)],
+                  [Paragraph("<b>Visa de la direction</b>", CELL), p("Promoteur ou direction", SMALL)]],
+                 [Spacer(1, 14 * mm), "", ""], [p("Signature", SMALL), p("Nom, date et signature", SMALL), p("Nom, date et signature", SMALL)]],
+                colWidths=[W / 3] * 3)
     sig.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), .5, line), ("INNERGRID", (0, 0), (-1, -1), .35, line),
                              ("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story += [Spacer(1, 6 * mm), KeepTogether([Paragraph("Visas", SEC), sig])]
     if report.get("closed_at"):
         story += [Spacer(1, 2 * mm), p("Clôture de journée enregistrée.", SMALL)]
-
-    stamp = datetime.now().strftime("%d/%m/%Y %H:%M")
 
     def on_page(cv: Any, doc: Any) -> None:
         cv.saveState(); cv.setFont("Helvetica", 6.8); cv.setFillColor(grey)
