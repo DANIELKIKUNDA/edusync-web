@@ -46,6 +46,8 @@ jobs:
         run: python -m compileall -q src
       - name: Contrats de livraison certifiée
         run: python -m unittest discover -s tools/ci -p test_certified_delivery.py
+      - name: Régressions sauvegardes R2 et alertes Healthchecks
+        run: python -m unittest discover -s tools/ci -p test_backup_heartbeat.py -v
       - name: Tests backend
         working-directory: backend
         env:
