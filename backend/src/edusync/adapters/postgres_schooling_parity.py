@@ -104,7 +104,7 @@ class PostgresSchoolingParityRepository:
     def family_contact_diagnostics(self, school_id: UUID) -> dict[str, int]:
         one = lambda sql: int(self.c.execute(text(sql), {"s": school_id}).scalar_one() or 0)
         return {
-            "without_responsible": one("""SELECT count(*) FROM families f WHERE f.school_id=:s AND NOT EXISTS
+            "without_responsible": one("""SELECT count(*) FROM families f WHERE f.school_id=:s AND f.merged_into_family_id IS NULL AND NOT EXISTS
                 (SELECT 1 FROM family_guardians fg WHERE fg.family_id=f.id AND fg.active)"""),
             "multiple_primary": one("""SELECT count(*) FROM (SELECT family_id FROM family_guardians WHERE school_id=:s AND active AND is_primary
                 GROUP BY family_id HAVING count(*)>1) x"""),
@@ -121,7 +121,7 @@ class PostgresSchoolingParityRepository:
         pupil or guardian data is returned by this aggregate endpoint.
         """
         family_where, scope_params = _family_scope_where(scopes, alias="f")
-        base = f"f.school_id=:sid AND {family_where}"
+        base = f"f.school_id=:sid AND f.merged_into_family_id IS NULL AND {family_where}"
         def count(sql: str) -> int:
             return int(self.c.execute(_bind_scope(text(sql), scope_params),
                                       {"sid": school_id, **scope_params}).scalar_one() or 0)
