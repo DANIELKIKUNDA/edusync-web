@@ -62,7 +62,7 @@ def run(A: dict, B: dict) -> None:
     admin, gest, promo = (actor_for(r, A["id"]) for r in ("ADMIN_SYSTEME_ECOLE", "GESTIONNAIRE", "PROMOTEUR"))
     r = as_(admin).get("/api/v1/subscription/account")
     check("école sans abonnement : « aucun abonnement », aucune erreur", r.status_code == 200 and r.json().get("subscription") is None, r.text[:200])
-    r = as_(admin).get("/api/v1/schooling/families")
+    r = as_(gest).get("/api/v1/schooling/families")      # a role that holds families.read
     check("école sans abonnement : le travail continue (aucun blocage)", r.status_code == 200, r.status_code)
     check("le promoteur peut consulter l'abonnement", as_(promo).get("/api/v1/subscription/account").status_code == 200)
     check("par défaut, le promoteur ne paie pas (règle lecture seule ; l'école peut ajouter ce droit)",
@@ -104,7 +104,7 @@ def run(A: dict, B: dict) -> None:
     run_once(APP.state.services, today=today + timedelta(days=10))
     check("grâce dépassée → LIMITÉ (sans aucun blocage tant que l'étape 2 n'est pas décidée)",
           one("SELECT status FROM saas_subscriptions WHERE id=:i", i=sub)[0] == "LIMITED"
-          and as_(admin).get("/api/v1/schooling/families").status_code == 200)
+          and as_(gest).get("/api/v1/schooling/families").status_code == 200)
 
 
 def main() -> int:
