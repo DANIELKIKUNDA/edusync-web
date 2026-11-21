@@ -264,6 +264,42 @@ def resolve_households(q:str=Query(min_length=1,max_length=180),actor:ActorConte
     _need(actor,'families.resolve');scopes=_scopes(actor,'families.resolve')
     with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:return _jsonable(PostgresSchoolingRepository(conn).resolve_households(actor.school_id,q,scopes=scopes))
 
+# ------------------------------------------------------------- regrouper les frères et sœurs (owner, 2026-11-21)
+class FamilyMergeBody(BaseModel):
+    target_family_id:UUID
+    source_family_ids:list[UUID]=Field(min_length=1,max_length=12)
+    reason:str=Field(min_length=3,max_length=500)
+
+def _need_whole_school(actor:ActorContext,capability:str)->None:
+    """Siblings are often in several sections (primaire + secondaire): merging is reserved to a whole-school scope."""
+    _need(actor,capability)
+    if not any(kind=='SCHOOL' for kind,_ in _scopes(actor,capability)):
+        raise HTTPException(status_code=403,detail='Regrouper des familles est réservé à un périmètre « toute l’école »')
+
+@router.get('/families/merge/suggestions')
+def family_merge_suggestions(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Probable siblings: families with the same responsible AND the same phone. Proposal only, nothing is written."""
+    _need_whole_school(actor,'families.update')
+    with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as conn:
+        groups=PostgresSchoolingRepository(conn).family_merge_suggestions(actor.school_id)
+    return _jsonable({'groups':groups,'families':sum(len(g['families']) for g in groups),'children':sum(g['children'] for g in groups)})
+
+@router.post('/families/merge')
+def merge_families(body:FamilyMergeBody,idempotency_key:str|None=Header(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+    """Children and guardians of the other families join the main family; the others are kept, marked « regroupée »
+    (history), and no longer listed. Reason required, audited. No amount is changed."""
+    _need_whole_school(actor,'families.update');key=_key(idempotency_key)
+    try:
+        def action(conn,request_actor):
+            repo=PostgresSchoolingRepository(conn)
+            out=repo.merge_families(actor.school_id,target_id=body.target_family_id,source_ids=body.source_family_ids,actor_user_id=actor.user_id)
+            payload=_jsonable(out)
+            _audit_outbox(conn,request_actor,action='FAMILY_MERGED',entity_type='Family',entity_id=body.target_family_id,
+                          new=payload,reason=body.reason.strip())
+            return 200,payload
+        return _mutate(services=services,actor=actor,key=key,operation='SCHOOLING_MERGE_FAMILIES',payload=body.model_dump(mode='json'),action=action).body
+    except Exception as exc:_error(exc)
+
 @router.get('/families/{family_id}')
 def family_profile(family_id:UUID,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     _need(actor,'families.read');scopes=_scopes(actor,'families.read')

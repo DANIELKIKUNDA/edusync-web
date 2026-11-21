@@ -108,6 +108,97 @@ class PostgresSchoolingRepository:
           RETURNING *"""),{"sid":school_id,"fid":family_id,"gid":guardian_id,"role":role,"primary":is_primary}).first()
         return _row(r)
 
+    # ------------------------------------------------------------------ regrouper les frères et sœurs (2026-11-21)
+    _MERGE_KEY_SQL = r"""WITH fam AS (
+          SELECT f.id,f.code,f.display_name,f.phone,
+            (SELECT g.full_name FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id
+              WHERE fg.school_id=f.school_id AND fg.family_id=f.id AND fg.active ORDER BY fg.is_primary DESC,fg.created_at LIMIT 1) gname,
+            (SELECT coalesce(nullif(g.normalized_phone,''),g.phone) FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id
+              WHERE fg.school_id=f.school_id AND fg.family_id=f.id AND fg.active ORDER BY fg.is_primary DESC,fg.created_at LIMIT 1) gphone
+          FROM families f WHERE f.school_id=:sid AND f.merged_into_family_id IS NULL
+            AND EXISTS(SELECT 1 FROM students s WHERE s.school_id=f.school_id AND s.family_id=f.id)),
+        k AS (SELECT *, upper(regexp_replace(trim(coalesce(gname,'')),'\s+',' ','g')) nk,
+                     right(regexp_replace(coalesce(gphone,phone,''),'\D','','g'),9) pk FROM fam)"""
+
+    def family_merge_suggestions(self, school_id: UUID) -> list[dict[str, Any]]:
+        """Families that are probably one household: same responsible (name) AND same phone (last 9 digits).
+        Only a proposal: the school confirms each group. Families already merged are ignored."""
+        groups = self.connection.execute(text(self._MERGE_KEY_SQL + """
+            SELECT min(gname) guardian, min(pk) phone, array_agg(id ORDER BY code) ids FROM k
+            WHERE length(pk)>=8 AND nk<>'' GROUP BY nk,pk HAVING count(*)>1 ORDER BY count(*) DESC, min(nk)"""),
+            {"sid": school_id}).mappings().all()
+        ids = [i for g in groups for i in g["ids"]]
+        if not ids:
+            return []
+        fams = {r["id"]: dict(r) for r in self.connection.execute(text(
+            "SELECT id,code,display_name,phone,contact_status FROM families WHERE school_id=:sid AND id IN :ids").bindparams(
+            bindparam("ids", expanding=True)), {"sid": school_id, "ids": ids}).mappings().all()}
+        kids: dict[Any, list[dict[str, Any]]] = {}
+        for r in self.connection.execute(text("""SELECT s.id,s.family_id,s.matricule,s.last_name,s.middle_name,s.first_name,
+              (SELECT sc.label FROM enrollments e JOIN school_classes sc ON sc.id=e.class_id
+                WHERE e.school_id=s.school_id AND e.student_id=s.id AND e.status<>'CANCELLED' ORDER BY e.enrolled_on DESC NULLS LAST LIMIT 1) class_label
+            FROM students s WHERE s.school_id=:sid AND s.family_id IN :ids ORDER BY s.last_name,s.first_name""").bindparams(
+                bindparam("ids", expanding=True)), {"sid": school_id, "ids": ids}).mappings().all():
+            kids.setdefault(r["family_id"], []).append(
+                {"id": r["id"], "matricule": r["matricule"], "class_label": r["class_label"],
+                 "full_name": " ".join(x for x in (r["last_name"], r["middle_name"], r["first_name"]) if x)})
+        out = []
+        for g in groups:
+            members = [{**fams[i], "children": kids.get(i, [])} for i in g["ids"] if i in fams]
+            out.append({"guardian": g["guardian"], "phone": g["phone"], "families": members,
+                        "children": sum(len(m["children"]) for m in members)})
+        return out
+
+    def merge_families(self, school_id: UUID, *, target_id: UUID, source_ids: list[UUID], actor_user_id: UUID) -> dict[str, Any]:
+        """Move every child and guardian of the source families into the target family. Sources are kept, marked
+        merged (history), never deleted. No charge, payment or decision is touched: they follow the child."""
+        if not source_ids or target_id in source_ids or len(set(source_ids)) != len(source_ids):
+            raise ValueError("Choisissez la famille principale et au moins une autre famille, différente")
+        all_ids = [target_id, *source_ids]
+        rows = {r["id"]: dict(r) for r in self.connection.execute(text(
+            "SELECT * FROM families WHERE school_id=:sid AND id IN :ids FOR UPDATE").bindparams(bindparam("ids", expanding=True)),
+            {"sid": school_id, "ids": all_ids}).mappings().all()}
+        if len(rows) != len(all_ids):
+            raise LookupError("Famille introuvable dans cette école")
+        if any(rows[i]["merged_into_family_id"] for i in all_ids):
+            raise ValueError("Une de ces familles a déjà été regroupée avec une autre")
+        moved = [dict(r) for r in self.connection.execute(text(
+            """UPDATE students SET family_id=:t WHERE school_id=:sid AND family_id IN :src
+               RETURNING id, matricule""").bindparams(bindparam("src", expanding=True)),
+            {"sid": school_id, "t": target_id, "src": source_ids}).mappings().all()]
+        # Guardians: added to the target unless the same person (same name and phone) is already there. Never primary.
+        linked = 0
+        for g in self.connection.execute(text("""SELECT DISTINCT ON (g.id) g.id, g.full_name, g.phone, fg.role FROM family_guardians fg
+              JOIN guardians g ON g.id=fg.guardian_id WHERE fg.school_id=:sid AND fg.family_id IN :src AND fg.active
+              ORDER BY g.id""").bindparams(bindparam("src", expanding=True)), {"sid": school_id, "src": source_ids}).mappings().all():
+            same = self.connection.execute(text(r"""SELECT 1 FROM family_guardians fg JOIN guardians g ON g.id=fg.guardian_id
+                WHERE fg.school_id=:sid AND fg.family_id=:t AND fg.active AND (g.id=:g OR (
+                  upper(regexp_replace(trim(g.full_name),'\s+',' ','g'))=upper(regexp_replace(trim(:n),'\s+',' ','g'))
+                  AND right(regexp_replace(coalesce(g.phone,''),'\D','','g'),9)=right(regexp_replace(coalesce(:p,''),'\D','','g'),9)))"""),
+                {"sid": school_id, "t": target_id, "g": g["id"], "n": g["full_name"], "p": g["phone"]}).first()
+            if not same:
+                self.connection.execute(text("""INSERT INTO family_guardians(school_id,family_id,guardian_id,role,is_primary,active)
+                    VALUES (:sid,:t,:g,:role,false,true) ON CONFLICT (school_id,family_id,guardian_id) DO UPDATE SET active=true"""),
+                    {"sid": school_id, "t": target_id, "g": g["id"], "role": g["role"]})
+                linked += 1
+        self.connection.execute(text("""UPDATE family_guardians SET active=false, is_primary=false WHERE school_id=:sid AND family_id IN :src""")
+                                .bindparams(bindparam("src", expanding=True)), {"sid": school_id, "src": source_ids})
+        self.connection.execute(text("""UPDATE families SET merged_into_family_id=:t, merged_at=now(), merged_by=:u,
+              notes=concat_ws(E'\\n', nullif(notes,''), 'Regroupée dans la famille ' || :code || ' le ' || to_char(now(),'DD/MM/YYYY')),
+              version=version+1, updated_at=now() WHERE school_id=:sid AND id IN :src""").bindparams(bindparam("src", expanding=True)),
+            {"sid": school_id, "t": target_id, "u": actor_user_id, "code": rows[target_id]["code"], "src": source_ids})
+        target = rows[target_id]
+        fill = {k: next((rows[i][k] for i in source_ids if rows[i][k]), None) for k in ("phone", "email", "address") if not target[k]}
+        fill = {k: v for k, v in fill.items() if v}
+        sets = "".join(f"{k}=:{k}, " for k in fill)
+        self.connection.execute(text(f"UPDATE families SET {sets}version=version+1, updated_at=now() WHERE school_id=:sid AND id=:t"),
+                                {"sid": school_id, "t": target_id, **fill})
+        self.connection.execute(text("""UPDATE enrollment_dossiers SET family_id=:t WHERE school_id=:sid AND status='PENDING'
+              AND family_id IN :src""").bindparams(bindparam("src", expanding=True)), {"sid": school_id, "t": target_id, "src": source_ids})
+        return {"family_id": target_id, "family_code": target["code"], "merged_families": [
+                    {"id": i, "code": rows[i]["code"], "display_name": rows[i]["display_name"]} for i in source_ids],
+                "children_moved": moved, "guardians_added": linked}
+
     def get_family(self, school_id:UUID, family_id:UUID, *, scopes:tuple[tuple[str,str|None],...] = (("SCHOOL",None),)) -> dict[str,Any]|None:
         scope_where,params=_family_scope_where(scopes)
         stmt=_bind_scope(text(f"SELECT * FROM families f WHERE f.school_id=:sid AND f.id=:id AND {scope_where}"),params)
@@ -153,10 +244,10 @@ class PostgresSchoolingRepository:
             max(CASE WHEN lower(f.code)=lower(:q) THEN 100 WHEN lower(f.display_name)=lower(:q) THEN 80 WHEN f.phone=:norm THEN 90 ELSE 45 END) score,
             array_remove(array_agg(DISTINCT src),NULL) sources
           FROM (
-            SELECT f.*, 'FAMILY'::text src FROM families f WHERE f.school_id=:sid AND (f.code ILIKE :like OR f.display_name ILIKE :like OR coalesce(f.phone,'')=:norm)
+            SELECT f.*, 'FAMILY'::text src FROM families f WHERE f.school_id=:sid AND f.merged_into_family_id IS NULL AND (f.code ILIKE :like OR f.display_name ILIKE :like OR coalesce(f.phone,'')=:norm)
             UNION ALL
             SELECT f.*, 'GUARDIAN'::text src FROM families f JOIN family_guardians fg ON fg.family_id=f.id AND fg.active JOIN guardians g ON g.id=fg.guardian_id
-              WHERE f.school_id=:sid AND (g.full_name ILIKE :like OR coalesce(g.normalized_phone,'')=:norm)
+              WHERE f.school_id=:sid AND f.merged_into_family_id IS NULL AND (g.full_name ILIKE :like OR coalesce(g.normalized_phone,'')=:norm)
             UNION ALL
             SELECT f.*, 'STUDENT'::text src FROM families f JOIN students s ON s.family_id=f.id
               WHERE f.school_id=:sid AND (s.matricule ILIKE :like OR concat_ws(' ',s.last_name,s.middle_name,s.first_name) ILIKE :like)
@@ -453,7 +544,7 @@ class PostgresSchoolingRepository:
         visible=self._visible_ids(school_id,scopes)
         child_scope,child_params=_student_scope_where(scopes,alias='s')
         args:dict[str,Any]={"sid":school_id,"limit":max(1,min(limit,1000)),"offset":max(0,offset),**child_params}
-        conditions=["f.school_id=:sid"]
+        conditions=["f.school_id=:sid","f.merged_into_family_id IS NULL"]
         if visible is not None:
             if not visible:return []
             conditions.append("EXISTS(SELECT 1 FROM students sv WHERE sv.family_id=f.id AND sv.id IN :visible_ids)")

@@ -607,3 +607,11 @@ export async function putEnrollmentWindow(token:string,yearId:string,input:{enro
 
 
 export async function getStructureSelector(token:string,capability:string,yearId?:string):Promise<{school_wide:boolean;sections:SchoolSection[];classes:SchoolClass[];options:SchoolOption[]}>{const r=await fetch(`${API}/settings/structure/selector${qp({capability,year_id:yearId})}`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Périmètre indisponible'));return r.json();}
+
+// Regrouper les frères et sœurs (owner, 2026-11-21): families with the same responsible and phone are proposed; the
+// school confirms; children and guardians join the main family. No amount is changed.
+export type MergeChild={id:string;full_name:string;matricule:string|null;class_label:string|null};
+export type MergeFamily={id:string;code:string;display_name:string;phone:string|null;contact_status:string;children:MergeChild[]};
+export type MergeGroup={guardian:string;phone:string;families:MergeFamily[];children:number};
+export async function familyMergeSuggestions(token:string){return json<{groups:MergeGroup[];families:number;children:number}>(await fetch(`${API}/schooling/families/merge/suggestions`,{headers:auth(token)}),'Propositions de regroupement indisponibles')}
+export async function mergeFamilies(token:string,body:{target_family_id:string;source_family_ids:string[];reason:string}){return json<{family_id:string;family_code:string;children_moved:{id:string}[];guardians_added:number}>(await fetch(`${API}/schooling/families/merge`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Regroupement refusé')}
