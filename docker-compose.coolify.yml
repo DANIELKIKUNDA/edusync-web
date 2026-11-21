@@ -195,6 +195,13 @@ services:
   outbox-worker:
     image: ghcr.io/danielkikunda/edusync-backend:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
     command: ["python", "scripts/coolify_run.py", "outbox"]
+    # Healthy = own heartbeat younger than 5 min (same rule as « État du service ») — owner, 2026-11-21.
+    healthcheck:
+      test: ["CMD", "python", "scripts/worker_health.py", "outbox"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     environment:
       EDUSYNC_ENV: production
       EDUSYNC_REDIS_URL: redis://redis:6379/0
@@ -215,6 +222,13 @@ services:
   communications-worker:
     image: ghcr.io/danielkikunda/edusync-backend:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
     command: ["python", "scripts/coolify_run.py", "communications"]
+    # Healthy = own heartbeat younger than 5 min (same rule as « État du service ») — owner, 2026-11-21.
+    healthcheck:
+      test: ["CMD", "python", "scripts/worker_health.py", "communications"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     environment:
       EDUSYNC_ENV: production
       EDUSYNC_REDIS_URL: redis://redis:6379/0
@@ -275,6 +289,13 @@ services:
   # Sauvegarde quotidienne (base + documents) avec restauration vérifiée ; copie hors serveur fortement conseillée.
   backup:
     image: ghcr.io/danielkikunda/edusync-backup:${EDUSYNC_RELEASE_SHA:?SHA complet validé (CI + staging + E2E) requis}
+    # Healthy = last backup verified (ok:true) and younger than 30 h. A backup runs at start; start_period covers it.
+    healthcheck:
+      test: ["CMD", "/bin/sh", "/usr/local/bin/edusync-backup-health"]
+      interval: 5m
+      timeout: 10s
+      retries: 2
+      start_period: 30m
     environment:
       PGHOST: postgres
       PGDATABASE: edusync
