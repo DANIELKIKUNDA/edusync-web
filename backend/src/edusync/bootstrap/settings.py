@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     rate_limit_multiplier: float = 1.0
     redis_url: str = "redis://localhost:6379/0"
 
+    # Abonnements EduSync — adaptateur Mobile Money neutre. Aucun faux paiement n'est autorisé en staging/production.
+    # Les noms et secrets définitifs seront injectés après contractualisation avec l'agrégateur/opérateur choisi.
+    mobile_money_mode: str = "disabled"                    # disabled | sandbox | live
+    mobile_money_provider: str = "GENERIC"
+    mobile_money_api_base: str = ""
+    mobile_money_api_key: str = ""
+    mobile_money_webhook_secret: str = ""
+    mobile_money_callback_url: str = ""
+    mobile_money_timeout_seconds: float = 20.0
+    mobile_money_payment_ttl_minutes: int = 15
+
     jwt_secret: str = "dev-only-change-me-dev-only-change-me"
     jwt_issuer: str = "edusync"
     jwt_audience: str = "edusync-web"
@@ -186,6 +197,12 @@ class Settings(BaseSettings):
             raise RuntimeError("Fournisseur SMS simulé interdit hors développement")
         if (self.email_provider or "disabled").lower() == "fake":
             raise RuntimeError("Fournisseur e-mail simulé interdit hors développement")
+        if (self.mobile_money_mode or "disabled").lower() == "sandbox":
+            raise RuntimeError("Mobile Money simulé interdit hors développement")
+        if (self.mobile_money_mode or "disabled").lower() == "live":
+            if not all((self.mobile_money_api_base.startswith("https://"), self.mobile_money_api_key,
+                        self.mobile_money_webhook_secret, self.mobile_money_callback_url.startswith("https://"))):
+                raise RuntimeError("Configuration Mobile Money live incomplète ou non HTTPS")
         if (self.email_provider or "").lower() == "smtp" and (self.smtp_security or "").lower() not in {"starttls", "tls"}:
             raise RuntimeError("SMTP sans chiffrement interdit hors développement")
         if (self.email_provider or "disabled").lower() != "disabled" and not self.public_app_url.startswith("https://"):

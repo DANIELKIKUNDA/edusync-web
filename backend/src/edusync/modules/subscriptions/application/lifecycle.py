@@ -40,7 +40,7 @@ def invoice_status(*, total: Decimal, paid_total: Decimal, due_on: date | None, 
 def run_once(services, *, today: date | None = None) -> dict:
     """Evaluate all commercial subscriptions once. An advisory lock elects one API process."""
     today = today or date.today()
-    out = {"skipped": False, "subscriptions": 0, "invoices": 0, "transitions": []}
+    out = {"skipped": False, "subscriptions": 0, "invoices": 0, "payments_expired": 0, "transitions": []}
     with services.platform_db.platform_transaction() as conn:
         if not conn.execute(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": LOCK_KEY}).scalar():
             out["skipped"] = True
@@ -48,6 +48,10 @@ def run_once(services, *, today: date | None = None) -> dict:
         invoices = conn.execute(text("""UPDATE saas_invoices SET status='OVERDUE',version=version+1,updated_at=now()
             WHERE status='ISSUED' AND paid_total=0 AND due_at::date<:today RETURNING id"""), {"today": today}).all()
         out["invoices"] = len(invoices)
+        expired = conn.execute(text("""UPDATE saas_payments SET status='EXPIRED',failure_code='TIMEOUT',
+            failure_message='Délai de confirmation dépassé',last_provider_update_at=now(),version=version+1,updated_at=now()
+            WHERE status IN ('CREATED','PENDING') AND expires_at IS NOT NULL AND expires_at<now() RETURNING id""")).all()
+        out["payments_expired"] = len(expired)
         rows = conn.execute(text("""SELECT id,school_id,status,current_period_end,grace_days,version
             FROM saas_subscriptions WHERE status NOT IN ('CANCELLED','EXPIRED','SUSPENDED') FOR UPDATE""")).mappings().all()
         out["subscriptions"] = len(rows)

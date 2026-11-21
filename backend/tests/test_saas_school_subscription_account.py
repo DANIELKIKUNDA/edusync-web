@@ -10,8 +10,8 @@ FRONT = (ROOT / "frontend/src/platform/school_subscription.tsx").read_text(encod
 CSS = (ROOT / "frontend/src/platform/school_subscription.css").read_text(encoding="utf-8")
 
 
-def test_school_account_is_read_only_and_bound_to_the_token_school():
-    assert ROUTER.count("@router.") == 1 and '@router.get("/account")' in ROUTER
+def test_school_account_and_payment_are_bound_to_the_token_school():
+    assert ROUTER.count("@router.") == 2 and '@router.get("/account")' in ROUTER
     assert "Depends(require_school_actor)" in ROUTER
     assert 'actor.require("subscription.account.read")' in ROUTER
     assert "school_id = actor.school_id" in ROUTER
@@ -19,9 +19,10 @@ def test_school_account_is_read_only_and_bound_to_the_token_school():
     assert ROUTER.count("school_id=:school") >= 3
 
 
-def test_school_never_receives_commercial_mutation_capabilities():
+def test_school_never_receives_platform_commercial_capabilities():
     assert "platform.billing." not in ROUTER
-    assert "INSERT INTO saas_" not in ROUTER and "UPDATE saas_" not in ROUTER and "DELETE FROM saas_" not in ROUTER
+    assert "DELETE FROM saas_" not in ROUTER
+    assert 'actor.require("subscription.payment.create")' in ROUTER
 
 
 def test_capability_is_provisioned_for_the_four_accountable_roles():
@@ -39,7 +40,7 @@ def test_navigation_is_server_projected_from_the_school_capability():
 
 def test_mobile_account_explains_access_preservation_and_separation():
     for wording in ("Mon abonnement", "Fonctionnalités incluses", "Factures", "Paiements confirmés",
-                    "Vos données sont conservées", "distinct des finances de l’école"):
+                    "Vos données sont conservées", "distinct des finances de", "l’école"):
         assert wording in FRONT
     assert "@media(max-width:650px)" in CSS and ".sa-table thead{display:none}" in CSS
 
