@@ -36,7 +36,8 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
   }, [token, classId, course]);
   useEffect(() => { load(); }, [load]);
   const max = sheet?.period.max ?? 0;
-  const progress = useMemo(() => sheet ? sheet.pupils.filter(p => { const r = rows[p.student_id]; return r && (r.saved.status || (r.state === 'queued' && r.text)); }).length : 0, [rows, sheet]);
+  const present = useMemo(() => sheet ? sheet.pupils.filter(p => !p.departed) : [], [sheet]);
+  const progress = useMemo(() => present.filter(p => { const r = rows[p.student_id]; return r && (r.saved.status || (r.state === 'queued' && r.text)); }).length, [rows, present]);
 
   async function commit(p: GradePupil, text: string) {
     const r = rows[p.student_id]; if (!sheet || !r) return;
@@ -79,18 +80,24 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
       <div className="pgr-title"><b>{sheet.course.label}</b><small>{sheet.class.label}</small></div>
       <div className="pgr-periods" role="tablist" aria-label="Période">{sheet.periods.map(c => <button key={c.code} type="button" role="tab" aria-selected={c.code === sheet.period.code}
         className={c.code === sheet.period.code ? 'on' : ''} onClick={() => load(c.code)}>{c.code}<small>{c.allowed ? 'ouverte' : c.state === 'CLOSED' ? 'clôturée' : c.state === 'UPCOMING' ? 'à venir' : '—'}</small></button>)}</div>
-      <div className="pgr-progress" aria-label="Avancement"><span><b>{progress}</b>/{sheet.pupils.length} élèves · sur <b>{max}</b></span><i><span style={{width: `${sheet.pupils.length ? progress / sheet.pupils.length * 100 : 0}%`}}/></i></div>
+      <div className="pgr-progress" aria-label="Avancement"><span><b>{progress}</b>/{present.length} élèves · sur <b>{max}</b></span><i><span style={{width: `${present.length ? progress / present.length * 100 : 0}%`}}/></i></div>
     </header>
     {why && <div className="pc-note"><NavGlyph g="info" size={16}/><span>{why}</span></div>}
-    {sheet.can_enter && tip && <div className="pgr-tip"><NavGlyph g="sparkles" size={16}/><span>Tapez la cote puis <b>Entrée</b> (ou « Suivant ») : elle est enregistrée et on passe à l’élève suivant. <b>a</b> = absent, <b>d</b> = dispensé.</span>
+    {sheet.can_enter && tip && <div className="pgr-tip"><NavGlyph g="sparkles" size={16}/><span>Tapez la cote puis <b>Entrée</b> (ou « Suivant ») : elle est enregistrée et on passe à l’élève suivant.
+      <b>a</b> (ou le bouton « Abs. ») = absent à cette évaluation, <b>d</b> = dispensé (excusé par la direction).</span>
       <button type="button" aria-label="Compris" onClick={() => { setTip(false); try { localStorage.setItem(TIP_KEY, '1'); } catch { /* private mode */ } }}>Compris</button></div>}
     <ol className="pgr-list">{sheet.pupils.map((p, i) => {
       const r = rows[p.student_id] ?? {text: '', saved: {status: null, value: null, version: null}, state: 'idle' as RowState};
       const n = /^\d+$/.test(r.text) ? Number(r.text) : null;
       const failing = n !== null && n * 2 < max;
+      if (p.departed) return <li key={p.student_id} className="pgr-row pgr-gone">
+        <span className="pgr-n" aria-hidden="true">—</span>
+        <span className="pgr-name">{p.name}<small>{p.pupil_status === 'TRANSFERRED' ? 'Transféré' : 'Abandon'}{p.left_on ? ` le ${new Date(p.left_on + 'T12:00:00').toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'})}` : ''} · plus noté</small></span>
+        <span className="pgr-value">{shown(p) === 'a' ? 'Absent' : shown(p) === 'd' ? 'Dispensé' : shown(p) || '—'}</span>
+      </li>;
       return <li key={p.student_id} className={`pgr-row pgr-${r.state}`}>
         <span className="pgr-n" aria-hidden="true">{i + 1}</span>
-        <span className="pgr-name">{p.name}{r.message && <small role={r.state === 'error' ? 'alert' : undefined}>{r.message}</small>}</span>
+        <span className="pgr-name">{p.name}{p.pupil_status === 'SUSPENDED' && <em className="pgr-susp">Suspendu</em>}{r.message && <small role={r.state === 'error' ? 'alert' : undefined}>{r.message}</small>}</span>
         {sheet.can_enter ? <>
           <input ref={el => { inputs.current[i] = el; }} className={failing ? 'pgr-fail' : ''} value={r.text} inputMode="numeric" enterKeyHint={i === sheet.pupils.length - 1 ? 'done' : 'next'}
             autoComplete="off" maxLength={3} aria-label={`Cote de ${p.name} sur ${max}`}
@@ -113,6 +120,7 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
 function PasteDialog({token, sheet, classId, course, onClose, onDone}: {token: string; sheet: GradeSheet; classId: string; course: string; onClose: () => void; onDone: () => void}) {
   const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const lines = text.replace(/\r/g, '').split('\n'); while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  const present = sheet.pupils.filter(p => !p.departed).length;
   async function go() {
     setBusy(true); setError('');
     try { const r = await pasteGrades(token, {class_id: classId, course_code: course, period: sheet.period.code, text});
@@ -121,12 +129,12 @@ function PasteDialog({token, sheet, classId, course, onClose, onDone}: {token: s
   }
   return <Modal title="Coller une liste de cotes" subtitle={`${sheet.course.label} · ${sheet.class.label} · ${sheet.period.label} (sur ${sheet.period.max})`} onClose={onClose}>
     <div className="es-form">
-      <p className="es-hint">Copiez la colonne de cotes depuis Excel, WhatsApp ou vos notes : <b>une cote par ligne, dans l’ordre de la liste de la classe</b> ({sheet.pupils.length} élèves). « a » = absent. Seules les cases encore vides sont remplies : aucune cote déjà saisie n’est remplacée.</p>
+      <p className="es-hint">Copiez la colonne de cotes depuis Excel, WhatsApp ou vos notes : <b>une cote par ligne, dans l’ordre de la liste de la classe</b> ({sheet.pupils.filter(p => !p.departed).length} élèves présents, sans ceux qui sont partis). « a » = absent. Seules les cases encore vides sont remplies : aucune cote déjà saisie n’est remplacée.</p>
       <textarea rows={10} value={text} onChange={e => setText(e.target.value)} placeholder={'14\n9\na\n17'} aria-label="Cotes à coller"/>
-      <p className={`pgr-paste-count ${lines.length > sheet.pupils.length ? 'bad' : ''}`}>{lines.length} ligne{lines.length > 1 ? 's' : ''} pour {sheet.pupils.length} élèves</p>
+      <p className={`pgr-paste-count ${lines.length > present ? 'bad' : ''}`}>{lines.length} ligne{lines.length > 1 ? 's' : ''} pour {present} élèves</p>
       {error && <div className="es-alert es-alert-bad" role="alert">{error}</div>}
       <div className="es-modal-foot"><button type="button" className="es-btn es-btn-ghost" onClick={onClose}>Annuler</button>
-        <button type="button" className="es-btn es-btn-primary" disabled={busy || !lines.length || lines.length > sheet.pupils.length} onClick={() => void go()}>{busy ? 'Remplissage…' : 'Remplir les cases vides'}</button></div>
+        <button type="button" className="es-btn es-btn-primary" disabled={busy || !lines.length || lines.length > present} onClick={() => void go()}>{busy ? 'Remplissage…' : 'Remplir les cases vides'}</button></div>
     </div>
   </Modal>;
 }

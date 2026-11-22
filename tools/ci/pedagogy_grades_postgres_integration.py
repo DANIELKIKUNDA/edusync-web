@@ -140,11 +140,67 @@ def run() -> None:
     check("ajustement exceptionnel du directeur : 40 points, élève à suivre", r.status_code == 200 and r.json()["points"] == 40 and r.json()["to_follow"], r.text[:160])
     check("l'enseignant n'ajuste pas", as_(t1).post("/api/v1/pedagogy/conduct/adjust", json={"class_id": str(p1), "student_id": kids[2], "period": cp, "points": 10, "reason": "Essai interdit"}).status_code == 403)
     check("liste « à suivre » de la classe : 1 élève", as_(t1).get(f"/api/v1/pedagogy/conduct/class/{p1}").json()["summary"]["to_follow"] == 1)
+    lifecycle(A, prefet, p1, h1, kids, teens, t1, t2, period, fp)
     as_(prefet).post(f"/api/v1/pedagogy/calendars/TRIMESTRIEL/periods/{cp}/close")
     r = as_(t1).post("/api/v1/pedagogy/conduct/facts", json={"class_id": str(p1), "student_id": kids[1], "rule_code": "RETARD"})
     check("période clôturée : la conduite est figée", r.status_code == 409 and "figée" in r.text, r.text[:160])
     if period == cp:
         check("période clôturée : la saisie des cotes aussi", cell(t1, p1, "NUMERATION", period, kids[2], "10").status_code == 409)
+
+
+def lifecycle(A, prefet, p1, h1, kids, teens, t1, t2, period, fp) -> None:
+    """Owner, 2026-11-22: « un élève qui a déjà abandonné, comment la liste le gère ? » — every movement of a pupil."""
+    staff = actor_for("PREFET_ETUDES", A["id"], extra={"students.lifecycle.abandon", "students.lifecycle.transfer", "students.lifecycle.suspend",
+                                                        "students.lifecycle.reintegrate", "students.class.change"})
+
+    def move(student, event, **extra):
+        version = one("SELECT version FROM students WHERE id=:s", s=student)[0]
+        return as_(staff).post(f"/api/v1/schooling/students/{student}/{event}", json={"reason": f"Essai CI {event}", **extra},
+                               headers={"If-Match": str(version), "Idempotency-Key": f"lc-{uuid.uuid4().hex}"})
+
+    cell(t1, p1, "NUMERATION", period, kids[1], "11", expected=one(
+        "SELECT version FROM pedagogy_grades WHERE student_id=:s AND course_code='NUMERATION' AND period_code=:p", s=kids[1], p=period)[0])
+    r = move(kids[1], "abandon")
+    check("abandon enregistré par la vraie action de l'école", r.status_code == 200, r.text[:160])
+    sh = as_(t1).get(f"/api/v1/pedagogy/grades/sheet?class_id={p1}&course_code=NUMERATION").json()
+    gone = next(p for p in sh["pupils"] if p["student_id"] == kids[1])
+    check("élève parti : en fin de liste, marqué « parti » avec sa date, sa cote gardée",
+          sh["pupils"][-1]["student_id"] == kids[1] and gone["departed"] and gone["left_on"] and gone["value"] == 11, gone)
+    check("élève parti : ne compte plus dans l'avancement", sh["progress"]["total"] == 2, sh["progress"])
+    r = cell(t1, p1, "NUMERATION", period, kids[1], "12", expected=gone["version"])
+    check("élève parti : plus de cote à saisir, raison claire", r.status_code == 409 and "Abandon le" in r.text, r.text[:160])
+    r = as_(t1).post("/api/v1/pedagogy/conduct/facts", json={"class_id": str(p1), "student_id": kids[1], "rule_code": "RETARD"})
+    check("élève parti : plus de fait de conduite", r.status_code == 409 and "parti" in r.text, r.text[:160])
+    check("élève parti : absent de la liste de conduite",
+          kids[1] not in {p["student_id"] for p in as_(t1).get(f"/api/v1/pedagogy/conduct/class/{p1}").json()["pupils"]})
+    r = as_(t1).post("/api/v1/pedagogy/grades/paste", json={"class_id": str(p1), "course_code": "NUMERATION", "period": period, "text": "1\n2\n3"})
+    check("liste collée : l'élève parti n'est plus dans l'ordre (3 lignes pour 2 présents = refusé)", r.status_code == 422 and "2 élèves" in r.text, r.text[:160])
+    r = move(kids[1], "reintegrate")
+    sh = as_(t1).get(f"/api/v1/pedagogy/grades/sheet?class_id={p1}&course_code=NUMERATION").json()
+    back = next(p for p in sh["pupils"] if p["student_id"] == kids[1])
+    check("réintégré : de retour dans la liste, de nouveau noté", r.status_code == 200 and not back["departed"] and sh["progress"]["total"] == 3, r.text[:120])
+
+    r = move(teens[2], "transfer", destination="Collège Saint-Joseph")
+    sh = as_(t2).get(f"/api/v1/pedagogy/grades/sheet?class_id={h1}&course_code=FRANCAIS&period={fp}").json()
+    tr = next(p for p in sh["pupils"] if p["student_id"] == teens[2])
+    check("transféré : gardé en fin de liste avec sa cote, plus noté", r.status_code == 200 and tr["departed"] and tr["pupil_status"] == "TRANSFERRED"
+          and tr["value"] is not None, tr)
+    pr = next(i for i in as_(prefet).get("/api/v1/pedagogy/grades/progress").json()["items"] if i["class_id"] == str(h1))
+    check("suivi de la direction : l'élève transféré ne compte plus", pr["pupils"] == 2 and pr["complete"] >= 1, pr)
+
+    r = move(teens[1], "suspend")
+    sh = as_(t2).get(f"/api/v1/pedagogy/grades/sheet?class_id={h1}&course_code=FRANCAIS&period={fp}").json()
+    su = next(p for p in sh["pupils"] if p["student_id"] == teens[1])
+    check("suspendu : reste dans la classe, signalé « Suspendu », toujours noté", r.status_code == 200 and su["pupil_status"] == "SUSPENDED" and not su["departed"], su)
+
+    h1b = school_class(A, "SECONDAIRE", "1re CG B", "H1", "CG")
+    as_(prefet).post("/api/v1/pedagogy/class-links/accept-suggestions")
+    r = as_(staff).post(f"/api/v1/schooling/students/{teens[0]}/class-change", json={"class_id": str(h1b), "reason": "Essai CI changement de classe"},
+                        headers={"Idempotency-Key": f"cc-{uuid.uuid4().hex}"})
+    sh = as_(t2).get(f"/api/v1/pedagogy/grades/sheet?class_id={h1}&course_code=FRANCAIS&period={fp}").json()
+    kept = one("SELECT value FROM pedagogy_grades WHERE student_id=:s AND class_id=:c AND course_code='FRANCAIS'", s=teens[0], c=h1)
+    check("changement de classe : quitte la liste de 1re CG A, ses cotes de 1re CG A gardées",
+          r.status_code == 200 and teens[0] not in {p["student_id"] for p in sh["pupils"]} and kept and kept[0] == 32, (r.status_code, kept))
 
 
 def main() -> int:

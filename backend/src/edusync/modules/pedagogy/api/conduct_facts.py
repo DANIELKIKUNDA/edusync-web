@@ -121,11 +121,17 @@ def _current_period(conn, actor: ActorContext, cls: dict, day: date) -> tuple[st
     return code, periods
 
 
-def _pupils(conn, actor: ActorContext, cls: dict) -> list[dict]:
-    rows = conn.execute(text("""SELECT st.id,st.last_name,st.middle_name,st.first_name FROM enrollments e JOIN students st ON st.id=e.student_id
+def _pupils(conn, actor: ActorContext, cls: dict, *, with_departed: bool = False) -> list[dict]:
+    """Pupils present in the class; a pupil who left (abandon, transfer) is no longer reported on (his facts stay)."""
+    rows = conn.execute(text("""SELECT st.id,st.last_name,st.middle_name,st.first_name,st.status,
+          (SELECT max(ev.effective_date) FROM student_status_events ev WHERE ev.school_id=st.school_id AND ev.student_id=st.id
+             AND ev.event_type IN ('ABANDON','TRANSFER')) AS left_on
+        FROM enrollments e JOIN students st ON st.id=e.student_id
         WHERE e.school_id=:s AND e.class_id=:c AND e.academic_year_id=:y AND e.status IN ('VALIDATED','COMPLETED')
-        ORDER BY st.last_name, st.middle_name NULLS FIRST, st.first_name"""), {"s": str(actor.school_id), "c": str(cls["id"]), "y": str(cls["year"]["id"])}).mappings()
-    return [{"student_id": str(r["id"]), "name": " ".join(x for x in (r["last_name"], r["middle_name"], r["first_name"]) if x)} for r in rows]
+        ORDER BY (st.status IN ('ABANDON','TRANSFERRED')), st.last_name, st.middle_name NULLS FIRST, st.first_name"""), {"s": str(actor.school_id), "c": str(cls["id"]), "y": str(cls["year"]["id"])}).mappings()
+    return [{"student_id": str(r["id"]), "name": " ".join(x for x in (r["last_name"], r["middle_name"], r["first_name"]) if x),
+             "suspended": r["status"] == "SUSPENDED"}
+            for r in rows if with_departed or r["status"] not in ("ABANDON", "TRANSFERRED")]
 
 
 def _conducts(conn, actor: ActorContext, cls: dict, period: str, student_id: str | None = None) -> dict[str, dict]:
@@ -229,7 +235,8 @@ def report_fact(body: FactIn, response: Response, idempotency_key: str | None = 
                     raise HTTPException(403, "Fait grave : seuls le directeur de discipline et le préfet le signalent.")
                 pupil = next((p for p in _pupils(conn, actor, cls) if p["student_id"] == str(body.student_id)), None)
                 if pupil is None:
-                    raise HTTPException(404, "Élève absent de cette classe")
+                    gone = any(p["student_id"] == str(body.student_id) for p in _pupils(conn, actor, cls, with_departed=True))
+                    raise HTTPException(409 if gone else 404, "Élève parti (abandon ou transfert) : plus de fait à signaler." if gone else "Élève absent de cette classe")
                 period, periods = _current_period(conn, actor, cls, date.today())
                 if periods[period]["closed"]:
                     raise HTTPException(409, "Période clôturée : la conduite est figée.")

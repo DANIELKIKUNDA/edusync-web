@@ -28,6 +28,8 @@ from edusync.shared.application.context import ActorContext
 router = APIRouter(tags=["Pédagogie (V2) — cotes"])
 ENTER, READ = "pedagogy.grades.enter", "pedagogy.grades.read"
 ENROLLED = ("VALIDATED", "COMPLETED")
+DEPARTED = ("ABANDON", "TRANSFERRED")
+LEFT_WORD = {"ABANDON": "Abandon", "TRANSFERRED": "Transféré"}
 PERIOD_COLUMNS = "l.max_p1,l.max_p2,l.max_ex1,l.max_p3,l.max_p4,l.max_ex2,l.max_p5,l.max_p6,l.max_ex3"
 
 
@@ -90,11 +92,19 @@ def _context(conn, actor: ActorContext, class_id: UUID, course: str) -> dict:
 
 
 def _pupils(conn, actor: ActorContext, ctx: dict) -> list[dict]:
-    rows = conn.execute(text("""SELECT st.id,st.last_name,st.middle_name,st.first_name FROM enrollments e JOIN students st ON st.id=e.student_id
+    """Pupils of the class in register order. A pupil who left (abandon, transfer) stays at the END, read-only with his
+    departure date and his marks kept — he is no longer marked, counted nor in the pasted order; a suspended pupil is
+    still in the class (flagged)."""
+    rows = conn.execute(text("""SELECT st.id,st.last_name,st.middle_name,st.first_name,st.status,
+          (SELECT max(ev.effective_date) FROM student_status_events ev WHERE ev.school_id=st.school_id AND ev.student_id=st.id
+             AND ev.event_type IN ('ABANDON','TRANSFER')) AS left_on
+        FROM enrollments e JOIN students st ON st.id=e.student_id
         WHERE e.school_id=:s AND e.class_id=:c AND e.academic_year_id=:y AND e.status IN ('VALIDATED','COMPLETED')
-        ORDER BY st.last_name, st.middle_name NULLS FIRST, st.first_name"""),
+        ORDER BY (st.status IN ('ABANDON','TRANSFERRED')), st.last_name, st.middle_name NULLS FIRST, st.first_name"""),
         {"s": str(actor.school_id), "c": str(ctx["class"]["id"]), "y": str(ctx["year"]["id"])}).mappings()
-    return [{"student_id": str(r["id"]), "name": " ".join(x for x in (r["last_name"], r["middle_name"], r["first_name"]) if x)} for r in rows]
+    return [{"student_id": str(r["id"]), "name": " ".join(x for x in (r["last_name"], r["middle_name"], r["first_name"]) if x),
+             "pupil_status": r["status"], "departed": r["status"] in DEPARTED,
+             "left_on": r["left_on"].isoformat() if r["left_on"] and r["status"] in DEPARTED else None} for r in rows]
 
 
 def _marks(conn, actor: ActorContext, ctx: dict, period: str) -> dict[str, dict]:
@@ -130,12 +140,13 @@ def _sheet(conn, actor: ActorContext, ctx: dict, period: str) -> dict:
     columns = [{"code": code, "label": ctx["periods"].get(code, {}).get("label", code), "max": ctx["maxima"][code],
                 "state": ctx["periods"].get(code, {}).get("state", "DRAFT"), "allowed": bool(ctx["periods"].get(code, {}).get("allowed"))}
                for code in gd.COLUMN_OF if ctx["maxima"][code] > 0 and (ctx["line"]["has_exam"] or not code.startswith("EX"))]
-    filled = sum(1 for p in pupils if p["status"])
+    active = [p for p in pupils if not p["departed"]]
+    filled = sum(1 for p in active if p["status"])
     return {"class": {"id": str(ctx["class"]["id"]), "label": ctx["class"]["label"]},
             "course": {"code": ctx["line"]["course_code"], "label": ctx["line"]["label"], "has_exam": ctx["line"]["has_exam"]},
             "period": {"code": period, "label": state.get("label", period), "max": maximum, "state": state["state"], "allowed": state["allowed"]},
             "periods": columns, "can_enter": ctx["can_enter"] and state["allowed"], "pupils": pupils,
-            "progress": {"filled": filled, "total": len(pupils)}}
+            "progress": {"filled": filled, "total": len(active)}}
 
 
 @router.get("/grades/sheet")
@@ -201,8 +212,11 @@ def put_cell(body: CellIn, actor: ActorContext = Depends(require_school_actor), 
     with _tx(services, actor) as conn:
         ctx = _context(conn, actor, body.class_id, body.course_code.strip().upper())
         _guard_entry(ctx, period)
-        if str(body.student_id) not in {p["student_id"] for p in _pupils(conn, actor, ctx)}:
+        pupil = next((p for p in _pupils(conn, actor, ctx) if p["student_id"] == str(body.student_id)), None)
+        if pupil is None:
             raise HTTPException(404, "Élève absent de cette classe")
+        if pupil["departed"]:
+            raise HTTPException(409, f"{LEFT_WORD[pupil['pupil_status']]} le {pupil['left_on'] or '—'} : plus de cote à saisir pour cet élève.")
         maximum = ctx["maxima"][period]
         try:
             status, value = gd.parse_cell(body.input, maximum)
@@ -226,7 +240,7 @@ def paste(body: PasteIn, actor: ActorContext = Depends(require_school_actor), se
             cells = gd.parse_pasted(body.text, ctx["maxima"][period])
         except gd.GradeError as exc:
             raise HTTPException(422, str(exc)) from exc
-        pupils = _pupils(conn, actor, ctx)
+        pupils = [p for p in _pupils(conn, actor, ctx) if not p["departed"]]      # the paper list has only the pupils present
         if len(cells) > len(pupils):
             raise HTTPException(422, f"{len(cells)} lignes collées pour {len(pupils)} élèves : vérifiez la liste.")
         marks = _marks(conn, actor, ctx, period)
@@ -263,16 +277,18 @@ def progress(actor: ActorContext = Depends(require_school_actor), services: AppS
                    for s, v in states.items()}
         rows = conn.execute(text("""SELECT c.id,c.label,s.code AS section_code,s.label AS section_label,rc.structure,
               l.course_code,k.label AS course_label,
-              (SELECT count(*) FROM enrollments e WHERE e.school_id=c.school_id AND e.class_id=c.id AND e.academic_year_id=c.academic_year_id
-                 AND e.status IN ('VALIDATED','COMPLETED')) AS pupils
+              (SELECT count(*) FROM enrollments e JOIN students st ON st.id=e.student_id WHERE e.school_id=c.school_id AND e.class_id=c.id
+                 AND e.academic_year_id=c.academic_year_id AND e.status IN ('VALIDATED','COMPLETED') AND st.status NOT IN ('ABANDON','TRANSFERRED')) AS pupils
             FROM school_classes c JOIN school_sections s ON s.id=c.section_id
             JOIN pedagogy_class_links lk ON lk.class_id=c.id JOIN ref_classes rc ON rc.code=lk.ref_class_code
             JOIN pedagogy_programmes p ON p.school_id=c.school_id AND p.academic_year_id=c.academic_year_id AND p.ref_class_code=lk.ref_class_code AND p.status='VALIDATED'
             JOIN pedagogy_programme_lines l ON l.programme_id=p.id JOIN ref_courses k ON k.code=l.course_code
             WHERE c.school_id=:s AND c.academic_year_id=:y AND c.enabled
             ORDER BY s.code, c.label, l.sort_order"""), {"s": str(actor.school_id), "y": str(year["id"])}).mappings().all()
-        counts = {(str(r[0]), r[1], r[2]): r[3] for r in conn.execute(text("""SELECT class_id,course_code,period_code,count(*) FROM pedagogy_grades
-            WHERE school_id=:s AND academic_year_id=:y AND status IS NOT NULL GROUP BY 1,2,3"""), {"s": str(actor.school_id), "y": str(year["id"])})}
+        counts = {(str(r[0]), r[1], r[2]): r[3] for r in conn.execute(text("""SELECT g.class_id,g.course_code,g.period_code,count(*) FROM pedagogy_grades g
+            JOIN students st ON st.id=g.student_id
+            WHERE g.school_id=:s AND g.academic_year_id=:y AND g.status IS NOT NULL AND st.status NOT IN ('ABANDON','TRANSFERRED')
+            GROUP BY 1,2,3"""), {"s": str(actor.school_id), "y": str(year["id"])})}
     classes: dict[str, dict] = {}
     for r in rows:
         if secs is not None and str(r["section_code"]).upper() not in secs:

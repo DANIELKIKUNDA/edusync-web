@@ -697,7 +697,8 @@ export async function getConductScale(token:string){return json<ConductScale>(aw
 export async function saveConductScale(token:string,rules:ConductRule[],settings:{late_threshold:number;late_penalty:number;alert_below:number}){return json<ConductScale>(await fetch(`${API}/pedagogy/conduct/scale`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify({rules,settings})}),'Barème non enregistré')}
 
 // ---------------------------------------------------------------- V2 lot 3b — cotes et faits de conduite (2026-11-22)
-export type GradePupil={student_id:string;name:string;status:'NOTE'|'ABSENT'|'DISPENSE'|null;value:number|null;version:number|null;failing:boolean};
+export type GradePupil={student_id:string;name:string;status:'NOTE'|'ABSENT'|'DISPENSE'|null;value:number|null;version:number|null;failing:boolean;
+  pupil_status:string;departed:boolean;left_on:string|null};
 export type GradeColumn={code:string;label:string;max:number;state:string;allowed:boolean};
 export type GradeSheet={class:{id:string;label:string};course:{code:string;label:string;has_exam:boolean};
   period:{code:string;label:string;max:number;state:string;allowed:boolean};periods:GradeColumn[];can_enter:boolean;pupils:GradePupil[];progress:{filled:number;total:number}};
@@ -715,7 +716,7 @@ export async function pasteGrades(token:string,body:{class_id:string;course_code
 export type GradeProgress={year:{id:string;label:string};current:Record<string,string|null>;items:{class_id:string;label:string;section_label:string;period:string|null;pupils:number;courses:number;complete:number;started:number}[]};
 export async function getGradeProgress(token:string){return json<GradeProgress>(await fetch(`${API}/pedagogy/grades/progress`,{headers:auth(token)}),'Suivi indisponible')}
 export type ConductFact={id:string;label:string;points:number;grave:boolean;note:string|null;occurred_on:string;can_cancel:boolean};
-export type ConductPupil={student_id:string;name:string;points:number;mention:string;mention_label:string;facts:number;lates:number;repeated_late_penalties:number;to_follow:boolean;adjustment:number;recent:ConductFact[]};
+export type ConductPupil={student_id:string;name:string;suspended?:boolean;points:number;mention:string;mention_label:string;facts:number;lates:number;repeated_late_penalties:number;to_follow:boolean;adjustment:number;recent:ConductFact[]};
 export type ConductClass={class:{id:string;label:string};period:{code:string;label:string;current:boolean;closed:boolean};periods:{code:string;label:string}[];
   rules:{code:string;label:string;points:number;grave:boolean}[];settings:{late_threshold:number;late_penalty:number;alert_below:number};can_manage:boolean;pupils:ConductPupil[];
   summary:{pupils:number;to_follow:number;facts:number}};

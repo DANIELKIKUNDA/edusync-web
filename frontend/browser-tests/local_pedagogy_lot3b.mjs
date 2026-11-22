@@ -91,7 +91,7 @@ try {
   for (const [W, H] of SIZES) {
     const {ctx, p} = await open(b, T2, W, H); const k = `${W}x${H}`; R[k] = {};
     await tab(p, 'Mes classes'); await p.locator('.pt-courses-go button').filter({hasText: 'Français'}).first().click(); await p.waitForTimeout(2500);
-    R[k].sheet = await measure(p); await p.screenshot({path: `${OUT}/sheet_${k}.png`});
+    R[k].sheet = await measure(p); await p.screenshot({path: `${OUT}/sheet_${k}.png`}); await p.screenshot({path: `${OUT}/sheet_full_${k}.png`, fullPage: true});
     await p.locator('.pgr-back').first().click(); await p.waitForTimeout(1200);     // focus mode: back to the tabs
     await tab(p, 'Conduite'); R[k].conduct = await measure(p); await p.screenshot({path: `${OUT}/conduct_${k}.png`});
     await ctx.close();

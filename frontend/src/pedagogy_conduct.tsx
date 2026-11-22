@@ -84,7 +84,7 @@ function ClassConduct({token, classId}: {token: string; classId: string}) {
     </div>
     <ul className="pcd-list">{list.map(p => <li key={p.student_id} className={p.to_follow ? 'pcd-alert' : ''}>
       <button type="button" className="pcd-row" aria-expanded={open === p.student_id} disabled={data.period.closed} onClick={() => setOpen(o => o === p.student_id ? null : p.student_id)}>
-        <span className="pcd-name"><b>{p.name}</b><small>{p.facts ? `${p.facts} fait${p.facts > 1 ? 's' : ''}${p.lates ? ` · ${p.lates} retard${p.lates > 1 ? 's' : ''}` : ''}` : 'Aucun fait'}{p.to_follow ? ' · à suivre' : ''}</small></span>
+        <span className="pcd-name"><b>{p.name}{p.suspended && <em className="pgr-susp">Suspendu</em>}</b><small>{p.facts ? `${p.facts} fait${p.facts > 1 ? 's' : ''}${p.lates ? ` · ${p.lates} retard${p.lates > 1 ? 's' : ''}` : ''}` : 'Aucun fait'}{p.to_follow ? ' · à suivre' : ''}</small></span>
         <span className="pcd-score"><b>{p.points}</b><span className={`pc-chip ${TONE[p.mention] || ''}`}>{p.mention}</span></span>
       </button>
       {open === p.student_id && <div className="pcd-open">

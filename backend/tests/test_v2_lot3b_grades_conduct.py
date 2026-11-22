@@ -61,3 +61,14 @@ def test_routes_rights_and_safety():
     assert "GRADE_CONFLICT" in grades and "never overwrite a mark already there" in grades
     rt = (ROOT / "backend/src/edusync/shared/infrastructure/realtime.py").read_text(encoding="utf-8")
     assert '("/api/v1/pedagogy", ("pedagogy",))' in rt                          # live for the directors
+
+
+def test_pupils_who_left_are_kept_apart():
+    """Owner 2026-11-22: « un élève qui a déjà abandonné, comment la liste le gère ? » — at the end, read-only, his marks
+    kept, no more mark nor fact, not counted, not in the pasted order; a suspended pupil stays (flagged)."""
+    grades = (ROOT / "backend/src/edusync/modules/pedagogy/api/grades.py").read_text(encoding="utf-8")
+    assert "ORDER BY (st.status IN ('ABANDON','TRANSFERRED'))" in grades and "plus de cote à saisir pour cet élève" in grades
+    assert 'pupils = [p for p in _pupils(conn, actor, ctx) if not p["departed"]]' in grades
+    assert "st.status NOT IN ('ABANDON','TRANSFERRED')" in grades                      # directors' follow-up
+    conduct = (ROOT / "backend/src/edusync/modules/pedagogy/api/conduct_facts.py").read_text(encoding="utf-8")
+    assert "plus de fait à signaler" in conduct
