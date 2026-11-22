@@ -67,6 +67,10 @@ const OFFLINE_WRITES: Array<[RegExp, string, string]> = [
   [/^\/api\/v1\/stewardship\/assets(\/[0-9a-f-]{36}(\/(status|repairs))?)?$/, 'ASSET', 'Patrimoine'],
   [/^\/api\/v1\/stewardship\/counts(\/[0-9a-f-]{36}\/(lines|validate))?$/, 'COUNT', 'Inventaire physique'],
   [/^\/api\/v1\/communications\/send$/, 'MESSAGE', 'Message aux familles'],
+  // V2 lot 3b (owner 2026-11-22): a teacher marks without network; the server keeps the same mark once (same value =
+  // no change) and reports a real conflict instead of overwriting (tools/ci/pedagogy_grades_postgres_integration.py).
+  [/^\/api\/v1\/pedagogy\/grades\/cell$/, 'GRADE', 'Cote'],
+  [/^\/api\/v1\/pedagogy\/conduct\/facts$/, 'CONDUCT', 'Fait de conduite'],
   [/^\/api\/v1\/communications\/templates$/, 'MESSAGE', 'Modèle de message'],
   [/^\/api\/v1\/settings\/(?!backups|branding)[a-z-]+(\/[^/]+){0,3}$/, 'SETTINGS', 'Paramétrage'],
 ];

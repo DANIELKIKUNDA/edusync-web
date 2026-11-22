@@ -7,12 +7,14 @@ import {configureOutbox, savePack, subscribeOutbox, syncOutbox, type OutboxState
 import {DeviceOutbox} from './device_outbox';
 
 const PACK_EVERY_MS = 10 * 60_000;
-const SPEAKING_KINDS = new Set(['ENROLLMENT', 'PAYMENT', 'SALE', 'EXPENSE', 'CASH_OPEN', 'CASH_CLOSE', 'DEPOSIT']);
+const SPEAKING_KINDS = new Set(['ENROLLMENT', 'PAYMENT', 'SALE', 'EXPENSE', 'CASH_OPEN', 'CASH_CLOSE', 'DEPOSIT', 'GRADE', 'CONDUCT']);
+// marks: the grade sheet shows each row's state itself — one toast per mark would bury the teacher
+const QUIET_WHEN_SENT = new Set(['GRADE']);
 export function useSchoolOffline(session: {token: string; school: {id: string}; user: {id: string}; permissions: string[]}) {
   const tokenRef = useRef(session.token); tokenRef.current = session.token;
   useEffect(() => {
     configureOutbox(`${session.school.id}:${session.user.id}`, () => tokenRef.current);
-    const sent = (e: Event) => { const d = (e as CustomEvent).detail; toast.success(`Synchronisé : ${d.label}${d.receipt ? ` · reçu ${d.receipt}` : ''}`); };
+    const sent = (e: Event) => { const d = (e as CustomEvent).detail; if (QUIET_WHEN_SENT.has(d?.kind)) return; toast.success(`Synchronisé : ${d.label}${d.receipt ? ` · reçu ${d.receipt}` : ''}`); };
     const synced = (e: Event) => { const d = (e as CustomEvent).detail; if (d.refused) toast.error(`${d.refused} opération(s) refusée(s) par le serveur à la synchronisation : touchez « à vérifier » en haut de l’écran pour voir la raison.`, {duration: 15000}); };
     // Screens that already speak offline (cash desk, enrollment, checkout, deposits) keep their own message; the others —
     // every school role since 2026-10-31 — get this one, so nobody believes an offline change is already on the server.

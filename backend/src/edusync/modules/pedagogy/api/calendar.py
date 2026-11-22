@@ -215,3 +215,21 @@ def close_entry(structure: str, code: str, body: ReasonIn | None = None, actor: 
 def reopen_entry(structure: str, code: str, body: ReasonIn, actor: ActorContext = Depends(require_school_actor),
                  services: AppServices = Depends(get_services), _module: ActorContext = Depends(require_pedagogy)):
     return _entry(structure, code, body.reason, False, actor, services)
+
+
+def period_states(conn, actor: ActorContext, year: dict, structure: str) -> dict[str, dict]:
+    """Entry state of every period of a SAVED calendar (lot 3b: grades and conduct follow it). Empty when the school
+    has not saved this calendar yet — nothing may then be entered."""
+    row = conn.execute(text("""SELECT id,status FROM pedagogy_calendars WHERE school_id=:s AND academic_year_id=:y AND structure=:t"""),
+                       {"s": str(actor.school_id), "y": str(year["id"]), "t": structure}).mappings().first()
+    if row is None:
+        return {}
+    today = date.today()
+    out = {}
+    for p in conn.execute(text("""SELECT code,sort_order,starts_on,ends_on,entry_closed_at FROM pedagogy_calendar_periods
+            WHERE calendar_id=:c ORDER BY sort_order"""), {"c": str(row["id"])}).mappings():
+        period = cal.Period(p["code"], p["starts_on"], p["ends_on"])
+        state = cal.entry_state(period, validated=row["status"] == "VALIDATED", closed=p["entry_closed_at"] is not None, today=today)
+        out[p["code"]] = {"code": p["code"], "label": cal.label(structure, p["code"]), "sort_order": p["sort_order"], "starts_on": p["starts_on"],
+                          "ends_on": p["ends_on"], "state": state, "allowed": cal.entry_allowed(state), "closed": p["entry_closed_at"] is not None}
+    return out
