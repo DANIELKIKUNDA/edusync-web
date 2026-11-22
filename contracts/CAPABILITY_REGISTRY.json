@@ -11,7 +11,7 @@
  },
  "owner_decides_roles_and_assignments": true,
  "role_assignments_finalized": true,
- "capability_count": 313,
+ "capability_count": 316,
  "capabilities": [
   {
    "code": "access.grants.exception",
@@ -4174,8 +4174,11 @@
   },
   {"code":"pedagogy.calendar.manage","domain":"Pédagogie","group":"Calendrier","label":"Préparer, valider et clôturer le calendrier pédagogique","action":"manage","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["SCHOOL"],"source_status":"OWNER_APPROVED","prerequisites":["pedagogy.referential.read"],"outputs":[],"sensitive":false,"notes":"V2 lot 2 (22/11/2026) : module Pédagogie requis ; validation par le préfet ou le directeur des études.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
   {"code":"pedagogy.class_links.manage","domain":"Pédagogie","group":"Référentiel","label":"Relier les classes de l’école aux classes officielles","action":"manage","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["SCHOOL","SECTION"],"source_status":"OWNER_APPROVED","prerequisites":["pedagogy.referential.read"],"outputs":[],"sensitive":false,"notes":"V2 lot 1 (22/11/2026) : module Pédagogie requis.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
+  {"code":"pedagogy.conduct.configure","domain":"Pédagogie","group":"Conduite","label":"Régler le barème de conduite de l’école","action":"configure","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["SCHOOL"],"source_status":"OWNER_APPROVED","prerequisites":["pedagogy.referential.read"],"outputs":[],"sensitive":false,"notes":"V2 lot 3a (22/11/2026) : conduite calculée (permis à points).","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
   {"code":"pedagogy.programmes.manage","domain":"Pédagogie","group":"Programmes","label":"Adopter, ajuster et valider les programmes des classes","action":"manage","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["SCHOOL","SECTION"],"source_status":"OWNER_APPROVED","prerequisites":["pedagogy.referential.read"],"outputs":[],"sensitive":false,"notes":"V2 lot 2 (22/11/2026) : module Pédagogie requis ; validation par le préfet ou le directeur des études.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
   {"code":"pedagogy.referential.read","domain":"Pédagogie","group":"Référentiel","label":"Consulter le référentiel officiel et les programmes","action":"read","risk":"LOW","offline_policy":"SERVER_ONLY","audit_required":false,"scope_types":["SCHOOL","SECTION"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":false,"notes":"V2 lot 1 (22/11/2026) : module Pédagogie requis.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
+  {"code":"pedagogy.teaching.manage","domain":"Pédagogie","group":"Enseignants","label":"Attribuer les cours aux enseignants et choisir les titulaires","action":"manage","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["SCHOOL","SECTION"],"source_status":"OWNER_APPROVED","prerequisites":["pedagogy.referential.read"],"outputs":[],"sensitive":false,"notes":"V2 lot 3a (22/11/2026).","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
+  {"code":"pedagogy.teaching.own.read","domain":"Pédagogie","group":"Enseignants","label":"Voir ses classes, ses cours et ses titulariats","action":"read","risk":"LOW","offline_policy":"SERVER_ONLY","audit_required":false,"scope_types":["SCHOOL"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":false,"notes":"V2 lot 3a (22/11/2026) : rôle Enseignant.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
   {
    "code": "personnel.access_link.manage",
    "domain": "Personnel",
@@ -7068,8 +7071,10 @@
     "notifications.internal.read_all",
     "pedagogy.calendar.manage",
     "pedagogy.class_links.manage",
+    "pedagogy.conduct.configure",
     "pedagogy.programmes.manage",
     "pedagogy.referential.read",
+    "pedagogy.teaching.manage",
     "personnel.access_link.manage",
     "personnel.access_link.read",
     "settings.academic_year.activate",
@@ -7152,6 +7157,16 @@
     "settings.structure.read",
     "notifications.internal.read"
    ]
+  },
+  "ENSEIGNANT": {
+   "label": "Enseignant",
+   "level": "SCHOOL",
+   "kind": "SCHOOL_STANDARD",
+   "capabilities": [
+    "pedagogy.referential.read",
+    "pedagogy.teaching.own.read"
+   ],
+   "locked": []
   },
   "CAISSIER": {
    "label": "Caissier",
@@ -7324,6 +7339,8 @@
     "headcounts.read",
     "notifications.internal.dismiss",
     "notifications.internal.read",
+    "pedagogy.conduct.configure",
+    "pedagogy.referential.read",
     "personnel.assignments.read",
     "personnel.functions.read",
     "personnel.read",
@@ -7384,6 +7401,7 @@
     "pedagogy.class_links.manage",
     "pedagogy.programmes.manage",
     "pedagogy.referential.read",
+    "pedagogy.teaching.manage",
     "personnel.assignments.read",
     "personnel.functions.read",
     "personnel.read",
@@ -7475,6 +7493,7 @@
     "notifications.internal.read",
     "pedagogy.programmes.manage",
     "pedagogy.referential.read",
+    "pedagogy.teaching.manage",
     "personnel.assignments.read",
     "personnel.directory.export",
     "personnel.directory.export_xlsx",
@@ -7768,8 +7787,10 @@
     "notifications.internal.read",
     "pedagogy.calendar.manage",
     "pedagogy.class_links.manage",
+    "pedagogy.conduct.configure",
     "pedagogy.programmes.manage",
     "pedagogy.referential.read",
+    "pedagogy.teaching.manage",
     "personnel.assignments.read",
     "personnel.directory.export",
     "personnel.directory.export_xlsx",
