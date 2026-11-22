@@ -48,7 +48,7 @@ def test_official_receipt_matches_desktop_documentary_blocks_and_real_cashier():
     assert "Foyer Kikunda" in text
     assert "25/10/2026" in text
     assert "120 000 FC" in text
-    assert money("50000", "CDF") == "50 000 FC"
+    assert money("50000", "CDF") == "50 000 FC"
 
 
 def test_receipt_copies_and_formats_keep_one_numbered_receipt_per_page():

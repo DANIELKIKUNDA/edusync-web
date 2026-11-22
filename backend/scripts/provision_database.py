@@ -245,6 +245,7 @@ def main() -> None:
             ("0119_saas_subscriptions_foundation", "0119_saas_subscriptions_foundation.sql"),
             ("0120_saas_school_subscription_account", "0120_saas_school_subscription_account.sql"),
             ("0121_saas_mobile_money_checkout", "0121_saas_mobile_money_checkout.sql"),
+            ("0122_cash_expense_fee_source", "0122_cash_expense_fee_source.sql"),
         ]
         # CI only (rbac-contract job): stop after a given migration to snapshot the state BEFORE a later one.
         until = os.environ.get("EDUSYNC_MIGRATE_UNTIL", "").strip()

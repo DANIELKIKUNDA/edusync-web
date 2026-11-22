@@ -123,6 +123,16 @@ def _school_name(c,sid):return c.execute(text("SELECT name FROM schools WHERE id
 class ExpenseBody(BaseModel):
  category:str=Field(min_length=1,max_length=80);amount:Decimal=Field(gt=0,max_digits=18,decimal_places=2);currency:str=Field(pattern='^(CDF|USD)$')
  reason:str=Field(min_length=3,max_length=500);reference:str|None=Field(default=None,max_length=80)
+ fee_type_id:UUID|None=None   # « pris dans les frais de… » (owner, 2026-11-22); empty = not specified
+@router.get('/expense-sources')
+def expense_sources(actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
+ """The fees an expense may be taken from (owner, 2026-11-22). Same right as recording the expense: the cashier does
+ not need the settings to choose « Frais de l'État »."""
+ need(actor,'finance.cash.expense.create')
+ from sqlalchemy import text as _t
+ with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
+  rows=c.execute(_t("SELECT id,code,label FROM fee_types WHERE school_id=:s AND enabled ORDER BY regulatory DESC,label"),{'s':actor.school_id}).mappings().all()
+ return [{'id':str(x['id']),'code':x['code'],'label':x['label']} for x in rows]
 @router.post('/expenses',status_code=201)
 def record_expense(b:ExpenseBody,idempotency_key:str|None=_HeaderE(None,alias='Idempotency-Key'),actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  """G-CAI-1 — Desktop record_expense (category, reason >= 3, refused on a closed day), in the cashier's open session.
@@ -134,7 +144,7 @@ def record_expense(b:ExpenseBody,idempotency_key:str|None=_HeaderE(None,alias='I
  try:
   with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
    def run():
-    out=PostgresCashIntegrityRepository(c).record_expense(actor.school_id,user_id=actor.user_id,membership_id=actor.membership_id,category=b.category,amount=b.amount,currency=b.currency,reason=b.reason,reference=b.reference)
+    out=PostgresCashIntegrityRepository(c).record_expense(actor.school_id,user_id=actor.user_id,membership_id=actor.membership_id,category=b.category,amount=b.amount,currency=b.currency,reason=b.reason,reference=b.reference,fee_type_id=b.fee_type_id)
     _audit(c,actor,'RECORD_EXPENSE','CashExpense',out['id'],None,out);return out
    if not key:return run()
    return IdempotentExecutor(PostgresIdempotencyRepository(c)).execute(scope_key=str(actor.school_id),idempotency_key=key,operation='FINANCE_CASH_EXPENSE',

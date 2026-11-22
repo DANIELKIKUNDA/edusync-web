@@ -6,7 +6,7 @@ import {previewPdf} from './document_io';
 import React, {useEffect, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {toast} from 'sonner';
-import {cashDayPdf, cashExpense, closeSchoolCashDay, reopenSchoolCashDay, reversePayment, schoolCashDay, type SchoolCashDay} from './api';
+import {cashDayPdf, cashExpense, cashExpenseSources, type ExpenseSource, closeSchoolCashDay, reopenSchoolCashDay, reversePayment, schoolCashDay, type SchoolCashDay} from './api';
 import {friendlyError} from './platform/errors';
 import {confirmAction, promptText} from './platform/dialogs';
 import {formatMoney} from './platform/format';
@@ -17,15 +17,18 @@ const money = (v: string | number, c: string) => formatMoney(String(v), c);
 export function CashExpenseForm({token, onDone}: {token: string; onDone: () => Promise<void> | void}) {
   const [category, setCategory] = useState(''); const [amount, setAmount] = useState(''); const [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
   const [reason, setReason] = useState(''); const [reference, setReference] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const [sources, setSources] = useState<ExpenseSource[]>([]); const [source, setSource] = useState('');
+  useEffect(() => { cashExpenseSources(token).then(setSources).catch(() => setSources([])); }, [token]);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!category.trim() || reason.trim().length < 3) { setError('Catégorie et motif de dépense obligatoires (motif : 3 caractères au moins).'); return; }
     if (!/^\d+([.,]\d{1,2})?$/.test(amount.trim()) || Number(amount.replace(',', '.')) <= 0) { setError('Montant en chiffres, supérieur à zéro.'); return; }
-    if (!await confirmAction({title: 'Enregistrer cette dépense ?', message: `${money(amount.replace(',', '.'), currency)} sortiront de votre caisse. Une dépense enregistrée ne se supprime pas.`, confirmLabel: 'Enregistrer'})) return;
+    const from = sources.find(x => x.id === source)?.label;
+    if (!await confirmAction({title: 'Enregistrer cette dépense ?', message: `${money(amount.replace(',', '.'), currency)} sortiront de votre caisse${from ? `, pris dans « ${from} »` : ''}. Une dépense enregistrée ne se supprime pas.`, confirmLabel: 'Enregistrer'})) return;
     try {
       setBusy(true); setError('');
-      const res: any = await cashExpense(token, {category: category.trim(), amount: amount.replace(',', '.'), currency, reason: reason.trim(), reference: reference.trim() || null});
-      toast.success(res?.offline_queued ? 'Hors connexion : dépense enregistrée sur cet appareil, envoyée automatiquement' : 'Dépense enregistrée'); setCategory(''); setAmount(''); setReason(''); setReference(''); await onDone();
+      const res: any = await cashExpense(token, {category: category.trim(), amount: amount.replace(',', '.'), currency, reason: reason.trim(), reference: reference.trim() || null, fee_type_id: source || null});
+      toast.success(res?.offline_queued ? 'Hors connexion : dépense enregistrée sur cet appareil, envoyée automatiquement' : 'Dépense enregistrée'); setCategory(''); setAmount(''); setReason(''); setReference(''); setSource(''); await onDone();
     } catch (err) { setError(friendlyError(err)); } finally { setBusy(false); }
   }
   return <form className="cashExpenseBox compact" onSubmit={submit} noValidate>
@@ -35,6 +38,8 @@ export function CashExpenseForm({token, onDone}: {token: string; onDone: () => P
       <label>Catégorie<input value={category} maxLength={80} onChange={e => setCategory(e.target.value)} placeholder="Fournitures, transport…"/></label>
       <label>Montant<input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}/></label>
       <label>Devise<select value={currency} onChange={e => setCurrency(e.target.value as 'CDF' | 'USD')}><option value="CDF">FC</option><option value="USD">USD</option></select></label>
+      <label>Pris dans les frais de<select value={source} onChange={e => setSource(e.target.value)}><option value="">Non précisé</option>
+        {sources.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
       <label>Motif<input value={reason} maxLength={500} onChange={e => setReason(e.target.value)}/></label>
       <label>Référence (facultatif)<input value={reference} maxLength={80} onChange={e => setReference(e.target.value)}/></label>
     </div>
@@ -99,6 +104,9 @@ export function SchoolDayPanel({token, can, day}: {token: string; can: (p: strin
     <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Devise</th><th>Entrées</th><th>Sorties</th><th>Net</th></tr></thead>
       <tbody>{d.totals.map(t => <tr key={t.currency}><th>{t.currency === 'CDF' ? 'FC' : t.currency}</th><td>{money(t.entries, t.currency)}</td><td>{money(t.outflows, t.currency)}</td><td><b>{money(t.net, t.currency)}</b></td></tr>)}
         {d.totals.length === 0 && <tr><td colSpan={4}>Aucune opération ce jour.</td></tr>}</tbody></table></div>
+    {!!d.by_fee?.length && <details className="dayFees" open><summary>Répartition par type de frais</summary>
+      <div className="cashTableWrap"><table className="cashSummaryTable"><thead><tr><th>Frais</th><th>Entrées</th><th>Sorties</th><th>Solde</th></tr></thead>
+        <tbody>{d.by_fee.map((x, i) => <tr key={i}><th>{x.fee}</th><td>{money(x.entries, x.currency)}</td><td>{money(x.outflows, x.currency)}</td><td><b>{money(x.balance, x.currency)}</b></td></tr>)}</tbody></table></div></details>}
     {d.details.length > 0 && <ul className="dayDetails">{d.details.map((x, i) => <li key={i}><span>{x.label} · {x.direction === 'ENTREE' ? 'entrée' : 'sortie'}</span><b>{money(x.amount, x.currency)}</b></li>)}</ul>}
     {canReverse && !!d.operations?.length && <details className="dayOps"><summary>Encaissements du jour (contre-opération supérieure)</summary>
       <ul>{d.operations.filter(o => o.payment_id).map(o => <li key={o.payment_id!}><span>{o.reference} · {o.user_name || '—'}</span><b>{money(o.amount, o.currency)}</b>

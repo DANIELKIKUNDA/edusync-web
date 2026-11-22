@@ -77,7 +77,7 @@ def _amount(v: Any, currency: str | None) -> str:
     """« 1 110 000 FC » — French grouping, no useless decimals (« 12,50 USD » only when there are cents)."""
     d = Decimal(str(v or 0))
     txt = f"{d:,.0f}" if d == d.to_integral() else f"{d:,.2f}"
-    return txt.replace(",", " ").replace(".", ",") + " " + CURRENCY.get(currency or "", currency or "")
+    return txt.replace(",", " ").replace(".", ",") + " " + CURRENCY.get(currency or "", currency or "")
 
 
 def daily_report_pdf(*, school_name: str, report: dict[str, Any], prepared_by: str | None = None) -> bytes:
@@ -155,6 +155,27 @@ def daily_report_pdf(*, school_name: str, report: dict[str, Any], prepared_by: s
                      p(_amount(r["net"], cur), BOLDR), p(status)])
     story.append(table(rows, [W * .14, W * .24, W * .24, W * .24, W * .14]))
 
+    # Owner, 2026-11-22: « on encaisse 1 000 000 FC mais il y a 350 000 FC pour le frais de l'État » — per fee: what came in,
+    # what went out (an expense names the fee it is taken from) and what remains. One table per currency, never added.
+    by_fee = report.get("by_fee") or []
+    story.append(Paragraph("Répartition par type de frais", SEC))
+    if by_fee:
+        for cur in sorted({r["currency"] for r in by_fee}):
+            lines = [r for r in by_fee if r["currency"] == cur]
+            rows = [[p(h, HEAD) for h in (f"Type de frais ({CURRENCY.get(cur, cur)})", "Entrées", "Sorties", "Solde")]]
+            for r in lines:
+                rows.append([p(r["fee"]), p(_amount(r["entries"], cur), RIGHT), p(_amount(r["outflows"], cur), RIGHT), p(_amount(r["balance"], cur), BOLDR)])
+            tot = [sum(Decimal(str(r[k])) for r in lines) for k in ("entries", "outflows", "balance")]
+            rows.append([Paragraph("<b>Total</b>", CELL), Paragraph(f"<b>{escape(_amount(tot[0], cur))}</b>", RIGHT),
+                         Paragraph(f"<b>{escape(_amount(tot[1], cur))}</b>", RIGHT), Paragraph(f"<b>{escape(_amount(tot[2], cur))}</b>", RIGHT)])
+            t = table(rows, [W * .46, W * .18, W * .18, W * .18])
+            t.setStyle(TableStyle([("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E8EEF9")), ("LINEABOVE", (0, -1), (-1, -1), .9, blue)]))
+            story.append(t)
+        if any(r["fee"] == "Non précisé" for r in by_fee):
+            story.append(p("Sorties « Non précisé » : dépenses enregistrées sans indiquer les frais d’où l’argent a été pris.", SMALL))
+    else:
+        story.append(p("Aucun mouvement financier pour cette journée.", TXT))
+
     story.append(Paragraph("Ventilation par origine", SEC))
     details = report.get("details", [])
     if details:
@@ -184,7 +205,7 @@ def daily_report_pdf(*, school_name: str, report: dict[str, Any], prepared_by: s
             sums[op.get("currency")] = sums.get(op.get("currency"), Decimal("0")) + Decimal(str(op.get("amount") or 0))
         total = " · ".join(_amount(v, k) for k, v in sums.items())
         rows.append([Paragraph(f"TOTAL {heading.upper()} : {escape(total)}", BOLDR), "", "", "", "", ""])
-        story.append(table(rows, [W * .08, W * .14, W * .36, W * .14, W * .15, W * .13], total_row=True))
+        story.append(table(rows, [W * .08, W * .14, W * .31, W * .19, W * .15, W * .13], total_row=True))
 
     ledger("ENTREE", "Détail des entrées")
     ledger("SORTIE", "Détail des sorties")

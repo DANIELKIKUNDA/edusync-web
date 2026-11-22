@@ -25,8 +25,8 @@ def school_week():
 
 def test_school_week_reads_like_a_letter():
     text = " ".join(t for _, t in paragraphs(school_week()))
-    assert "L’école a encaissé 4 250 000 FC cette semaine, soit 12 % de plus que la période précédente." in text
-    assert "Le meilleur jour a été mardi (1 340 000 FC)." in text
+    assert "L’école a encaissé 4 250 000 FC cette semaine, soit 12 % de plus que la période précédente." in text
+    assert "Le meilleur jour a été mardi (1 340 000 FC)." in text
     assert "62,1 % de ce qui était attendu est rentré" in text and "La classe la plus en retard est la 4e CG (41 %)" in text
     assert "2 abandons cette semaine (3e MA, 1re primaire)." in text
     assert "3 reçus annulés" in text
