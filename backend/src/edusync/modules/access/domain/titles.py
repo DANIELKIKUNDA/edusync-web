@@ -13,6 +13,7 @@ TITLES: dict[str, tuple[str, str]] = {
     "PREFET_ETUDES": ("Préfet des études", "Préfète des études"),
     "DIRECTEUR_ETUDES": ("Directeur des études", "Directrice des études"),
     "DIRECTEUR_DISCIPLINE": ("Directeur de discipline", "Directrice de discipline"),
+    "ENSEIGNANT": ("Enseignant", "Enseignante"),
     "DIRECTION_SECTION": ("Directeur", "Directrice"),
     "CAISSIER": ("Caissier", "Caissière"),
     "INTENDANT": ("Intendant", "Intendante"),

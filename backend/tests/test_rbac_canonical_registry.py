@@ -72,7 +72,8 @@ def test_standard_roles_and_protected_base():
     roles = REG["standard_roles"]
     school_roles = {k for k, r in roles.items() if r["level"] == "SCHOOL"}
     assert {"ADMIN_SYSTEME_ECOLE", "PROMOTEUR", "GESTIONNAIRE", "RESPONSABLE_FINANCE", "PREFET_ETUDES", "DIRECTION_SECTION",
-            "DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE", "CAISSIER", "SECRETARIAT", "INTENDANT"} == school_roles
+            "DIRECTEUR_ETUDES", "DIRECTEUR_DISCIPLINE", "CAISSIER", "SECRETARIAT", "INTENDANT",
+            "ENSEIGNANT"} == school_roles                       # V2 lot 3a (owner 2026-11-22): rôle du projet père
     for code, r in roles.items():
         assert set(r["capabilities"]) <= set(CAPS), code
         assert set(r["locked"]) <= set(r["capabilities"]), code

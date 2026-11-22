@@ -1,0 +1,69 @@
+/* Pédagogie, lot 3a — enseignants, mes classes, conduite. Mobile first; real tokens; touch targets ≥ 44 px. */
+.pt-list,.pt-mine-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.pt-list>li,.pt-mine-list>li{display:grid;gap:10px;padding:14px;border:1px solid var(--es-line);border-radius:14px;background:var(--es-surface)}
+.pt-list>li.pt-done{border-left:4px solid var(--es-ok)}
+.pt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.pt-head>div{display:grid;gap:3px}.pt-head b{font-size:15px;color:var(--es-ink)}.pt-head small{color:var(--es-muted);font-size:12.5px}
+.pt-field{display:grid;gap:4px;font-size:12.5px;font-weight:700;color:var(--es-muted)}
+.pt-field select,.pt-courses select{min-height:44px;width:100%;box-sizing:border-box;padding:0 10px;border:1px solid var(--es-line);border-radius:10px;
+  background:var(--es-surface);color:var(--es-ink);font:inherit;font-size:15px}
+.pt-bulk{display:grid;gap:8px;padding:10px;border-radius:12px;background:var(--es-brand-soft)}
+.pt-bulk .ui-btn{min-height:44px}
+.pt-toggle{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:44px;font-weight:700;font-size:13.5px;color:var(--es-brand)}
+.pt-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
+.pt-toggle:focus-visible{outline:2px solid var(--es-brand);outline-offset:2px;border-radius:6px}
+.pt-courses{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pt-courses li{display:grid;gap:4px;padding:8px 0;border-top:1px solid var(--es-line)}
+.pt-courses li span{font-size:13.5px;color:var(--es-ink);font-weight:600}
+.pt-mine{display:grid;gap:12px}
+.pt-chips{display:flex;gap:6px;flex-wrap:wrap}
+.pt-chips span{padding:6px 10px;border-radius:999px;background:var(--es-bg);color:var(--es-ink);font-size:12.5px;font-weight:600}
+.pt-soon{margin:0;color:var(--es-muted);font-size:12.5px}
+
+.pk{display:grid;gap:12px}
+.pk-how{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;padding:14px;border-radius:14px;background:var(--es-brand-soft);color:var(--es-brand)}
+.pk-how div{display:grid;gap:4px}.pk-how b{color:var(--es-ink);font-size:15px}.pk-how small{color:var(--es-ink);font-size:13.5px;line-height:1.5}
+.pk-mentions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.pk-mentions span{display:grid;justify-items:center;gap:2px;padding:8px 4px;border-radius:10px;background:var(--es-surface);border:1px solid var(--es-line);font-size:11.5px;color:var(--es-muted)}
+.pk-mentions b{font-size:16px;color:var(--es-ink)}
+.pk-rules{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pk-rules li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;align-items:center;padding:10px 12px;border:1px solid var(--es-line);border-radius:12px;background:var(--es-surface)}
+.pk-rules li.pk-grave{border-left:4px solid var(--es-bad)}.pk-rules li.pk-plus{border-left:4px solid var(--es-ok)}
+.pk-name{display:grid;gap:3px;min-width:0}.pk-name b{color:var(--es-ink);font-size:14.5px}
+.pk-name input{min-height:44px;width:100%;box-sizing:border-box;padding:0 10px;border:1px solid var(--es-line);border-radius:10px;font:inherit;font-size:15px;color:var(--es-ink);background:var(--es-surface)}
+.pk-name em{font-style:normal;font-size:11.5px;color:var(--es-bad)}
+.pk-points{display:flex;align-items:center;gap:4px}
+.pk-points button{all:unset;cursor:pointer;display:grid;place-items:center;width:44px;height:44px;border-radius:10px;border:1px solid var(--es-line);font-size:20px;font-weight:700;color:var(--es-ink);box-sizing:border-box}
+.pk-points button:focus-visible{outline:2px solid var(--es-brand);outline-offset:2px}
+.pk-points output{min-width:40px;text-align:center;font-size:17px;font-weight:800;color:var(--es-ink);font-variant-numeric:tabular-nums}
+.pk-plus .pk-points output{color:var(--es-ok)}
+.pk-points small{font-size:11px;color:var(--es-muted)}
+.pk-tools{grid-column:1/-1;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.pk-add{display:flex;gap:8px}
+.pk-add input{flex:1;min-width:0;min-height:44px;padding:0 12px;border:1px dashed var(--es-brand);border-radius:10px;font:inherit;font-size:15px;background:var(--es-surface);color:var(--es-ink)}
+.pk-add .ui-btn{min-height:44px}
+.pk-auto{display:grid;gap:8px;padding:14px;border-radius:14px;border:1px solid var(--es-line);background:var(--es-surface)}
+.pk-auto b{color:var(--es-ink)}.pk-auto p{margin:0;color:var(--es-ink);font-size:14px;line-height:2}
+.pk-auto input{width:64px;min-height:40px;margin:0 6px;padding:0 6px;border:1px solid var(--es-line);border-radius:8px;font:inherit;font-size:15px;font-weight:700;text-align:center;color:var(--es-ink);background:var(--es-surface)}
+.pk-example{color:var(--es-muted)!important;font-size:13px!important;line-height:1.4!important}
+
+@media (min-width:720px){
+  .pt-list{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  .pt-mine-list{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .pt-bulk{grid-template-columns:minmax(0,1fr) auto;align-items:end}
+  .pk-mentions{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .pk-rules li{grid-template-columns:minmax(0,1fr) auto auto}
+  .pk-tools{grid-column:auto}
+}
+/* phones: the fact's name takes the whole first line; points and tools share the second (no clipped name, no overflow) */
+@media (max-width:719.98px){
+  .pk-rules li{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"name name" "points tools"}
+  .pk-name{grid-area:name}.pk-points{grid-area:points}
+  .pk-tools{grid-area:tools;grid-column:auto;justify-content:flex-end}
+}
+@media (max-width:379.98px){
+  .pk-rules li{grid-template-columns:minmax(0,1fr);grid-template-areas:"name" "points" "tools"}
+  .pk-tools{justify-content:space-between}
+}
+.pk,.pk>*{min-width:0}
+.pt-list,.pt-mine-list{align-items:start}      /* an opened class never stretches its neighbours */

@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
-import {acceptClassSuggestions, getCalendars, getClassLinks, getProgrammes, getReferential, getRefProgramme, linkClass, unlinkClass,
+import {acceptClassSuggestions, getCalendars, getClassLinks, getProgrammes, getTeaching, getReferential, getRefProgramme, linkClass, unlinkClass,
   type ClassLink, type ClassLinks, type MaxKey, type RefClass, type Referential, type RefProgramme} from './api';
 import {Modal} from './platform/account';
 import {friendlyError} from './platform/errors';
@@ -8,6 +8,8 @@ import {NavGlyph} from './platform/nav_icons';
 import {Button, EmptyState, PageHeader, Skeleton} from './platform/ui';
 import {CalendarTab} from './pedagogy_calendar';
 import {ProgrammesTab} from './pedagogy_programmes';
+import {ConductTab, MyClassesTab, TeachersTab} from './pedagogy_teachers';
+import './pedagogy_teachers.css';
 import './pedagogy.css';
 import './pedagogy_v2.css';
 
@@ -19,11 +21,24 @@ import './pedagogy_v2.css';
 const COL: Record<MaxKey, string> = {max_p1: 'P1', max_p2: 'P2', max_ex1: 'EX1', max_p3: 'P3', max_p4: 'P4', max_ex2: 'EX2', max_p5: 'P5', max_p6: 'P6', max_ex3: 'EX3'};
 const SECTION_OF: Record<string, 'MAT' | 'PRI' | 'SEC'> = {MATERNELLE: 'MAT', PRIMAIRE: 'PRI', SECONDAIRE: 'SEC'};
 const CYCLE_LABEL: Record<string, string> = {MATERNELLE: 'Maternelle', PRIMAIRE: 'Primaire', EB: 'Éducation de base', HUMANITE: 'Humanités'};
-type Tab = 'steps' | 'links' | 'calendar' | 'programmes' | 'referential';
-const TABS: [Tab, string][] = [['steps', 'Étapes'], ['links', 'Classes'], ['calendar', 'Calendrier'], ['programmes', 'Programmes'], ['referential', 'Référentiel']];
+type Tab = 'mine' | 'steps' | 'links' | 'calendar' | 'programmes' | 'teachers' | 'conduct' | 'referential';
+const MANAGE_ANY = ['pedagogy.class_links.manage', 'pedagogy.calendar.manage', 'pedagogy.programmes.manage', 'pedagogy.teaching.manage'];
+/* tab → label and the rights that show it (the server checks again) */
+const TABS: [Tab, string, (has: (c: string) => boolean) => boolean][] = [
+  ['mine', 'Mes classes', has => has('pedagogy.teaching.own.read')],
+  ['steps', 'Étapes', has => MANAGE_ANY.some(has)],
+  ['links', 'Classes', has => MANAGE_ANY.some(has)],
+  ['calendar', 'Calendrier', has => has('pedagogy.referential.read')],
+  ['programmes', 'Programmes', has => has('pedagogy.referential.read')],
+  ['teachers', 'Enseignants', has => has('pedagogy.teaching.manage')],
+  ['conduct', 'Conduite', has => has('pedagogy.referential.read')],
+  ['referential', 'Référentiel', has => has('pedagogy.referential.read')]];
 
-export default function PedagogyPage({token}: {token: string}) {
-  const [tab, setTab] = useState<Tab>(() => { try { return (sessionStorage.getItem('edusync.pedagogy.tab') as Tab) || 'steps'; } catch { return 'steps'; } });
+export default function PedagogyPage({token, permissions = []}: {token: string; permissions?: string[]}) {
+  const has = (c: string) => permissions.includes(c);
+  const tabs = TABS.filter(([, , show]) => show(has));
+  const first = tabs[0]?.[0] ?? 'referential';
+  const [tab, setTab] = useState<Tab>(() => { try { const t = sessionStorage.getItem('edusync.pedagogy.tab') as Tab; return tabs.some(([k]) => k === t) ? t : first; } catch { return first; } });
   const [ref, setRef] = useState<Referential | null>(null);
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
@@ -34,25 +49,31 @@ export default function PedagogyPage({token}: {token: string}) {
     <PageHeader eyebrow={ref ? `Référentiel ${ref.version.code.replace('MINEDUC-', 'MINEDUC ').replace('-V2', '')}` : 'Référentiel officiel'}
       title="Pédagogie" subtitle="Classes, calendrier et programmes officiels de l’école."/>
     <div className="pg-tabs" role="tablist" aria-label="Pédagogie">
-      {TABS.map(([k, label]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => go(k)}>{label}</button>)}
+      {tabs.map(([k, label]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => go(k)}>{label}</button>)}
     </div>
     {error && <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Pédagogie indisponible</b><small>{error}</small></div></div>}
     {!error && !ref && <Skeleton lines={6}/>}
-    {ref && tab === 'steps' && <StepsTab key={nonce} token={token} go={go}/>}
+    {ref && tab === 'mine' && <MyClassesTab token={token}/>}
+    {ref && tab === 'steps' && <StepsTab key={nonce} token={token} go={go} canTeach={has('pedagogy.teaching.manage')}/>}
     {ref && tab === 'links' && <LinksTab token={token} referential={ref} onChanged={changed}/>}
     {ref && tab === 'calendar' && <CalendarTab token={token} onChanged={changed}/>}
     {ref && tab === 'programmes' && <ProgrammesTab token={token} onChanged={changed}/>}
+    {ref && tab === 'teachers' && <TeachersTab token={token} onChanged={changed}/>}
+    {ref && tab === 'conduct' && <ConductTab token={token}/>}
     {ref && tab === 'referential' && <ReferentialTab token={token} referential={ref}/>}
   </div>;
 }
 
 // ------------------------------------------------------------------------------------------------ guided steps
 type StepState = {done: boolean; text: string; action: string};
-function StepsTab({token, go}: {token: string; go: (t: Tab) => void}) {
+function StepsTab({token, go, canTeach}: {token: string; go: (t: Tab) => void; canTeach: boolean}) {
   const [steps, setSteps] = useState<StepState[] | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    Promise.all([getClassLinks(token), getCalendars(token).catch(() => null), getProgrammes(token).catch(() => null)]).then(([links, cals, progs]) => {
+    Promise.all([getClassLinks(token), getCalendars(token).catch(() => null), getProgrammes(token).catch(() => null),
+      canTeach ? getTeaching(token).catch(() => null) : Promise.resolve(null)]).then(([links, cals, progs, teach]) => {
+      const assigned = teach ? teach.items.reduce((n, i) => n + i.assigned, 0) : 0;
+      const titled = teach ? teach.items.filter(i => i.titular).length : 0;
       const s = links.summary; const calsDone = !!cals && cals.calendars.every(c => c.status === 'VALIDATED');
       const pendingCals = cals ? cals.calendars.filter(c => c.status !== 'VALIDATED').length : 0;
       setSteps([
@@ -65,19 +86,24 @@ function StepsTab({token, go}: {token: string; go: (t: Tab) => void}) {
           text: !progs || progs.summary.classes === 0 ? 'Disponible après l’étape 1.'
             : `${progs.summary.in_use} programme${progs.summary.in_use > 1 ? 's' : ''} en service sur ${progs.summary.classes}.`
               + (progs.summary.without_official && !progs.summary.adoptable ? ` ${progs.summary.without_official} classe${progs.summary.without_official > 1 ? 's n’ont' : ' n’a'} pas de programme officiel (ex. maternelle) : construisez-le à partir des cours officiels.` : '')},
+        ...(teach ? [{done: teach.summary.courses > 0 && assigned === teach.summary.courses && titled === teach.summary.classes,
+          action: teach.summary.teachers ? 'Attribuer les cours' : 'Voir comment faire',
+          text: !teach.summary.teachers ? 'Donnez d’abord le rôle Enseignant à vos professeurs (Accès et rôles).'
+            : `${assigned} cours attribués sur ${teach.summary.courses} · ${titled} classe${titled > 1 ? 's' : ''} avec titulaire sur ${teach.summary.classes}.`}] : []),
       ]);
     }).catch(e => setError(friendlyError(e)));
   }, [token]);
   if (error) return <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Étapes indisponibles</b><small>{error}</small></div></div>;
   if (!steps) return <Skeleton lines={5}/>;
-  const done = steps.filter(s => s.done).length;
-  const meta: [Tab, string, string][] = [['links', 'Relier les classes', 'layers'], ['calendar', 'Fixer le calendrier', 'calendar'], ['programmes', 'Mettre les programmes en service', 'doc']];
+  const done = steps.filter(s => s.done).length; const n = steps.length;
+  const meta: [Tab, string, string][] = [['links', 'Relier les classes', 'layers'], ['calendar', 'Fixer le calendrier', 'calendar'],
+    ['programmes', 'Mettre les programmes en service', 'doc'], ['teachers', 'Attribuer les cours et les titulaires', 'users']];
   const next = steps.findIndex(s => !s.done);
   return <div className="ps">
-    <div className="ps-progress" role="progressbar" aria-valuemin={0} aria-valuemax={3} aria-valuenow={done} aria-label="Étapes terminées">
-      <div><b>{done === 3 ? 'La pédagogie est prête' : `${done} étape${done > 1 ? 's' : ''} sur 3 terminée${done > 1 ? 's' : ''}`}</b>
-        <small>{done === 3 ? 'Prochaine étape : la saisie des cotes.' : 'Suivez les étapes dans l’ordre : EduSync a déjà tout préparé.'}</small></div>
-      <i><span style={{width: `${done / 3 * 100}%`}}/></i>
+    <div className="ps-progress" role="progressbar" aria-valuemin={0} aria-valuemax={n} aria-valuenow={done} aria-label="Étapes terminées">
+      <div><b>{done === n ? 'La pédagogie est prête' : `${done} étape${done > 1 ? 's' : ''} sur ${n} terminée${done > 1 ? 's' : ''}`}</b>
+        <small>{done === n ? 'Prochaine étape : la saisie des cotes.' : 'Suivez les étapes dans l’ordre : EduSync a déjà tout préparé.'}</small></div>
+      <i><span style={{width: `${done / n * 100}%`}}/></i>
     </div>
     <ol className="ps-steps">{steps.map((s, i) => <li key={meta[i][0]} className={s.done ? 'ps-done' : i === next ? 'ps-next' : ''}>
       <span className="ps-num" aria-hidden="true">{s.done ? <NavGlyph g="check" size={18}/> : i + 1}</span>

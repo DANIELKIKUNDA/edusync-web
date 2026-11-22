@@ -675,3 +675,23 @@ export async function moveProgrammeLine(token:string,id:string,course:string,dir
 export async function validateProgramme(token:string,id:string){return json<ProgrammeView>(await fetch(`${API}/pedagogy/programmes/${id}/validate`,{method:'POST',headers:mutationHeaders(token)}),'Programme non validé')}
 export async function discardProgrammeDraft(token:string,id:string){return json<{discarded:boolean}>(await fetch(`${API}/pedagogy/programmes/${id}`,{method:'DELETE',headers:mutationHeaders(token)}),'Brouillon non abandonné')}
 export async function searchCourses(token:string,q:string){return json<{code:string;label:string}[]>(await fetch(`${API}/pedagogy/courses?q=${encodeURIComponent(q)}`,{headers:auth(token)}),'Recherche impossible')}
+
+// ---------------------------------------------------------------- V2 lot 3a — enseignants, titulaires, conduite (2026-11-22)
+export type Teacher={membership_id:string;full_name:string;email:string;courses:number;titular_of:number};
+export type TeachingCourse={course_code:string;label:string;teacher:{membership_id:string;full_name:string}|null};
+export type TeachingClass={class_id:string;label:string;section_code:string;section_label:string;ref_class_code:string|null;ref_label:string|null;
+  has_programme:boolean;titular:{membership_id:string;full_name:string}|null;titular_effective:boolean;courses:TeachingCourse[];assigned:number};
+export type Teaching={year:{id:string;label:string};teachers:Teacher[];items:TeachingClass[];
+  summary:{classes:number;with_titular:number;courses:number;assigned:number;without_programme:number;teachers:number}};
+export async function getTeaching(token:string){return json<Teaching>(await fetch(`${API}/pedagogy/teaching`,{headers:auth(token)}),'Attributions indisponibles')}
+export async function assignCourse(token:string,classId:string,course:string,membershipId:string|null){return json<TeachingClass>(await fetch(`${API}/pedagogy/teaching/${classId}/courses/${encodeURIComponent(course)}`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify({membership_id:membershipId})}),'Attribution non enregistrée')}
+export async function assignAllCourses(token:string,classId:string,membershipId:string){return json<TeachingClass&{newly_assigned:number}>(await fetch(`${API}/pedagogy/teaching/${classId}/assign-all`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({membership_id:membershipId})}),'Attribution non enregistrée')}
+export async function setTitular(token:string,classId:string,membershipId:string|null){return json<TeachingClass>(await fetch(`${API}/pedagogy/teaching/${classId}/titular`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify({membership_id:membershipId})}),'Titulaire non enregistré')}
+export type MyTeaching={year:{id:string;label:string};classes:{class_id:string;label:string;section_label:string;courses:{course_code:string;label:string}[]}[];
+  titular_of:{class_id:string;label:string;effective:boolean}[]};
+export async function getMyTeaching(token:string){return json<MyTeaching>(await fetch(`${API}/pedagogy/my-teaching`,{headers:auth(token)}),'Vos classes sont indisponibles')}
+export type ConductRule={code:string;label:string;points:number;grave:boolean;active:boolean};
+export type ConductScale={saved:boolean;start:number;rules:ConductRule[];settings:{late_rule_code:string;late_threshold:number;late_penalty:number;alert_below:number};
+  mentions:{code:string;from:number;label:string}[];can_configure:boolean};
+export async function getConductScale(token:string){return json<ConductScale>(await fetch(`${API}/pedagogy/conduct/scale`,{headers:auth(token)}),'Barème indisponible')}
+export async function saveConductScale(token:string,rules:ConductRule[],settings:{late_threshold:number;late_penalty:number;alert_below:number}){return json<ConductScale>(await fetch(`${API}/pedagogy/conduct/scale`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify({rules,settings})}),'Barème non enregistré')}
