@@ -111,6 +111,49 @@ class PostgresCashIntegrityRepository:
             ORDER BY 1"""), {"s": school_id, "d": day}).mappings().all()
         return [dict(r) for r in rows]
 
+    def day_by_fee(self, school_id: UUID, day: date) -> list[dict[str, Any]]:
+        """Owner, 2026-11-22: « dans le rapport il faut très bien spécifier » the fees: per currency and fee, the money
+        received (receipts minus cancellations, attributed through the payment allocations), the money taken out (expenses
+        by the fee they name, « Non précisé » otherwise) and the balance. Same movements as the day totals."""
+        rows = self.c.execute(text("""
+          WITH p AS (SELECT p.id, p.currency, p.amount,
+                            EXISTS (SELECT 1 FROM finance_product_sales ps WHERE ps.payment_id=p.id) AS sale,
+                            COALESCE((SELECT sum(a.amount) FROM finance_payment_allocations a WHERE a.payment_id=p.id),0) AS allocated
+                       FROM finance_payments p JOIN finance_cash_sessions s ON s.id=p.cash_session_id
+                      WHERE p.school_id=:s AND s.business_date=:d),
+          mv AS (
+            SELECT p.currency, COALESCE(ft.label, fc.label) AS fee, a.amount AS entry, 0::numeric AS outflow
+              FROM p JOIN finance_payment_allocations a ON a.payment_id=p.id JOIN finance_charges fc ON fc.id=a.charge_id
+              LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
+            UNION ALL
+            SELECT p.currency, CASE WHEN p.sale THEN 'Ventes d’articles' ELSE 'Avance non encore affectée' END, p.amount-p.allocated, 0 FROM p WHERE p.amount<>p.allocated
+            UNION ALL
+            SELECT f.currency, 'Fonds anticipés', f.amount, 0 FROM finance_advance_funds f JOIN finance_cash_sessions s ON s.id=f.cash_session_id
+             WHERE f.school_id=:s AND f.origin_type='PAYMENT_ADVANCE' AND s.business_date=:d
+            UNION ALL
+            SELECT r.currency, COALESCE(ft.label, fc.label), -a.amount*r.amount/NULLIF(op.amount,0), 0
+              FROM finance_payment_reversals r JOIN finance_payments op ON op.id=r.payment_id
+              JOIN finance_payment_allocations a ON a.payment_id=op.id JOIN finance_charges fc ON fc.id=a.charge_id LEFT JOIN fee_types ft ON ft.id=fc.fee_type_id
+             WHERE r.school_id=:s AND r.business_date=:d
+            UNION ALL
+            SELECT r.currency, CASE WHEN EXISTS (SELECT 1 FROM finance_product_sales ps WHERE ps.payment_id=op.id) THEN 'Ventes d’articles' ELSE 'Avance non encore affectée' END,
+                   -(op.amount-COALESCE((SELECT sum(a.amount) FROM finance_payment_allocations a WHERE a.payment_id=op.id),0))*r.amount/NULLIF(op.amount,0), 0
+              FROM finance_payment_reversals r JOIN finance_payments op ON op.id=r.payment_id
+             WHERE r.school_id=:s AND r.business_date=:d
+               AND op.amount<>COALESCE((SELECT sum(a.amount) FROM finance_payment_allocations a WHERE a.payment_id=op.id),0)
+            UNION ALL
+            SELECT e.currency, COALESCE(ft.label, 'Non précisé'), 0, e.amount FROM finance_cash_expenses e
+              JOIN finance_cash_sessions s ON s.id=e.cash_session_id LEFT JOIN fee_types ft ON ft.id=e.fee_type_id
+             WHERE e.school_id=:s AND s.business_date=:d
+            UNION ALL
+            SELECT f.currency, 'Fonds anticipés', 0, c.amount FROM finance_advance_fund_closures c JOIN finance_advance_funds f ON f.id=c.fund_id
+             WHERE c.school_id=:s AND c.business_date=:d AND c.closure_type IN ('ANNULATION','REMBOURSEMENT'))
+          SELECT currency, fee, round(sum(entry),2) AS entries, round(sum(outflow),2) AS outflows FROM mv GROUP BY currency, fee
+          HAVING round(sum(entry),2)<>0 OR round(sum(outflow),2)<>0
+          ORDER BY currency, sum(entry) DESC, fee"""), {"s": school_id, "d": day}).mappings().all()
+        return [{"currency": r["currency"], "fee": r["fee"], "entries": str(money(r["entries"])), "outflows": str(money(r["outflows"])),
+                 "balance": str(money(r["entries"]) - money(r["outflows"]))} for r in rows]
+
     def day_report(self, school_id: UUID, day: date) -> dict[str, Any]:
         ops = self.day_operations(school_id, day)
         buckets: dict[str, dict[str, Decimal]] = {}
@@ -133,12 +176,18 @@ class PostgresCashIntegrityRepository:
         return {"day": day.isoformat(), "status": row["status"] if row else "OPEN", "closed": bool(row and row["status"] == "CLOSED"),
                 "closed_at": row["closed_at"] if row else None, "reopened_at": row["reopened_at"] if row else None,
                 "reopen_reason": row["reopen_reason"] if row else None, "open_sessions": int(sessions["open"]), "sessions": int(sessions["total"]),
-                "totals": totals, "details": details, "operations": ops, "closure_snapshots": snapshots}
+                "totals": totals, "details": details, "operations": ops, "closure_snapshots": snapshots,
+                "by_fee": self.day_by_fee(school_id, day)}
 
     # ---------- G-CAI-1 expense ----------
     def record_expense(self, school_id: UUID, *, user_id: UUID, membership_id: UUID, category: str, amount: Decimal, currency: str,
-                       reason: str, reference: str | None = None) -> dict[str, Any]:
+                       reason: str, reference: str | None = None, fee_type_id: UUID | None = None) -> dict[str, Any]:
         category = (category or "").strip(); reason = (reason or "").strip(); amount = money(amount)
+        fee_label = None
+        if fee_type_id is not None:   # « pris dans les frais de l'État » (owner, 2026-11-22): a fee of THIS school
+            fee_label = self.c.execute(text("SELECT label FROM fee_types WHERE id=:f AND school_id=:s"), {"f": fee_type_id, "s": school_id}).scalar()
+            if fee_label is None:
+                raise ValueError("Type de frais introuvable pour cette école")
         if not category or len(reason) < 3:
             raise ValueError("Catégorie et motif de dépense obligatoires")
         if amount <= 0 or currency not in ("CDF", "USD"):
@@ -149,14 +198,16 @@ class PostgresCashIntegrityRepository:
             raise ValueError("Aucune caisse ouverte pour cet utilisateur")
         self.require_day_open(school_id, session["business_date"])
         eid = uuid4()
-        self.c.execute(text("""INSERT INTO finance_cash_expenses(id,school_id,cash_session_id,actor_user_id,label,amount,currency,category,reason,reference)
-            VALUES(:id,:s,:cs,:u,:l,:a,:cur,:cat,:r,:ref)"""), {"id": eid, "s": school_id, "cs": session["id"], "u": user_id, "l": category[:180],
-                                                             "a": amount, "cur": currency, "cat": category[:80], "r": reason, "ref": (reference or "").strip()[:80] or None})
+        self.c.execute(text("""INSERT INTO finance_cash_expenses(id,school_id,cash_session_id,actor_user_id,label,amount,currency,category,reason,reference,fee_type_id)
+            VALUES(:id,:s,:cs,:u,:l,:a,:cur,:cat,:r,:ref,:fee)"""), {"id": eid, "s": school_id, "cs": session["id"], "u": user_id, "l": category[:180],
+                                                             "a": amount, "cur": currency, "cat": category[:80], "r": reason, "ref": (reference or "").strip()[:80] or None,
+                                                             "fee": fee_type_id})
         self.c.execute(text("""INSERT INTO finance_cash_events(school_id,cash_session_id,actor_user_id,event_type,payload)
             VALUES(:s,:cs,:u,'EXPENSE',jsonb_build_object('expense_id',CAST(:e AS text),'amount',CAST(:a AS text),'currency',CAST(:cur AS text)))"""),
             {"s": school_id, "cs": session["id"], "u": user_id, "e": str(eid), "a": str(amount), "cur": currency})
         return {"id": str(eid), "cash_session_id": str(session["id"]), "category": category, "amount": str(amount), "currency": currency,
-                "reason": reason, "reference": (reference or "").strip() or None}
+                "reason": reason, "reference": (reference or "").strip() or None, "fee_type_id": str(fee_type_id) if fee_type_id else None,
+                "fee_label": fee_label}
 
     # ---------- G-REV-1 counter-operation ----------
     def reverse_payment(self, school_id: UUID, payment_id: UUID, *, user_id: UUID, membership_id: UUID, reversal_type: str, reason: str,

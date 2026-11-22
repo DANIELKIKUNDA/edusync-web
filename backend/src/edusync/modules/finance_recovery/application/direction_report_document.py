@@ -16,7 +16,7 @@ from reportlab.platypus import CondPageBreak, PageBreak, Paragraph, SimpleDocTem
 BLEU = colors.HexColor("#123A8C"); BLEU2 = colors.HexColor("#175CD3"); FOND = colors.HexColor("#F2F5FB")
 GRIS = colors.HexColor("#475467"); TRAIT = colors.HexColor("#D0D5DD"); VERT = colors.HexColor("#067647")
 ROUGE = colors.HexColor("#B42318"); ORANGE = colors.HexColor("#B54708"); ENCRE = colors.HexColor("#1D2939")
-NBSP = " "
+NBSP = " "
 
 
 def _st(name: str, **k: Any) -> ParagraphStyle:

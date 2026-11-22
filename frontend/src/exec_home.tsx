@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {Card,Skeleton} from './platform/ui';
 import {ScreenError} from './platform/screen_boundary';
 import {ALL_DOMAINS,useLive} from './platform/live';
-import {financePilotage,getEffectifsCounts,type EffectifsCounts,type EffectifsRow,type FinancePilotage} from './api';
+import {feeTrackingOverview,financePilotage,getEffectifsCounts,type EffectifsCounts,type EffectifsRow,type FeeShare,type FinancePilotage} from './api';
 import './exec_home.css';
 
 /* Executive home (owner, 2026-11-08) — promoteur, his assistant, gestionnaire, responsable financier.
@@ -31,21 +31,43 @@ export function MoneyPilotage({common,token,yearId,sectionCount=1}:{common:Commo
     ['month','Ce mois',new Date(d.month_start).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})],
     ['year','Depuis la rentrée',`depuis le ${new Date(d.academic_year.period_start||d.academic_year.start_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`]]:[];
   const cash=d?.cash;
+  // Owner, 2026-11-22: « quand il pointe sur le montant perçu, qu'un petit bandeau s'ouvre qui montre comment les frais
+  // sont répartis, même pour les autres cartes ». Hover on a computer, tap on a phone (the second tap opens Finances).
+  const hover=typeof window!=='undefined'&&window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+  const [open,setOpen]=useState<string|null>(null);
+  const [due,setDue]=useState<{CDF:FeeShare[];USD:FeeShare[]}|null>(null);
+  useEffect(()=>{if(open!=='due'||due)return;let alive=true;
+    Promise.all(['CDF','USD'].map(cur=>feeTrackingOverview(token,{yearId,currency:cur}).then((r:any)=>(r?.items??[]).filter((x:any)=>Number(x.remaining)>0)
+      .map((x:any)=>({fee:x.category_label??x.label,amount:String(x.remaining)}))).catch(()=>[])))
+      .then(([CDF,USD])=>{if(alive)setDue({CDF,USD})});return()=>{alive=false}},[open,due,token,yearId]);
+  useEffect(()=>{if(!open)return;const k=(e:KeyboardEvent)=>{if(e.key==='Escape')setOpen(null)};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k)},[open]);
+  const tap=(k:string)=>{if(hover||open===k)common.onClick();else setOpen(k)};
+  const shares=(k:string,cur:'CDF'|'USD'):FeeShare[]=>k==='due'?(due?.[cur]??[]):((cash?.[cur] as any)?.by_fee?.[k]??[]);
+  const pop=(k:string,label:string)=>{const rows=(['CDF','USD'] as const).map(cur=>[cur,shares(k,cur)] as const).filter(([,r])=>r.length);
+    return <div className="ex-pop ex-pop-money" role="region" aria-label={`Répartition — ${label}`}>
+      <b className="ex-pop-title">{k==='due'?'Reste à recouvrer, par frais':`${label} : répartition par frais`}</b>
+      {k==='due'&&!due?<Skeleton lines={2}/>:!rows.length?<p className="ex-pop-empty">Aucun montant sur cette période.</p>:rows.map(([cur,r])=>
+        <table key={cur}><tbody>{r.map(x=><tr key={x.fee}><td>{x.fee}</td><td>{money(x.amount)} {cur==='CDF'?'FC':'USD'}</td></tr>)}</tbody></table>)}
+      {!hover&&<button type="button" className="ex-pop-open" onClick={common.onClick}>Ouvrir les finances ›</button>}</div>};
+  const tile=(k:string,label:string,children:React.ReactNode,className='')=>
+    <div key={k} className={`ex-sec${open===k?' open':''}`} onMouseEnter={hover?()=>setOpen(k):undefined} onMouseLeave={hover?()=>setOpen(x=>x===k?null:x):undefined}>
+      <button type="button" className={`ex-tile ${className}`} aria-expanded={open===k} onClick={()=>tap(k)} onFocus={hover?()=>setOpen(k):undefined}>{children}</button>
+      {open===k&&pop(k,label)}</div>;
   return <Card level="info" wide icon={common.icon} title={d&&!cash?(sectionCount>1?'Les finances de vos sections':'Les finances de votre section'):common.title} index={common.index} className="ex-money">
     {s.loading&&!d?<Skeleton lines={3}/>:s.error?<ScreenError compact error={s.error} onRetry={s.retry}/>:d&&!cash?<SectionMoney d={d} open={common.onClick} plural={sectionCount>1}/>:d&&cash&&<>
-      <p className="ex-sub">Argent réellement entré dans les caisses de l’école (encaissements moins annulations et remboursements) · année {d.academic_year.label}</p>
+      <p className="ex-sub">Argent entré dans les caisses · année {d.academic_year.label} · {hover?'survolez':'touchez'} un montant pour voir la répartition par frais.</p>
       <div className="ex-money-grid">
-        {periods.map(([k,label,when])=><button type="button" key={k} className="ex-tile" onClick={common.onClick} aria-label={`${label} : ${money(cash.CDF[k])} FC${hasValue(cash.USD[k])?` et ${money(cash.USD[k])} USD`:''}`}>
+        {periods.map(([k,label,when])=>tile(k,label,<>
           <small>{label}</small><strong>{money(cash.CDF[k])} <em>FC</em></strong>{hasValue(cash.USD[k])?<b>{money(cash.USD[k])} USD</b>:<b className="ex-muted">0 USD</b>}<span>{when}</span>
           {k==='year'&&hasValue(cash.CDF.year_history)&&<span className="ex-detail">dont {money(cash.CDF.year_history)} FC repris de l’ancien système</span>}
-          {k==='today'&&hasValue(cash.CDF.today_cancellations)&&<span className="ex-detail">reçus {money(cash.CDF.today_receipts)} − annulés {money(cash.CDF.today_cancellations)}</span>}</button>)}
-        <button type="button" className="ex-tile ex-tile-due" onClick={common.onClick} aria-label={`Reste à recouvrer : ${money(d.recovery.CDF.remaining)} FC`}>
+          {k==='today'&&hasValue(cash.CDF.today_cancellations)&&<span className="ex-detail">reçus {money(cash.CDF.today_receipts)} − annulés {money(cash.CDF.today_cancellations)}</span>}</>))}
+        {tile('due','Reste à recouvrer',<>
           <small>Reste à recouvrer</small><strong>{money(d.recovery.CDF.remaining)} <em>FC</em></strong>
           {hasValue(d.recovery.USD.remaining)?<b>{money(d.recovery.USD.remaining)} USD</b>:<b className="ex-muted">0 USD</b>}
           <span>{Number(d.recovery.CDF.rate||0).toLocaleString('fr-FR')} % recouvré sur l’année</span>
-          <i aria-hidden="true"><em style={{width:`${Math.min(100,Number(d.recovery.CDF.rate||0))}%`}}/></i></button>
+          <i aria-hidden="true"><em style={{width:`${Math.min(100,Number(d.recovery.CDF.rate||0))}%`}}/></i></>,'ex-tile-due')}
       </div>
-      <p className="ex-how">Calcul : <b>reçus de toutes les caisses − annulations et remboursements</b>, par jour de caisse, <b>plus les paiements repris de l’ancien système</b> à leur date réelle (ils n’entrent dans le solde d’aucune caisse). Le fond de caisse et les dépenses n’en font pas partie : ils sont dans le solde théorique de « Situation des caisses ». Semaine = depuis lundi, mois = depuis le 1er, rentrée = depuis l’ouverture des inscriptions de l’année.</p></>}
+    </>}
   </Card>;
 }
 

@@ -50,7 +50,7 @@ def fr_date(d: date, year: bool = False) -> str:
 
 
 def money(v: Any, currency: str = "CDF") -> str:
-    n = f"{Decimal(str(v or 0)):,.0f}".replace(",", " ")
+    n = f"{Decimal(str(v or 0)):,.0f}".replace(",", " ")
     return f"{n} {'FC' if currency == 'CDF' else currency}"
 
 

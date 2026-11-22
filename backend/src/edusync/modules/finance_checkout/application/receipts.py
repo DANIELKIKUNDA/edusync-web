@@ -25,7 +25,7 @@ from edusync.modules.finance_reports.domain.periodic import money_in_words
 def money(value: Any, currency: str) -> str:
     amount = Decimal(str(value)).quantize(Decimal("0.01"))
     whole, _, cents = f"{amount:,.2f}".partition(".")
-    number = whole.replace(",", " ")
+    number = whole.replace(",", " ")
     return f"{number}{'' if cents == '00' else ',' + cents} {'FC' if currency == 'CDF' else currency}"
 
 

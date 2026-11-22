@@ -217,6 +217,8 @@ SELECT mv.currency,
   FROM mv, b GROUP BY mv.currency"""
 
 
+from edusync.modules.finance_recovery.application.by_fee import PILOTAGE_BY_FEE_SQL, by_fee_breakdown  # noqa: E402
+
 @router.get('/pilotage')
 def pilotage(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
     # Cash desks are school-wide: their money only for whoever supervises them (finance.cash.other.read). A section leader
@@ -242,8 +244,9 @@ def pilotage(year_id:UUID|None=None,actor:ActorContext=Depends(require_school_ac
                 c.execute("""SELECT e.currency AS cur, COALESCE(sum(e.amount),0) AS amt FROM finance_cash_expenses e JOIN finance_cash_sessions s ON s.id=e.cash_session_id
                              WHERE s.school_id=%(sid)s AND s.business_date=%(today)s GROUP BY e.currency""",{'sid':actor.school_id,'today':today})
                 expenses={r['cur']:r['amt'] for r in c.fetchall()}
+                c.execute(PILOTAGE_BY_FEE_SQL,{'sid':actor.school_id,'yid':y['id'],'today':today,'start':start});by_fee=by_fee_breakdown(c.fetchall())
             keys=('today','week','month','year','today_receipts','today_cancellations','year_history')
-            cash={cur:{**{k:str(rows.get(cur,{}).get(k,0) or 0) for k in keys},'today_expenses':str(expenses.get(cur,0) or 0)} for cur in ('CDF','USD')}
+            cash={cur:{**{k:str(rows.get(cur,{}).get(k,0) or 0) for k in keys},'today_expenses':str(expenses.get(cur,0) or 0),'by_fee':by_fee[cur]} for cur in ('CDF','USD')}
         scopes=actor.scopes_for('finance.recovery.monthly.read');recovery={}
         for cur in ('CDF','USD'):
             items=repo.monthly(actor.school_id,y['id'],cur,scopes=scopes);t=monthly_total(items)
