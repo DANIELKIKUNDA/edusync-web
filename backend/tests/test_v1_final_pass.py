@@ -47,6 +47,8 @@ def test_screens():
     home = (ROOT / "frontend/src/exec_home.tsx").read_text(encoding="utf-8")
     assert "by_fee" in home and "onMouseEnter={hover?()=>setOpen(k)" in home and "Reste à recouvrer, par frais" in home
     assert "Calcul : <b>" not in home                                                  # the long explanation is gone
+    assert 'createPortal(<div className="ex-sheet-backdrop"' in home   # phones: bottom sheet, the grid never jumps
     direction = (ROOT / "frontend/src/recovery_direction.tsx").read_text(encoding="utf-8")
     assert 'className="dirBar"' in direction and "Une lettre claire pour la direction" not in direction
     assert "Le PDF contient aussi le détail par classe" not in direction
+    assert "Envoyer aux responsables" not in direction and "recoveryDigestSend" not in direction   # sent automatically

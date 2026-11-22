@@ -18,6 +18,7 @@ if (label) {
   await p.mouse.move(W - 4, H - 4); await p.waitForTimeout(3000);
 }
 for (const step of (process.env.CLICKS || '').split('|').filter(Boolean)) { await p.getByRole(step.startsWith('tab:') ? 'tab' : 'button', {name: step.replace(/^tab:/, '')}).first().click(); await p.waitForTimeout(2000); }
+if (process.env.TAP) { await p.locator('.ex-tile', {hasText: process.env.TAP}).first().tap(); await p.waitForTimeout(Number(process.env.HOVER_WAIT || 1500)); }
 if (process.env.HOVER) { await p.locator('.ex-tile', {hasText: process.env.HOVER}).first().hover(); await p.waitForTimeout(Number(process.env.HOVER_WAIT || 1500)); }
 await p.screenshot({path: out, fullPage: process.env.FULL !== '0'});
 await b.close();

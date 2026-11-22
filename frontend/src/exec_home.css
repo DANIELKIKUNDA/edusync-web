@@ -56,3 +56,15 @@
 /* The money card stays above the cards that follow it, so its breakdown is never covered (2026-11-22). */
 .ex-money{position:relative;z-index:3}
 .ex-heads{position:relative;z-index:2}
+
+/* Phones (touch): the breakdown is a bottom sheet above the navigation bar — the grid of cards never moves. */
+.ex-sheet-backdrop{position:fixed;inset:0;z-index:80;background:rgba(15,23,42,.35);display:flex;align-items:flex-end;justify-content:center}
+.ex-sheet{width:100%;max-width:520px;max-height:70vh;overflow:auto;box-sizing:border-box;margin:0 0 calc(76px + env(safe-area-inset-bottom,0px));padding:16px 18px;border-radius:18px 18px 0 0;
+  background:var(--ui-surface,#fff);box-shadow:0 -12px 40px rgba(15,23,42,.25)}
+.ex-sheet table{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+.ex-sheet td{padding:9px 4px;border-bottom:1px solid #eef2f7}
+.ex-sheet td:last-child{text-align:right;white-space:nowrap;font-weight:700}
+.ex-sheet table+table{margin-top:10px}
+.ex-sheet .ex-pop-title{font-size:15px;margin-bottom:8px}
+.ex-sheet-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px}
+.ex-sheet-close{all:unset;cursor:pointer;min-height:44px;line-height:44px;padding:0 6px;font-weight:700;color:var(--ui-muted,#64748b)}

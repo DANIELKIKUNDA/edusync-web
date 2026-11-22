@@ -171,7 +171,8 @@ def daily_report_pdf(*, school_name: str, report: dict[str, Any], prepared_by: s
             t = table(rows, [W * .46, W * .18, W * .18, W * .18])
             t.setStyle(TableStyle([("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E8EEF9")), ("LINEABOVE", (0, -1), (-1, -1), .9, blue)]))
             story.append(t)
-        story.append(p("Sorties « Non précisé » : dépenses enregistrées sans indiquer les frais d’où l’argent a été pris.", SMALL))
+        if any(r["fee"] == "Non précisé" for r in by_fee):
+            story.append(p("Sorties « Non précisé » : dépenses enregistrées sans indiquer les frais d’où l’argent a été pris.", SMALL))
     else:
         story.append(p("Aucun mouvement financier pour cette journée.", TXT))
 

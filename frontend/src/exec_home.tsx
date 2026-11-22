@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Card,Skeleton} from './platform/ui';
 import {ScreenError} from './platform/screen_boundary';
 import {ALL_DOMAINS,useLive} from './platform/live';
@@ -44,11 +45,13 @@ export function MoneyPilotage({common,token,yearId,sectionCount=1}:{common:Commo
   const tap=(k:string)=>{if(hover||open===k)common.onClick();else setOpen(k)};
   const shares=(k:string,cur:'CDF'|'USD'):FeeShare[]=>k==='due'?(due?.[cur]??[]):((cash?.[cur] as any)?.by_fee?.[k]??[]);
   const pop=(k:string,label:string)=>{const rows=(['CDF','USD'] as const).map(cur=>[cur,shares(k,cur)] as const).filter(([,r])=>r.length);
-    return <div className="ex-pop ex-pop-money" role="region" aria-label={`Répartition — ${label}`}>
+    const body=<div className={hover?'ex-pop ex-pop-money':'ex-sheet'} role={hover?'region':'dialog'} aria-label={`Répartition — ${label}`}>
       <b className="ex-pop-title">{k==='due'?'Reste à recouvrer, par frais':`${label} : répartition par frais`}</b>
       {k==='due'&&!due?<Skeleton lines={2}/>:!rows.length?<p className="ex-pop-empty">Aucun montant sur cette période.</p>:rows.map(([cur,r])=>
         <table key={cur}><tbody>{r.map(x=><tr key={x.fee}><td>{x.fee}</td><td>{money(x.amount)} {cur==='CDF'?'FC':'USD'}</td></tr>)}</tbody></table>)}
-      {!hover&&<button type="button" className="ex-pop-open" onClick={common.onClick}>Ouvrir les finances ›</button>}</div>};
+      {!hover&&<div className="ex-sheet-actions"><button type="button" className="ex-pop-open" onClick={common.onClick}>Ouvrir les finances ›</button>
+        <button type="button" className="ex-sheet-close" onClick={()=>setOpen(null)}>Fermer</button></div>}</div>;
+    return hover?body:createPortal(<div className="ex-sheet-backdrop" onClick={e=>{if(e.target===e.currentTarget)setOpen(null)}}>{body}</div>,document.body)};
   const tile=(k:string,label:string,children:React.ReactNode,className='')=>
     <div key={k} className={`ex-sec${open===k?' open':''}`} onMouseEnter={hover?()=>setOpen(k):undefined} onMouseLeave={hover?()=>setOpen(x=>x===k?null:x):undefined}>
       <button type="button" className={`ex-tile ${className}`} aria-expanded={open===k} onClick={()=>tap(k)} onFocus={hover?()=>setOpen(k):undefined}>{children}</button>

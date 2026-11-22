@@ -1,10 +1,9 @@
 // Rapport de recouvrement de direction (owner, 2026-11-14): the report given to the school's hierarchy, by fee and period.
 // The screen shows the key figures; the full report (classes, analysis, pupils to follow up, pupils not concerned) is the PDF.
 import React,{useEffect,useState,useMemo} from 'react';
-import {recoveryDigestPdf,recoveryDigestSend,recoveryDirectionReport,recoveryDirectionReportPdf,recoveryFees} from './api';
+import {recoveryDigestPdf,recoveryDirectionReport,recoveryDirectionReportPdf,recoveryFees} from './api';
 import {previewPdf} from './document_io';
 import {friendlyError} from './platform/errors';
-import {confirmAction} from './platform/dialogs';
 import './recovery_direction.css';
 
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
@@ -38,10 +37,6 @@ export default function RecoveryDirection({token,can,yearId,currency,live}:{toke
 
   // Owner, 2026-11-19: the weekly / monthly letter, in the reader's scope (whole school, or his section).
   async function digest(kind:'WEEK'|'MONTH'){setBusy(true);setMsg('');try{previewPdf(await recoveryDigestPdf(token,kind,currency),kind==='WEEK'?'Rapport de la semaine':'Rapport du mois')}catch(e){setMsg(friendlyError(e))}finally{setBusy(false)}}
-  // Owner, 2026-11-19: « Envoyer aux responsables » — each one receives HIS report by e-mail, PDF attached.
-  async function send(kind:'WEEK'|'MONTH'){
-    if(!await confirmAction({title:kind==='WEEK'?'Envoyer le rapport de la semaine ?':'Envoyer le rapport du mois ?',message:kind==='WEEK'?'Chaque responsable de toute l’école (promoteur, gestionnaire, chargé financier…) reçoit par e-mail sa lettre et le PDF. Un même rapport n’est jamais envoyé deux fois.':'Chaque responsable reçoit par e-mail son rapport : toute l’école pour la direction, sa section pour le préfet et les directeurs. Un même rapport n’est jamais envoyé deux fois.',confirmLabel:'Envoyer'}))return;
-    setBusy(true);setMsg('');try{const r=await recoveryDigestSend(token,kind,currency);setMsg([r.sent.length?`Envoyé à : ${r.sent.join(', ')}.`:'',r.already_sent.length?`Déjà envoyé à : ${r.already_sent.join(', ')}.`:'',r.without_email.length?`Sans adresse e-mail (à compléter dans Accès & rôles) : ${r.without_email.join(', ')}.`:''].filter(Boolean).join(' ')||'Aucun responsable à qui envoyer.')}catch(e){setMsg(friendlyError(e))}finally{setBusy(false)}}
   return <>
     {/* Owner, 2026-11-22: « cette page tu l'as trop salie avec beaucoup de textes ». One bar of settings + the PDF; the
         weekly / monthly letters on one discreet line. No sentence that repeats what a button already says. */}
@@ -57,9 +52,6 @@ export default function RecoveryDirection({token,can,yearId,currency,live}:{toke
       <span>Lettre à la direction :</span>
       <button type="button" disabled={busy} onClick={()=>void digest('WEEK')}>Semaine</button>
       <button type="button" disabled={busy} onClick={()=>void digest('MONTH')}>Mois</button>
-      {can('finance.cash.other.read')&&<details className="dirSend"><summary>Envoyer aux responsables</summary><div>
-        <button type="button" disabled={busy} onClick={()=>void send('WEEK')}>La lettre de la semaine</button>
-        <button type="button" disabled={busy} onClick={()=>void send('MONTH')}>La lettre du mois</button></div></details>}
     </div>}
     {msg&&<div className="error" role="alert">{msg}</div>}
     {loading&&<div className="recoveryLoading" role="status">Calcul du rapport…</div>}
