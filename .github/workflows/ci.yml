@@ -223,6 +223,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/pedagogy_referential_postgres_integration.py
+      - name: Intégration — V2 lot 2, calendrier pédagogique et programmes de l’école (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/pedagogy_calendar_programmes_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true

@@ -646,3 +646,32 @@ export async function getClassLinks(token:string):Promise<ClassLinks>{return jso
 export async function linkClass(token:string,classId:string,refClassCode:string){return json<{changed:boolean}>(await fetch(`${API}/pedagogy/class-links/${classId}`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify({ref_class_code:refClassCode})}),'Correspondance non enregistrée')}
 export async function unlinkClass(token:string,classId:string){return json<{changed:boolean}>(await fetch(`${API}/pedagogy/class-links/${classId}`,{method:'DELETE',headers:mutationHeaders(token)}),'Correspondance non retirée')}
 export async function acceptClassSuggestions(token:string){return json<{linked:number}>(await fetch(`${API}/pedagogy/class-links/accept-suggestions`,{method:'POST',headers:mutationHeaders(token)}),'Propositions non confirmées')}
+
+// ---------------------------------------------------------------- V2 lot 2 — calendrier et programmes (2026-11-22)
+export type Structure='TRIMESTRIEL'|'SEMESTRIEL';
+export type CalPeriod={code:string;label:string;term:number;is_exam:boolean;starts_on:string;ends_on:string;days:number;
+  entry_state:'DRAFT'|'UPCOMING'|'ONGOING'|'OPEN'|'CLOSED';entry_allowed:boolean;entry_closed_at:string|null};
+export type CalGap={after:string;before:string;from:string;to:string;days:number};
+export type PedCalendar={structure:Structure;label:string;saved:boolean;status:'DRAFT'|'VALIDATED';version:number;validated_at:string|null;periods:CalPeriod[];gaps:CalGap[]};
+export type PedCalendars={year:{id:string;label:string;start_date:string;end_date:string};can_manage:boolean;calendars:PedCalendar[]};
+export async function getCalendars(token:string):Promise<PedCalendars>{return json<PedCalendars>(await fetch(`${API}/pedagogy/calendars`,{headers:auth(token)}),'Calendrier indisponible')}
+export async function saveCalendar(token:string,structure:Structure,periods:{code:string;starts_on:string;ends_on:string}[],reason?:string){return json<PedCalendar>(await fetch(`${API}/pedagogy/calendars/${structure}`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify({periods,reason:reason||null})}),'Calendrier non enregistré')}
+export async function validateCalendar(token:string,structure:Structure){return json<PedCalendar>(await fetch(`${API}/pedagogy/calendars/${structure}/validate`,{method:'POST',headers:mutationHeaders(token)}),'Calendrier non validé')}
+export async function setEntry(token:string,structure:Structure,code:string,close:boolean,reason?:string){return json<PedCalendar>(await fetch(`${API}/pedagogy/calendars/${structure}/periods/${code}/${close?'close':'reopen'}`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({reason:reason||null})}),close?'Saisie non clôturée':'Saisie non rouverte')}
+export type ProgrammeRef={id:string;status:'DRAFT'|'VALIDATED';lines:number;validated_at:string|null};
+export type ProgrammeItem={ref_class_code:string;label:string;structure:Structure;section_code:string;has_official:boolean;classes:string[];
+  in_use:ProgrammeRef|null;draft:ProgrammeRef|null;can_manage:boolean};
+export type ProgrammeList={year:{id:string;label:string};items:ProgrammeItem[];summary:{classes:number;in_use:number;drafts:number;adoptable:number;without_official:number}};
+export type ProgLine=ProgrammeLine&{source:'OFFICIEL'|'ECOLE';term_points:number[];modified:boolean};
+export type ProgrammeView={id:string;ref_class_code:string;label:string;structure:Structure;status:'DRAFT'|'VALIDATED'|'ARCHIVED';validated_at:string|null;
+  has_official:boolean;can_manage:boolean;lines:ProgLine[];totals:Record<MaxKey,number>;removed_official:{course_code:string;label:string}[];terms:number};
+export async function getProgrammes(token:string):Promise<ProgrammeList>{return json<ProgrammeList>(await fetch(`${API}/pedagogy/programmes`,{headers:auth(token)}),'Programmes indisponibles')}
+export async function adoptOfficialProgrammes(token:string,codes?:string[]){return json<{adopted:number}>(await fetch(`${API}/pedagogy/programmes/adopt-official`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({ref_class_codes:codes??null})}),'Programmes non adoptés')}
+export async function openProgrammeDraft(token:string,refClassCode:string){return json<ProgrammeView>(await fetch(`${API}/pedagogy/programmes`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({ref_class_code:refClassCode})}),'Brouillon non ouvert')}
+export async function getProgramme(token:string,id:string){return json<ProgrammeView>(await fetch(`${API}/pedagogy/programmes/${id}`,{headers:auth(token)}),'Programme indisponible')}
+export async function saveProgrammeLine(token:string,id:string,course:string,body:{term_points:number[];has_exam:boolean;mandatory:boolean}){return json<ProgrammeView>(await fetch(`${API}/pedagogy/programmes/${id}/lines/${encodeURIComponent(course)}`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Cours non enregistré')}
+export async function removeProgrammeLine(token:string,id:string,course:string){return json<ProgrammeView>(await fetch(`${API}/pedagogy/programmes/${id}/lines/${encodeURIComponent(course)}`,{method:'DELETE',headers:mutationHeaders(token)}),'Cours non retiré')}
+export async function moveProgrammeLine(token:string,id:string,course:string,direction:'up'|'down'){return json<ProgrammeView>(await fetch(`${API}/pedagogy/programmes/${id}/move`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({course_code:course,direction})}),'Ordre non modifié')}
+export async function validateProgramme(token:string,id:string){return json<ProgrammeView>(await fetch(`${API}/pedagogy/programmes/${id}/validate`,{method:'POST',headers:mutationHeaders(token)}),'Programme non validé')}
+export async function discardProgrammeDraft(token:string,id:string){return json<{discarded:boolean}>(await fetch(`${API}/pedagogy/programmes/${id}`,{method:'DELETE',headers:mutationHeaders(token)}),'Brouillon non abandonné')}
+export async function searchCourses(token:string,q:string){return json<{code:string;label:string}[]>(await fetch(`${API}/pedagogy/courses?q=${encodeURIComponent(q)}`,{headers:auth(token)}),'Recherche impossible')}

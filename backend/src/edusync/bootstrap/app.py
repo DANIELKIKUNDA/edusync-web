@@ -40,6 +40,8 @@ from edusync.modules.subscriptions.api.router import router as subscriptions_rou
 from edusync.modules.school_modules.api.platform_router import router as school_modules_router
 from edusync.modules.school_modules.api.pedagogy_router import router as pedagogy_router
 from edusync.modules.pedagogy.api.router import router as pedagogy_referential_router
+from edusync.modules.pedagogy.api.calendar import router as pedagogy_calendar_router
+from edusync.modules.pedagogy.api.programmes import router as pedagogy_programmes_router
 from edusync.modules.subscriptions.api.school_router import router as school_subscription_router
 from edusync.modules.subscriptions.api.payment_webhooks import router as subscription_payment_webhooks_router
 from edusync.shared.infrastructure.observability import CorrelationLoggingMiddleware, configure_logging
@@ -215,4 +217,6 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.include_router(setup_router, prefix="/api/v1/setup")
     app.include_router(pedagogy_router, prefix="/api/v1/pedagogy")
     app.include_router(pedagogy_referential_router, prefix="/api/v1/pedagogy")
+    app.include_router(pedagogy_calendar_router, prefix="/api/v1/pedagogy")
+    app.include_router(pedagogy_programmes_router, prefix="/api/v1/pedagogy")
     return app
