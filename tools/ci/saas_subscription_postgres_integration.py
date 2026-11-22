@@ -71,8 +71,12 @@ def run(A: dict, B: dict) -> None:
     adj = one("SELECT school_adjustable FROM capability_catalog WHERE code='subscription.payment.create'")
     check("droit de payer ajustable par chaque école", bool(adj and adj[0]), adj)
 
+    nav = lambda actor: [n["key"] for n in as_(actor).get("/api/v1/access/me").json().get("navigation", [])]  # noqa: E731
+    check("école SANS abonnement : aucun menu « Mon abonnement » (contrat direct, APN)", "subscription" not in nav(admin), nav(admin))
     today = date.today()
     sub, inv, pay, ref = subscription(A, start=today - timedelta(days=5), end=today + timedelta(days=25))
+    check("école AVEC abonnement : le menu « Mon abonnement » apparaît, en fin de menu",
+          "subscription" in nav(admin) and nav(admin).index("subscription") > 1, nav(admin))
     before_fin = one("SELECT count(*) FROM finance_payments WHERE school_id=:s", s=A["id"])[0]
     r = hook({"event_id": f"EVT-{RUN}-1", "provider_reference": ref, "status": "SUCCEEDED", "amount": "50.00", "currency": "USD"}, signed=False)
     check("message NON signé → refusé, rien d'écrit", r.status_code == 401 and one(

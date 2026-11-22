@@ -16,12 +16,27 @@ def test_billing_menu_is_server_computed_and_lazy_loaded():
 
 
 def test_mobile_first_billing_views_cover_the_commercial_workflow():
-    for label in ("Abonnements des écoles", "Factures commerciales", "Paiements rapprochés", "Offres commerciales",
-                  "Émettre une facture", "Enregistrer un paiement", "Nouvelle offre"):
+    """Owner review 2026-11-21: every server action reachable, no horizontal overflow (bars no longer slide)."""
+    for label in ("Abonnements des écoles", "Attribuer une offre", "Ajouter un tarif", "Publier ce tarif", "Émettre une facture",
+                  "Enregistrer un paiement", "Nouvelle offre", "Changer l’état", "Exporter"):
         assert label in UI
-    assert "@media(max-width:650px)" in CSS
-    assert ".bl-table thead{display:none}" in CSS
-    assert 'content:attr(data-label)' in CSS
+    for call in ("createSubscription", "transitionSubscription", "createPlanVersion", "publishPlanVersion", "exportBillingCsv"):
+        assert call in UI and call in API
+    assert ".bl>*,.bl .ui-page-head,.bl .ui-page-head>*{min-width:0;max-width:100%}" in CSS      # nothing wider than the screen
+    assert "<table" not in UI                                                                         # cards, never a wide table
+    assert ".bl .ui-btn-sm,.bl-dialog .ui-btn{min-height:44px}" in CSS                               # touch targets
+    assert "var(--es-border)" not in CSS and "var(--es-line)" in CSS                                  # real design tokens (dark mode)
+
+
+def test_only_legal_subscription_moves_are_offered():
+    from edusync.modules.subscriptions.domain.subscription import _ALLOWED
+    block = UI.split("const MOVES: Record<string, string[]> = {", 1)[1].split("};", 1)[0]
+    for state, targets in _ALLOWED.items():
+        if state.value == "EXPIRED" or not targets:
+            continue
+        line = block.split(f"{state.value}: [", 1)[1].split("]", 1)[0]
+        offered = {x.strip(" '") for x in line.split(",") if x.strip()}
+        assert offered <= {t.value for t in targets}, (state, offered)
 
 
 def test_sensitive_actions_are_hidden_without_their_capability():
@@ -35,5 +50,5 @@ def test_frontend_mutations_use_idempotency_keys():
 
 
 def test_school_cash_and_commercial_billing_are_explicitly_separated():
-    assert "séparées de leurs caisses scolaires" in UI
+    assert "séparées des caisses des écoles" in UI
 

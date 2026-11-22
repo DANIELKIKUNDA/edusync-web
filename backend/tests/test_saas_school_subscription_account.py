@@ -34,7 +34,11 @@ def test_capability_is_provisioned_for_the_four_accountable_roles():
 
 
 def test_navigation_is_server_projected_from_the_school_capability():
-    assert '("subscription", "Mon abonnement", "receipt", ("subscription.account.read",))' in PROJECTION
+    assert '("subscription", "Mon abonnement", "finance", ("subscription.account.read",))' in PROJECTION
+    # near the end of the menu, and only for a school that has a subscription (APN: direct contract, owner 2026-11-21)
+    assert PROJECTION.index('("subscription"') > PROJECTION.index('("sync"')
+    router = (ROOT / "backend/src/edusync/modules/access/api/router.py").read_text(encoding="utf-8")
+    assert 'not _has_subscription(services, actor.school_id)' in router
     assert "module==='subscription'?<SchoolSubscriptionPage" in (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
 
 

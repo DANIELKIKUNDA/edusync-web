@@ -1127,6 +1127,17 @@ def convert_role(role_id: UUID, b: ConvertInput, idempotency_key: str | None = H
 
 
 # --------------------------------------------------------------------------------------- authoritative projection
+def _has_subscription(services: AppServices, school_id) -> bool:
+    """The school has an EduSync subscription (any state but resiliated). Read with the platform role (the commercial
+    tables are not readable by the tenant role). Never breaks /access/me: on error, the entry stays hidden."""
+    try:
+        with services.platform_db.platform_transaction() as conn:
+            return bool(conn.execute(text("SELECT 1 FROM saas_subscriptions WHERE school_id=:s AND status<>'CANCELLED' LIMIT 1"),
+                                     {"s": str(school_id)}).first())
+    except Exception:  # noqa: BLE001
+        return False
+
+
 @router.get("/me")
 def access_me(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services)):
     """What the signed-in member may see and do in this school (owner decision 8): effective capabilities and scopes,
@@ -1147,13 +1158,17 @@ def access_me(actor: ActorContext = Depends(require_school_actor), services: App
     titles = [_titled(r["code"], r["kind"], r["label"], civility, r["scopes"] if isinstance(r["scopes"], list) else [], labels) for r in roles]
     caps = set(actor.permissions)
     scoped = sorted({(c, t, v) for c, t, v in actor.capability_scopes if t != "SCHOOL" and lifecycle.get(c) == "ACTIVE"})
+    navigation = projection.navigation(caps)
+    if any(n["key"] == "subscription" for n in navigation) and not _has_subscription(services, actor.school_id):
+        # A school outside the subscription system (APN: direct contract, owner 2026-11-21) never sees an empty page.
+        navigation = [n for n in navigation if n["key"] != "subscription"]
     return {"membership_id": str(actor.membership_id), "school_id": str(actor.school_id),
             "roles": [{**_json(dict(r)), "standard": r["kind"] == "SCHOOL_STANDARD", "adjusted": r["adjustments"] > 0, "title": t} for r, t in zip(roles, titles)],
             # the words shown on the home page: « Promotrice », « Directrice de la maternelle »… (rights unchanged)
             "role_label": " · ".join(dict.fromkeys(titles)) or "Membre", "civility": civility,
             "permissions": sorted(c for c in caps if lifecycle.get(c) in ("ACTIVE", "ALIAS")),
             "scoped": [{"capability": c, "type": t, "value": v} for c, t, v in scoped],
-            "navigation": projection.navigation(caps), "widgets": projection.widgets(caps, {c for c, t, _ in actor.capability_scopes if t == "SCHOOL"}), "actions": projection.actions(caps)}
+            "navigation": navigation, "widgets": projection.widgets(caps, {c for c, t, _ in actor.capability_scopes if t == "SCHOOL"}), "actions": projection.actions(caps)}
 
 
 @router.get("/dashboard")
