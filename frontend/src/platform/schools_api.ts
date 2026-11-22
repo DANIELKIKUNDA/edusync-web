@@ -101,6 +101,28 @@ export async function setMembershipActive(token: string, membershipId: string, a
   if (!r.ok) return fail(r, 'Modification d’accès impossible.');
 }
 
+/* V2 lot 0 (2026-11-22): modules of a school. V1 modules are included for every school; the pedagogy (ACADEMIC) is sold
+   apart and switched on / off here. Step-up (code) is asked automatically by the platform fetch wrapper. */
+export type SchoolModule = {code: string; label: string; description: string; catalogue_status: 'DRAFT' | 'ACTIVE' | 'RETIRED';
+  dependencies: string[]; active: boolean; source: 'PLAN' | 'ADDON' | 'TRIAL' | 'MANUAL' | 'MIGRATION' | null;
+  entitlement_status: string | null; since: string | null; until: string | null; reason: string | null; through_subscription: boolean};
+export type SchoolModules = {school: {id: string; code: string; name: string; status: SchoolStatus}; modules: SchoolModule[]; can_manage: boolean};
+export const V1_MODULES = ['CORE_SCHOOL', 'ENROLLMENT', 'FINANCE', 'RECOVERY', 'REPORTS', 'PERSONNEL', 'DOCUMENTS', 'COMMUNICATIONS'];
+export const SWITCHABLE_MODULES = ['ACADEMIC'];
+
+export async function fetchSchoolModules(token: string, schoolId: string, signal?: AbortSignal): Promise<SchoolModules> {
+  const r = await fetch(`${API}/platform/schools/${schoolId}/modules`, {headers: auth(token), signal});
+  if (!r.ok) return fail(r, 'Modules indisponibles.');
+  return r.json();
+}
+
+export async function changeSchoolModule(token: string, schoolId: string, code: string, kind: 'activate' | 'withdraw', reason: string): Promise<{modules: SchoolModule[]}> {
+  const r = await fetch(`${API}/platform/schools/${schoolId}/modules/${code}/${kind}`, {method: 'POST',
+    headers: {...auth(token), 'Idempotency-Key': crypto.randomUUID()}, body: JSON.stringify({reason})});
+  if (!r.ok) return fail(r, kind === 'activate' ? 'Activation impossible.' : 'Retrait impossible.');
+  return r.json();
+}
+
 export async function downloadSchoolsCsv(token: string, f: SchoolFilters): Promise<void> {
   const p = new URLSearchParams(qs(f, null, 25)); p.delete('limit');
   const r = await fetch(`${API}/platform/schools/export.csv?${p.toString()}`, {headers: auth(token)});

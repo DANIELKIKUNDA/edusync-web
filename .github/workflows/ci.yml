@@ -213,6 +213,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/saas_subscription_postgres_integration.py
+      - name: Intégration — V2 lot 0, modules des écoles (PostgreSQL réel)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/school_modules_postgres_integration.py
       - name: Arrêt PostgreSQL isolé
         if: always()
         run: docker rm -f "$PG_CONTAINER" 2>/dev/null || true

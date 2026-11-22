@@ -37,6 +37,7 @@ from edusync.modules.audit.domain.audit import AuditRecord
 from edusync.shared.application.context import ActorContext
 from edusync.shared.application.idempotency import IdempotentExecutor
 from edusync.shared.domain.concurrency import IdempotencyConflict, IdempotencyInProgress
+from edusync.modules.school_modules.api.guard import school_module_codes
 
 router = APIRouter(tags=["Accès & rôles de l'école"])
 MANAGER_CAPABILITY = "access.roles.manage"
@@ -1168,7 +1169,9 @@ def access_me(actor: ActorContext = Depends(require_school_actor), services: App
             "role_label": " · ".join(dict.fromkeys(titles)) or "Membre", "civility": civility,
             "permissions": sorted(c for c in caps if lifecycle.get(c) in ("ACTIVE", "ALIAS")),
             "scoped": [{"capability": c, "type": t, "value": v} for c, t, v in scoped],
-            "navigation": navigation, "widgets": projection.widgets(caps, {c for c, t, _ in actor.capability_scopes if t == "SCHOOL"}), "actions": projection.actions(caps)}
+            "navigation": navigation, "widgets": projection.widgets(caps, {c for c, t, _ in actor.capability_scopes if t == "SCHOOL"}), "actions": projection.actions(caps),
+            # V2 lot 0: modules of the school (the V2 menus appear only with « ACADEMIC »; the server refuses anyway)
+            "modules": school_module_codes(services, actor.school_id)}
 
 
 @router.get("/dashboard")
