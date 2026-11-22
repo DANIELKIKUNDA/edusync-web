@@ -11,7 +11,7 @@
  },
  "owner_decides_roles_and_assignments": true,
  "role_assignments_finalized": true,
- "capability_count": 307,
+ "capability_count": 309,
  "capabilities": [
   {
    "code": "access.grants.exception",
@@ -4998,6 +4998,8 @@
    "replaced_by": null,
    "school_adjustable": false
   },
+  {"code":"platform.school_modules.manage","domain":"Atelier Pro","group":"Écoles","label":"Activer ou retirer un module d’une école","action":"manage","risk":"CRITICAL","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":true,"notes":"V2 lot 0 (22/11/2026) : motif et code de confirmation obligatoires.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
+  {"code":"platform.school_modules.read","domain":"Atelier Pro","group":"Écoles","label":"Voir les modules d’une école","action":"read","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":false,"scope_types":["PLATFORM"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":false,"notes":"V2 lot 0 (22/11/2026) : modules en service et historique.","role_assignment":"MANAGER_SYSTEME_OWNER_APPROVED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":false},
   {
    "code": "platform.schools.read",
    "domain": "Atelier Pro",
@@ -8048,6 +8050,7 @@
    "capabilities": [
     "platform.audit.read",
     "platform.health.read",
+    "platform.school_modules.read",
     "platform.schools.read"
    ],
    "locked": []
@@ -8073,6 +8076,8 @@
     "platform.messaging.retry",
     "platform.notifications.system.send",
     "platform.school_admin.bootstrap",
+    "platform.school_modules.manage",
+    "platform.school_modules.read",
     "platform.schools.activate",
     "platform.schools.create",
     "platform.schools.read",

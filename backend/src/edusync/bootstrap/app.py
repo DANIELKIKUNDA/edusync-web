@@ -37,6 +37,8 @@ from edusync.modules.access.api.router import router as access_router
 from edusync.modules.setup.api.router import router as setup_router
 from edusync.modules.alerts.api.router import router as supervision_router
 from edusync.modules.subscriptions.api.router import router as subscriptions_router
+from edusync.modules.school_modules.api.platform_router import router as school_modules_router
+from edusync.modules.school_modules.api.pedagogy_router import router as pedagogy_router
 from edusync.modules.subscriptions.api.school_router import router as school_subscription_router
 from edusync.modules.subscriptions.api.payment_webhooks import router as subscription_payment_webhooks_router
 from edusync.shared.infrastructure.observability import CorrelationLoggingMiddleware, configure_logging
@@ -185,6 +187,7 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.include_router(platform_messaging_router, prefix="/api/v1/platform/messaging")
     app.include_router(provider_webhooks_router, prefix="/api/v1/webhooks")
     app.include_router(notifications_center_router, prefix="/api/v1")
+    app.include_router(school_modules_router, prefix="/api/v1/platform")
     app.include_router(platform_router, prefix="/api/v1/platform")
     app.include_router(subscriptions_router, prefix="/api/v1/platform/billing")
     app.include_router(school_subscription_router, prefix="/api/v1/subscription")
@@ -209,4 +212,5 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
     app.include_router(migration_import_router, prefix="/api/v1/import")
     app.include_router(access_router, prefix="/api/v1/access")
     app.include_router(setup_router, prefix="/api/v1/setup")
+    app.include_router(pedagogy_router, prefix="/api/v1/pedagogy")
     return app

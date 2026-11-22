@@ -1,0 +1,25 @@
+/* School sheet · « Modules » (V2 lot 0). Mobile first; real design tokens only. */
+.sm-card{display:grid;gap:10px}
+.sm-group{margin:4px 0 0;font-size:12px;font-weight:750;letter-spacing:.02em;text-transform:uppercase;color:var(--es-muted)}
+.sm-sold{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.sm-sold li{display:grid;grid-template-columns:36px minmax(0,1fr);grid-template-areas:"icon main" "act act";gap:10px;align-items:start;
+  padding:12px;border:1px solid var(--es-line);border-radius:12px;background:var(--es-surface)}
+.sm-icon{grid-area:icon;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:var(--es-bg);color:var(--es-muted)}
+.sm-icon-on{background:var(--es-ok-soft);color:var(--es-ok)}
+.sm-main{grid-area:main;display:grid;gap:4px;min-width:0}
+.sm-main b{color:var(--es-ink);font-size:14.5px;line-height:1.3}
+.sm-state{justify-self:start;font-size:12px;font-weight:750;padding:3px 9px;border-radius:999px}
+.sm-on{background:var(--es-ok-soft);color:var(--es-ok)}
+.sm-off{background:var(--es-bg);color:var(--es-muted)}
+.sm-reason{color:var(--es-muted);font-size:12.5px;overflow-wrap:anywhere}
+.sm-draft{color:var(--es-warn);font-size:12.5px}
+.sm-action{grid-area:act;display:flex;justify-content:flex-start}
+.sm-action .sc-btn{min-height:44px;padding:0 16px}
+.sm-included{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.sm-included li{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--es-bg);
+  color:var(--es-ink);font-size:12.5px;font-weight:600}
+.sm-included li svg{color:var(--es-ok)}
+@media (min-width:640px){
+  .sm-sold li{grid-template-columns:36px minmax(0,1fr) auto;grid-template-areas:"icon main act";align-items:center}
+  .sm-action{justify-content:flex-end}
+}

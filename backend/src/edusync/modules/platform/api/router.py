@@ -173,6 +173,9 @@ def create_school(
                 school = CreateSchool(schools, audit, outbox).execute(
                     request_actor, CreateSchoolCommand(code=code, **clean_identity)
                 )
+                # V2 lot 0 (owner 2026-11-22): a new school starts with the eight V1 modules; the pedagogy is sold apart.
+                from edusync.modules.school_modules.application.service import grant_v1_modules
+                grant_v1_modules(conn, school.id)
                 return 201, _school_json(school)
 
             result = idem.execute(

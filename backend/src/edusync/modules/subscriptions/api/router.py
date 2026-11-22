@@ -250,7 +250,8 @@ def create_subscription(body: SubscriptionCreate, idempotency_key: str | None = 
           VALUES(:id,:school,:actor,:status,:reason,:correlation,:key)"""), {"id": subscription_id, "school": body.school_id,
           "actor": actor.user_id, "status": body.initial_status.value, "reason": body.reason.strip(), "correlation": actor.correlation_id, "key": key})
         conn.execute(text("""INSERT INTO saas_entitlements(school_id,subscription_id,module_code,source,status,ends_at,limits,reason)
-          SELECT :school,:subscription,module_code,'PLAN','ACTIVE',:ends,limits,:reason FROM saas_plan_modules WHERE plan_version_id=:plan"""),
+          SELECT :school,:subscription,module_code,'PLAN','ACTIVE',:ends,limits,:reason FROM saas_plan_modules WHERE plan_version_id=:plan
+          ON CONFLICT (school_id,module_code) WHERE status='ACTIVE' DO NOTHING"""),   # a module already in service is kept (lot 0)
           {"school": body.school_id, "subscription": subscription_id, "ends": end + timedelta(days=int(version["grace_days"])),
            "reason": body.reason.strip(), "plan": body.plan_version_id})
         result = _json(row)

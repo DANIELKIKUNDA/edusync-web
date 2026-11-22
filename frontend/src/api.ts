@@ -580,7 +580,9 @@ export type AccessWidget={id:string;title:string;module:string;priority:number;b
 export type AccessAction={id:string;label:string;module:string};
 export type AccessMe={membership_id:string;school_id:string;role_label:string;permissions:string[];scoped:{capability:string;type:string;value:string}[];
   roles:{id:string;code:string;label:string;kind:string;standard:boolean;adjusted:boolean;scopes:{type:string;value:string|null}[]}[];
-  navigation:AccessNav[];widgets:AccessWidget[];actions:AccessAction[]};
+  navigation:AccessNav[];widgets:AccessWidget[];actions:AccessAction[];
+  /** V2 lot 0: modules of the school (« ACADEMIC » = pédagogie, sold apart). Older servers do not send it. */
+  modules?:string[]};
 export async function getAccessMe(token:string):Promise<AccessMe>{const r=await fetch(`${API}/access/me`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Espace indisponible'));return r.json()}
 export async function getAccessDashboard(token:string):Promise<Record<string,any>>{const r=await fetch(`${API}/access/dashboard`,{headers:auth(token)});if(!r.ok)throw new Error(await errorDetail(r,'Tableau de bord indisponible'));return r.json()}
 

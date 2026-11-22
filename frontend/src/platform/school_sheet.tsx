@@ -9,6 +9,7 @@ import {NavGlyph} from './nav_icons';
 import {bootstrapAdmin, CONFIG_LABEL, createSchool, fetchCitySuggestions, fetchSchoolSheet, RDC_PROVINCES, resetAdminAccess, setMembershipActive, setSchoolStatus,
   updateSchool, type AdminInfo, type SchoolIdentity, type SchoolSheet} from './schools_api';
 import {ConfigBadge, StatusBadge} from './schools';
+import {SchoolModulesCard} from './school_modules';
 
 /* School sheet (lot 2026-10): executive summary first (who, status, configuration, administrator, users, last
    activity, incidents, allowed actions), then identity, promoter / main contact (institutional), administrators
@@ -110,6 +111,9 @@ export function SchoolSheetView({token, id, has, onBack, onChanged}: {token: str
           </div></li>)}</ul>}
       <p className="sc-hint">La plateforme gouverne uniquement l’administrateur de l’école (continuité et sécurité de l’accès). Les autres rôles — caissier, secrétaire, préfet, enseignant… — se gèrent dans l’espace de l’école.</p>
     </section>
+
+    {/* V2 lot 0: modules of the school (pedagogy sold apart) — the server decides who may read / change them */}
+    {has('platform.school_modules.read') && <SchoolModulesCard token={token} schoolId={s.id} schoolActive={st === 'ACTIVE'} onChanged={refresh}/>}
 
     <div className="sc-sheet-grid">
       <section className="sc-card"><div className="sc-card-head"><h3>Configuration</h3><span className="sc-muted">{d.ready_count}/{d.total_gates}</span></div>

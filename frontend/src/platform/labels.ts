@@ -24,6 +24,8 @@ const ACTIONS: Record<string, string> = {
   PLATFORM_SCHOOL_ADMIN_ACCESS_RESET: 'Accès administrateur réinitialisé',
   PLATFORM_SCHOOLS_EXPORTED: 'Liste des écoles exportée',
   PLATFORM_SCHOOL_ADMIN_BOOTSTRAPPED: 'Administrateur initial créé',
+  SCHOOL_MODULE_ACTIVATED: 'Module activé',
+  SCHOOL_MODULE_WITHDRAWN: 'Module retiré',
   SCHOOL_ADMIN_BOOTSTRAPPED: 'Administrateur initial créé',
   PLATFORM_ROLE_ASSIGNED: 'Rôle attribué',
   PLATFORM_ROLE_REVOKED: 'Rôle retiré',
