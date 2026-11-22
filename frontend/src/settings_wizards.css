@@ -96,3 +96,14 @@ div.ta-row-name{display:grid;gap:0}
 .ta-basket ul{list-style:none;padding:0;margin:6px 0 0;display:grid;gap:2px;max-height:200px;overflow:auto}
 .ta-basket li{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;border-bottom:1px dotted var(--es-line,#eef1f6)}
 .ta-basket li span:last-child{display:flex;gap:10px;align-items:center;font-weight:650}
+/* Technical groups (29 + 13 official options): folded until the school opens one (owner 2026-11-22). */
+.sw-option-more>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;cursor:pointer;list-style:none}
+.sw-option-more>summary::-webkit-details-marker{display:none}
+.sw-option-more>summary b{font-size:12px;font-weight:780;letter-spacing:.05em;text-transform:uppercase;color:var(--es-muted,#7a8599)}
+.sw-option-more>summary span{font-size:12.5px;color:var(--es-muted,#7a8599);white-space:nowrap}
+.sw-option-more>summary::after{content:'▾';color:var(--es-muted,#7a8599);transition:transform .15s}
+.sw-option-more[open]>summary::after{transform:rotate(180deg)}
+/* Inside « Structure & classes » the options sit in a .cardsList card whose generic rule paints every button solid blue
+   (closed options looked selected, open ones looked off). The chips keep their own look there too (2026-11-22). */
+.sw-options .sw-chip{border:1px solid var(--es-line,#d5dbe6);border-radius:999px;padding:0 14px;background:var(--es-surface,#fff);color:var(--es-ink-2,#3b4660);font-weight:650;min-height:40px}
+.sw-options .sw-chip.on{border-color:var(--es-brand,#1557d6);background:var(--es-brand-soft,#eaf1ff);color:var(--es-brand,#1557d6)}

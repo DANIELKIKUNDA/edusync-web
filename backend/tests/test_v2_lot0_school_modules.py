@@ -85,7 +85,7 @@ def test_platform_routes_are_guarded_audited_and_step_up():
 
 def test_school_sees_its_modules_and_v2_route_is_behind_the_gate():
     access = (SRC / "modules/access/api/router.py").read_text(encoding="utf-8")
-    assert '"modules": school_module_codes(services, actor.school_id)' in access
+    assert 'modules = school_module_codes(services, actor.school_id)' in access and '"modules": modules' in access
     pedagogy = (SRC / "modules/school_modules/api/pedagogy_router.py").read_text(encoding="utf-8")
     assert "Depends(require_pedagogy)" in pedagogy
     app = (SRC / "bootstrap/app.py").read_text(encoding="utf-8")

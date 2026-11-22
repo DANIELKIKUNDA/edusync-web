@@ -1,0 +1,7 @@
+{
+ "items": [
+  {"code":"MAT","label":"Maternelle","order":1},
+  {"code":"PRI","label":"Primaire","order":2},
+  {"code":"SEC","label":"Secondaire","order":3}
+ ]
+}

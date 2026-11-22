@@ -49,7 +49,12 @@ it('existing classes are never recreated: adding a parallel C keeps A and B unto
 
 it('catalogues ported from the desktop', () => {
   expect(RDC_OPTIONS.some(o => o.code === 'EB')).toBe(false);              // Éducation de base is not an option
-  expect(RDC_OPTIONS.filter(o => o.group === 'TECHNICAL').length).toBeGreaterThan(5);
+  // the 51 official MINEDUC options (owner 2026-11-22): 9 general, 13 technical group 1, 29 technical group 2
+  expect(RDC_OPTIONS.length).toBe(51);
+  expect(['GENERAL', 'GROUPE_1', 'GROUPE_2'].map(g => RDC_OPTIONS.filter(o => o.group === g).length)).toEqual([9, 13, 29]);
+  expect(RDC_OPTIONS.find(o => o.code === 'CG')).toMatchObject({group: 'GROUPE_1', official: 301});   // technical, not general
+  expect(RDC_OPTIONS.some(o => ['LITTERAIRE', 'MATH_PHYS'].includes(o.code))).toBe(false);        // not official options
+  expect(new Set(RDC_OPTIONS.map(o => o.code)).size).toBe(51);
   expect(FEE_PRESETS.map(f => f.code)).toEqual(expect.arrayContaining(['INSCRIPTION', 'MINERVAL', 'ETAT_EXAMEN_ETAT', 'ETAT_TENASOSP', 'ECUSSON']));
 });
 

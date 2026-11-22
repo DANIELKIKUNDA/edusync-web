@@ -247,6 +247,7 @@ def main() -> None:
             ("0121_saas_mobile_money_checkout", "0121_saas_mobile_money_checkout.sql"),
             ("0122_cash_expense_fee_source", "0122_cash_expense_fee_source.sql"),
             ("0123_school_modules", "0123_school_modules.sql"),
+            ("0124_pedagogy_referential", "0124_pedagogy_referential.sql"),
         ]
         # CI only (rbac-contract job): stop after a given migration to snapshot the state BEFORE a later one.
         until = os.environ.get("EDUSYNC_MIGRATE_UNTIL", "").strip()
@@ -256,6 +257,11 @@ def main() -> None:
                 _record_migration(conn, version)
             if until and version == until:
                 break
+
+        # V2 lot 1 (owner 2026-11-22): the official MINEDUC referential, loaded from the repository files (idempotent).
+        if _table_exists(conn, "ref_programme_lines"):
+            from edusync.modules.pedagogy.application.referential_loader import load_referential
+            print(load_referential(conn))
 
         dbname = owner_url.database or "edusync"
         conn.exec_driver_sql(f"GRANT CONNECT ON DATABASE \"{dbname.replace(chr(34), chr(34)*2)}\" TO {TENANT_ROLE}, {PLATFORM_ROLE}")

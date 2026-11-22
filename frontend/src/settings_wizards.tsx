@@ -27,14 +27,68 @@ export function autoCode(label:string,taken:Iterable<string>=[],max=48):string{
 /** School year code from its label: « 2027-2028 » (same shape as the platform suggestion), never typed. */
 export function yearCode(label:string,taken:Iterable<string>=[]):string{const m=/(\d{4})\D+(\d{4})/.exec(label);return m?`${m[1]}-${m[2]}`:autoCode(label,taken,32)}
 
-/** RDC study options of the Humanités (desktop STUDY_OPTIONS without « Éducation de base », which is not an option). */
-export const RDC_OPTIONS:{code:string;label:string;group:'GENERAL'|'TECHNICAL'}[]=[
-  {code:'HP',label:'Pédagogie générale',group:'GENERAL'},{code:'SC',label:'Scientifique',group:'GENERAL'},{code:'CG',label:'Commerciale et gestion',group:'GENERAL'},
-  {code:'LITTERAIRE',label:'Littéraire',group:'GENERAL'},{code:'MATH_PHYS',label:'Math-physique',group:'GENERAL'},
-  {code:'TCC',label:'Technique coupe et couture',group:'TECHNICAL'},{code:'ELEC',label:'Électricité',group:'TECHNICAL'},{code:'ELECTRONIQUE',label:'Électronique',group:'TECHNICAL'},
-  {code:'MG',label:'Mécanique générale',group:'TECHNICAL'},{code:'MA',label:'Mécanique automobile',group:'TECHNICAL'},{code:'CONSTRUCTION',label:'Construction',group:'TECHNICAL'},
-  {code:'NUTRITION',label:'Nutrition',group:'TECHNICAL'},
+/** The 51 official study options of the Humanités (MINEDUC referential, owner 2026-11-22 — replaces the 12 options of the
+    desktop list, which put « Commerciale et gestion » among the general options and had two unofficial ones). `code` is the
+    official sigle, `official` the MINEDUC code. Kept identical to backend …/pedagogy/reference/<version>/options.json (test). */
+export type OptionGroup='GENERAL'|'GROUPE_1'|'GROUPE_2';
+export const RDC_OPTIONS:{code:string;label:string;group:OptionGroup;official:number}[]=[
+  {code:'LP',label:'Latin Philosophie',group:'GENERAL',official:101},
+  {code:'SC',label:'Sciences',group:'GENERAL',official:102},
+  {code:'LG',label:'Latin-Grec',group:'GENERAL',official:103},
+  {code:'LM',label:'Latin Mathématique',group:'GENERAL',official:104},
+  {code:'HP',label:'Pédagogie Générale',group:'GENERAL',official:201},
+  {code:'EPS',label:'Éducation Physique et Sportive',group:'GENERAL',official:202},
+  {code:'NOR',label:'Normale',group:'GENERAL',official:203},
+  {code:'PM',label:'Pédagogie Maternelle',group:'GENERAL',official:204},
+  {code:'PPS',label:'Pédagogie Pré-scolaire',group:'GENERAL',official:205},
+  {code:'CG',label:'Commerciale et Gestion',group:'GROUPE_1',official:301},
+  {code:'SA',label:'Secrétariat-Administration',group:'GROUPE_1',official:302},
+  {code:'SOC',label:'Sociale',group:'GROUPE_1',official:401},
+  {code:'AP',label:'Arts Plastiques',group:'GROUPE_1',official:501},
+  {code:'AD',label:'Arts Dramatiques',group:'GROUPE_1',official:502},
+  {code:'MUS',label:'Musique',group:'GROUPE_1',official:503},
+  {code:'EC',label:'Esthétique & Coiffure',group:'GROUPE_1',official:504},
+  {code:'COIF',label:'Coiffure',group:'GROUPE_1',official:505},
+  {code:'TCC',label:'Coupe et Couture',group:'GROUPE_1',official:601},
+  {code:'HA',label:'Hôtesse d’Accueil',group:'GROUPE_1',official:701},
+  {code:'HR',label:'Hôtellerie et Restauration',group:'GROUPE_1',official:702},
+  {code:'HEB',label:'Hébergement',group:'GROUPE_1',official:703},
+  {code:'TOUR',label:'Tourisme',group:'GROUPE_1',official:704},
+  {code:'AG',label:'Agriculture Générale',group:'GROUPE_2',official:801},
+  {code:'PN',label:'Pêche et Navigation',group:'GROUPE_2',official:802},
+  {code:'VET',label:'Vétérinaire',group:'GROUPE_2',official:803},
+  {code:'IA',label:'Industries Agricoles',group:'GROUPE_2',official:804},
+  {code:'NUT',label:'Nutrition',group:'GROUPE_2',official:805},
+  {code:'FOR',label:'Foresterie',group:'GROUPE_2',official:806},
+  {code:'MG',label:'Mécanique Générale',group:'GROUPE_2',official:901},
+  {code:'MMO',label:'Mécanique Machines-Outils',group:'GROUPE_2',official:902},
+  {code:'ELEC',label:'Électricité Générale',group:'GROUPE_2',official:903},
+  {code:'CONS',label:'Construction',group:'GROUPE_2',official:904},
+  {code:'CHI',label:'Chimie Industrielle',group:'GROUPE_2',official:905},
+  {code:'EI',label:'Électronique Industrielle',group:'GROUPE_2',official:906},
+  {code:'IMP',label:'Imprimerie',group:'GROUPE_2',official:907},
+  {code:'COM',label:'Commutation',group:'GROUPE_2',official:908},
+  {code:'RT',label:'Radio Transmission',group:'GROUPE_2',official:909},
+  {code:'METEO',label:'Météorologie',group:'GROUPE_2',official:910},
+  {code:'AC',label:'Aviation Civile',group:'GROUPE_2',official:911},
+  {code:'MD',label:'Mécanique Dessin',group:'GROUPE_2',official:912},
+  {code:'HYDRO',label:'Hydro-Pneumatique',group:'GROUPE_2',official:913},
+  {code:'PETRO',label:'Pétrochimie',group:'GROUPE_2',official:914},
+  {code:'MA',label:'Mécanique Automobile',group:'GROUPE_2',official:915},
+  {code:'CM',label:'Construction Métallique',group:'GROUPE_2',official:916},
+  {code:'MEN',label:'Menuiserie',group:'GROUPE_2',official:917},
+  {code:'MINGEO',label:'Mine et Géologie',group:'GROUPE_2',official:918},
+  {code:'METAL',label:'Métallurgie',group:'GROUPE_2',official:919},
+  {code:'DB',label:'Dessin de Bâtiment',group:'GROUPE_2',official:920},
+  {code:'PIS',label:'Plomberie (Installation Sanitaire)',group:'GROUPE_2',official:921},
+  {code:'MC',label:'Mines et Carrières',group:'GROUPE_2',official:922},
+  {code:'GEO',label:'Géologie',group:'GROUPE_2',official:923},
 ];
+export const OPTION_GROUP_LABEL:Record<OptionGroup,string>={GENERAL:'Humanités générales',GROUPE_1:'Humanités techniques — Groupe 1',GROUPE_2:'Humanités techniques — Groupe 2'};
+/** Options opened before the official list (≤ 2026-11-22) with another code: the chip of the official option shows them. */
+export const LEGACY_OPTION_CODES:Record<string,string>={ELECTRONIQUE:'EI',CONSTRUCTION:'CONS',NUTRITION:'NUT'};
+/** Tariff group proposed when an option is opened (the school keeps its own prices per group). */
+export const tariffGroupOf=(group:OptionGroup)=>group==='GENERAL'?'GENERAL':'TECHNICAL';
 export const HUMANITIES=new Set(['H1','H2','H3','H4']);
 /** Sigles used by the schools to name a Humanités class (owner request 2026-11-06): « 1re HP », « 2e HSC A ». The option keeps
     its full name (Pédagogie générale…); only the CLASS name is short. A school option without known sigle uses its code. */
@@ -160,14 +214,17 @@ export function OptionCatalog({token,section,options,canManage,onChanged}:{token
   const mine=options.filter(o=>o.section_id===section.id);const byCode=new Map(mine.map(o=>[o.code,o]));
   async function add(code:string,label:string,group:string|null){try{setBusy(code);setError('');await putOption(token,{section_id:section.id,code,label,enabled:true,tariff_group_code:group});toast.success(`Option ${label} ouverte`);await onChanged()}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
   async function toggle(o:SchoolOption){try{setBusy(o.code);setError('');await putOption(token,{section_id:o.section_id,code:o.code,label:o.label,enabled:!o.enabled,expected_version:o.version,tariff_group_code:o.tariff_group_code??null});toast.success(o.enabled?`Option ${o.label} fermée (les classes existantes la gardent)`:`Option ${o.label} rouverte`);await onChanged()}catch(e){setError(friendlyError(e))}finally{setBusy('')}}
-  const extra=mine.filter(o=>!RDC_OPTIONS.some(r=>r.code===o.code));
+  const official=(code:string)=>byCode.get(code)??mine.find(o=>LEGACY_OPTION_CODES[o.code.toUpperCase()]===code);
+  const extra=mine.filter(o=>!RDC_OPTIONS.some(r=>r.code===o.code)&&!LEGACY_OPTION_CODES[o.code.toUpperCase()]);
   return <div className="sw-options">
-    <p className="sw-hint">Les options n’existent qu’en Humanités. Cochez celles que l’école organise réellement ; le groupe tarifaire (générales / techniques) est proposé automatiquement.</p>
+    <p className="sw-hint">Les options n’existent qu’en Humanités : ce sont les 51 options officielles du MINEDUC. Cochez celles que l’école organise réellement ; le groupe tarifaire (générales / techniques) est proposé automatiquement.</p>
     {error&&<div className="error" role="alert">{error}</div>}
-    {(['GENERAL','TECHNICAL'] as const).map(g=><div key={g} className="sw-option-group"><b>{g==='GENERAL'?'Humanités générales':'Humanités techniques'}</b><div className="sw-chips">
-      {RDC_OPTIONS.filter(o=>o.group===g).map(o=>{const have=byCode.get(o.code);const on=!!have?.enabled;
-        return <button key={o.code} type="button" className={`sw-chip ${on?'on':''}`} aria-pressed={on} disabled={!canManage||busy===o.code}
-          onClick={()=>void(have?toggle(have):add(o.code,o.label,o.group))}>{on?<NavGlyph g="check" size={14}/>:<NavGlyph g="plus" size={14}/>}{o.label}</button>})}</div></div>)}
+    {(['GENERAL','GROUPE_1','GROUPE_2'] as const).map(g=>{const list=RDC_OPTIONS.filter(o=>o.group===g);const opened=list.filter(o=>official(o.code)?.enabled).length;
+      const chips=<div className="sw-chips">{list.map(o=>{const have=official(o.code);const on=!!have?.enabled;
+        return <button key={o.code} type="button" className={`sw-chip ${on?'on':''}`} aria-pressed={on} disabled={!canManage||busy===o.code} title={`${o.official} · ${o.code}`}
+          onClick={()=>void(have?toggle(have):add(o.code,o.label,tariffGroupOf(o.group)))}>{on?<NavGlyph g="check" size={14}/>:<NavGlyph g="plus" size={14}/>}{o.label}</button>})}</div>;
+      return g==='GENERAL'?<div key={g} className="sw-option-group"><b>{OPTION_GROUP_LABEL[g]}</b>{chips}</div>
+        :<details key={g} className="sw-option-group sw-option-more" open={opened>0}><summary><b>{OPTION_GROUP_LABEL[g]}</b><span>{list.length} options{opened?` · ${opened} ouverte${opened>1?'s':''}`:''}</span></summary>{chips}</details>})}
     {extra.length>0&&<div className="sw-option-group"><b>Options propres à l’école</b><div className="sw-chips">{extra.map(o=><button key={o.id} type="button" className={`sw-chip ${o.enabled?'on':''}`} aria-pressed={o.enabled} disabled={!canManage||busy===o.code} onClick={()=>void toggle(o)}>{o.enabled?<NavGlyph g="check" size={14}/>:<NavGlyph g="plus" size={14}/>}{o.label}</button>)}</div></div>}
     {canManage&&<form className="sw-inline" onSubmit={e=>{e.preventDefault();const label=custom.trim();if(label.length<2){setError('Indiquez le nom de l’option, par exemple Agronomie.');return}void add(autoCode(label,mine.map(o=>o.code)),label,'OTHER').then(()=>setCustom(''))}}>
       <input aria-label="Autre option" placeholder="Autre option (ex. Agronomie)" value={custom} onChange={e=>setCustom(e.target.value)}/><Button variant="secondary" size="sm" icon="plus" type="submit">Ajouter</Button></form>}
