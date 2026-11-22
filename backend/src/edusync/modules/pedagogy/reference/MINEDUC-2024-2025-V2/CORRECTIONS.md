@@ -18,7 +18,7 @@ Ces données viennent du projet père `DANIELKIKUNDA/educsunc-platform`, dossier
 
 ## Corrections du propriétaire (22/11/2026)
 
-Règle : **« l'examen est toujours le double de la période »**.
+Règles : **« l'examen est toujours le double de la période »** ; un cours sans examen n'a aucun point d'examen, et ses périodes valent la même chose.
 
 | Classe | Cours | Champ | Avant | Après |
 |---|---|---|---|---|
@@ -26,14 +26,11 @@ Règle : **« l'examen est toujours le double de la période »**.
 | 2HYDRO | Mathématiques | EX1 | 10 | 100 |
 | 3SC | Systématique et Jardinage | EX1, EX2 | 20 | 40 |
 | 3SC | Géologie / Écologie | EX1, EX2 | 20 | 40 |
+| 4HR | Pratique professionnelle (sans examen) | P3 | 200 | 100 |
 
 27 noms étaient mal encodés dans la source (par exemple « PÃ©dagogie » au lieu de « Pédagogie ») ; ils ont été réparés.
 
 Les intitulés de domaine utilisent désormais tous la même apostrophe. Par exemple, « L’UNIVERS SOCIAL ET ENVIRONNEMENT » s'écrivait de deux façons.
-
-## Point à vérifier, non corrigé
-
-- **4HR, Pratique professionnelle** (sans examen) : P3 vaut 200, mais P1, P2 et P4 valent 100. C'est probablement une faute de frappe. On attend la décision du propriétaire.
 
 ## Ce qui manque dans la source
 

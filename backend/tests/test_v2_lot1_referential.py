@@ -37,7 +37,11 @@ def test_owner_rule_exam_is_twice_the_period_everywhere_and_corrections_applied(
     assert line("2HYDRO", "FRANCAIS")["max"][2] == 100 and line("2HYDRO", "MATHEMATIQUES")["max"][2] == 100
     assert line("3SC", "SYSTEMATIQUE_ET_JARDIN")["max"][2:6:3] == [40, 40] and line("3SC", "GEOLOGIE_ECOLOGIE")["max"][2:6:3] == [40, 40]
     doc = (ROOT / "backend/src/edusync/modules/pedagogy/reference/MINEDUC-2024-2025-V2/CORRECTIONS.md").read_text(encoding="utf-8")
-    assert "l'examen est toujours le double de la période" in doc and "4HR" in doc
+    assert "l'examen est toujours le double de la période" in doc and "| 4HR | Pratique professionnelle" in doc
+    assert line("4HR", "PRATIQUE_PROFESSIONNELLE")["max"] == [100, 100, 0, 100, 100, 0, 0, 0, 0]   # owner 2026-11-22
+    for p in REF.programmes:                                     # inside one term both periods weigh the same
+        for l in p["lines"]:
+            assert l["max"][0] == l["max"][1] and l["max"][3] == l["max"][4] and l["max"][6] == l["max"][7], (p["class"], l["course"])
 
 
 def test_line_rules_refuse_inconsistent_weighting():
