@@ -11,7 +11,7 @@
  },
  "owner_decides_roles_and_assignments": true,
  "role_assignments_finalized": true,
- "capability_count": 309,
+ "capability_count": 311,
  "capabilities": [
   {
    "code": "access.grants.exception",
@@ -4172,6 +4172,8 @@
    "replaced_by": null,
    "school_adjustable": false
   },
+  {"code":"pedagogy.class_links.manage","domain":"Pédagogie","group":"Référentiel","label":"Relier les classes de l’école aux classes officielles","action":"manage","risk":"MEDIUM","offline_policy":"SERVER_ONLY","audit_required":true,"scope_types":["SCHOOL","SECTION"],"source_status":"OWNER_APPROVED","prerequisites":["pedagogy.referential.read"],"outputs":[],"sensitive":false,"notes":"V2 lot 1 (22/11/2026) : module Pédagogie requis.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
+  {"code":"pedagogy.referential.read","domain":"Pédagogie","group":"Référentiel","label":"Consulter le référentiel officiel et les programmes","action":"read","risk":"LOW","offline_policy":"SERVER_ONLY","audit_required":false,"scope_types":["SCHOOL","SECTION"],"source_status":"OWNER_APPROVED","prerequisites":[],"outputs":[],"sensitive":false,"notes":"V2 lot 1 (22/11/2026) : module Pédagogie requis.","role_assignment":"OWNER_DECIDED","lifecycle":"ACTIVE","alias_of":null,"replaced_by":null,"school_adjustable":true},
   {
    "code": "personnel.access_link.manage",
    "domain": "Personnel",
@@ -7062,6 +7064,8 @@
     "notifications.internal.dismiss",
     "notifications.internal.read",
     "notifications.internal.read_all",
+    "pedagogy.class_links.manage",
+    "pedagogy.referential.read",
     "personnel.access_link.manage",
     "personnel.access_link.read",
     "settings.academic_year.activate",
@@ -7372,6 +7376,8 @@
     "headcounts.read",
     "notifications.internal.dismiss",
     "notifications.internal.read",
+    "pedagogy.class_links.manage",
+    "pedagogy.referential.read",
     "personnel.assignments.read",
     "personnel.functions.read",
     "personnel.read",
@@ -7461,6 +7467,7 @@
     "headcounts.read",
     "notifications.internal.dismiss",
     "notifications.internal.read",
+    "pedagogy.referential.read",
     "personnel.assignments.read",
     "personnel.directory.export",
     "personnel.directory.export_xlsx",
@@ -7752,6 +7759,8 @@
     "headcounts.read",
     "notifications.internal.dismiss",
     "notifications.internal.read",
+    "pedagogy.class_links.manage",
+    "pedagogy.referential.read",
     "personnel.assignments.read",
     "personnel.directory.export",
     "personnel.directory.export_xlsx",
@@ -7792,7 +7801,6 @@
    "kind": "SCHOOL_STANDARD",
    "capabilities": [
     "audit.entity.history.read",
-    "subscription.account.read",
     "audit.school.export",
     "audit.school.filter",
     "audit.school.read",
@@ -7882,6 +7890,7 @@
     "inventory.stock.sheet.print",
     "notifications.internal.read",
     "notifications.internal.read_all",
+    "pedagogy.referential.read",
     "personnel.assignments.read",
     "personnel.directory.export",
     "personnel.directory.export_xlsx",
@@ -7913,7 +7922,8 @@
     "students.directory.print_pdf",
     "students.lifecycle.history.read",
     "students.profile.print_pdf",
-    "students.read"
+    "students.read",
+    "subscription.account.read"
    ],
    "locked": []
   },

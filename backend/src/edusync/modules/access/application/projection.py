@@ -18,6 +18,8 @@ NAVIGATION: list[tuple[str, str, str, tuple[str, ...]]] = [
         "finance.products.read", "finance.analysis.by_fee.read")),
     ("students", "Élèves & inscriptions", "students", ("students.read", "families.read")),
     ("headcounts", "Effectifs & dépôts", "chart", ("headcounts.read", "contributions.read", "contributions.register.read")),
+    # V2 (owner 2026-11-22): sold apart — shown only to a school that HAS the pedagogy module (access/me filters it).
+    ("pedagogy", "Pédagogie", "layers", ("pedagogy.referential.read",)),
     ("personnel", "Personnel", "users", ("personnel.read",)),
     ("documents", "Documents", "folder", (
         "documents.history.read", "documents.open", "students.directory.export", "families.directory.export",

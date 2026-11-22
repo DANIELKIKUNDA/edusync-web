@@ -1163,6 +1163,9 @@ def access_me(actor: ActorContext = Depends(require_school_actor), services: App
     if any(n["key"] == "subscription" for n in navigation) and not _has_subscription(services, actor.school_id):
         # A school outside the subscription system (APN: direct contract, owner 2026-11-21) never sees an empty page.
         navigation = [n for n in navigation if n["key"] != "subscription"]
+    modules = school_module_codes(services, actor.school_id)
+    if "ACADEMIC" not in modules:      # V2 lot 1: no pedagogy module → no « Pédagogie » entry (the server refuses anyway)
+        navigation = [n for n in navigation if n["key"] != "pedagogy"]
     return {"membership_id": str(actor.membership_id), "school_id": str(actor.school_id),
             "roles": [{**_json(dict(r)), "standard": r["kind"] == "SCHOOL_STANDARD", "adjusted": r["adjustments"] > 0, "title": t} for r, t in zip(roles, titles)],
             # the words shown on the home page: « Promotrice », « Directrice de la maternelle »… (rights unchanged)
@@ -1171,7 +1174,7 @@ def access_me(actor: ActorContext = Depends(require_school_actor), services: App
             "scoped": [{"capability": c, "type": t, "value": v} for c, t, v in scoped],
             "navigation": navigation, "widgets": projection.widgets(caps, {c for c, t, _ in actor.capability_scopes if t == "SCHOOL"}), "actions": projection.actions(caps),
             # V2 lot 0: modules of the school (the V2 menus appear only with « ACADEMIC »; the server refuses anyway)
-            "modules": school_module_codes(services, actor.school_id)}
+            "modules": modules}
 
 
 @router.get("/dashboard")

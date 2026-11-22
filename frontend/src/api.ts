@@ -623,3 +623,26 @@ export async function mergeFamilies(token:string,body:{target_family_id:string;s
 // « Pris dans les frais de l'État… » (owner, 2026-11-22): the fees an expense may be taken from (cashier's own right).
 export type ExpenseSource={id:string;code:string;label:string};
 export async function cashExpenseSources(token:string):Promise<ExpenseSource[]>{return json<ExpenseSource[]>(await fetch(`${API}/finance/cash/expense-sources`,{headers:auth(token)}),'Types de frais indisponibles')}
+
+// ---------------------------------------------------------------- V2 lot 1 — Pédagogie (module vendu à part, 2026-11-22)
+export type RefOption={code:number;sigle:string;label:string;option_group:'GENERAL'|'GROUPE_1'|'GROUPE_2'};
+export type RefClass={code:string;label:string;section_code:'MAT'|'PRI'|'SEC';option_code:number|null;cycle:'MATERNELLE'|'PRIMAIRE'|'EB'|'HUMANITE';
+  structure:'TRIMESTRIEL'|'SEMESTRIEL';level_order:number;courses:number;has_programme:boolean};
+export type Referential={version:{code:string;reference_year:string;published_on:string};sections:{code:string;label:string}[];
+  groups:{code:string;label:string;options:RefOption[]}[];classes:RefClass[]};
+export type MaxKey='max_p1'|'max_p2'|'max_ex1'|'max_p3'|'max_p4'|'max_ex2'|'max_p5'|'max_p6'|'max_ex3';
+export type ProgrammeLine={sort_order:number;course_code:string;label:string;domain:string|null;subdomain:string|null;mandatory:boolean;
+  has_exam:boolean;calculable:boolean}&Record<MaxKey,number>;
+export type RefProgramme={version:string;class:{code:string;label:string;section_code:string;cycle:string;structure:string;option_code:number|null;
+  sigle:string|null;option_label:string|null;option_group:string|null};lines:ProgrammeLine[];totals:Record<MaxKey,number>;columns:MaxKey[]};
+export type ClassLink={class_id:string;code:string;label:string;level:string|null;section_code:string;section_label:string;option_code:string|null;
+  option_label:string|null;link:{ref_class_code:string;label:string;linked_at:string;has_programme:boolean;version:number}|null;
+  suggestion:{ref_class_code:string;label:string;has_programme:boolean}|null};
+export type ClassLinks={version:string;can_manage:boolean;items:ClassLink[];
+  summary:{classes:number;linked:number;to_confirm:number;without_suggestion:number;without_programme:number}};
+export async function getReferential(token:string):Promise<Referential>{return json<Referential>(await fetch(`${API}/pedagogy/referential`,{headers:auth(token)}),'Référentiel indisponible')}
+export async function getRefProgramme(token:string,code:string):Promise<RefProgramme>{return json<RefProgramme>(await fetch(`${API}/pedagogy/referential/classes/${encodeURIComponent(code)}`,{headers:auth(token)}),'Programme indisponible')}
+export async function getClassLinks(token:string):Promise<ClassLinks>{return json<ClassLinks>(await fetch(`${API}/pedagogy/class-links`,{headers:auth(token)}),'Correspondances indisponibles')}
+export async function linkClass(token:string,classId:string,refClassCode:string){return json<{changed:boolean}>(await fetch(`${API}/pedagogy/class-links/${classId}`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify({ref_class_code:refClassCode})}),'Correspondance non enregistrée')}
+export async function unlinkClass(token:string,classId:string){return json<{changed:boolean}>(await fetch(`${API}/pedagogy/class-links/${classId}`,{method:'DELETE',headers:mutationHeaders(token)}),'Correspondance non retirée')}
+export async function acceptClassSuggestions(token:string){return json<{linked:number}>(await fetch(`${API}/pedagogy/class-links/accept-suggestions`,{method:'POST',headers:mutationHeaders(token)}),'Propositions non confirmées')}
