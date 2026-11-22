@@ -301,3 +301,93 @@ def progress(actor: ActorContext = Depends(require_school_actor), services: AppS
         item["complete"] += 1 if r["pupils"] and done >= r["pupils"] else 0
         item["started"] += 1 if done else 0
     return {"year": {"id": str(year["id"]), "label": year["label"]}, "current": current, "items": list(classes.values())}
+
+
+# ------------------------------------------------------------------------------------------------ lot 3c: comfort
+class RemindIn(BaseModel):
+    membership_ids: list[UUID] | None = Field(default=None, max_length=500)
+
+
+@router.get("/grades/sheet.pdf")
+def sheet_pdf(class_id: UUID, course_code: str, period: str | None = Query(default=None, max_length=4), with_marks: bool = False,
+              actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services),
+              _module: ActorContext = Depends(require_pedagogy)):
+    """The printable grade sheet (empty, or with the marks already entered) — paper in class, typed or pasted later."""
+    from fastapi.responses import Response as RawResponse
+    from edusync.modules.pedagogy.application.documents import grade_sheet_pdf, school_identity
+    with _tx(services, actor) as conn:
+        ctx = _context(conn, actor, class_id, course_code.strip().upper())
+        sheet_ = _sheet(conn, actor, ctx, _period(ctx, period.strip().upper() if period else None))
+        school = school_identity(conn, actor.school_id)
+    pdf = grade_sheet_pdf(school=school, year_label=ctx["year"]["label"], class_label=sheet_["class"]["label"], course_label=sheet_["course"]["label"],
+                          period_label=sheet_["period"]["label"], maximum=sheet_["period"]["max"], pupils=sheet_["pupils"], with_marks=with_marks)
+    name = f"fiche-{sheet_['class']['label']}-{sheet_['course']['code']}-{sheet_['period']['code']}.pdf".replace(" ", "-")
+    return RawResponse(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{name}"'})
+
+
+def _current_periods(conn, actor: ActorContext, year: dict) -> dict[str, str]:
+    """Per structure: the period going on today (exam session included), else the most recent still open."""
+    out = {}
+    for s in ("TRIMESTRIEL", "SEMESTRIEL"):
+        states = period_states(conn, actor, year, s)
+        code = next((c for c, p in states.items() if p["state"] == "ONGOING"), None) \
+            or next((c for c, p in sorted(states.items(), key=lambda kv: -kv[1]["sort_order"]) if p["allowed"]), None)
+        if code:
+            out[s] = code
+    return out
+
+
+def _missing(conn, actor: ActorContext, services: AppServices) -> tuple[dict, list[dict]]:
+    from edusync.modules.access.api.router import _user_cards
+    from edusync.modules.pedagogy.application.followup import missing
+    year = active_year(conn, actor)
+    teachers: dict[str, dict] = {}
+    for structure, period in _current_periods(conn, actor, year).items():
+        for t in missing(conn, actor.school_id, year["id"], structure, period):
+            item = teachers.setdefault(t["membership_id"], {**t, "items": []})
+            item["items"] += t["items"]
+    secs = _sections(actor, READ)
+    if secs is not None:                                       # a section director follows the classes of his section only
+        allowed = {str(r[0]) for r in conn.execute(text("""SELECT c.id FROM school_classes c JOIN school_sections s ON s.id=c.section_id
+            WHERE c.school_id=:s AND upper(s.code) = ANY(:secs)"""), {"s": str(actor.school_id), "secs": sorted(secs)})}
+        for t in teachers.values():
+            t["items"] = [i for i in t["items"] if i["class_id"] in allowed]
+    out = [t for t in teachers.values() if t["items"]]
+    cards = _user_cards(services, {t["user_id"] for t in out})
+    for t in out:
+        t["full_name"] = cards.get(t["user_id"], {}).get("full_name", "Enseignant")
+    out.sort(key=lambda t: -sum(i["missing"] for i in t["items"]))
+    return year, out
+
+
+@router.get("/grades/missing")
+def grades_missing(actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services),
+                   _module: ActorContext = Depends(require_pedagogy)):
+    """Who has not finished the period now open (directors' follow-up, live)."""
+    try:
+        actor.require(READ)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    with _tx(services, actor) as conn:
+        _, teachers = _missing(conn, actor, services)
+    return {"teachers": [{k: v for k, v in t.items() if k != "user_id"} for t in teachers]}
+
+
+@router.post("/grades/remind")
+def grades_remind(body: RemindIn | None = None, actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services),
+                  _module: ActorContext = Depends(require_pedagogy)):
+    """« Relancer » : each teacher who has not finished receives his own list (never twice the same text the same day)."""
+    from edusync.modules.pedagogy.application.followup import remind
+    try:
+        actor.require(READ)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    with _tx(services, actor) as conn:
+        _, teachers = _missing(conn, actor, services)
+        wanted = {str(m) for m in body.membership_ids} if body and body.membership_ids else None
+        chosen = [t for t in teachers if wanted is None or t["membership_id"] in wanted]
+        sent = remind(conn, actor.school_id, chosen)
+        PostgresAuditRepository(conn).append(AuditRecord(action="PEDAGOGY_TEACHERS_REMINDED", entity_type="PedagogyGrades", entity_id=actor.school_id,
+            actor_user_id=actor.user_id, school_id=actor.school_id, source=actor.source, reason=None, old_data=None,
+            new_data={"teachers": len(chosen), "sent": sent}, correlation_id=uuid4()))
+    return {"teachers": len(chosen), "sent": sent}

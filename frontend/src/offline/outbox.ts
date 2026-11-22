@@ -71,6 +71,7 @@ const OFFLINE_WRITES: Array<[RegExp, string, string]> = [
   // no change) and reports a real conflict instead of overwriting (tools/ci/pedagogy_grades_postgres_integration.py).
   [/^\/api\/v1\/pedagogy\/grades\/cell$/, 'GRADE', 'Cote'],
   [/^\/api\/v1\/pedagogy\/conduct\/facts$/, 'CONDUCT', 'Fait de conduite'],
+  [/^\/api\/v1\/pedagogy\/conduct\/facts\/batch$/, 'CONDUCT', 'Faits de conduite (groupe)'],
   [/^\/api\/v1\/communications\/templates$/, 'MESSAGE', 'Modèle de message'],
   [/^\/api\/v1\/settings\/(?!backups|branding)[a-z-]+(\/[^/]+){0,3}$/, 'SETTINGS', 'Paramétrage'],
 ];

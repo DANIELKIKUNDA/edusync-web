@@ -213,6 +213,15 @@ def evaluate_all(services) -> dict:
                     for k in ("opened", "notified", "resolved"): out[k] += r[k]
                 except Exception:
                     log.exception("Vigie evaluation failed school=%s", sid)
+                # V2 lot 3c: grade-entry reminders 3 days before a period ends — only for schools with the pedagogy module
+                try:
+                    if pc.execute(text("""SELECT 1 FROM saas_entitlements WHERE school_id=:s AND module_code='ACADEMIC' AND status='ACTIVE'
+                            AND starts_at<=now() AND (ends_at IS NULL OR ends_at>now())"""), {"s": str(sid)}).first():
+                        from edusync.modules.pedagogy.application.followup import automatic_reminders
+                        with services.tenant_db.tenant_transaction(school_id=sid) as conn:
+                            out["pedagogy_reminders"] = out.get("pedagogy_reminders", 0) + automatic_reminders(conn, sid)
+                except Exception:
+                    log.exception("Pedagogy reminders failed school=%s", sid)
             return out
         finally:
             pc.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": LOCK_KEY})

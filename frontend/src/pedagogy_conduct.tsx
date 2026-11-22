@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
-import {cancelFact, getConductClass, getConductClasses, reportFact, type ConductClass, type ConductPupil} from './api';
+import {cancelFact, getConductClass, getConductClasses, reportFact, reportFactBatch, type ConductClass, type ConductPupil} from './api';
 import {ReasonDialog} from './pedagogy_calendar';
 import {ConductTab as ConductScaleTab} from './pedagogy_teachers';
 import {friendlyError} from './platform/errors';
@@ -51,6 +51,7 @@ function ClassConduct({token, classId}: {token: string; classId: string}) {
   const [onlyFollow, setOnlyFollow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState<null | {id: string; label: string}>(null);
+  const [many, setMany] = useState(false); const [picked, setPicked] = useState<string[]>([]);   // « toute la rangée bavarde »
   const load = useCallback(() => { getConductClass(token, classId).then(setData).catch(e => setError(friendlyError(e))); }, [token, classId]);
   useEffect(load, [load]);
   useLive(['pedagogy'], load);
@@ -64,6 +65,15 @@ function ClassConduct({token, classId}: {token: string; classId: string}) {
       update(r); setOpen(null);
       toast.success(`${rule.label} — ${p.name} : ${r.points} points (${r.mention})`, {duration: 6000,
         action: {label: 'Annuler', onClick: () => { void cancelFact(token, r.fact_id, 'Annulé aussitôt par son auteur (erreur de saisie)').then(u => { update(u); toast('Fait annulé'); }).catch(e => toast.error(friendlyError(e))); }}});
+    } catch (e) { toast.error(friendlyError(e)); } finally { setBusy(false); }
+  }
+  async function reportMany(rule: ConductClass['rules'][number]) {
+    setBusy(true);
+    try {
+      const r = await reportFactBatch(token, {class_id: classId, student_ids: picked, rule_code: rule.code});
+      if (r.offline_queued) toast.info(`${rule.label} — ${picked.length} élèves : enregistré sur cet appareil`, {description: 'Envoyé automatiquement au retour du réseau.'});
+      else { r.pupils.forEach(update); toast.success(`${rule.label} : ${r.count} élèves`); }
+      setPicked([]); setMany(false);
     } catch (e) { toast.error(friendlyError(e)); } finally { setBusy(false); }
   }
   if (error) return <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Conduite indisponible</b><small>{error}</small></div></div>;
@@ -81,13 +91,17 @@ function ClassConduct({token, classId}: {token: string; classId: string}) {
       <label className="pg-search"><NavGlyph g="search" size={16}/><span className="sr-only">Chercher un élève</span>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un élève" inputMode="search"/></label>
       <button type="button" className="pcd-follow" aria-pressed={onlyFollow} onClick={() => setOnlyFollow(x => !x)}>À suivre seulement</button>
+      {!data.period.closed && <button type="button" className="pcd-follow" aria-pressed={many} onClick={() => { setMany(x => !x); setPicked([]); setOpen(null); }}>Plusieurs élèves</button>}
     </div>
-    <ul className="pcd-list">{list.map(p => <li key={p.student_id} className={p.to_follow ? 'pcd-alert' : ''}>
-      <button type="button" className="pcd-row" aria-expanded={open === p.student_id} disabled={data.period.closed} onClick={() => setOpen(o => o === p.student_id ? null : p.student_id)}>
+    <ul className={`pcd-list ${many ? 'pcd-many' : ''}`}>{list.map(p => <li key={p.student_id} className={p.to_follow ? 'pcd-alert' : ''}>
+      <button type="button" className={`pcd-row ${many && picked.includes(p.student_id) ? 'picked' : ''}`} aria-expanded={!many && open === p.student_id}
+        aria-pressed={many ? picked.includes(p.student_id) : undefined} disabled={data.period.closed}
+        onClick={() => many ? setPicked(x => x.includes(p.student_id) ? x.filter(i => i !== p.student_id) : [...x, p.student_id]) : setOpen(o => o === p.student_id ? null : p.student_id)}>
+        {many && <span className="pcd-tick" aria-hidden="true">{picked.includes(p.student_id) ? <NavGlyph g="check" size={16}/> : null}</span>}
         <span className="pcd-name"><b>{p.name}{p.suspended && <em className="pgr-susp">Suspendu</em>}</b><small>{p.facts ? `${p.facts} fait${p.facts > 1 ? 's' : ''}${p.lates ? ` · ${p.lates} retard${p.lates > 1 ? 's' : ''}` : ''}` : 'Aucun fait'}{p.to_follow ? ' · à suivre' : ''}</small></span>
         <span className="pcd-score"><b>{p.points}</b><span className={`pc-chip ${TONE[p.mention] || ''}`}>{p.mention}</span></span>
       </button>
-      {open === p.student_id && <div className="pcd-open">
+      {!many && open === p.student_id && <div className="pcd-open">
         <p className="pcd-ask">Que s’est-il passé ?</p>
         <div className="pcd-rules">{data.rules.map(r => <button key={r.code} type="button" disabled={busy} className={r.points > 0 ? 'plus' : r.grave ? 'grave' : ''}
           onClick={() => void report(p, r)}><span>{r.label}</span><b>{r.points > 0 ? `+${r.points}` : r.points}</b></button>)}</div>
@@ -96,6 +110,11 @@ function ClassConduct({token, classId}: {token: string; classId: string}) {
           {f.can_cancel && <button type="button" onClick={() => setCancelling({id: f.id, label: f.label})}>Annuler</button>}</li>)}</ul>}
       </div>}
     </li>)}</ul>
+    {many && picked.length > 0 && <div className="pcd-bar" role="region" aria-label="Signaler pour les élèves choisis">
+      <b>{picked.length} élève{picked.length > 1 ? 's' : ''} choisi{picked.length > 1 ? 's' : ''} : que s’est-il passé ?</b>
+      <div className="pcd-rules">{data.rules.map(r => <button key={r.code} type="button" disabled={busy} className={r.points > 0 ? 'plus' : r.grave ? 'grave' : ''}
+        onClick={() => void reportMany(r)}><span>{r.label}</span><b>{r.points > 0 ? `+${r.points}` : r.points}</b></button>)}</div>
+    </div>}
     {cancelling && <ReasonDialog title={`Annuler « ${cancelling.label} »`} hint="Le fait ne compte plus dans la conduite ; il reste dans l’historique avec votre motif."
       onClose={() => setCancelling(null)} onConfirm={async reason => { const id = cancelling.id; setCancelling(null);
         try { update(await cancelFact(token, id, reason)); toast.success('Fait annulé'); } catch (e) { toast.error(friendlyError(e)); } }}/>}

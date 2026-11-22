@@ -724,3 +724,16 @@ export async function getConductClasses(token:string){return json<{items:{class_
 export async function getConductClass(token:string,classId:string,period?:string){return json<ConductClass>(await fetch(`${API}/pedagogy/conduct/class/${classId}${period?`?period=${period}`:''}`,{headers:auth(token)}),'Conduite indisponible')}
 export async function reportFact(token:string,body:{class_id:string;student_id:string;rule_code:string;note?:string}){return json<ConductPupil&{fact_id:string;offline_queued?:boolean}>(await fetch(`${API}/pedagogy/conduct/facts`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Fait non enregistré')}
 export async function cancelFact(token:string,factId:string,reason:string){return json<ConductPupil>(await fetch(`${API}/pedagogy/conduct/facts/${factId}/cancel`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({reason})}),'Fait non annulé')}
+
+// ---------------------------------------------------------------- V2 lot 3c — confort (2026-11-22)
+/** Printable grade sheet (empty, or with the marks): downloaded as a file (works on every phone). */
+export async function downloadGradeSheetPdf(token:string,classId:string,course:string,period:string,withMarks:boolean,fileName:string){
+  const q=new URLSearchParams({class_id:classId,course_code:course,period,with_marks:String(withMarks)});
+  const r=await fetch(`${API}/pedagogy/grades/sheet.pdf?${q}`,{headers:auth(token)});
+  if(!r.ok)throw new UserFacingError(await serverDetail(r,'Fiche imprimable indisponible'));
+  const url=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=url;a.download=fileName;a.click();
+  window.setTimeout(()=>URL.revokeObjectURL(url),2000)}
+export type MissingTeacher={membership_id:string;full_name:string;items:{class_id:string;class_label:string;course_code:string;course_label:string;period:string;missing:number}[]};
+export async function getGradesMissing(token:string){return json<{teachers:MissingTeacher[]}>(await fetch(`${API}/pedagogy/grades/missing`,{headers:auth(token)}),'Suivi indisponible')}
+export async function remindTeachers(token:string,membershipIds?:string[]){return json<{teachers:number;sent:number}>(await fetch(`${API}/pedagogy/grades/remind`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({membership_ids:membershipIds??null})}),'Relance impossible')}
+export async function reportFactBatch(token:string,body:{class_id:string;student_ids:string[];rule_code:string}){return json<{count:number;rule:string;pupils:ConductPupil[];offline_queued?:boolean}>(await fetch(`${API}/pedagogy/conduct/facts/batch`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Signalement groupé impossible')}

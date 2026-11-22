@@ -1,6 +1,8 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {toast} from 'sonner';
-import {getGradeProgress, getGradeSheet, pasteGrades, putGradeCell, type GradeProgress, type GradePupil, type GradeSheet} from './api';
+import {downloadGradeSheetPdf, getGradeProgress, getGradeSheet, getGradesMissing, pasteGrades, putGradeCell, remindTeachers,
+  type GradeProgress, type GradePupil, type GradeSheet, type MissingTeacher} from './api';
+import {cachedSheet, rememberSheet} from './pedagogy_cache';
 import {Modal} from './platform/account';
 import {friendlyError} from './platform/errors';
 import {useLive} from './platform/live';
@@ -26,14 +28,20 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
   const [error, setError] = useState('');
   const [paste, setPaste] = useState(false);
   const [tip, setTip] = useState(() => { try { return !localStorage.getItem(TIP_KEY); } catch { return true; } });
+  const [copyOf, setCopyOf] = useState('');                 // offline: date of the copy kept on the phone
+  const [q, setQ] = useState(''); const [onlyEmpty, setOnlyEmpty] = useState(false);
+  const search = useRef<HTMLInputElement | null>(null);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const show = (s: GradeSheet) => { setSheet(s);
+    setRows(Object.fromEntries(s.pupils.map(p => [p.student_id, {text: shown(p), saved: {status: p.status, value: p.value, version: p.version}, state: 'idle' as RowState}]))); };
   const load = useCallback((period?: string) => {
     setError('');
-    getGradeSheet(token, classId, course, period).then(s => {
-      setSheet(s);
-      setRows(Object.fromEntries(s.pupils.map(p => [p.student_id, {text: shown(p), saved: {status: p.status, value: p.value, version: p.version}, state: 'idle' as RowState}])));
-    }).catch(e => setError(friendlyError(e)));
+    getGradeSheet(token, classId, course, period).then(s => { setCopyOf(''); show(s); if (!period) rememberSheet(classId, course, s); })
+      .catch(e => { const c = !period ? cachedSheet(classId, course) : null; if (c) { setCopyOf(c.savedAt); show(c.sheet); } else setError(friendlyError(e)); });
   }, [token, classId, course]);
+  // what is typed also refreshes the copy kept on the phone (reopened offline, the sheet shows it)
+  useEffect(() => { if (!sheet || copyOf) return;
+    rememberSheet(classId, course, {...sheet, pupils: sheet.pupils.map(p => { const r = rows[p.student_id]; return r ? {...p, ...r.saved} : p; })}); }, [rows]);
   useEffect(() => { load(); }, [load]);
   const max = sheet?.period.max ?? 0;
   const present = useMemo(() => sheet ? sheet.pupils.filter(p => !p.departed) : [], [sheet]);
@@ -57,7 +65,9 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
       setRows(x => ({...x, [p.student_id]: {...x[p.student_id], state: 'error', message: friendlyError(e)}}));
     }
   }
-  function next(i: number) { const el = inputs.current[i + 1]; if (el) { el.focus(); el.select(); } else inputs.current[i]?.blur(); }
+  function next(i: number) {
+    if (q.trim()) { inputs.current[i]?.blur(); setQ(''); window.setTimeout(() => search.current?.focus(), 0); return; }   // pile of copies: back to the search
+    const el = inputs.current[i + 1]; if (el) { el.focus(); el.select(); } else inputs.current[i]?.blur(); }
   function keep(p: GradePupil, mine: boolean) {
     const r = rows[p.student_id]; if (!r?.theirs) return;
     const theirs = r.theirs;
@@ -74,6 +84,13 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
     <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Fiche indisponible</b><small>{error}</small></div></div></div>;
   if (!sheet) return <Skeleton lines={8}/>;
   const why = !sheet.can_enter ? (STATE_WHY[sheet.period.state] || 'Consultation seule : seul l’enseignant de ce cours saisit ses cotes.') : '';
+  const marks = present.map(p => rows[p.student_id]).filter(r => r && /^\d+$/.test(r.text)).map(r => Number(r!.text));
+  const avg = marks.length ? marks.reduce((a, b) => a + b, 0) / marks.length : null;
+  const failing = marks.filter(v => v * 2 < max).length;
+  const empty = present.filter(p => !(rows[p.student_id]?.text)).length;
+  const needle = q.trim().toLowerCase();
+  const visible = (p: GradePupil) => (!needle || p.name.toLowerCase().includes(needle)) && (!onlyEmpty || !(rows[p.student_id]?.text) || p.departed);
+  const file = `fiche-${sheet.class.label}-${sheet.course.label}-${sheet.period.code}.pdf`.replace(/\s+/g, '-');
   return <div className="pgr">
     <header className="pgr-head">
       <button type="button" className="pgr-back" onClick={onBack}><NavGlyph g="chevronLeft" size={18}/>Mes classes</button>
@@ -82,7 +99,14 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
         className={c.code === sheet.period.code ? 'on' : ''} onClick={() => load(c.code)}>{c.code}<small>{c.allowed ? 'ouverte' : c.state === 'CLOSED' ? 'clôturée' : c.state === 'UPCOMING' ? 'à venir' : '—'}</small></button>)}</div>
       <div className="pgr-progress" aria-label="Avancement"><span><b>{progress}</b>/{present.length} élèves · sur <b>{max}</b></span><i><span style={{width: `${present.length ? progress / present.length * 100 : 0}%`}}/></i></div>
     </header>
+    {copyOf && <div className="pc-note"><NavGlyph g="wifiOff" size={16}/><span>Hors connexion : fiche enregistrée sur ce téléphone le {new Date(copyOf).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})}. Vos cotes partiront au retour du réseau.</span></div>}
     {why && <div className="pc-note"><NavGlyph g="info" size={16}/><span>{why}</span></div>}
+    {sheet.can_enter && <div className="pgr-find">
+      <label className="pg-search"><NavGlyph g="search" size={16}/><span className="sr-only">Trouver un élève</span>
+        <input ref={search} value={q} onChange={e => setQ(e.target.value)} placeholder="Trouver un élève (copies dans le désordre)" inputMode="search"
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const i = sheet.pupils.findIndex(p => !p.departed && visible(p)); inputs.current[i]?.focus(); inputs.current[i]?.select(); } }}/></label>
+      {empty > 0 && <button type="button" className="pcd-follow" aria-pressed={onlyEmpty} onClick={() => setOnlyEmpty(x => !x)}>Sans cote ({empty})</button>}
+    </div>}
     {sheet.can_enter && tip && <div className="pgr-tip"><NavGlyph g="sparkles" size={16}/><span>Tapez la cote puis <b>Entrée</b> (ou « Suivant ») : elle est enregistrée et on passe à l’élève suivant.
       <b>a</b> (ou le bouton « Abs. ») = absent à cette évaluation, <b>d</b> = dispensé (excusé par la direction).</span>
       <button type="button" aria-label="Compris" onClick={() => { setTip(false); try { localStorage.setItem(TIP_KEY, '1'); } catch { /* private mode */ } }}>Compris</button></div>}
@@ -90,6 +114,7 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
       const r = rows[p.student_id] ?? {text: '', saved: {status: null, value: null, version: null}, state: 'idle' as RowState};
       const n = /^\d+$/.test(r.text) ? Number(r.text) : null;
       const failing = n !== null && n * 2 < max;
+      if (!visible(p)) return null;
       if (p.departed) return <li key={p.student_id} className="pgr-row pgr-gone">
         <span className="pgr-n" aria-hidden="true">—</span>
         <span className="pgr-name">{p.name}<small>{p.pupil_status === 'TRANSFERRED' ? 'Transféré' : 'Abandon'}{p.left_on ? ` le ${new Date(p.left_on + 'T12:00:00').toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'})}` : ''} · plus noté</small></span>
@@ -112,7 +137,17 @@ export function GradeEntry({token, classId, course, onBack}: {token: string; cla
           <Button size="sm" onClick={() => keep(p, false)}>Prendre {shown(r.theirs!) || 'vide'}</Button></div>}
       </li>;
     })}</ol>
-    {sheet.can_enter && <div className="pgr-foot"><Button icon="doc" onClick={() => setPaste(true)}>Coller une liste de cotes</Button></div>}
+    {marks.length > 0 && <div className="pgr-sum" aria-label="Résumé de la classe">
+      <div><b>{avg!.toFixed(1).replace('.', ',')}</b><small>moyenne sur {max}</small></div>
+      <div className={failing ? 'bad' : ''}><b>{failing}</b><small>sous la moitié</small></div>
+      <div><b>{Math.max(...marks)} · {Math.min(...marks)}</b><small>meilleure · plus faible</small></div>
+      <div className={empty ? 'warn' : ''}><b>{empty}</b><small>sans cote</small></div>
+    </div>}
+    <div className="pgr-foot">
+      {sheet.can_enter && <Button icon="doc" onClick={() => setPaste(true)}>Coller une liste de cotes</Button>}
+      <Button icon="print" onClick={() => void downloadGradeSheetPdf(token, classId, course, sheet.period.code, false, file).catch(e => toast.error(friendlyError(e)))}>Fiche vierge à imprimer</Button>
+      {marks.length > 0 && <Button icon="print" onClick={() => void downloadGradeSheetPdf(token, classId, course, sheet.period.code, true, file).catch(e => toast.error(friendlyError(e)))}>Fiche avec les cotes</Button>}
+    </div>
     {paste && <PasteDialog token={token} sheet={sheet} classId={classId} course={course} onClose={() => setPaste(false)} onDone={() => { setPaste(false); load(sheet.period.code); }}/>}
   </div>;
 }
@@ -142,7 +177,14 @@ function PasteDialog({token, sheet, classId, course, onClose, onDone}: {token: s
 // ------------------------------------------------------------------------------------------------ directors' follow-up
 export function GradeProgressTab({token}: {token: string}) {
   const [data, setData] = useState<GradeProgress | null>(null); const [error, setError] = useState('');
-  const load = useCallback(() => { getGradeProgress(token).then(setData).catch(e => setError(friendlyError(e))); }, [token]);
+  const [late, setLate] = useState<MissingTeacher[]>([]); const [busy, setBusy] = useState('');
+  const load = useCallback(() => { getGradeProgress(token).then(setData).catch(e => setError(friendlyError(e)));
+    getGradesMissing(token).then(r => setLate(r.teachers)).catch(() => undefined); }, [token]);
+  async function nudge(ids?: string[]) {
+    setBusy(ids?.[0] ?? 'all');
+    try { const r = await remindTeachers(token, ids); toast.success(r.sent ? `${r.sent} enseignant${r.sent > 1 ? 's' : ''} relancé${r.sent > 1 ? 's' : ''}` : 'Déjà relancé aujourd’hui'); }
+    catch (e) { toast.error(friendlyError(e)); } finally { setBusy(''); }
+  }
   useEffect(load, [load]);
   useLive(['pedagogy'], load);                 // what the teachers enter appears here without reloading
   if (error) return <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Suivi indisponible</b><small>{error}</small></div></div>;
@@ -154,7 +196,14 @@ export function GradeProgressTab({token}: {token: string}) {
       <div className={complete === total && total ? 'pg-ok' : ''}><b>{complete}/{total}</b><small>cours complets pour la période en cours</small></div>
       <div><b>{data.items.filter(i => i.complete === i.courses && i.courses).length}/{data.items.length}</b><small>classes complètes</small></div>
     </div>
-    <p className="pc-intro">Mis à jour en direct : chaque cote saisie par un enseignant apparaît ici sans recharger.</p>
+    <p className="pc-intro">Mis à jour en direct : chaque cote saisie par un enseignant apparaît ici sans recharger. Un rappel automatique part aussi 3 jours avant la fin de chaque période.</p>
+    {late.length > 0 && <section className="pg-section pgl"><h3>Qui n’a pas fini ({late.length})</h3>
+      <div className="pgl-all"><Button variant="primary" icon="bell" disabled={!!busy} onClick={() => void nudge()}>{busy === 'all' ? 'Envoi…' : 'Relancer tous les enseignants'}</Button></div>
+      <ul className="pgl-list">{late.map(t => <li key={t.membership_id}>
+        <div><b>{t.full_name}</b><small>{t.items.length} cours · {t.items.reduce((n, i) => n + i.missing, 0)} cotes manquantes</small>
+          <small className="pgl-detail">{t.items.slice(0, 4).map(i => `${i.course_label} (${i.class_label})`).join(' · ')}{t.items.length > 4 ? ' …' : ''}</small></div>
+        <Button size="sm" disabled={!!busy} onClick={() => void nudge([t.membership_id])}>{busy === t.membership_id ? '…' : 'Relancer'}</Button>
+      </li>)}</ul></section>}
     {sections.map(sec => <section key={sec} className="pg-section"><h3>{sec}</h3>
       <ul className="pgp-list">{data.items.filter(i => i.section_label === sec).map(i => <li key={i.class_id}>
         <div><b>{i.label}</b><small>{i.period ? `Période ${i.period}` : 'Aucune période ouverte'} · {i.pupils} élèves</small></div>

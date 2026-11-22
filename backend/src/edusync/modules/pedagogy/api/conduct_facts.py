@@ -305,3 +305,56 @@ def adjust(body: AdjustIn, actor: ActorContext = Depends(require_school_actor), 
             new_data={"period": period, "points": body.points}, correlation_id=uuid4()))
         conduct = _conducts(conn, actor, cls, period, str(body.student_id))[str(body.student_id)]
     return {"student_id": str(body.student_id), **conduct}
+
+
+# ------------------------------------------------------------------------------------------------ lot 3c: group report
+class BatchIn(BaseModel):
+    class_id: UUID
+    student_ids: list[UUID] = Field(min_length=1, max_length=80)
+    rule_code: str = Field(min_length=2, max_length=32)
+
+
+@router.post("/conduct/facts/batch", status_code=201)
+def report_batch(body: BatchIn, response: Response, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+                 actor: ActorContext = Depends(require_school_actor), services: AppServices = Depends(get_services),
+                 _module: ActorContext = Depends(require_pedagogy)):
+    """« Toute la rangée bavarde » : one fact for several pupils in one tap (same checks as one fact; all or nothing)."""
+    key = (idempotency_key or "").strip() or f"batch-{uuid4()}"
+    ids = list(dict.fromkeys(str(s) for s in body.student_ids))
+    try:
+        with _tx(services, actor) as conn:
+            idem = IdempotentExecutor(PostgresIdempotencyRepository(conn))
+
+            def action():
+                cls = _class(conn, actor, body.class_id)
+                rules, _ = _scale(conn, actor)
+                rule = rules.get(body.rule_code.strip().upper())
+                if rule is None:
+                    raise HTTPException(404, "Fait inconnu du barème de l’école")
+                if rule.grave and not _manages(actor, cls["section_code"]):
+                    raise HTTPException(403, "Fait grave : seuls le directeur de discipline et le préfet le signalent.")
+                present = {p["student_id"]: p for p in _pupils(conn, actor, cls)}
+                unknown = [s for s in ids if s not in present]
+                if unknown:
+                    raise HTTPException(409, f"{len(unknown)} élève(s) ne sont plus dans la classe : rien n’a été enregistré.")
+                period, periods = _current_period(conn, actor, cls, date.today())
+                if periods[period]["closed"]:
+                    raise HTTPException(409, "Période clôturée : la conduite est figée.")
+                for sid in ids:
+                    conn.execute(text("""INSERT INTO pedagogy_conduct_facts(school_id,academic_year_id,class_id,student_id,period_code,rule_code,rule_label,points,grave,reported_by)
+                        VALUES(:s,:y,:c,:st,:p,:r,:l,:pts,:g,:m)"""), {"s": str(actor.school_id), "y": str(cls["year"]["id"]), "c": str(cls["id"]), "st": sid,
+                        "p": period, "r": rule.code, "l": rule.label, "pts": rule.points, "g": rule.grave, "m": str(actor.membership_id)})
+                if rule.grave:
+                    _alert(conn, actor, cls, ", ".join(present[s]["name"] for s in ids)[:300], rule)
+                conducts = _conducts(conn, actor, cls, period)
+                return 201, {"period": period, "rule": rule.label, "count": len(ids),
+                             "pupils": [{"student_id": s, "name": present[s]["name"], **conducts[s]} for s in ids]}
+
+            result = idem.execute(scope_key=str(actor.school_id), idempotency_key=key, operation="PEDAGOGY_CONDUCT_BATCH",
+                                  payload={**body.model_dump(mode="json"), "student_ids": ids}, school_id=str(actor.school_id),
+                                  actor_user_id=str(actor.user_id), action=action)
+        response.status_code = result.status_code
+        response.headers["Idempotent-Replayed"] = "true" if result.replayed else "false"
+        return result.body
+    except (IdempotencyConflict, IdempotencyInProgress) as exc:
+        raise HTTPException(409, str(exc)) from exc
