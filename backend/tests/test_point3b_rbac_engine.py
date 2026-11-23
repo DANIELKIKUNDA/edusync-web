@@ -33,8 +33,8 @@ def registry() -> CapabilityRegistry:
 def test_registry_has_current_unique_capabilities():
     r = registry()
     # 2026-10-23: reconciled with the real database (+6) and 10 canonical *.export capabilities (format variants -> ALIAS)
-    assert len(r.capabilities) == 316  # +7 commerciaux, compte école, paiement d’abonnement ; +2 modules des écoles (V2 lot 0) ; +2 pédagogie (lot 1) ; +2 calendrier et programmes (lot 2) ; +3 enseignants et conduite (lot 3a)
-    assert len(r.by_code()) == 316
+    assert len(r.capabilities) == 320  # +7 commerciaux, compte école, paiement d’abonnement ; +2 modules des écoles (V2 lot 0) ; +2 pédagogie (lot 1) ; +2 calendrier et programmes (lot 2) ; +3 enseignants et conduite (lot 3a) ; +4 cotes et conduite (lot 3b)
+    assert len(r.by_code()) == 320
     assert "platform.notifications.system.send" in r.by_code()
 
 

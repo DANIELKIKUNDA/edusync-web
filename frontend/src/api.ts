@@ -695,3 +695,32 @@ export type ConductScale={saved:boolean;start:number;rules:ConductRule[];setting
   mentions:{code:string;from:number;label:string}[];can_configure:boolean};
 export async function getConductScale(token:string){return json<ConductScale>(await fetch(`${API}/pedagogy/conduct/scale`,{headers:auth(token)}),'Barème indisponible')}
 export async function saveConductScale(token:string,rules:ConductRule[],settings:{late_threshold:number;late_penalty:number;alert_below:number}){return json<ConductScale>(await fetch(`${API}/pedagogy/conduct/scale`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify({rules,settings})}),'Barème non enregistré')}
+
+// ---------------------------------------------------------------- V2 lot 3b — cotes et faits de conduite (2026-11-22)
+export type GradePupil={student_id:string;name:string;status:'NOTE'|'ABSENT'|'DISPENSE'|null;value:number|null;version:number|null;failing:boolean;
+  pupil_status:string;departed:boolean;left_on:string|null};
+export type GradeColumn={code:string;label:string;max:number;state:string;allowed:boolean};
+export type GradeSheet={class:{id:string;label:string};course:{code:string;label:string;has_exam:boolean};
+  period:{code:string;label:string;max:number;state:string;allowed:boolean};periods:GradeColumn[];can_enter:boolean;pupils:GradePupil[];progress:{filled:number;total:number}};
+export async function getGradeSheet(token:string,classId:string,course:string,period?:string){
+  const q=new URLSearchParams({class_id:classId,course_code:course,...(period?{period}:{})});
+  return json<GradeSheet>(await fetch(`${API}/pedagogy/grades/sheet?${q}`,{headers:auth(token)}),'Fiche de cotes indisponible')}
+export type CellResult={student_id:string;status:GradePupil['status'];value:number|null;version:number|null;failing:boolean;offline_queued?:boolean};
+export type CellConflict={conflict:true;current:{status:GradePupil['status'];value:number|null;version:number}};
+/** One mark. 409 GRADE_CONFLICT comes back as data (the screen offers « garder la vôtre / prendre celle-ci »). */
+export async function putGradeCell(token:string,body:{class_id:string;course_code:string;period:string;student_id:string;input:string;expected_version:number|null}):Promise<CellResult|CellConflict>{
+  const r=await fetch(`${API}/pedagogy/grades/cell`,{method:'PUT',headers:mutationHeaders(token),body:JSON.stringify(body)});
+  if(r.status===409){const b=await r.clone().json().catch(()=>null);if(b?.detail?.code==='GRADE_CONFLICT')return {conflict:true,current:b.detail.current}}
+  return json<CellResult>(r,'Cote non enregistrée')}
+export async function pasteGrades(token:string,body:{class_id:string;course_code:string;period:string;text:string}){return json<GradeSheet&{pasted:{filled:number;kept:number;lines:number}}>(await fetch(`${API}/pedagogy/grades/paste`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Liste non collée')}
+export type GradeProgress={year:{id:string;label:string};current:Record<string,string|null>;items:{class_id:string;label:string;section_label:string;period:string|null;pupils:number;courses:number;complete:number;started:number}[]};
+export async function getGradeProgress(token:string){return json<GradeProgress>(await fetch(`${API}/pedagogy/grades/progress`,{headers:auth(token)}),'Suivi indisponible')}
+export type ConductFact={id:string;label:string;points:number;grave:boolean;note:string|null;occurred_on:string;can_cancel:boolean};
+export type ConductPupil={student_id:string;name:string;suspended?:boolean;points:number;mention:string;mention_label:string;facts:number;lates:number;repeated_late_penalties:number;to_follow:boolean;adjustment:number;recent:ConductFact[]};
+export type ConductClass={class:{id:string;label:string};period:{code:string;label:string;current:boolean;closed:boolean};periods:{code:string;label:string}[];
+  rules:{code:string;label:string;points:number;grave:boolean}[];settings:{late_threshold:number;late_penalty:number;alert_below:number};can_manage:boolean;pupils:ConductPupil[];
+  summary:{pupils:number;to_follow:number;facts:number}};
+export async function getConductClasses(token:string){return json<{items:{class_id:string;label:string;section_label:string;titular:boolean;teaches:boolean}[]}>(await fetch(`${API}/pedagogy/conduct/classes`,{headers:auth(token)}),'Classes indisponibles')}
+export async function getConductClass(token:string,classId:string,period?:string){return json<ConductClass>(await fetch(`${API}/pedagogy/conduct/class/${classId}${period?`?period=${period}`:''}`,{headers:auth(token)}),'Conduite indisponible')}
+export async function reportFact(token:string,body:{class_id:string;student_id:string;rule_code:string;note?:string}){return json<ConductPupil&{fact_id:string;offline_queued?:boolean}>(await fetch(`${API}/pedagogy/conduct/facts`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify(body)}),'Fait non enregistré')}
+export async function cancelFact(token:string,factId:string,reason:string){return json<ConductPupil>(await fetch(`${API}/pedagogy/conduct/facts/${factId}/cancel`,{method:'POST',headers:mutationHeaders(token),body:JSON.stringify({reason})}),'Fait non annulé')}

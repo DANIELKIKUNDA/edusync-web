@@ -5,8 +5,8 @@
 // API, with the member's own rights. After a lost connection every screen refreshes once (nothing missed).
 import {useEffect, useRef} from 'react';
 
-export type LiveDomain = 'finance' | 'students' | 'headcounts' | 'personnel' | 'stock' | 'settings' | 'communications' | 'access' | 'documents';
-export const ALL_DOMAINS: LiveDomain[] = ['finance', 'students', 'headcounts', 'personnel', 'stock', 'settings', 'communications', 'access', 'documents'];
+export type LiveDomain = 'finance' | 'students' | 'headcounts' | 'personnel' | 'stock' | 'settings' | 'communications' | 'access' | 'documents' | 'pedagogy';
+export const ALL_DOMAINS: LiveDomain[] = ['finance', 'students', 'headcounts', 'personnel', 'stock', 'settings', 'communications', 'access', 'documents', 'pedagogy'];
 const EVENT = 'edusync:live';
 const emit = (domains: string[]) => window.dispatchEvent(new CustomEvent(EVENT, {detail: {domains}}));
 

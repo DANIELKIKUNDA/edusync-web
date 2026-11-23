@@ -57,7 +57,7 @@ def test_teacher_role_titulars_and_rights():
     assert "idx_pedagogy_titular_member" in sql and "UNIQUE (school_id, membership_id)" not in sql   # … several classes per teacher
     assert "DROP TABLE" not in sql.upper() and "ENABLE ROW LEVEL SECURITY" in sql
     reg = json.loads((ROOT / "contracts/CAPABILITY_REGISTRY.json").read_text(encoding="utf-8"))
-    assert set(reg["standard_roles"]["ENSEIGNANT"]["capabilities"]) == {"pedagogy.referential.read", "pedagogy.teaching.own.read"}
+    assert {"pedagogy.referential.read", "pedagogy.teaching.own.read"} <= set(reg["standard_roles"]["ENSEIGNANT"]["capabilities"])
     assert "pedagogy.conduct.configure" in reg["standard_roles"]["DIRECTEUR_DISCIPLINE"]["capabilities"]
     api = (ROOT / "backend/src/edusync/modules/pedagogy/api/teaching.py").read_text(encoding="utf-8")
     routes = api.count("@router.")

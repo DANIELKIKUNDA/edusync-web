@@ -78,7 +78,7 @@ function ClassCard({token, cls, teachers, onSaved}: {token: string; cls: Teachin
 }
 
 // ------------------------------------------------------------------------------------------------ teacher's own view
-export function MyClassesTab({token}: {token: string}) {
+export function MyClassesTab({token, onOpen}: {token: string; onOpen?: (classId: string, course: string) => void}) {
   const [data, setData] = useState<MyTeaching | null>(null); const [error, setError] = useState('');
   useEffect(() => { getMyTeaching(token).then(setData).catch(e => setError(msg(e))); }, [token]);
   if (error) return <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Vos classes sont indisponibles</b><small>{error}</small></div></div>;
@@ -90,8 +90,9 @@ export function MyClassesTab({token}: {token: string}) {
       <small>{data.titular_of.some(t => t.effective) ? 'Vous suivrez la conduite et les bulletins de ces classes.' : 'Vous suivez ces classes au nom de la direction.'}</small></div></div>}
     <ul className="pt-mine-list">{data.classes.map(c => <li key={c.class_id}>
       <div className="pt-head"><div><b>{c.label}</b><small>{c.section_label}</small></div><span className="pc-chip pc-info">{c.courses.length} cours</span></div>
-      <div className="pt-chips">{c.courses.map(k => <span key={k.course_code}>{k.label}</span>)}</div>
-      <p className="pt-soon">La saisie des cotes de ces cours arrive à l’étape suivante.</p>
+      <p className="pt-soon">Touchez un cours pour saisir ses cotes.</p>
+      <div className="pt-chips pt-courses-go">{c.courses.map(k => <button type="button" key={k.course_code} onClick={() => onOpen?.(c.class_id, k.course_code)}>
+        {k.label}<NavGlyph g="chevronRight" size={14}/></button>)}</div>
     </li>)}</ul>
   </div>;
 }

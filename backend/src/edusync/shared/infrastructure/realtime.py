@@ -96,6 +96,7 @@ _LIVE_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("/api/v1/import/students", ("students", "headcounts", "finance")),
     ("/api/v1/import/staff", ("personnel",)),
     ("/api/v1/import/finance-history", ("finance",)),
+    ("/api/v1/pedagogy", ("pedagogy",)),                                          # V2: grades, conduct, programmes…
 )
 NL = bytes([10])
 _NOT_A_CHANGE = ("/preview", "/analyze", "/print", "/pdf", "/xlsx", "/export")   # reads sent as POST

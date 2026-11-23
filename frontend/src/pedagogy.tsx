@@ -8,7 +8,10 @@ import {NavGlyph} from './platform/nav_icons';
 import {Button, EmptyState, PageHeader, Skeleton} from './platform/ui';
 import {CalendarTab} from './pedagogy_calendar';
 import {ProgrammesTab} from './pedagogy_programmes';
-import {ConductTab, MyClassesTab, TeachersTab} from './pedagogy_teachers';
+import {MyClassesTab, TeachersTab} from './pedagogy_teachers';
+import {GradeEntry, GradeProgressTab} from './pedagogy_grades';
+import {ConductArea} from './pedagogy_conduct';
+import './pedagogy_grades.css';
 import './pedagogy_teachers.css';
 import './pedagogy.css';
 import './pedagogy_v2.css';
@@ -21,17 +24,18 @@ import './pedagogy_v2.css';
 const COL: Record<MaxKey, string> = {max_p1: 'P1', max_p2: 'P2', max_ex1: 'EX1', max_p3: 'P3', max_p4: 'P4', max_ex2: 'EX2', max_p5: 'P5', max_p6: 'P6', max_ex3: 'EX3'};
 const SECTION_OF: Record<string, 'MAT' | 'PRI' | 'SEC'> = {MATERNELLE: 'MAT', PRIMAIRE: 'PRI', SECONDAIRE: 'SEC'};
 const CYCLE_LABEL: Record<string, string> = {MATERNELLE: 'Maternelle', PRIMAIRE: 'Primaire', EB: 'Éducation de base', HUMANITE: 'Humanités'};
-type Tab = 'mine' | 'steps' | 'links' | 'calendar' | 'programmes' | 'teachers' | 'conduct' | 'referential';
+type Tab = 'mine' | 'steps' | 'follow' | 'links' | 'calendar' | 'programmes' | 'teachers' | 'conduct' | 'referential';
 const MANAGE_ANY = ['pedagogy.class_links.manage', 'pedagogy.calendar.manage', 'pedagogy.programmes.manage', 'pedagogy.teaching.manage'];
 /* tab → label and the rights that show it (the server checks again) */
 const TABS: [Tab, string, (has: (c: string) => boolean) => boolean][] = [
   ['mine', 'Mes classes', has => has('pedagogy.teaching.own.read')],
   ['steps', 'Étapes', has => MANAGE_ANY.some(has)],
+  ['follow', 'Suivi des cotes', has => has('pedagogy.grades.read')],
   ['links', 'Classes', has => MANAGE_ANY.some(has)],
   ['calendar', 'Calendrier', has => has('pedagogy.referential.read')],
   ['programmes', 'Programmes', has => has('pedagogy.referential.read')],
   ['teachers', 'Enseignants', has => has('pedagogy.teaching.manage')],
-  ['conduct', 'Conduite', has => has('pedagogy.referential.read')],
+  ['conduct', 'Conduite', has => has('pedagogy.referential.read') || has('pedagogy.conduct.report')],
   ['referential', 'Référentiel', has => has('pedagogy.referential.read')]];
 
 export default function PedagogyPage({token, permissions = []}: {token: string; permissions?: string[]}) {
@@ -42,25 +46,29 @@ export default function PedagogyPage({token, permissions = []}: {token: string; 
   const [ref, setRef] = useState<Referential | null>(null);
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
+  const [entry, setEntry] = useState<null | {classId: string; course: string}>(null);
   useEffect(() => { getReferential(token).then(setRef).catch(e => setError(friendlyError(e))); }, [token]);
-  const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem('edusync.pedagogy.tab', t); } catch { /* private mode */ } window.scrollTo({top: 0}); };
+  const go = (t: Tab) => { setEntry(null); setTab(t); try { sessionStorage.setItem('edusync.pedagogy.tab', t); } catch { /* private mode */ } window.scrollTo({top: 0}); };
   const changed = () => setNonce(n => n + 1);
   return <div className="ui-page pg">
-    <PageHeader eyebrow={ref ? `Référentiel ${ref.version.code.replace('MINEDUC-', 'MINEDUC ').replace('-V2', '')}` : 'Référentiel officiel'}
-      title="Pédagogie" subtitle="Classes, calendrier et programmes officiels de l’école."/>
-    <div className="pg-tabs" role="tablist" aria-label="Pédagogie">
+    {/* while marking: focus mode — no header nor tabs, the pupils take the whole phone screen (« ← Mes classes » goes back) */}
+    {!entry && <PageHeader eyebrow={ref ? `Référentiel ${ref.version.code.replace('MINEDUC-', 'MINEDUC ').replace('-V2', '')}` : 'Référentiel officiel'}
+      title="Pédagogie" subtitle="Classes, calendrier et programmes officiels de l’école."/>}
+    {!entry && <div className="pg-tabs" role="tablist" aria-label="Pédagogie">
       {tabs.map(([k, label]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => go(k)}>{label}</button>)}
-    </div>
+    </div>}
     {error && <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Pédagogie indisponible</b><small>{error}</small></div></div>}
     {!error && !ref && <Skeleton lines={6}/>}
-    {ref && tab === 'mine' && <MyClassesTab token={token}/>}
-    {ref && tab === 'steps' && <StepsTab key={nonce} token={token} go={go} canTeach={has('pedagogy.teaching.manage')}/>}
-    {ref && tab === 'links' && <LinksTab token={token} referential={ref} onChanged={changed}/>}
-    {ref && tab === 'calendar' && <CalendarTab token={token} onChanged={changed}/>}
-    {ref && tab === 'programmes' && <ProgrammesTab token={token} onChanged={changed}/>}
-    {ref && tab === 'teachers' && <TeachersTab token={token} onChanged={changed}/>}
-    {ref && tab === 'conduct' && <ConductTab token={token}/>}
-    {ref && tab === 'referential' && <ReferentialTab token={token} referential={ref}/>}
+    {ref && entry && <GradeEntry token={token} classId={entry.classId} course={entry.course} onBack={() => { setEntry(null); changed(); }}/>}
+    {ref && !entry && tab === 'mine' && <MyClassesTab key={nonce} token={token} onOpen={(classId, course) => { setEntry({classId, course}); window.scrollTo({top: 0}); }}/>}
+    {ref && !entry && tab === 'follow' && <GradeProgressTab token={token}/>}
+    {ref && !entry && tab === 'steps' && <StepsTab key={nonce} token={token} go={go} canTeach={has('pedagogy.teaching.manage')}/>}
+    {ref && !entry && tab === 'links' && <LinksTab token={token} referential={ref} onChanged={changed}/>}
+    {ref && !entry && tab === 'calendar' && <CalendarTab token={token} onChanged={changed}/>}
+    {ref && !entry && tab === 'programmes' && <ProgrammesTab token={token} onChanged={changed}/>}
+    {ref && !entry && tab === 'teachers' && <TeachersTab token={token} onChanged={changed}/>}
+    {ref && !entry && tab === 'conduct' && <ConductArea token={token} canReport={has('pedagogy.conduct.report')} canConfigure={has('pedagogy.conduct.configure')}/>}
+    {ref && !entry && tab === 'referential' && <ReferentialTab token={token} referential={ref}/>}
   </div>;
 }
 
