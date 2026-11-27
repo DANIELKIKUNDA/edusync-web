@@ -89,6 +89,7 @@ class PostgresAdvanceFundsRepository:
         if not session:
             raise ValueError("Aucune caisse ouverte pour cet utilisateur")
         self.cash.require_day_open(school_id, session["business_date"])
+        self.cash.require_session_of_today(session["business_date"])
         receipt = self.checkout.next_receipt_number(school_id)
         fid = uuid4()
         self.c.execute(text("""INSERT INTO finance_advance_funds(id,school_id,student_id,enrollment_id,amount,currency,mode,reference,origin_type,

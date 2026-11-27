@@ -55,6 +55,23 @@ class PostgresCashIntegrityRepository:
     def today(self) -> date:
         return self.c.execute(text("SELECT CURRENT_DATE")).scalar_one()
 
+    def require_session_of_today(self, business_date: date) -> None:
+        """Owner 2026-11-27: a cashier forgot to close yesterday's session — this morning's payments went into it, dated
+        yesterday. No money goes into the session of a past day any more: close it, then open today's. An operation
+        made offline on that day and replayed later is still accepted there (its device moment proves it); a device
+        that does not send the moment yet (older version) is never refused for it."""
+        if business_date >= self.today():
+            return
+        from edusync.shared.infrastructure.replay import is_replay, made_at
+        if is_replay():
+            moment = made_at()
+            if moment is None:
+                return
+            made_day = self.c.execute(text("SELECT CAST(CAST(:t AS timestamptz) AS date)"), {"t": moment}).scalar_one()
+            if made_day <= business_date:
+                return
+        raise ValueError(f"Votre caisse du {business_date:%d/%m/%Y} est encore ouverte : clôturez-la d'abord, puis ouvrez la caisse d'aujourd'hui.")
+
     # ---------- daily report (Desktop daily_financial_report / cash_day_summary) ----------
     def session_operations(self, school_id: UUID, session_id: UUID) -> list[dict[str, Any]]:
         """Operations of ONE cash session (2026-10-25, « exporter la caisse »): the movements its theoretical balance is made
@@ -197,6 +214,7 @@ class PostgresCashIntegrityRepository:
         if not session:
             raise ValueError("Aucune caisse ouverte pour cet utilisateur")
         self.require_day_open(school_id, session["business_date"])
+        self.require_session_of_today(session["business_date"])
         eid = uuid4()
         self.c.execute(text("""INSERT INTO finance_cash_expenses(id,school_id,cash_session_id,actor_user_id,label,amount,currency,category,reason,reference,fee_type_id)
             VALUES(:id,:s,:cs,:u,:l,:a,:cur,:cat,:r,:ref,:fee)"""), {"id": eid, "s": school_id, "cs": session["id"], "u": user_id, "l": category[:180],

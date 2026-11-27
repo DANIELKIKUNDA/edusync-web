@@ -133,6 +133,11 @@ jobs:
         env:
           CI: "true"
         run: python ../tools/ci/cashier_postgres_integration.py
+      - name: Intégration — protections de la caisse (caisse d’un jour passé, réouverture, ouverture hors connexion dépassée)
+        working-directory: backend
+        env:
+          CI: "true"
+        run: python ../tools/ci/cash_protections_postgres_integration.py
       - name: Isolation des sections — PostgreSQL réel (maternelle, primaire, secondaire, double affectation)
         working-directory: backend
         env:

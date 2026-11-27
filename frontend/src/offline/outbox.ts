@@ -135,7 +135,7 @@ function describe(base: string, path: string, body: string) {
 
 // ---------------------------------------------------------------- replay
 // Business refusals the server answers when the operation already happened: the replay counts as done.
-const ALREADY_DONE = /(déjà ouverte|Aucune caisse ouverte à clôturer|already)/i;
+const ALREADY_DONE = /(déjà ouverte|Aucune caisse ouverte à clôturer|Ouverture hors connexion ignorée|already)/i;
 let running: Promise<void> | null = null;
 export function syncOutbox(): Promise<void> {
   if (running) return running;
@@ -145,7 +145,7 @@ export function syncOutbox(): Promise<void> {
     await notify({syncing: true}); let sent = 0, refused = 0, stopped = false;
     for (const r of queue) {
       let res: Response;
-      try { res = await fetch(r.path, {method: r.method, headers: {'Authorization': `Bearer ${tokenOf()}`, 'Content-Type': 'application/json', 'Idempotency-Key': r.idempotencyKey, 'X-EduSync-Replay': 'outbox', ...(r.ifMatch ? {'If-Match': r.ifMatch} : {})}, body: r.body}); }
+      try { res = await fetch(r.path, {method: r.method, headers: {'Authorization': `Bearer ${tokenOf()}`, 'Content-Type': 'application/json', 'Idempotency-Key': r.idempotencyKey, 'X-EduSync-Replay': 'outbox', 'X-EduSync-Made-At': r.createdAt,   /* the moment it was really made (cash rules, 2026-11-27) */ ...(r.ifMatch ? {'If-Match': r.ifMatch} : {})}, body: r.body}); }
       catch { stopped = true; break; }                                               // still no network: keep the order, retry later
       if (res.status === 401 || res.status >= 500 || res.status === 429) { stopped = true; break; }
       if (res.ok) { let receipt = ''; try { const j = await res.clone().json(); receipt = j?.receipt_number ?? j?.receipts?.[0]?.receipt_number ?? ''; } catch { /* no body */ }

@@ -85,6 +85,9 @@ export function CashDeskPro({token, can, schoolName}: {token: string; can: (p: s
       </div>
     </article>}
 
+    {operator && current && current.business_date < localDay() && <div className="cd-warn" role="alert"><NavGlyph g="alert" size={18}/>
+      <span>Cette caisse est celle du <b>{new Date(current.business_date + 'T12:00:00').toLocaleDateString('fr-FR')}</b> : clôturez-la, puis ouvrez la caisse
+        d’aujourd’hui. On ne peut plus encaisser dans la caisse d’un jour passé.</span></div>}
     {operator && current && journal && <SessionJournal items={journal.items} canReverse={can('finance.payments.reverse')} onReverse={askReversal} title="Mouvements de ma caisse"/>}
     {operator && !current && loaded && <p className="cd-hint">Ouvrez votre caisse pour encaisser et enregistrer des dépenses. Vos caisses précédentes restent consultables ci-dessous.</p>}
 
@@ -122,15 +125,22 @@ function SessionJournal({items, canReverse, onReverse, title}: {items: Awaited<R
       {rows.length === 0 && <p className="cd-empty">{items.length ? 'Aucun mouvement dans ce filtre.' : 'Aucun mouvement pour le moment.'}</p>}</div></section>;
 }
 
+/** Today as the school counts it (the device's own day, yyyy-mm-dd). */
+function localDay(): string { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
 function OpenDialog({token, onClose, onDone}: {token: string; onClose: () => void; onDone: () => Promise<void>}) {
   const [cdf, setCdf] = useState('0'); const [usd, setUsd] = useState('0'); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const [ask, setAsk] = useState('');                       // 2026-11-27: « déjà clôturée aujourd'hui à 13 h 26… une 2e caisse ? »
   const bad = !validAmount(cdf) || !validAmount(usd);
-  async function go() { if (bad) { setErr('Montants en chiffres (0 si la caisse est vide).'); return; }
-    try { setBusy(true); setErr(''); const res: any = await cashOpen(token, cdf.replace(',', '.'), usd.replace(',', '.')); toast.success(res?.offline_queued ? 'Hors connexion : ouverture de caisse enregistrée sur cet appareil. Vous pouvez encaisser.' : 'Caisse ouverte : vous pouvez encaisser.'); await onDone(); }
+  async function go(confirm = false) { if (bad) { setErr('Montants en chiffres (0 si la caisse est vide).'); return; }
+    try { setBusy(true); setErr(''); const res: any = await cashOpen(token, cdf.replace(',', '.'), usd.replace(',', '.'), confirm);
+      if (res?.confirm) { setAsk(res.message); return; } toast.success(res?.offline_queued ? 'Hors connexion : ouverture de caisse enregistrée sur cet appareil. Vous pouvez encaisser.' : 'Caisse ouverte : vous pouvez encaisser.'); await onDone(); }
     catch (e) { const m = friendlyError(e); if (/déjà ouverte/i.test(m)) { toast.info('Votre caisse était déjà ouverte : elle est affichée.'); await onDone(); return; } setErr(m); } finally { setBusy(false); } }
   return <Modal title="Ouvrir ma caisse" sub="Indiquez l’argent présent dans la caisse au départ (fond initial)." onClose={onClose}
-    foot={<><button type="button" className="cd-btn" onClick={onClose}>Annuler</button><button type="button" className="cd-btn primary" disabled={busy || bad} onClick={() => void go()}>{busy ? 'Ouverture…' : 'Ouvrir ma caisse'}</button></>}>
+    foot={ask ? <><button type="button" className="cd-btn" onClick={onClose}>Non, ne pas ouvrir</button><button type="button" className="cd-btn primary" disabled={busy} onClick={() => void go(true)}>{busy ? 'Ouverture…' : 'Oui, ouvrir une 2e caisse'}</button></>
+      : <><button type="button" className="cd-btn" onClick={onClose}>Annuler</button><button type="button" className="cd-btn primary" disabled={busy || bad} onClick={() => void go()}>{busy ? 'Ouverture…' : 'Ouvrir ma caisse'}</button></>}>
     {err && <div className="error" role="alert">{err}</div>}
+    {ask && <div className="cd-warn" role="alertdialog" aria-label="Deuxième caisse"><NavGlyph g="alert" size={18}/><span>{ask}</span></div>}
     <div className="cd-grid2"><label className="cd-field"><span>Fond initial FC</span><input inputMode="decimal" value={cdf} onChange={e => setCdf(e.target.value)} aria-invalid={!validAmount(cdf)} autoFocus/></label>
       <label className="cd-field"><span>Fond initial USD</span><input inputMode="decimal" value={usd} onChange={e => setUsd(e.target.value)} aria-invalid={!validAmount(usd)}/></label></div>
   </Modal>;

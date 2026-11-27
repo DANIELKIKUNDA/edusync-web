@@ -7,6 +7,7 @@ and SQL privilege contracts are asserted on the migrations themselves.
 from __future__ import annotations
 
 import re
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -53,6 +54,10 @@ class ScriptedConnection:
             return _Result()
         if sql.startswith("SELECT id,receipt_number") and "FROM finance_payments" in sql:
             return _Result([self.existing] if self.existing else [])
+        if sql.startswith("SELECT business_date FROM finance_cash_sessions"):   # 2026-11-27: the session of today
+            return _Result(scalar=date.today())
+        if sql == "SELECT CURRENT_DATE":
+            return _Result(scalar=date.today())
         if "FROM finance_cash_sessions" in sql:
             return _Result(scalar=str(uuid4()))
         if sql.startswith("SELECT * FROM finance_charges"):
