@@ -48,6 +48,7 @@ from edusync.modules.pedagogy.api.conduct_facts import router as pedagogy_conduc
 from edusync.modules.subscriptions.api.school_router import router as school_subscription_router
 from edusync.modules.subscriptions.api.payment_webhooks import router as subscription_payment_webhooks_router
 from edusync.shared.infrastructure.observability import CorrelationLoggingMiddleware, configure_logging
+from edusync.shared.infrastructure.replay import ReplayContextMiddleware
 from edusync.shared.infrastructure.security_headers import SecurityHeadersMiddleware
 from edusync.shared.infrastructure.api_guard import ApiGuardMiddleware
 from edusync.shared.infrastructure.monitor_head import MonitorHeadMiddleware
@@ -115,6 +116,8 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
 
     # Innermost: HEAD answered like GET (no body) on the monitoring addresses only — UptimeRobot probes with HEAD.
     app.add_middleware(MonitorHeadMiddleware)
+    # Cash protections (2026-11-27): an offline operation replayed later carries the moment it was really made.
+    app.add_middleware(ReplayContextMiddleware)
     # Live changes (2026-11-01): after a successful school write, the school's screens are told which domains changed.
     app.add_middleware(LiveChangesMiddleware, redis_url=cfg.redis_url)
     app.add_middleware(RateLimitMiddleware)
@@ -127,7 +130,7 @@ def create_app(*, settings: Settings | None = None, services: AppServices | None
         allow_origins=cfg.cors_origin_list,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "If-Match", "X-Device-Id"],
+        allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "If-Match", "X-Device-Id", "X-EduSync-Replay", "X-EduSync-Made-At"],
         expose_headers=["Idempotent-Replayed", "ETag", "X-Correlation-ID", "X-EduSync-Space"],
     )
 

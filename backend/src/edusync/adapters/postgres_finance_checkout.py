@@ -125,7 +125,8 @@ class PostgresFinanceCheckoutRepository:
   # N3-B / G-CAI-4: no collection on a school cash day closed globally (Desktop: "La caisse du jour est clôturée").
   from edusync.adapters.postgres_cash_integrity import PostgresCashIntegrityRepository
   day=self.conn.execute(text("SELECT business_date FROM finance_cash_sessions WHERE id=:id"),{'id':str(session_id)}).scalar_one()
-  PostgresCashIntegrityRepository(self.conn).require_day_open(school_id,day)
+  ci=PostgresCashIntegrityRepository(self.conn);ci.require_day_open(school_id,day)
+  ci.require_session_of_today(day)          # 2026-11-27: never into the forgotten session of a past day
  def collect(self,school_id:UUID,user_id:UUID,membership_id:UUID,enrollment_id:UUID,charge_ids:list[UUID],amount:Decimal,currency:str,idempotency_key:str,use_anticipation:bool=False,mode:str='CASH',reference:str|None=None):
   self._lock_idempotency_key(school_id,idempotency_key)
   existing=self.conn.execute(text('SELECT id,receipt_number,amount,currency,enrollment_id FROM finance_payments WHERE school_id=:sid AND idempotency_key=:k'),{'sid':str(school_id),'k':idempotency_key}).mappings().first()

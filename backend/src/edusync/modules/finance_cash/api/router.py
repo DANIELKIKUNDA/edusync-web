@@ -33,12 +33,28 @@ def current(actor:ActorContext=Depends(require_school_actor),services:AppService
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
   r=one(c,"SELECT * FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' ORDER BY opened_at DESC LIMIT 1",{'sid':str(actor.school_id),'mid':str(actor.membership_id)})
   return {'session':projection(c,r) if r else None}
-class OpenBody(BaseModel): opening_cdf:Decimal=Field(default=0,ge=0);opening_usd:Decimal=Field(default=0,ge=0)
+class OpenBody(BaseModel):
+ opening_cdf:Decimal=Field(default=0,ge=0);opening_usd:Decimal=Field(default=0,ge=0)
+ confirm_reopen:bool=False      # 2026-11-27: « Vous avez déjà clôturé votre caisse aujourd'hui… Ouvrir une 2e caisse ? »
+SQL_LAST_CLOSE_TODAY="""SELECT closed_at,to_char(closed_at,'HH24" h "MI') AS hm FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid
+ AND status='CLOSED' AND business_date=CURRENT_DATE ORDER BY closed_at DESC LIMIT 1"""
 @router.post('/open')
 def open_cash(b:OpenBody,actor:ActorContext=Depends(require_school_actor),services:AppServices=Depends(get_services)):
  need(actor,'finance.cash.open')
  with services.tenant_db.tenant_transaction(school_id=actor.school_id,user_id=actor.user_id) as c:
-  if one(c,"SELECT id FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' FOR UPDATE",{'sid':str(actor.school_id),'mid':str(actor.membership_id)}):raise HTTPException(409,'Votre caisse est déjà ouverte')
+  old=one(c,"SELECT id,business_date FROM finance_cash_sessions WHERE school_id=:sid AND membership_id=:mid AND status='OPEN' FOR UPDATE",{'sid':str(actor.school_id),'mid':str(actor.membership_id)})
+  if old:raise HTTPException(409,'Votre caisse est déjà ouverte' if old['business_date']>=PostgresCashIntegrityRepository(c).today() else
+                             f"Votre caisse est déjà ouverte : celle du {old['business_date']:%d/%m/%Y}. Clôturez-la d'abord, puis ouvrez la caisse d'aujourd'hui.")
+  # 2026-11-27 (owner): a cashier closed at 13 h 26 and a second session opened at once, then stayed open all night
+  closed=one(c,SQL_LAST_CLOSE_TODAY,{'sid':str(actor.school_id),'mid':str(actor.membership_id)})
+  if closed:
+   from edusync.shared.infrastructure.replay import is_replay,made_at
+   if is_replay():
+    moment=made_at()
+    if moment is not None and moment<closed['closed_at']:     # an opening made offline BEFORE the closure: already past
+     raise HTTPException(409,f"Ouverture hors connexion ignorée : cette caisse a déjà été clôturée après, à {closed['hm']}.")
+   elif not b.confirm_reopen:
+    raise HTTPException(409,{'code':'REOPEN_SAME_DAY','message':f"Vous avez déjà clôturé votre caisse aujourd'hui à {closed['hm']}. Ouvrir une 2e caisse ?"})
   try:ci=PostgresCashIntegrityRepository(c);ci.require_day_open(actor.school_id,ci.today())
   except ValueError as e:raise HTTPException(409,str(e)) from e
   r=one(c,"""INSERT INTO finance_cash_sessions(school_id,membership_id,business_date,opening_cdf,opening_usd) VALUES(:sid,:mid,CURRENT_DATE,:cdf,:usd) RETURNING *""",{'sid':str(actor.school_id),'mid':str(actor.membership_id),'cdf':b.opening_cdf,'usd':b.opening_usd})
