@@ -141,6 +141,7 @@ def run() -> None:
     check("l'enseignant n'ajuste pas", as_(t1).post("/api/v1/pedagogy/conduct/adjust", json={"class_id": str(p1), "student_id": kids[2], "period": cp, "points": 10, "reason": "Essai interdit"}).status_code == 403)
     check("liste « à suivre » de la classe : 1 élève", as_(t1).get(f"/api/v1/pedagogy/conduct/class/{p1}").json()["summary"]["to_follow"] == 1)
     lifecycle(A, prefet, p1, h1, kids, teens, t1, t2, period, fp)
+    comfort(A, prefet, p1, kids, t1, period)
     as_(prefet).post(f"/api/v1/pedagogy/calendars/TRIMESTRIEL/periods/{cp}/close")
     r = as_(t1).post("/api/v1/pedagogy/conduct/facts", json={"class_id": str(p1), "student_id": kids[1], "rule_code": "RETARD"})
     check("période clôturée : la conduite est figée", r.status_code == 409 and "figée" in r.text, r.text[:160])
@@ -201,6 +202,53 @@ def lifecycle(A, prefet, p1, h1, kids, teens, t1, t2, period, fp) -> None:
     kept = one("SELECT value FROM pedagogy_grades WHERE student_id=:s AND class_id=:c AND course_code='FRANCAIS'", s=teens[0], c=h1)
     check("changement de classe : quitte la liste de 1re CG A, ses cotes de 1re CG A gardées",
           r.status_code == 200 and teens[0] not in {p["student_id"] for p in sh["pupils"]} and kept and kept[0] == 32, (r.status_code, kept))
+
+
+def comfort(A, prefet, p1, kids, t1, period) -> None:
+    """Lot 3c (owner, 2026-11-22: « encore plus de facilité »)."""
+    from datetime import date as _date, timedelta as _td
+    from edusync.modules.pedagogy.application.followup import automatic_reminders
+    r = as_(t1).get(f"/api/v1/pedagogy/grades/sheet.pdf?class_id={p1}&course_code=NUMERATION")
+    check("fiche de cotation imprimable : un vrai PDF", r.status_code == 200 and r.headers["content-type"] == "application/pdf" and r.content[:5] == b"%PDF-", r.status_code)
+    try:
+        import io
+        from pypdf import PdfReader
+        txt = "".join(p.extract_text() for p in PdfReader(io.BytesIO(r.content)).pages)
+        check("le PDF contient les élèves présents, pas celui qui est parti, et aucun caractère invisible",
+              "ELEVE1" in txt and "Fiche de cotation" in txt and " " not in txt and " " not in txt, txt[:120])
+    except ImportError:
+        pass
+    check("fiche imprimable refusée à un enseignant d'un autre cours",
+          as_(actor_for("ENSEIGNANT", A["id"])).get(f"/api/v1/pedagogy/grades/sheet.pdf?class_id={p1}&course_code=NUMERATION").status_code == 403)
+    ms = as_(prefet).get("/api/v1/pedagogy/grades/missing").json()["teachers"]
+    mine = next((t for t in ms if t["membership_id"] == str(t1.membership_id)), None)
+    check("qui n'a pas fini : l'enseignant de la 1re A, avec ses cours incomplets", mine is not None and any(i["course_code"] == "NUMERATION" for i in mine["items"]), ms[:1])
+    before = one("SELECT count(*) FROM notifications WHERE user_id=:u AND category='PEDAGOGIE'", u=t1.user_id)[0]
+    r = as_(prefet).post("/api/v1/pedagogy/grades/remind", json={"membership_ids": [str(t1.membership_id)]})
+    after = one("SELECT count(*) FROM notifications WHERE user_id=:u AND category='PEDAGOGIE'", u=t1.user_id)[0]
+    check("« Relancer » : l'enseignant reçoit sa liste dans sa cloche", r.status_code == 200 and r.json()["sent"] == 1 and after == before + 1, r.text[:120])
+    check("relancer deux fois le même jour : pas de double message", as_(prefet).post("/api/v1/pedagogy/grades/remind", json={}).json()["sent"] == 0
+          or one("SELECT count(*) FROM notifications WHERE user_id=:u AND category='PEDAGOGIE'", u=t1.user_id)[0] == after)
+    check("l'enseignant ne relance pas ses collègues", as_(t1).post("/api/v1/pedagogy/grades/remind", json={}).status_code == 403)
+    end = one("""SELECT p.ends_on FROM pedagogy_calendars k JOIN pedagogy_calendar_periods p ON p.calendar_id=k.id
+        WHERE k.school_id=:s AND k.structure='TRIMESTRIEL' AND p.code=:c""", s=A["id"], c=period)[0]
+    sql("DELETE FROM notifications WHERE user_id=:u AND category='PEDAGOGIE'", u=t1.user_id)
+    with H.ENGINE.begin() as c:
+        c.execute(H.text("SELECT set_config('app.school_id', :s, true), set_config('app.current_school_id', :s, true)"), {"s": str(A["id"])})
+        far = automatic_reminders(c, A["id"], today=end - _td(days=10))
+        near = automatic_reminders(c, A["id"], today=end - _td(days=2))
+    check("relance automatique : rien 10 jours avant la fin, un rappel 2 jours avant", far == 0 and near >= 1, (far, near))
+    kids_present = [k for k in kids if k != kids[1]] if one("SELECT status FROM students WHERE id=:s", s=kids[1])[0] in ("ABANDON", "TRANSFERRED") else kids
+    key = {"Idempotency-Key": f"batch-{uuid.uuid4().hex}"}
+    body = {"class_id": str(p1), "student_ids": kids_present[:2], "rule_code": "INDISCIPLINE"}
+    r = as_(t1).post("/api/v1/pedagogy/conduct/facts/batch", json=body, headers=key)
+    check("signalement groupé : 2 élèves en une fois", r.status_code == 201 and r.json()["count"] == 2, r.text[:160])
+    r2 = as_(t1).post("/api/v1/pedagogy/conduct/facts/batch", json=body, headers=key)
+    check("signalement groupé rejoué (hors ligne) : pas de doublon", r2.headers.get("Idempotent-Replayed") == "true")
+    check("signalement groupé d'un fait grave : refusé à l'enseignant",
+          as_(t1).post("/api/v1/pedagogy/conduct/facts/batch", json={**body, "rule_code": "BAGARRE"}).status_code == 403)
+    check("signalement groupé avec un élève d'ailleurs : rien n'est enregistré",
+          as_(t1).post("/api/v1/pedagogy/conduct/facts/batch", json={**body, "student_ids": [kids_present[0], str(uuid.uuid4())]}).status_code == 409)
 
 
 def main() -> int:

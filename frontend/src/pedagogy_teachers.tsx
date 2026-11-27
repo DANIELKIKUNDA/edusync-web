@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 import {assignAllCourses, assignCourse, getConductScale, getMyTeaching, getTeaching, saveConductScale, setTitular,
   type ConductRule, type ConductScale, type MyTeaching, type Teaching, type TeachingClass} from './api';
+import {cachedMine, offlineReady, prefetchMine} from './pedagogy_cache';
 import {friendlyError} from './platform/errors';
 import {NavGlyph} from './platform/nav_icons';
 import {Button, EmptyState, Skeleton} from './platform/ui';
@@ -80,19 +81,31 @@ function ClassCard({token, cls, teachers, onSaved}: {token: string; cls: Teachin
 // ------------------------------------------------------------------------------------------------ teacher's own view
 export function MyClassesTab({token, onOpen}: {token: string; onOpen?: (classId: string, course: string) => void}) {
   const [data, setData] = useState<MyTeaching | null>(null); const [error, setError] = useState('');
-  useEffect(() => { getMyTeaching(token).then(setData).catch(e => setError(msg(e))); }, [token]);
+  const [ready, setReady] = useState<{done: number; total: number} | null>(null); const [offlineCopy, setOfflineCopy] = useState('');
+  useEffect(() => {
+    let alive = true;
+    // network: show the classes at once, then keep every sheet on the phone; no network: the copy kept last time
+    prefetchMine(token, (done, total) => { if (alive) setReady({done, total}); }).then(m => { if (alive) setData(m); })
+      .catch(e => { const c = cachedMine(); if (!alive) return; if (c) { setData(c.mine); setOfflineCopy(c.savedAt); } else setError(msg(e)); });
+    getMyTeaching(token).then(m => { if (alive) setData(d => d ?? m); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [token]);
   if (error) return <div className="sc-error" role="alert"><NavGlyph g="alert" size={18}/><div><b>Vos classes sont indisponibles</b><small>{error}</small></div></div>;
   if (!data) return <Skeleton lines={5}/>;
   if (!data.classes.length && !data.titular_of.length) return <EmptyState icon="layers" title="Aucun cours attribué pour le moment"
     text="Le préfet ou le directeur des études vous attribuera vos classes et vos cours. Ils apparaîtront ici."/>;
+  const total = data.classes.reduce((n, c) => n + c.courses.length, 0);
   return <div className="pt-mine">
+    {offlineCopy ? <div className="pc-note"><NavGlyph g="wifiOff" size={16}/><span>Hors connexion : vos classes du {new Date(offlineCopy).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})}. Vos cotes seront envoyées au retour du réseau.</span></div>
+      : total > 0 && <p className={`pt-offline ${ready && ready.done >= ready.total ? 'ok' : ''}`}><NavGlyph g={ready && ready.done >= ready.total ? 'checkCircle' : 'cloudUp'} size={15}/>
+        {ready && ready.done >= ready.total ? 'Toutes vos fiches sont prêtes pour travailler sans réseau.' : `Préparation des fiches pour travailler sans réseau… ${ready?.done ?? 0}/${total}`}</p>}
     {data.titular_of.length > 0 && <div className="pg-callout"><NavGlyph g="star" size={18}/><div><b>Vous êtes titulaire de {data.titular_of.map(t => t.label).join(', ')}</b>
       <small>{data.titular_of.some(t => t.effective) ? 'Vous suivrez la conduite et les bulletins de ces classes.' : 'Vous suivez ces classes au nom de la direction.'}</small></div></div>}
     <ul className="pt-mine-list">{data.classes.map(c => <li key={c.class_id}>
       <div className="pt-head"><div><b>{c.label}</b><small>{c.section_label}</small></div><span className="pc-chip pc-info">{c.courses.length} cours</span></div>
       <p className="pt-soon">Touchez un cours pour saisir ses cotes.</p>
       <div className="pt-chips pt-courses-go">{c.courses.map(k => <button type="button" key={k.course_code} onClick={() => onOpen?.(c.class_id, k.course_code)}>
-        {k.label}<NavGlyph g="chevronRight" size={14}/></button>)}</div>
+        {k.label}{offlineReady(c.class_id, k.course_code) && <span className="pt-ready" title="Disponible sans réseau" aria-label="disponible sans réseau"><NavGlyph g="check" size={12}/></span>}<NavGlyph g="chevronRight" size={14}/></button>)}</div>
     </li>)}</ul>
   </div>;
 }

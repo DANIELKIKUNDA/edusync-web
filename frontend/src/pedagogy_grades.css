@@ -87,3 +87,25 @@ div.pgr-conflict .ui-btn{min-height:44px}
 .pgr-gone{background:var(--es-bg);border-style:dashed}.pgr-gone .pgr-name{color:var(--es-muted);font-weight:500}
 .pgr-gone .pgr-name small{color:var(--es-muted)}.pgr-gone .pgr-value{color:var(--es-muted)}
 .pgr-susp{display:inline-block;margin-left:6px;font-style:normal;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:999px;background:var(--es-warn-soft);color:var(--es-warn);vertical-align:middle}
+
+/* lot 3c — comfort */
+.pt-offline{display:flex;gap:6px;align-items:center;margin:0;font-size:12.5px;color:var(--es-muted)}.pt-offline.ok{color:var(--es-ok)}
+.pt-ready{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--es-ok);color:#fff;margin-left:2px}
+.pgr-find{display:flex;gap:8px;flex-wrap:wrap}.pgr-find .pg-search{flex:1;min-width:200px}
+.pgr-sum{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.pgr-sum>div{display:grid;gap:2px;padding:10px;border-radius:12px;border:1px solid var(--es-line);background:var(--es-surface)}
+.pgr-sum b{font-size:18px;color:var(--es-ink);font-variant-numeric:tabular-nums}.pgr-sum small{font-size:12px;color:var(--es-muted)}
+.pgr-sum .bad b{color:var(--es-bad)}.pgr-sum .warn b{color:var(--es-warn)}
+.pgl-all .ui-btn{min-height:44px}
+.pgl-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pgl-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--es-line);border-radius:12px;background:var(--es-surface)}
+.pgl-list li>div{display:grid;gap:2px;min-width:0}.pgl-list b{color:var(--es-ink)}.pgl-list small{color:var(--es-muted);font-size:12.5px}
+.pgl-detail{overflow-wrap:anywhere}.pgl-list .ui-btn{min-height:44px}
+.pcd-row.picked{background:var(--es-brand-soft)}
+.pcd-many .pcd-row{grid-template-columns:auto minmax(0,1fr) auto}
+.pcd-tick{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;border:2px solid var(--es-line);color:var(--es-brand);background:var(--es-surface)}
+.pcd-row.picked .pcd-tick{border-color:var(--es-brand)}
+.pcd-bar{position:sticky;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:6;display:grid;gap:8px;padding:12px;border-radius:16px;
+  background:var(--es-surface);border:1px solid var(--es-brand);box-shadow:0 -8px 24px rgba(15,23,42,.15)}
+.pcd-bar>b{color:var(--es-ink);font-size:14px}
+@media (min-width:720px){.pgr-sum{grid-template-columns:repeat(4,minmax(0,1fr))}.pcd-bar{bottom:12px}}
